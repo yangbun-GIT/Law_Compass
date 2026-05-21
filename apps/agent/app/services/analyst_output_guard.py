@@ -2,6 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.analyst_output_contracts import (
+    validate_criminal_liability_output,
+    validate_fault_ratio_output,
+    validate_insurance_output,
+    validate_traffic_law_output,
+)
+
 
 SUPPORT_DIRECT = "direct"
 SUPPORT_PARTIAL = "partial"
@@ -18,7 +25,7 @@ def guard_traffic_law_output(data: dict[str, Any] | None, evidence: list[dict[st
     output.setdefault("required_facts", [])
     if output["evidence_support_level"] != SUPPORT_DIRECT:
         _append_unique(output, "caveats", LEGAL_EVIDENCE_CAVEAT)
-    return output
+    return validate_traffic_law_output(output)
 
 
 def guard_fault_ratio_output(data: dict[str, Any] | None, evidence: list[dict[str, Any]]) -> dict[str, Any]:
@@ -40,7 +47,7 @@ def guard_fault_ratio_output(data: dict[str, Any] | None, evidence: list[dict[st
         _append_unique(output, "caveats", "KNIA 직접 기준이 아닌 간접 근거가 포함되어 과실비율 확정에는 추가 확인이 필요합니다.")
     else:
         output["confidence"] = _cap_confidence(output.get("confidence"), 0.85)
-    return output
+    return validate_fault_ratio_output(output)
 
 
 def guard_criminal_liability_output(data: dict[str, Any] | None, evidence: list[dict[str, Any]]) -> dict[str, Any]:
@@ -51,7 +58,7 @@ def guard_criminal_liability_output(data: dict[str, Any] | None, evidence: list[
         output.setdefault("decision_status", "needs_review")
     else:
         output.setdefault("decision_status", "reference_only")
-    return output
+    return validate_criminal_liability_output(output)
 
 
 def guard_insurance_output(data: dict[str, Any] | None, evidence: list[dict[str, Any]]) -> dict[str, Any]:
@@ -59,7 +66,7 @@ def guard_insurance_output(data: dict[str, Any] | None, evidence: list[dict[str,
     output.setdefault("steps", [])
     output.setdefault("required_documents", [])
     _append_unique(output, "caveats", INSURANCE_EVIDENCE_CAVEAT)
-    return output
+    return validate_insurance_output(output)
 
 
 def _guard_dict(data: dict[str, Any] | None, evidence: list[dict[str, Any]], *, required_family: str) -> dict[str, Any]:
