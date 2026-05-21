@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enrichEasyReport, sanitizeEasyReport } from "../src/lib/report-composer.js";
+import { composeReanalysisChangeCard, enrichEasyReport, sanitizeEasyReport } from "../src/lib/report-composer.js";
 
 describe("report composer", () => {
   it("adds a user-safe evidence reliability card without raw claim internals", () => {
@@ -49,5 +49,29 @@ describe("report composer", () => {
     expect(report.missing_info.questions[0].question).toBe("다친 사람이 있나요?");
     expect(JSON.stringify(report)).not.toContain("input_requirements");
     expect(JSON.stringify(report)).not.toContain("blocking_fields");
+  });
+
+  it("summarizes reanalysis changes without exposing judgment internals", () => {
+    const card = composeReanalysisChangeCard(
+      {
+        scenario_type: "rear_end_collision",
+        fault_ratio: { my: 30, other: 70 },
+        evidence_audit: { scenario_evidence_coverage: { coverage_level: "low" } },
+        agent_judgment: { overall_status: "needs_review" },
+        required_input_questions: [{ field: "injury", question: "다친 사람이 있나요?" }],
+      },
+      {
+        scenario_type: "rear_end_collision",
+        fault_ratio: { my: 10, other: 90 },
+        evidence_audit: { scenario_evidence_coverage: { coverage_level: "high" } },
+        agent_judgment: { overall_status: "evidence_supported" },
+        required_input_questions: [],
+      }
+    );
+
+    expect(card?.changes.map((item: any) => item.label)).toContain("과실비율");
+    expect(card?.stats.find((item: any) => item.label === "남은 질문")?.value).toBe("0개");
+    expect(JSON.stringify(card)).not.toContain("agent_judgment");
+    expect(JSON.stringify(card)).not.toContain("evidence_supported");
   });
 });

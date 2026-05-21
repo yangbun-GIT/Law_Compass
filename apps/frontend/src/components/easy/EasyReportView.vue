@@ -3,6 +3,7 @@
     <TopConclusionCard :report="safeReport" />
     <AccidentPartyTypeActionCard v-if="safeReport.accident_party_type_card" :card="safeReport.accident_party_type_card" />
     <ElderlyActionCard :actions="safeReport.top_actions || []" />
+    <AnalysisChangeCard v-if="safeReport.analysis_change_card" :card="safeReport.analysis_change_card" />
     <EvidenceReliabilityCard v-if="safeReport.evidence_reliability_card" :card="safeReport.evidence_reliability_card" />
     <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
     <article class="card easy-card">
@@ -83,6 +84,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import TopConclusionCard from "./TopConclusionCard.vue";
+import AnalysisChangeCard from "./AnalysisChangeCard.vue";
 import ElderlyActionCard from "./ElderlyActionCard.vue";
 import EvidenceReliabilityCard from "./EvidenceReliabilityCard.vue";
 import EasyFaultRatioCard from "./EasyFaultRatioCard.vue";

@@ -74,6 +74,71 @@ function coverageLabel(level: any) {
   if (level === "low" || level === "낮음") return "낮음";
   return "보통";
 }
+function judgmentLabel(status: any) {
+  if (status === "evidence_supported") return "근거 확인됨";
+  if (status === "unsupported") return "근거 부족";
+  if (status === "blocked_for_final") return "확정 판단 보류";
+  if (status === "needs_review") return "추가 확인 필요";
+  return "추가 확인 필요";
+}
+function faultPair(result: AnyRecord = {}) {
+  const fault = result.fault_ratio ?? {};
+  const my = Number(fault.my);
+  const other = Number(fault.other);
+  return {
+    my: Number.isFinite(my) ? Math.round(my) : undefined,
+    other: Number.isFinite(other) ? Math.round(other) : undefined,
+  };
+}
+function coverageLevelOf(result: AnyRecord = {}) {
+  return coverageLabel(
+    result.evidence_audit?.scenario_evidence_coverage?.coverage_level
+      ?? result.claim_evidence?.coverage_level
+      ?? result.evidence_audit?.claim_evidence_coverage?.level
+  );
+}
+function questionCountOf(result: AnyRecord = {}) {
+  return asArray(result.required_input_questions ?? result.input_requirements?.questions).length;
+}
+function pushChange(changes: AnyRecord[], label: string, beforeValue: any, afterValue: any) {
+  const beforeText = cleanText(beforeValue, "");
+  const afterText = cleanText(afterValue, "");
+  if (!beforeText || !afterText || beforeText === afterText) return;
+  changes.push({ label, before: beforeText, after: afterText });
+}
+export function composeReanalysisChangeCard(previous: AnyRecord | undefined, next: AnyRecord = {}) {
+  if (!previous || !Object.keys(previous).length) return undefined;
+  const beforeFault = faultPair(previous);
+  const afterFault = faultPair(next);
+  const beforeQuestionCount = questionCountOf(previous);
+  const afterQuestionCount = questionCountOf(next);
+  const changes: AnyRecord[] = [];
+
+  pushChange(changes, "사고 유형", scenarioLabel(previous.scenario_type), scenarioLabel(next.scenario_type));
+  if (beforeFault.my !== undefined && afterFault.my !== undefined && beforeFault.other !== undefined && afterFault.other !== undefined) {
+    pushChange(changes, "과실비율", `내 책임 ${beforeFault.my}% / 상대 ${beforeFault.other}%`, `내 책임 ${afterFault.my}% / 상대 ${afterFault.other}%`);
+  }
+  pushChange(changes, "근거 충족도", coverageLevelOf(previous), coverageLevelOf(next));
+  pushChange(changes, "판단 상태", judgmentLabel(previous.agent_judgment?.overall_status), judgmentLabel(next.agent_judgment?.overall_status));
+  if (beforeQuestionCount !== afterQuestionCount) {
+    changes.push({ label: "남은 보완 질문", before: `${beforeQuestionCount}개`, after: `${afterQuestionCount}개` });
+  }
+
+  return {
+    title: "보완 입력 반영 결과",
+    summary: changes.length
+      ? "추가로 입력한 내용을 반영해 이전 분석과 달라진 판단 항목을 정리했습니다."
+      : "추가 입력을 반영했지만 핵심 판단 수치와 근거 상태는 크게 달라지지 않았습니다.",
+    changes,
+    stats: [
+      { label: "현재 내 책임", value: afterFault.my !== undefined ? `${afterFault.my}%` : "확인 필요" },
+      { label: "현재 상대 책임", value: afterFault.other !== undefined ? `${afterFault.other}%` : "확인 필요" },
+      { label: "근거 충족도", value: coverageLevelOf(next) },
+      { label: "남은 질문", value: `${afterQuestionCount}개` },
+    ],
+    notice: "이 비교는 같은 케이스에서 직전 분석과 새 분석을 대조한 참고 정보입니다. 최종 책임 판단은 보험사, 분쟁심의위, 수사기관, 법원 판단에 따라 달라질 수 있습니다.",
+  };
+}
 function composeEvidenceReliabilityCard(result: AnyRecord = {}) {
   const claim = result.claim_evidence ?? {};
   const coverage = result.evidence_audit?.claim_evidence_coverage ?? {};

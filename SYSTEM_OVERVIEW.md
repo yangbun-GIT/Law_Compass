@@ -1,5 +1,19 @@
 # LawCompass 시스템 구성 명세서
 
+## 2026-05-21 재분석 전후 판단 비교 카드 추가
+
+보완 입력이 실제 Agent 판단에 어떤 변화를 만들었는지 추적하기 위해, 직전 분석 결과와 새 재분석 결과를 Gateway에서 비교해 사용자용 `analysis_change_card`를 생성하도록 보강했다. 이 변경은 기존 `analysis_results.elderly_friendly_report` JSON에 비교 카드를 저장하는 방식이며, DB schema, Redis key, 환경 변수, 외부 API 연동은 변경하지 않았다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | `composeReanalysisChangeCard(previous, next)`를 추가했다. 사고 유형, 과실비율, 근거 충족도, 판단 상태, 남은 보완 질문 수를 직전 분석과 새 분석 기준으로 비교하고, 내부 `agent_judgment` 원문 값은 사용자 화면에 노출하지 않는 한국어 요약 카드로 변환한다. |
+| `apps/gateway/src/main.ts` | `/api/v1/cases/:caseId/reanalyze`가 재분석 전 최신 `analysis_results.result`를 조회한 뒤 새 Agent 결과와 비교하여 `analysis_change_card`를 포함한 easy report를 저장 및 반환하도록 변경했다. |
+| `apps/frontend/src/components/easy/AnalysisChangeCard.vue` | 결과 화면에 재분석 비교 카드 UI를 추가했다. 현재 과실비율, 근거 충족도, 남은 질문 수, 변경된 판단 항목을 보여준다. |
+| `apps/frontend/src/components/easy/EasyReportView.vue` | easy report에 `analysis_change_card`가 있으면 상단 결론과 근거 검증 카드 사이에 표시하도록 연결했다. |
+| `apps/gateway/test/report-composer.test.ts` | 재분석 비교 카드가 과실비율과 남은 질문 수 변화를 표시하면서 내부 판단 상태 원문을 노출하지 않는지 검증한다. |
+
+이 단계부터 보완 입력 후 결과 화면은 “답변을 반영했다”에서 끝나지 않고, 직전 분석 대비 무엇이 달라졌는지 확인할 수 있다. Agent 판단 검증 체계 관점에서는 이후 동일 카드에 KNIA 기준 변경 여부와 사용 근거 수 변화까지 확장할 수 있다.
+
 작성 기준: `C:/Users/yangbun/Desktop/프로젝트 정리.txt`의 5개 분석 항목을 기준으로, 현재 저장소의 파일 구조와 소스 코드를 역분석한 초안이다. 민감 정보는 실제 값이 아니라 환경변수 이름만 기록한다.
 
 ## 1. 기본 식별 정보

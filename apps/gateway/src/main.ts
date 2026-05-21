@@ -10,7 +10,7 @@ import { Pool } from "pg";
 import { Redis } from "ioredis";
 import bcrypt from "bcryptjs";
 import { callInternalAgent } from "./lib/internal-client.js";
-import { composeClientReport, composeDebugReport, composeEasyFallback, enrichEasyReport, sanitizeEasyReport } from "./lib/report-composer.js";
+import { composeClientReport, composeDebugReport, composeEasyFallback, composeReanalysisChangeCard, enrichEasyReport, sanitizeEasyReport } from "./lib/report-composer.js";
 import { maskSensitive, sha256 } from "./lib/security.js";
 import { errorPayload, requestErrorPayload, validationErrorPayload } from "./lib/errors.js";
 import { selectVideoAiRoute } from "./lib/ai-router.js";
@@ -817,6 +817,11 @@ app.post(`${env.apiPrefix}/cases/:caseId/reanalyze`, async (req, reply) => {
   const caseRow = await db.query(`SELECT * FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`, [caseId, (req as any).user.id]);
   if (!caseRow.rowCount) return reply.code(404).send(errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
   const currentCase = caseRow.rows[0];
+  const previousResultRow = await db.query(
+    `SELECT result FROM analysis_results WHERE case_id=$1 AND owner_user_id=$2 ORDER BY version DESC LIMIT 1`,
+    [caseId, (req as any).user.id]
+  );
+  const previousResult = previousResultRow.rows[0]?.result ?? {};
   const structuredFacts = {
     ...(currentCase.structured_facts ?? {}),
     ...(body?.structured_facts ?? {})
@@ -852,6 +857,12 @@ app.post(`${env.apiPrefix}/cases/:caseId/reanalyze`, async (req, reply) => {
     await db.query(`UPDATE cases SET status='failed' WHERE id=$1 AND owner_user_id=$2`, [caseId, (req as any).user.id]).catch(() => undefined);
     return reply.code(502).send(errorPayload("AI_TEMPORARY_UNAVAILABLE", "AI 분석 서비스가 일시적으로 불안정합니다. 잠시 후 재시도해 주세요.", traceId));
   }
+  const baseEasyReport = enrichEasyReport(
+    sanitizeEasyReport(agentResp.elderly_friendly_report ?? composeEasyFallback(agentResp, { case: { ...currentCase, structured_facts: structuredFacts } })),
+    agentResp
+  );
+  const reanalysisChangeCard = composeReanalysisChangeCard(previousResult, agentResp);
+  const easyReport = reanalysisChangeCard ? { ...baseEasyReport, analysis_change_card: reanalysisChangeCard } : baseEasyReport;
   const ver = await db.query(`SELECT COALESCE(MAX(version),0)+1 AS v FROM analysis_results WHERE case_id=$1`, [caseId]);
   const nextVersion = Number(ver.rows[0].v);
   const inserted = await db.query(
@@ -872,8 +883,8 @@ app.post(`${env.apiPrefix}/cases/:caseId/reanalyze`, async (req, reply) => {
       JSON.stringify(agentResp.structured_facts ?? {}),
       JSON.stringify(agentResp.recommended_keywords ?? []),
       JSON.stringify(agentResp.suggested_next_inputs ?? []),
-      JSON.stringify(composeClientReport(agentResp, { case: caseRow.rows[0] })),
-      JSON.stringify(agentResp.elderly_friendly_report ?? {}),
+      JSON.stringify(easyReport),
+      JSON.stringify(easyReport),
       JSON.stringify(agentResp.legal_analysis ?? {}),
       agentResp.scenario_type ?? null,
       JSON.stringify((agentResp.evidence ?? []).map((x: any) => x.chunk_id).filter(Boolean)),
@@ -887,7 +898,6 @@ app.post(`${env.apiPrefix}/cases/:caseId/reanalyze`, async (req, reply) => {
     [inserted.rows[0].id, JSON.stringify(agentResp.knia_matches ?? []), JSON.stringify(agentResp.knia_primary_match ?? null)]
   ).catch(() => undefined);
   await db.query(`UPDATE cases SET status='completed', latest_result_id=$2 WHERE id=$1`, [caseId, inserted.rows[0].id]);
-  const easyReport = enrichEasyReport(sanitizeEasyReport(agentResp.elderly_friendly_report ?? composeEasyFallback(agentResp, { case: { ...currentCase, structured_facts: structuredFacts } })), agentResp);
   return {
     result_id: inserted.rows[0].id,
     version: nextVersion,
