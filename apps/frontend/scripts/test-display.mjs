@@ -51,4 +51,9 @@ if (authDefaults.length) {
   process.exit(1);
 }
 
+if (loginView.includes("S3에 private로 저장")) {
+  console.error("login guide still describes inactive S3 storage");
+  process.exit(1);
+}
+
 console.log("frontend_display_safety=passed");
