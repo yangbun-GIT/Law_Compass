@@ -37,7 +37,13 @@
         <span class="chip selected" v-if="safeReport.knia_fault_adjustment_card.final_fault">
           참고 산정 A{{ safeReport.knia_fault_adjustment_card.final_fault.A }} : B{{ safeReport.knia_fault_adjustment_card.final_fault.B }}
         </span>
+        <span class="chip selected" v-if="safeReport.knia_fault_adjustment_card.user_fault">
+          사용자 기준 내 책임 {{ safeReport.knia_fault_adjustment_card.user_fault.my }}% / 상대 {{ safeReport.knia_fault_adjustment_card.user_fault.other }}%
+        </span>
       </div>
+      <p v-if="safeReport.knia_fault_adjustment_card.user_fault?.role_label" class="kv">
+        {{ text(safeReport.knia_fault_adjustment_card.user_fault.role_label) }}
+      </p>
       <h3>적용된 가감요소</h3>
       <ul class="check-list" v-if="safeReport.knia_fault_adjustment_card.applied_adjustments?.length">
         <li v-for="item in safeReport.knia_fault_adjustment_card.applied_adjustments" :key="item.label">

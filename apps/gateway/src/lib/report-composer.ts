@@ -15,9 +15,11 @@ function cleanText(value: any, fallback = "확인이 필요합니다.") {
   const raw = String(value).trim();
   if (!raw || raw === "unknown" || raw === "모름" || raw === "null") return fallback;
   if ((raw.startsWith("{") && raw.endsWith("}")) || (raw.startsWith("[") && raw.endsWith("]"))) return fallback;
+  const mapped = { medium: "보통", high: "높음", low: "낮음" }[raw.toLowerCase()];
+  if (mapped) return mapped;
   let text = raw;
   for (const pattern of BAD_VALUE_PATTERNS) text = text.replace(pattern, "");
-  text = text.replace(/\bmedium\b/gi, "보통").replace(/\bhigh\b/gi, "높음").replace(/\blow\b/gi, "낮음").replace(/\s+/g, " ").trim();
+  text = text.replace(/\s+/g, " ").trim();
   return text || fallback;
 }
 function scenarioLabel(value: string) {

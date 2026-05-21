@@ -41,7 +41,10 @@ export function sanitizeDisplayText(value) {
     if ((text.startsWith("{") && text.endsWith("}")) || (text.startsWith("[") && text.endsWith("]")))
         return "";
     text = mapInternalCodeToKorean(text);
-    text = text.replace(/\bmedium\b/gi, "보통").replace(/\bhigh\b/gi, "높음").replace(/\blow\b/gi, "낮음").replace(/unknown|모름/gi, "확인이 필요합니다");
+    const mappedLevel = { medium: "보통", high: "높음", low: "낮음" }[text.toLowerCase()];
+    if (mappedLevel)
+        return mappedLevel;
+    text = text.replace(/^unknown$|^모름$/gi, "확인이 필요합니다");
     for (const pattern of BAD_PATTERNS)
         text = text.replace(pattern, "");
     return text.replace(/\s+/g, " ").trim() || "확인이 필요합니다";

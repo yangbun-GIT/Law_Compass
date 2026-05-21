@@ -207,7 +207,7 @@ def _reason(row: dict[str, Any], tags: list[str], party: str | None = None) -> s
 
 def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
     media = select_media(row)
-    party = row.get("accident_party_type") or "unknown"
+    party = _party_from_chart_no(row.get("chart_no")) or row.get("accident_party_type") or "unknown"
     return {
         "chart_id": str(row.get("id")),
         "chart_no": row.get("chart_no"),
@@ -231,3 +231,18 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
         "media": media,
         "attribution": row.get("attribution") or "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
     }
+
+
+def _party_from_chart_no(chart_no: Any) -> str | None:
+    text = str(chart_no or "")
+    if text.startswith("차"):
+        return "car_vs_car"
+    if text.startswith("보"):
+        return "car_vs_person"
+    if text.startswith("자"):
+        return "car_vs_bicycle"
+    if text.startswith("기"):
+        return "car_vs_object"
+    if text.startswith("단"):
+        return "single_vehicle"
+    return None

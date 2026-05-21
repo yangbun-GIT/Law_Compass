@@ -3,6 +3,7 @@
 from typing import Any
 
 from app.services.analyst_output_guard import guard_fault_ratio_output
+from app.services.accident_perspective import FRONT_VEHICLE, FOLLOWING_VEHICLE, infer_user_vehicle_role
 from app.services.llm_client import generate_fault_ratio_analysis
 
 
@@ -18,8 +19,14 @@ def analyze_fault_ratio(
         return guard_fault_ratio_output(_normalize(llm, evidence), evidence)
 
     knia = next((ev for ev in evidence if ev.get("source_type") == "knia_fault_standard"), None)
+    user_vehicle_role = infer_user_vehicle_role(text, facts, scenario_type)
     if scenario_type == "rear_end_collision":
-        my, other, confidence = (10 if facts.get("stopped") else 20), (90 if facts.get("stopped") else 80), 0.78
+        if user_vehicle_role == FRONT_VEHICLE:
+            my, other, confidence = 0, 100, 0.82
+        elif user_vehicle_role == FOLLOWING_VEHICLE:
+            my, other, confidence = 100, 0, 0.82
+        else:
+            my, other, confidence = (10 if facts.get("stopped") else 20), (90 if facts.get("stopped") else 80), 0.74
     elif scenario_type == "intersection_signal_violation":
         my, other, confidence = (15 if facts.get("opponent_signal_violation") else 45), (85 if facts.get("opponent_signal_violation") else 55), 0.68
     elif scenario_type == "lane_change_collision":
@@ -39,6 +46,7 @@ def analyze_fault_ratio(
         "basis": basis,
         "evidence_count": len(evidence),
         "key_factors": ["사고 유형", "신호·정차·차선변경 여부", "인명피해 여부", "관련 법규와 KNIA 기준"],
+        "user_vehicle_role": user_vehicle_role,
         "evidence_ids": [ev.get("chunk_id") for ev in evidence[:6] if ev.get("chunk_id")],
     }, evidence)
 

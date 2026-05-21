@@ -52,7 +52,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "parking_or_stopped_vehicle_accident"
         accident_party_type = "car_vs_car"
         tags.update(["stopped_vehicle", "parking"])
-    elif facts.get("stopped") or any(w in haystack for w in ["후미", "뒤차", "후방", "안전거리", "정차"]):
+    elif facts.get("stopped") or any(w in haystack for w in ["후미", "뒤차", "후방", "안전거리", "정차"]) or ("앞차" in haystack and "추돌" in haystack):
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance", "stopped_vehicle"])

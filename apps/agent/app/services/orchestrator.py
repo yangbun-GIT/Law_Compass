@@ -5,6 +5,7 @@ from typing import Any
 
 from app.personas.accident_scenario_personas import SCENARIO_PERSONA_HINTS
 from app.services.accident_party_action_guide import build_party_type_action_guide
+from app.services.accident_perspective import infer_user_vehicle_role, map_fault_ratio_to_user
 from app.services.analysts.action_plan_analyst import analyze_action_plan
 from app.services.analysts.criminal_liability_analyst import analyze_criminal_liability
 from app.services.analysts.evidence_auditor import audit_evidence
@@ -97,6 +98,13 @@ def _analyze_core(
         analysis_mode=analysis_mode,
     )
     scenario = classify_scenario(normalized["merged_text"], normalized["structured_facts"], normalized["selected_keywords"])
+    user_vehicle_role = infer_user_vehicle_role(
+        normalized["description_text"],
+        normalized["structured_facts"],
+        scenario.get("scenario_type"),
+    )
+    if user_vehicle_role != "unknown":
+        normalized["structured_facts"] = {**normalized["structured_facts"], "user_vehicle_role": user_vehicle_role}
     party_type_action_guide = build_party_type_action_guide(
         scenario.get("accident_party_type", "unknown"),
         normalized["structured_facts"],
@@ -166,8 +174,16 @@ def _analyze_core(
         fault_ratio["knia_reference_fault"] = final_fault
         fault_ratio["basis"] = "KNIA 원문 기본과실과 수집된 가감요소를 함께 반영한 참고 산정입니다."
         if isinstance(final_fault.get("A"), int) and isinstance(final_fault.get("B"), int):
-            fault_ratio["my"] = final_fault["A"]
-            fault_ratio["other"] = final_fault["B"]
+            mapped_fault = map_fault_ratio_to_user(
+                scenario_type=scenario.get("scenario_type"),
+                fault=final_fault,
+                text=normalized["description_text"],
+                facts=normalized["structured_facts"],
+            )
+            fault_ratio["my"] = mapped_fault["my"]
+            fault_ratio["other"] = mapped_fault["other"]
+            fault_ratio["user_vehicle_role"] = mapped_fault.get("user_vehicle_role")
+            fault_ratio["user_vehicle_role_label"] = mapped_fault.get("user_vehicle_role_label")
     legal_liability = analyze_criminal_liability(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, legal_analysis=legal_analysis, text=text)
     insurance_guide = analyze_insurance(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, text=text)
     action_plan = analyze_action_plan(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], legal_liability=legal_liability, insurance_guide=insurance_guide, evidence=evidence, text=text)
@@ -222,6 +238,12 @@ def _analyze_core(
             "title": "KNIA 원문 근거 및 가감요소 적용",
             "base_fault": knia_fault_estimate.get("base_fault"),
             "final_fault": knia_fault_estimate.get("final_fault"),
+            "user_fault": {
+                "my": fault_ratio.get("my"),
+                "other": fault_ratio.get("other"),
+                "role": fault_ratio.get("user_vehicle_role"),
+                "role_label": fault_ratio.get("user_vehicle_role_label"),
+            },
             "applied_adjustments": knia_fault_estimate.get("selected_adjustments") or [],
             "rejected_adjustments": (knia_fault_estimate.get("rejected_adjustments") or [])[:5],
             "calculation_steps": knia_fault_estimate.get("calculation_steps") or [],
