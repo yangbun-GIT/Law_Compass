@@ -23,14 +23,37 @@
     <ul v-if="card.evidence_notes?.length" class="check-list">
       <li v-for="note in card.evidence_notes" :key="note">{{ text(note) }}</li>
     </ul>
+    <div v-if="hasEvidenceChanges" class="evidence-diff-grid">
+      <section v-if="card.evidence_changes?.added?.length" class="evidence-diff">
+        <h3>새로 반영된 근거</h3>
+        <div v-for="item in card.evidence_changes.added" :key="`${item.title}-${item.source_label}`" class="evidence-diff-item">
+          <span>{{ text(item.family_label) }}</span>
+          <strong>{{ text(item.title) }}</strong>
+          <p>{{ text(item.source_label) }}</p>
+        </div>
+      </section>
+      <section v-if="card.evidence_changes?.removed?.length" class="evidence-diff">
+        <h3>이번 결과에서 빠진 근거</h3>
+        <div v-for="item in card.evidence_changes.removed" :key="`${item.title}-${item.source_label}`" class="evidence-diff-item">
+          <span>{{ text(item.family_label) }}</span>
+          <strong>{{ text(item.title) }}</strong>
+          <p>{{ text(item.source_label) }}</p>
+        </div>
+      </section>
+    </div>
     <p class="soft-warning">{{ text(card.notice) }}</p>
   </article>
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 
-defineProps<{ card: any }>();
+const props = defineProps<{ card: any }>();
+
+const hasEvidenceChanges = computed(() =>
+  Boolean(props.card?.evidence_changes?.added?.length || props.card?.evidence_changes?.removed?.length)
+);
 
 function text(value: unknown) {
   return sanitizeDisplayText(value);
@@ -97,6 +120,54 @@ function text(value: unknown) {
 
 .change-row b {
   color: #67e8f9;
+}
+
+.evidence-diff-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.evidence-diff {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.evidence-diff h3 {
+  margin: 0;
+}
+
+.evidence-diff-item {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.28);
+  padding: 12px;
+}
+
+.evidence-diff-item span {
+  color: #67e8f9;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.evidence-diff-item strong,
+.evidence-diff-item p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.evidence-diff-item p {
+  color: #cbd5e1;
+}
+
+@media (max-width: 760px) {
+  .evidence-diff-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 560px) {

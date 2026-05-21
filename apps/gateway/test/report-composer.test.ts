@@ -58,8 +58,8 @@ describe("report composer", () => {
         fault_ratio: { my: 30, other: 70 },
         knia_primary_match: { chart_no: "차41-1", title: "후방 추돌" },
         evidence: [
-          { source_type: "knia_fault_standard", title: "차41-1 후방 추돌" },
-          { law_name: "도로교통법", title: "안전거리" },
+          { chunk_id: "prev-knia-1", source_type: "knia_fault_standard", title: "차41-1 후방 추돌" },
+          { chunk_id: "prev-law-1", law_name: "도로교통법", title: "안전거리" },
         ],
         evidence_audit: {
           scenario_evidence_coverage: {
@@ -76,10 +76,10 @@ describe("report composer", () => {
         fault_ratio: { my: 10, other: 90 },
         knia_primary_match: { chart_no: "차41-1", title: "후방 추돌" },
         evidence: [
-          { source_type: "knia_fault_standard", title: "차41-1 후방 추돌" },
-          { source_type: "knia_related_law", title: "KNIA 관련 법규" },
-          { law_name: "도로교통법", title: "안전거리" },
-          { law_name: "도로교통법", title: "사고 후 조치" },
+          { chunk_id: "prev-knia-1", source_type: "knia_fault_standard", title: "차41-1 후방 추돌" },
+          { chunk_id: "next-knia-law", source_type: "knia_related_law", title: "KNIA 관련 법규" },
+          { chunk_id: "prev-law-1", law_name: "도로교통법", title: "안전거리" },
+          { chunk_id: "next-law-2", law_name: "도로교통법", title: "사고 후 조치" },
         ],
         evidence_audit: {
           scenario_evidence_coverage: {
@@ -98,8 +98,12 @@ describe("report composer", () => {
     expect(card?.stats.find((item: any) => item.label === "남은 질문")?.value).toBe("0개");
     expect(card?.stats.find((item: any) => item.label === "관련 근거")?.value).toBe("3개");
     expect(card?.evidence_notes.join(" ")).toContain("현재 대표 KNIA 기준");
+    expect(card?.evidence_changes.added.map((item: any) => item.title)).toContain("KNIA 관련 법규");
+    expect(card?.evidence_changes.added.map((item: any) => item.family_label)).toContain("KNIA 기준");
     expect(JSON.stringify(card)).not.toContain("agent_judgment");
     expect(JSON.stringify(card)).not.toContain("evidence_supported");
     expect(JSON.stringify(card)).not.toContain("source_type");
+    expect(JSON.stringify(card)).not.toContain("chunk_id");
+    expect(JSON.stringify(card)).not.toContain("next-law-2");
   });
 });

@@ -130,6 +130,60 @@ function evidenceStatsOf(result: AnyRecord = {}) {
 function evidenceStatsLabel(stats: ReturnType<typeof evidenceStatsOf>) {
   return `전체 ${stats.total}개 / 관련 ${stats.relevant}개 / KNIA ${stats.knia}개`;
 }
+function evidenceFamilyLabel(family: string) {
+  if (family === "knia") return "KNIA 기준";
+  if (family === "legal") return "법률 근거";
+  return "참고 근거";
+}
+function evidenceDisplayItem(item: AnyRecord = {}) {
+  const family = evidenceFamily(item);
+  const title = cleanText(
+    item.title ?? item.article_title ?? item.law_name ?? item.chunk_summary ?? item.plain_summary ?? item.snippet,
+    "교통사고 관련 근거"
+  );
+  const source = cleanText(item.source ?? item.law_name ?? item.attribution ?? evidenceFamilyLabel(family), evidenceFamilyLabel(family));
+  return {
+    key: evidenceKey(item, title),
+    title,
+    source_label: source,
+    family_label: evidenceFamilyLabel(family),
+  };
+}
+function evidenceKey(item: AnyRecord = {}, fallbackTitle = "") {
+  return cleanText(
+    item.chunk_id ?? item.source_url ?? item.title ?? item.article_title ?? item.law_name ?? fallbackTitle,
+    fallbackTitle || "evidence"
+  ).toLowerCase();
+}
+function evidenceDiff(previous: AnyRecord = {}, next: AnyRecord = {}) {
+  const previousItems = asArray(previous.evidence).map((item) => evidenceDisplayItem(item));
+  const nextItems = asArray(next.evidence).map((item) => evidenceDisplayItem(item));
+  const previousKeys = new Set(previousItems.map((item) => item.key));
+  const nextKeys = new Set(nextItems.map((item) => item.key));
+  const added = uniqueEvidenceItems(nextItems.filter((item) => !previousKeys.has(item.key))).slice(0, 5);
+  const removed = uniqueEvidenceItems(previousItems.filter((item) => !nextKeys.has(item.key))).slice(0, 5);
+  return {
+    added: added.map(stripEvidenceKey),
+    removed: removed.map(stripEvidenceKey),
+  };
+}
+function uniqueEvidenceItems(items: ReturnType<typeof evidenceDisplayItem>[]) {
+  const seen = new Set<string>();
+  const unique = [];
+  for (const item of items) {
+    if (seen.has(item.key)) continue;
+    seen.add(item.key);
+    unique.push(item);
+  }
+  return unique;
+}
+function stripEvidenceKey(item: ReturnType<typeof evidenceDisplayItem>) {
+  return {
+    title: item.title,
+    source_label: item.source_label,
+    family_label: item.family_label,
+  };
+}
 function questionCountOf(result: AnyRecord = {}) {
   return asArray(result.required_input_questions ?? result.input_requirements?.questions).length;
 }
@@ -145,6 +199,7 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   const afterFault = faultPair(next);
   const beforeEvidence = evidenceStatsOf(previous);
   const afterEvidence = evidenceStatsOf(next);
+  const evidenceChanges = evidenceDiff(previous, next);
   const beforeQuestionCount = questionCountOf(previous);
   const afterQuestionCount = questionCountOf(next);
   const changes: AnyRecord[] = [];
@@ -187,6 +242,7 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
       { label: "관련 근거", value: `${afterEvidence.relevant}개` },
     ],
     evidence_notes: evidenceNotes,
+    evidence_changes: evidenceChanges,
     notice: "이 비교는 같은 케이스에서 직전 분석과 새 분석을 대조한 참고 정보입니다. 최종 책임 판단은 보험사, 분쟁심의위, 수사기관, 법원 판단에 따라 달라질 수 있습니다.",
   };
 }
