@@ -1,0 +1,25 @@
+﻿services:
+  frontend:
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+
+  gateway:
+    command: ["npm", "run", "dev"]
+    volumes:
+      - ./apps/gateway:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+
+  agent:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./apps/agent:/app
+
+  worker:
+    command: ["python", "-m", "worker.main"]
+    volumes:
+      - ./apps/worker:/app
+

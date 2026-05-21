@@ -1,0 +1,14 @@
+{
+  "case_id": "sample-lane-change-001",
+  "description_text": "고속도로에서 상대 차량이 방향지시등 없이 갑자기 차선을 변경해 제 차량 측면과 충돌했습니다.",
+  "structured_facts": {
+    "accident_type": "lane_change_collision",
+    "lane_change": true,
+    "turn_signal": false,
+    "side_collision": true,
+    "injury": false
+  },
+  "selected_keywords": ["차선변경", "방향지시등", "사각지대", "측면충돌"],
+  "analysis_mode": "fault-focused",
+  "ai_profile": "lane_change_focus"
+}

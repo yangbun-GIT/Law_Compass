@@ -1,0 +1,17 @@
+{
+  "case_id": "sample-school-zone-001",
+  "description_text": "어린이보호구역에서 제한속도를 줄이지 못한 상태로 횡단보도 근처에서 아이와 접촉 사고가 발생했습니다.",
+  "structured_facts": {
+    "accident_type": "pedestrian",
+    "school_zone": true,
+    "victim_is_child": true,
+    "injury": true,
+    "crosswalk_nearby": true,
+    "speed_limit_known": false,
+    "signal_state": "unknown",
+    "driver_speed_reduced": false
+  },
+  "selected_keywords": ["민식이법", "어린이보호구역", "보행자", "횡단보도", "형사책임"],
+  "analysis_mode": "criminal-liability-focused",
+  "ai_profile": "pedestrian_focus"
+}

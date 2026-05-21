@@ -1,0 +1,27 @@
+{
+  "user": {
+    "email": "local-e2e@example.com",
+    "password": "localpass123!",
+    "display_name": "로컬테스터"
+  },
+  "case": {
+    "title": "로컬 E2E 후미 추돌 사고",
+    "description_text": "신호대기 중 정차해 있던 차량을 후방 차량이 추돌했습니다. 블랙박스 영상이 있습니다.",
+    "structured_facts": {
+      "accident_type": "후미추돌",
+      "signal_state": "적색",
+      "stopped": true,
+      "sudden_brake": false,
+      "lane_change": false,
+      "intersection": false,
+      "pedestrian": false,
+      "weather": "맑음",
+      "light_condition": "야간",
+      "opponent_behavior": "후방 차량이 안전거리를 확보하지 못하고 추돌",
+      "injury": false,
+      "damage_level": "후방 범퍼 파손"
+    },
+    "selected_keywords": ["후미추돌", "안전거리", "신호대기", "블랙박스", "보험접수"],
+    "analysis_mode": "fault_ratio"
+  }
+}

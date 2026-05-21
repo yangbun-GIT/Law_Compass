@@ -1,0 +1,5 @@
+﻿redis==5.2.1
+psycopg[binary]==3.2.6
+boto3==1.37.10
+tenacity==9.0.0
+

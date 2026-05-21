@@ -1,0 +1,51 @@
+# Environment and secrets
+.env
+.env.*
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+env/
+
+# Build output and caches
+dist/
+build/
+.vite/
+*.tsbuildinfo
+coverage/
+.nyc_output/
+
+# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime storage and logs
+/storage/
+/logs/
+*.log
+
+# Local IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Local/generated media and temporary exports
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+20260416_154909.png
+knia_ranking.html
+project_combined.txt
+tmp_korean*.txt
+0513_Term3_*

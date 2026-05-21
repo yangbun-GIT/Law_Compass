@@ -1,0 +1,253 @@
+services:
+  edge:
+    image: caddy:2.8
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - public
+      - app_net
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+      NODE_ENV: ${NODE_ENV:-production}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://localhost:5173').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - app_net
+
+  gateway:
+    build:
+      context: ./apps/gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      LOCAL_STORAGE_ROOT: ${LOCAL_STORAGE_ROOT:-/app/storage}
+      AGENT_BASE_URL: ${AGENT_BASE_URL:-http://agent:8000}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://law:lawpass@postgres:5432/lawcompass}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      agent:
+        condition: service_healthy
+    volumes:
+      - ./storage:/app/storage
+      - ./logs/gateway:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - app_net
+      - egress
+
+  agent:
+    build:
+      context: ./apps/agent
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+      DATABASE_URL: ${DATABASE_URL:-postgresql://law:lawpass@postgres:5432/lawcompass}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      ENABLE_OPENAI_ANALYSTS: ${ENABLE_OPENAI_ANALYSTS:-0}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      OPENAI_TIMEOUT_SEC: ${OPENAI_TIMEOUT_SEC:-18}
+      LAW_API_OC: ${LAW_API_OC:-}
+      DATA_GO_SERVICE_KEY: ${DATA_GO_SERVICE_KEY:-}
+      KNIA_BASE_URL: ${KNIA_BASE_URL:-https://accident.knia.or.kr}
+      KNIA_REQUEST_DELAY_MS: ${KNIA_REQUEST_DELAY_MS:-500}
+      KNIA_TIMEOUT_SEC: ${KNIA_TIMEOUT_SEC:-15}
+      KNIA_COLLECT_MAX_CHARTS: ${KNIA_COLLECT_MAX_CHARTS:-50}
+      KNIA_FAULT_RATIO_JSON_PATH: ${KNIA_FAULT_RATIO_JSON_PATH:-/app/project_scripts/knia_fault_ratio/knia_fault_ratio.json}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./storage:/app/storage
+      - ./logs/agent:/app/logs
+      - ./config:/app/config:ro
+      - ./scripts:/app/project_scripts:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/internal/v1/health')"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - app_net
+      - egress
+
+  worker:
+    build:
+      context: ./apps/worker
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+      DATABASE_URL: ${DATABASE_URL:-postgresql://law:lawpass@postgres:5432/lawcompass}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      LOCAL_STORAGE_ROOT: ${LOCAL_STORAGE_ROOT:-/app/storage}
+      AGENT_BASE_URL: ${AGENT_BASE_URL:-http://agent:8000}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      agent:
+        condition: service_healthy
+    volumes:
+      - ./storage:/app/storage
+      - ./logs/worker:/app/logs
+      - ./scripts:/app/project_scripts:ro
+    networks:
+      - app_net
+      - egress
+
+  db-migrate:
+    profiles:
+      - migrate
+    image: pgvector/pgvector:pg16
+    restart: "no"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./infra/postgres/migrations:/migrations:ro
+    command:
+      [
+        "bash",
+        "-lc",
+        "set -e; export PGPASSWORD=\"$$POSTGRES_PASSWORD\"; echo '[db-migrate] applying migrations...'; for file in /migrations/002_*.sql /migrations/003_*.sql /migrations/004_*.sql /migrations/005_*.sql /migrations/006_*.sql /migrations/007_*.sql /migrations/008_*.sql /migrations/010_*.sql /migrations/011_*.sql /migrations/012_*.sql /migrations/013_*.sql; do echo \"[db-migrate] applying $$file\"; psql -v ON_ERROR_STOP=1 -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -f \"$$file\"; done; echo '[db-migrate] done';"
+      ]
+    networks:
+      - app_net
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    env_file:
+      - .env
+    command:
+      [
+        "postgres",
+        "-c",
+        "shared_buffers=256MB",
+        "-c",
+        "work_mem=8MB",
+        "-c",
+        "max_connections=80"
+      ]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-law} -d ${POSTGRES_DB:-lawcompass}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - app_net
+
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "128mb",
+        "--maxmemory-policy",
+        "allkeys-lru"
+      ]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks:
+      - app_net
+
+networks:
+  public:
+  app_net:
+    internal: true
+  egress:
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+
+

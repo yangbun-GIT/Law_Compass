@@ -1,0 +1,25 @@
+﻿{
+  email admin@example.com
+}
+
+:80 {
+  encode zstd gzip
+
+  @health path /health /ready
+  reverse_proxy @health gateway:3000
+
+  @api path /api/* /health /ready
+  reverse_proxy @api gateway:3000
+
+  reverse_proxy frontend:5173
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Content-Security-Policy "default-src 'self'; connect-src 'self' https: http:; img-src 'self' data: blob:; media-src 'self' https: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+}
+

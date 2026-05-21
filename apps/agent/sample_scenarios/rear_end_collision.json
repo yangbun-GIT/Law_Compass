@@ -1,0 +1,15 @@
+{
+  "case_id": "sample-rear-end-001",
+  "description_text": "신호대기 중 정차해 있는데 뒤 차량이 후미를 추돌했습니다. 목 통증이 있어 병원 진료를 고민 중입니다.",
+  "structured_facts": {
+    "accident_type": "rear_end_collision",
+    "stopped": true,
+    "injury": true,
+    "sudden_brake": false,
+    "signal_state": "red",
+    "opponent_behavior": "rear_collision"
+  },
+  "selected_keywords": ["후미추돌", "안전거리", "대인접수", "진단서"],
+  "analysis_mode": "fault-focused",
+  "ai_profile": "rear_end_focus"
+}

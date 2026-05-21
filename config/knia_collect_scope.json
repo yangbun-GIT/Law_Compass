@@ -1,0 +1,51 @@
+﻿{
+  "base_url": "https://accident.knia.or.kr",
+  "include_sections": [
+    "fault_understanding_all",
+    "fault_standard_intro",
+    "my_accident",
+    "ranking",
+    "atypical_fault"
+  ],
+  "exclude_sections": [
+    "standard_revision_suggestion"
+  ],
+  "accident_party_types": [
+    "car_vs_car",
+    "car_vs_person",
+    "car_vs_bicycle",
+    "car_vs_object",
+    "single_vehicle"
+  ],
+  "priority_chart_nos": {
+    "car_vs_car": ["차43-2", "차41-1", "차42-2", "차44-1", "차43-1", "차12-1"],
+    "car_vs_person": [],
+    "car_vs_bicycle": [],
+    "car_vs_object": [],
+    "single_vehicle": []
+  },
+  "collection_policy": {
+    "collect_ranking_all_categories": true,
+    "collect_chart_detail_from_ranking": true,
+    "collect_chart_detail_from_priority_keywords": true,
+    "max_charts_per_party_type": 80
+  },
+  "priority_keywords": {
+    "car_vs_car": ["후미추돌", "차선변경", "진로변경", "교차로", "신호위반", "좌회전", "우회전"],
+    "car_vs_person": ["보행자", "횡단보도", "어린이보호구역", "무단횡단", "보행자 보호"],
+    "car_vs_bicycle": ["자전거", "자전거도로", "자전거 횡단", "우회전 자전거"],
+    "car_vs_object": ["기물", "시설물", "가드레일", "전봇대", "중앙분리대", "주차장 기둥"],
+    "single_vehicle": ["단독", "혼자", "전복", "미끄러짐", "도로 이탈"]
+  },
+  "media_policy": {
+    "download_videos": false,
+    "download_thumbnails": false,
+    "mirror_to_s3": false,
+    "store_external_video_url": true,
+    "store_external_thumbnail_url": true
+  },
+  "rate_limit": {
+    "delay_ms": 500,
+    "max_charts_per_run": 200
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "case_id": "sample-intersection-001",
+  "description_text": "교차로에서 직진 중 상대 차량이 신호를 위반하고 진입해 충돌했습니다.",
+  "structured_facts": {
+    "accident_type": "intersection_collision",
+    "intersection": true,
+    "signal_state": "green",
+    "opponent_signal_violation": true,
+    "injury": false
+  },
+  "selected_keywords": ["신호위반", "교차로", "우선권", "과실비율"],
+  "analysis_mode": "fault-focused",
+  "ai_profile": "intersection_focus"
+}

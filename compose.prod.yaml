@@ -1,0 +1,28 @@
+﻿services:
+  edge:
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  gateway:
+    environment:
+      - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=192
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  agent:
+    environment:
+      - UVICORN_WORKERS=1
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  worker:
+    environment:
+      - WORKER_CONCURRENCY=1
+    read_only: true
+    tmpfs:
+      - /tmp
+

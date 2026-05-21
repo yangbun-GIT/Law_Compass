@@ -1,0 +1,259 @@
+﻿openapi: 3.1.0
+info:
+  title: LawCompass API
+  version: 1.0.0
+servers:
+  - url: /api/v1
+paths:
+  /auth/signup:
+    post:
+      summary: 회원가입
+      operationId: signup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409': { $ref: '#/components/responses/Error' }
+  /auth/login:
+    post:
+      summary: 로그인
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /auth/refresh:
+    post:
+      summary: 토큰 갱신
+      responses:
+        '200': { description: ok }
+  /auth/logout:
+    post:
+      summary: 로그아웃
+      responses:
+        '200': { description: ok }
+  /auth/me:
+    get:
+      summary: 현재 로그인 사용자 조회
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: ok }
+  /cases:
+    post:
+      summary: 케이스 생성
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCaseRequest' }
+      responses:
+        '200': { description: ok }
+    get:
+      summary: 케이스 목록
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: ok }
+  /cases/{caseId}:
+    get:
+      summary: 케이스 상세
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: ok }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      summary: 케이스 수정
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      responses:
+        '200': { description: ok }
+  /cases/{caseId}/uploads:
+    get:
+      summary: 케이스 업로드 목록
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: ok }
+  /uploads/init:
+    post:
+      summary: S3 presigned POST 발급
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      responses:
+        '200': { description: ok }
+  /uploads/complete:
+    post:
+      summary: S3 HEAD 검증 후 업로드 완료
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      responses:
+        '200': { description: ok }
+  /uploads/debug-local-init:
+    post:
+      summary: (개발용) S3 없이 업로드 레코드 생성 + verified 처리
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      responses:
+        '200': { description: ok }
+  /uploads/debug-local-complete:
+    post:
+      summary: (개발용) 기존 업로드를 S3 검증 없이 강제 verified 처리
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      responses:
+        '200': { description: ok }
+  /uploads/{uploadId}:
+    get:
+      summary: 업로드 조회
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: ok } }
+    delete:
+      summary: 업로드 삭제(soft)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      responses: { '200': { description: ok } }
+  /uploads/{uploadId}/view-url:
+    get:
+      summary: 영상 inline 재생용 presigned GET 발급(짧은 TTL)
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: ok } }
+  /uploads/{uploadId}/download-url:
+    get:
+      summary: 영상 download용 presigned GET 발급(더 짧은 TTL)
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: ok } }
+  /cases/{caseId}/analyze-text:
+    post:
+      summary: 텍스트 분석
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: ok } }
+  /cases/{caseId}/analyze-video:
+    post:
+      summary: 영상 분석 job 큐 등록
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: ok } }
+  /cases/{caseId}/jobs:
+    get:
+      summary: 작업 상태 목록
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: ok } }
+  /cases/{caseId}/result:
+    get:
+      summary: 최신 결과 조회
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: ok } }
+  /cases/{caseId}/reanalyze:
+    post:
+      summary: 재분석
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: ok } }
+  /cases/{caseId}/evidence:
+    get:
+      summary: 근거 목록
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: ok } }
+  /evidence/{chunkId}:
+    get:
+      summary: 근거 단일 chunk
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: ok } }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Error:
+      description: 공통 에러
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            trace_id: { type: string }
+    SignupRequest:
+      type: object
+      required: [email, password, display_name]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        display_name: { type: string }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    AuthResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            email: { type: string }
+            role: { type: string }
+            display_name: { type: string }
+        trace_id: { type: string }
+    CreateCaseRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, maxLength: 140 }
+        description_text: { type: string }
+        happened_at: { type: string, format: date-time }
+        location_text: { type: string }
+

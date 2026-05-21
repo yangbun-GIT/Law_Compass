@@ -1,0 +1,2 @@
+﻿<template><article class="card easy-card"><h2>{{ text(missing.title || "더 정확한 분석을 위해 필요한 정보") }}</h2><ul class="check-list"><li v-for="item in missing.items || []" :key="item">{{ text(item) }}</li></ul></article></template>
+<script setup lang="ts">import { sanitizeDisplayText } from "../../utils/displaySanitizer"; defineProps<{ missing: any }>(); function text(value: unknown) { return sanitizeDisplayText(value); }</script>
