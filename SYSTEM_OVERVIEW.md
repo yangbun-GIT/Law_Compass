@@ -1,5 +1,22 @@
 # LawCompass 시스템 구성 명세서
 
+## 2026-05-22 Agent P1 영상 전처리 입력 계약 연결
+
+영상 전처리 결과가 Agent의 일반 `video_metadata` 문자열로만 합쳐지던 흐름을 `agent-video-input-contract-v1` 계약으로 정규화했다. 현재 worker 전처리는 ffprobe/ffmpeg 기반 기술 메타데이터와 대표 프레임 추출까지 수행하므로, Agent는 이 기술 메타데이터를 사고 사실로 직접 승격하지 않는다. 향후 영상 분석/프레임 분석기가 `observations` 형태의 명시적 관측값을 넣으면, 출처와 신뢰도 기준을 통과한 항목만 `structured_facts`에 병합된다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/video_input_contract.py` | `agent-video-input-contract-v1`을 추가했다. `duration_sec`, 해상도, fps, codec, 대표 프레임 개수 같은 기술 메타데이터와 `observations` 기반 사고 관측값을 분리한다. `frame_analysis`, `vision_model`, `manual_video_review` 등 명시적 source와 `0.75` 이상의 confidence 또는 verified flag가 있는 관측값만 `fact_patch`로 승격한다. |
+| `apps/agent/app/services/input_normalizer.py` | Agent 입력 정규화 시 영상 계약을 생성하고, 영상 `fact_patch`를 사용자 `structured_facts`와 병합한다. 사용자 입력 facts가 있으면 영상 추출값보다 우선한다. LLM/분석 텍스트에는 raw 영상 metadata 대신 정규화된 영상 입력 계약 요약을 포함한다. |
+| `apps/agent/app/services/report_composer.py`, `apps/agent/app/schemas.py` | Agent 결과에 `video_input_contract`를 포함하고 `model_info.video_input_contract`에도 기록한다. 일반 사용자용 `structured_facts`에는 `_video_input_contract`로 숨김 메타데이터를 남겨 추적 가능성을 확보했다. |
+| `apps/worker/worker/main.py` | worker 전처리 산출물에 `worker-video-preprocess-v1` 버전을 남기고, `/internal/v1/analyze/video` 호출 시 업로드 metadata와 payload video metadata를 함께 전달한다. |
+| `apps/gateway/src/main.ts` | `/api/v1/cases/:caseId/analyze-video`에서 전달된 `video_metadata`를 video analyze job payload에 보존한다. |
+| `docs/api/openapi.yaml` | `/cases/{caseId}/analyze-video` 요청 body에 `video_metadata`를 명시해 영상 전처리/프레임 분석 관측값 전달 계약을 문서화했다. |
+| `apps/gateway/src/lib/report-composer.ts`, `apps/frontend/src/utils/displaySanitizer.ts`, `apps/frontend/src/utils/displaySanitizer.js` | `video_input_contract`, 관측값 목록, `fact_patch` 같은 내부 계약 필드가 사용자 화면에 원시 JSON으로 노출되지 않도록 필터링한다. |
+| `apps/agent/tests/test_video_input_contract.py`, `apps/agent/tests/test_orchestrator.py` | 고신뢰 영상 관측값이 `structured_facts`로 병합되는지, 저신뢰 관측값은 보류되는지, 순수 기술 메타데이터는 사고 사실로 승격되지 않는지 검증한다. |
+
+현재 계약에서 사고 사실로 승격 가능한 대표 필드는 `stopped`, `sudden_brake`, `opponent_behavior`, `lane_change_actor`, `turn_signal`, `user_signal`, `opponent_signal`, `opponent_signal_violation`, `crosswalk_nearby`, `school_zone`, `injury`, `damage_level` 등이다. 이 작업은 DB schema, Redis key, 환경 변수, 외부 기관/API 연동을 변경하지 않는다. 공개 API 문서는 선택적 `video_metadata` 전달을 반영하도록 보강했다. 다음 Agent P1 작업은 이 계약을 기반으로 실제 프레임/비전 분석 모듈을 붙일지, 또는 현재 로컬 ffmpeg 전처리만 유지하고 사용자 보완 입력 중심으로 갈지 결정하는 단계다.
+
 ## 2026-05-22 Agent P1 보완 질문 루프 고도화
 
 보완 질문 답변을 프론트 임시 매핑에만 의존하지 않고 Gateway에서 서버 기준으로 정규화하며, Agent가 재분석 반복 상태와 종료 사유를 결과에 남기도록 보강했다. 이 변경은 기존 `/api/v1/cases/:caseId/reanalyze` 흐름을 확장하며 DB schema, Redis key, 환경 변수, 외부 API 계약은 변경하지 않는다.
@@ -24,7 +41,7 @@
 | `complete` | 남은 보완 질문이 없는 상태 |
 | `stopped` | 최대 보완 반복 횟수에 도달해 더 이상 질문을 늘리지 않는 상태 |
 
-현재 최대 반복 횟수는 Agent 내부 상수 `MAX_FOLLOWUP_ITERATIONS=3`이다. 이후 같은 영역의 다음 P1 작업은 영상 전처리 결과를 Agent 입력 계약으로 명확히 연결하는 단계다.
+현재 최대 반복 횟수는 Agent 내부 상수 `MAX_FOLLOWUP_ITERATIONS=3`이다.
 
 ## 2026-05-22 Agent P1 LLM/fallback 책임 분리
 

@@ -1,0 +1,68 @@
+from app.services.input_normalizer import normalize_analysis_input
+from app.services.video_input_contract import VERSION, normalize_video_input_contract
+
+
+def test_high_confidence_video_observation_becomes_fact_patch():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "duration_sec": 12.5,
+                "representative_frames": ["/frames/1.jpg", "/frames/2.jpg"],
+                "observations": [
+                    {"field": "stopped", "value": True, "confidence": 0.92, "source": "frame_analysis"},
+                    {"field": "impact_direction", "value": "rear", "confidence": 0.88, "source": "vision_model:v1"},
+                ],
+            }
+        }
+    )
+
+    assert contract["version"] == VERSION
+    assert contract["technical_metadata"]["representative_frame_count"] == 2
+    assert contract["fact_patch"]["stopped"] is True
+    assert contract["fact_patch"]["opponent_behavior"] == "rear_collision"
+    assert len(contract["accepted_observations"]) == 2
+
+
+def test_low_confidence_video_observation_is_not_fact_patch():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {"field": "opponent_signal_violation", "value": True, "confidence": 0.4, "source": "frame_analysis"}
+                ]
+            }
+        }
+    )
+
+    assert "opponent_signal_violation" not in contract["fact_patch"]
+    assert contract["uncertain_observations"][0]["reason"] == "confidence_below_fact_threshold"
+
+
+def test_technical_preprocess_metadata_does_not_create_accident_facts():
+    contract = normalize_video_input_contract(
+        {"metadata": {"duration_sec": 8.0, "width": 1920, "height": 1080, "representative_frames": ["/frames/1.jpg"]}},
+        preprocessed_summary="Local video verified.",
+    )
+
+    assert contract["fact_patch"] == {}
+    assert "technical_video_metadata_not_treated_as_accident_fact" in contract["warnings"]
+    assert contract["technical_metadata"]["width"] == 1920
+
+
+def test_video_fact_patch_is_merged_without_overriding_user_facts():
+    normalized = normalize_analysis_input(
+        "rear impact while stopped",
+        structured_facts={"stopped": False},
+        video_metadata={
+            "metadata": {
+                "observations": [
+                    {"field": "stopped", "value": True, "confidence": 0.95, "source": "frame_analysis"},
+                    {"field": "impact_direction", "value": "rear", "confidence": 0.95, "source": "frame_analysis"},
+                ]
+            }
+        },
+    )
+
+    assert normalized["structured_facts"]["stopped"] is False
+    assert normalized["structured_facts"]["opponent_behavior"] == "rear_collision"
+    assert normalized["video_input_contract"]["version"] == VERSION

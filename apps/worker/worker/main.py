@@ -18,6 +18,7 @@ DB_URL = os.getenv("DATABASE_URL", "")
 INTERNAL_AGENT_URL = os.getenv("INTERNAL_AGENT_URL", "http://agent:8000")
 INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "")
 STORAGE_ROOT = Path(os.getenv("LOCAL_STORAGE_ROOT", "/app/storage"))
+VIDEO_PREPROCESS_CONTRACT_VERSION = "worker-video-preprocess-v1"
 
 r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
 
@@ -128,6 +129,7 @@ def process_job(job_id: str, job_type: str):
                 )
                 frame_dir = str(STORAGE_ROOT / "frames" / str(row[1]) / str(row[2]))
                 artifacts = {
+                    "video_preprocess_contract_version": VIDEO_PREPROCESS_CONTRACT_VERSION,
                     "duration_sec": metadata.get("duration_sec"),
                     "width": metadata.get("width"),
                     "height": metadata.get("height"),
@@ -195,11 +197,14 @@ def process_job(job_id: str, job_type: str):
                 cur.execute("SELECT metadata, file_name, status FROM uploads WHERE id=%s", (row[2],))
                 up = cur.fetchone()
                 metadata = up[0] if up and isinstance(up[0], dict) else {}
+                payload_video_metadata = payload.get("video_metadata") if isinstance(payload.get("video_metadata"), dict) else {}
                 preprocessed_summary = metadata.get("preprocess_summary") or "Local video metadata is available for analysis."
                 video_metadata = {
+                    "preprocess_contract_version": VIDEO_PREPROCESS_CONTRACT_VERSION,
                     "upload_status": up[2] if up else None,
                     "file_name": up[1] if up else None,
                     "metadata": metadata,
+                    "preprocess_payload": payload_video_metadata,
                 }
                 merged_summary = " ".join(
                     x

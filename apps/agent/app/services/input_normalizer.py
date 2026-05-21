@@ -3,6 +3,7 @@
 import json
 from typing import Any
 from app.services.security_filter import sanitize_input
+from app.services.video_input_contract import normalize_video_input_contract
 
 REQUIRED_FACTS = ["accident_type", "signal_state", "injury", "opponent_behavior", "damage_level"]
 EMPTY_VALUES = {None, "", "unknown", "모름", "None", "null"}
@@ -75,16 +76,26 @@ def _compact_for_analysis(value: Any) -> Any:
 
 def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None) -> dict[str, Any]:
     clean_text, security_flags = sanitize_input(description_text or "")
-    facts = _compact_for_analysis(structured_facts or {})
+    video_contract = normalize_video_input_contract(video_metadata, preprocessed_summary=clean_text)
+    video_fact_patch = _compact_for_analysis(video_contract.get("fact_patch") or {})
+    user_facts = _compact_for_analysis(structured_facts or {})
+    facts = {**video_fact_patch, **user_facts}
     keywords = [str(x).strip() for x in (selected_keywords or []) if str(x).strip()]
     missing_fields = [field for field in REQUIRED_FACTS if _is_empty(facts.get(field))]
     facts_display = clean_structured_facts_for_display(facts)
     user_visible_summary_text = clean_text or format_facts_as_korean_sentences(facts)
+    video_contract_for_text = _compact_for_analysis({
+        "version": video_contract.get("version"),
+        "technical_metadata": video_contract.get("technical_metadata"),
+        "accepted_observations": video_contract.get("accepted_observations"),
+        "uncertain_observations": video_contract.get("uncertain_observations"),
+        "warnings": video_contract.get("warnings"),
+    })
     merged_text = "\n".join([
         clean_text,
         "분석용 사고 사실: " + json.dumps(facts, ensure_ascii=False, separators=(",", ":")),
         "분석용 선택 키워드: " + ", ".join(keywords),
-        "분석용 영상 정보: " + json.dumps(_compact_for_analysis(video_metadata or {}), ensure_ascii=False, separators=(",", ":")),
+        "분석용 영상 입력 계약: " + json.dumps(video_contract_for_text, ensure_ascii=False, separators=(",", ":")),
         "분석 모드: " + (analysis_mode or "quick_summary"),
     ])
     return {
@@ -94,6 +105,7 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "facts_for_display": facts_display,
         "selected_keywords": keywords,
         "video_metadata": video_metadata or {},
+        "video_input_contract": video_contract,
         "analysis_mode": analysis_mode or "quick_summary",
         "security_flags": security_flags,
         "missing_fields": missing_fields,

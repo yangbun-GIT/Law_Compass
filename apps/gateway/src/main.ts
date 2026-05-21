@@ -717,6 +717,7 @@ app.post(`${env.apiPrefix}/cases/:caseId/analyze-video`, async (req, reply) => {
       ai_profile: route.aiProfile,
       specialist_roles: route.specialistRoles,
       routing_reason: route.reason,
+      video_metadata: body.video_metadata ?? {},
       structured_facts: body.structured_facts ?? {},
       selected_keywords: body.selected_keywords ?? [],
       analysis_mode: body.analysis_mode ?? "quick_summary"

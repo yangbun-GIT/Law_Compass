@@ -54,6 +54,7 @@ def compose_analysis_output(
             "accident_party_type": scenario.get("accident_party_type", "unknown"),
             "accident_party_label": scenario.get("accident_party_label", "사고유형 확인 필요"),
             "video_context": video_context,
+            "_video_input_contract": normalized_input.get("video_input_contract") or {},
             "missing_fields": normalized_input["missing_fields"],
             "required_input_fields": input_requirements.get("blocking_fields") or [],
             "optional_input_fields": input_requirements.get("optional_fields") or [],
@@ -75,6 +76,7 @@ def compose_analysis_output(
         "followup_questions": evidence_audit.get("followup_questions", []),
         "input_requirements": input_requirements,
         "followup_loop": followup_loop,
+        "video_input_contract": normalized_input.get("video_input_contract") or {},
         "required_input_questions": input_requirements.get("questions") or [],
         "recommended_keywords": recommended_keywords,
         "recommended_specialists": recommended_specialists,
@@ -86,6 +88,7 @@ def compose_analysis_output(
             "rag_top_k": len(evidence),
             "evidence_cache_key": evidence[0].get("cache_key") if evidence else None,
             "security_flags": normalized_input["security_flags"],
+            "video_input_contract": normalized_input.get("video_input_contract") or {},
             "llm_policy": summarize_case_llm_policy({
                 "traffic_law_analysis": legal_analysis,
                 "fault_ratio_analysis": fault_ratio,
