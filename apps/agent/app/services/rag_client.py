@@ -59,9 +59,35 @@ def retrieve_for_scenario(
         for item in fallback:
             item.setdefault("retrieval_note", "static_fallback")
         result["items"] = fallback
+    else:
+        support = retrieve_static_legal_chunks(query, limit=4)
+        for item in support:
+            item.setdefault("retrieval_note", "static_scenario_support")
+        result["items"] = _merge_static_support(result["items"], support, limit=limit)
     for item in result["items"]:
         item["cache_hit"] = result["cache_hit"]
         item["cache_key"] = result["cache_key"]
         item["query_expansion_terms"] = query_terms
     result["query_expansion_terms"] = query_terms
     return result
+
+
+def _merge_static_support(items: list[dict[str, Any]], support: list[dict[str, Any]], *, limit: int) -> list[dict[str, Any]]:
+    if not support:
+        return items[:limit]
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def add(item: dict[str, Any]) -> None:
+        key = str(item.get("chunk_id") or item.get("source_url") or item.get("title") or "")
+        if key and key in seen:
+            return
+        if key:
+            seen.add(key)
+        merged.append(item)
+
+    for item in items:
+        add(item)
+    for item in support:
+        add(item)
+    return merged[: min(len(merged), limit + 3)]

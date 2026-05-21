@@ -128,9 +128,12 @@ def _check_user_bicycle_collision(result: dict[str, Any]) -> None:
     _assert_common_contract(result)
     fault = result.get("fault_ratio") or {}
     primary_match = result.get("knia_primary_match")
+    evidence_coverage = (result.get("evidence_audit") or {}).get("scenario_evidence_coverage") or {}
     assert result.get("scenario_type") == "bicycle_collision", result.get("scenario_type")
     assert fault.get("user_vehicle_role") == BICYCLE, fault
     assert primary_match is None or primary_match.get("accident_party_type") == "car_vs_bicycle", primary_match
+    assert evidence_coverage.get("coverage_level") in {"medium", "high"}, evidence_coverage
+    assert evidence_coverage.get("scenario_relevant_count", 0) >= 2, evidence_coverage
 
 
 def _assert_common_contract(result: dict[str, Any]) -> None:
