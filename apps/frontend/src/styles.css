@@ -21,7 +21,7 @@ a { color: var(--accent); text-decoration: none; }
 .aurora-a { width: 380px; height: 380px; background: #16a34a; left: -80px; top: -120px; }
 .aurora-b { width: 420px; height: 420px; background: #0284c7; right: -100px; top: 40px; }
 
-.app-shell { max-width: 1080px; margin: 0 auto; padding: 24px 16px 40px; }
+.app-shell { width: min(100% - 40px, 1280px); margin: 0 auto; padding: 24px 0 48px; }
 .glass {
   backdrop-filter: blur(16px);
   background: linear-gradient(135deg, rgba(255,255,255,0.17), rgba(255,255,255,0.08));
@@ -32,11 +32,12 @@ a { color: var(--accent); text-decoration: none; }
 .topbar { padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .topbar h1 { margin: 0; font-size: 28px; letter-spacing: 0.4px; }
 .muted { margin: 2px 0 0; color: var(--text-sub); font-size: 13px; }
-.topbar nav { display: flex; gap: 12px; flex-wrap: wrap; }
+.topbar nav { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; align-items: center; flex: 1; }
 .topbar nav a { padding: 8px 12px; border-radius: 999px; border: 1px solid transparent; }
 .topbar nav a.router-link-active { border-color: rgba(103, 232, 249, 0.45); background: rgba(34, 211, 238, 0.12); }
+.user-chip { padding: 8px 11px; border-radius: 999px; color: #dffcff; background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.16); font-size: 13px; font-weight: 800; }
 
-.page-panel { margin-top: 16px; padding: 18px; }
+.page-panel { margin-top: 16px; padding: 20px; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .card { border: 1px solid rgba(255,255,255,0.2); border-radius: 16px; background: rgba(10, 16, 30, 0.35); padding: 14px; }
@@ -99,9 +100,11 @@ textarea { resize: vertical; min-height: 96px; }
 .evidence-detail pre { white-space: pre-wrap; padding: 12px; border-radius: 12px; background: rgba(2,6,23,0.45); overflow: auto; }
 
 @media (max-width: 900px) {
+  .app-shell { width: min(100% - 24px, 1280px); padding-top: 12px; }
   .grid-2, .report-grid { grid-template-columns: 1fr; }
   .form-grid, .stepper { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: flex-start; }
+  .topbar nav { justify-content: flex-start; }
 }
 
 .easy-report {

@@ -23,13 +23,18 @@ if (leaked.length) {
 import { readFileSync } from "node:fs";
 
 const apiClient = readFileSync("src/api/client.ts", "utf8");
+const appView = readFileSync("src/App.vue", "utf8");
+const dashboardView = readFileSync("src/views/DashboardView.vue", "utf8");
 const requiredErrorUx = [
   "export function formatApiError",
   "normalizeValidation(data?.error?.details?.validation)",
-  "white-space: pre-line"
+  "white-space: pre-line",
+  "v-if=\"!session.user\"",
+  "dashboard-hero",
+  "첫 케이스 만들기"
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const missingErrorUx = requiredErrorUx.filter((token) => !(apiClient.includes(token) || styles.includes(token)));
+const missingErrorUx = requiredErrorUx.filter((token) => !(apiClient.includes(token) || styles.includes(token) || appView.includes(token) || dashboardView.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
   process.exit(1);

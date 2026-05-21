@@ -13,14 +13,14 @@
       <nav>
         <RouterLink to="/">대시보드</RouterLink>
         <RouterLink to="/knia/ranking">KNIA 검색순위</RouterLink>
-        <RouterLink to="/login">로그인</RouterLink>
-        <RouterLink to="/signup">회원가입</RouterLink>
+        <RouterLink v-if="!session.user" to="/login">로그인</RouterLink>
+        <RouterLink v-if="!session.user" to="/signup">회원가입</RouterLink>
+        <span v-else class="user-chip">{{ session.user.display_name }}</span>
         <button v-if="session.user" class="btn secondary" @click="logout">로그아웃</button>
       </nav>
     </header>
 
     <main class="glass page-panel">
-      <p v-if="session.user" class="kv">현재 사용자: {{ session.user.display_name }} ({{ session.user.email }})</p>
       <RouterView />
     </main>
   </div>
