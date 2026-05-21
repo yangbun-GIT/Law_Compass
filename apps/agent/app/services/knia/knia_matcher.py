@@ -62,7 +62,7 @@ def match_knia_charts(
     q = normalize_query(" ".join([description_text or "", json.dumps(facts, ensure_ascii=False), " ".join(keywords), scenario_type or "", party or "", " ".join(expansion_terms)]))
     chart_direct = re.search(r"[차보자기단]\d{1,3}(?:-\d+)?", q)
     tags = list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)]))
-    cache_key = "knia:match:v2:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+    cache_key = "knia:match:v4:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
     cache = _redis_client()
     if cache:
         cached = cache.get(cache_key)
@@ -72,9 +72,9 @@ def match_knia_charts(
         if chart_direct:
             items = _direct_lookup(chart_direct.group(0), limit)
         else:
-            items = _hybrid_lookup(q, tags, party, limit)
+            items = _hybrid_lookup(q, tags, party, limit, scenario_type=scenario_type)
             if not items and party != "unknown":
-                items = _hybrid_lookup(q, tags, None, limit)
+                items = _hybrid_lookup(q, tags, None, limit, scenario_type=scenario_type)
     except Exception:
         items = []
     if cache:
@@ -111,7 +111,14 @@ def _direct_lookup(chart_no: str, limit: int) -> list[dict[str, Any]]:
     return [_to_match(row, 0.95, "입력 내용에 기준번호가 직접 포함되어 있습니다.") for row in rows]
 
 
-def _hybrid_lookup(query: str, tags: list[str], party: str | None, limit: int) -> list[dict[str, Any]]:
+def _hybrid_lookup(
+    query: str,
+    tags: list[str],
+    party: str | None,
+    limit: int,
+    *,
+    scenario_type: str | None = None,
+) -> list[dict[str, Any]]:
     provider = get_embedding_provider()
     vec = vector_literal(provider.embed(query))
     party_filter = party if party and party != "unknown" else None
@@ -168,6 +175,8 @@ def _hybrid_lookup(query: str, tags: list[str], party: str | None, limit: int) -
     for row in rows:
         score = float(row.get("match_score") or 0.0)
         joined = " ".join([str(row.get("chart_no") or ""), str(row.get("title") or ""), str(row.get("accident_summary") or ""), str(row.get("basic_fault_text") or "")])
+        if _is_strict_scenario_mismatch(scenario_type, row, joined):
+            continue
         if "rear_end" in tags:
             if row.get("chart_no") == "차41-1" or any(w in joined for w in ["후방 추돌", "뒤차", "안전거리"]):
                 score += 0.18
@@ -183,8 +192,38 @@ def _hybrid_lookup(query: str, tags: list[str], party: str | None, limit: int) -
             score += 0.18
         if "lane_change" in tags and any(w in joined for w in ["진로 변경", "진로변경", "차로를 변경"]):
             score += 0.16
+        score += _scenario_chart_score_adjustment(row, tags, joined)
         matches.append(_to_match(row, score, _reason(row, tags, party)))
     return sorted(matches, key=lambda x: x.get("match_score") or 0, reverse=True)[:limit]
+
+
+def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any], joined_text: str) -> bool:
+    chart_no = str(row.get("chart_no") or "")
+    has_signal_terms = any(w in joined_text for w in ["신호위반", "적색", "빨간불", "교차로 신호"])
+    if scenario_type == "intersection_signal_violation":
+        return not (chart_no.startswith("차12") or has_signal_terms)
+    return False
+
+
+def _scenario_chart_score_adjustment(row: dict[str, Any], tags: list[str], joined_text: str) -> float:
+    chart_no = str(row.get("chart_no") or "")
+    adjustment = 0.0
+    has_lane_terms = any(w in joined_text for w in ["진로 변경", "진로변경", "차로를 변경", "차선변경"])
+    has_signal_terms = any(w in joined_text for w in ["신호위반", "적색", "빨간불", "교차로 신호"])
+
+    if "signal_violation" in tags:
+        if chart_no.startswith("차12") or has_signal_terms:
+            adjustment += 0.32
+        if has_lane_terms and not has_signal_terms:
+            adjustment -= 0.22
+
+    if "lane_change" in tags:
+        if chart_no.startswith("차43") or has_lane_terms:
+            adjustment += 0.18
+        if has_signal_terms and not has_lane_terms:
+            adjustment -= 0.12
+
+    return adjustment
 
 
 def _reason(row: dict[str, Any], tags: list[str], party: str | None = None) -> str:
@@ -217,7 +256,7 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
         "match_label": "관련성이 높은 기준입니다." if score >= 0.35 else "참고할 수 있는 기준입니다.",
         "match_reason": reason,
         "accident_party_type": party,
-        "accident_party_label": row.get("accident_party_label") or party_label(party),
+        "accident_party_label": party_label(party),
         "base_fault_a": row.get("base_fault_a"),
         "base_fault_b": row.get("base_fault_b"),
         "accident_summary": row.get("accident_summary"),

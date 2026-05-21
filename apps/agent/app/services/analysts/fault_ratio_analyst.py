@@ -3,7 +3,15 @@
 from typing import Any
 
 from app.services.analyst_output_guard import guard_fault_ratio_output
-from app.services.accident_perspective import FRONT_VEHICLE, FOLLOWING_VEHICLE, infer_user_vehicle_role
+from app.services.accident_perspective import (
+    FRONT_VEHICLE,
+    FOLLOWING_VEHICLE,
+    LANE_CHANGING_VEHICLE,
+    SIGNAL_COMPLIANT_VEHICLE,
+    SIGNAL_VIOLATION_VEHICLE,
+    STRAIGHT_VEHICLE,
+    infer_user_vehicle_role,
+)
 from app.services.llm_client import generate_fault_ratio_analysis
 
 
@@ -28,9 +36,19 @@ def analyze_fault_ratio(
         else:
             my, other, confidence = (10 if facts.get("stopped") else 20), (90 if facts.get("stopped") else 80), 0.74
     elif scenario_type == "intersection_signal_violation":
-        my, other, confidence = (15 if facts.get("opponent_signal_violation") else 45), (85 if facts.get("opponent_signal_violation") else 55), 0.68
+        if user_vehicle_role == SIGNAL_COMPLIANT_VEHICLE:
+            my, other, confidence = 0, 100, 0.78
+        elif user_vehicle_role == SIGNAL_VIOLATION_VEHICLE:
+            my, other, confidence = 100, 0, 0.78
+        else:
+            my, other, confidence = (15 if facts.get("opponent_signal_violation") else 45), (85 if facts.get("opponent_signal_violation") else 55), 0.68
     elif scenario_type == "lane_change_collision":
-        my, other, confidence = (30 if not facts.get("lane_change") else 45), (70 if not facts.get("lane_change") else 55), 0.62
+        if user_vehicle_role == STRAIGHT_VEHICLE:
+            my, other, confidence = 30, 70, 0.76
+        elif user_vehicle_role == LANE_CHANGING_VEHICLE:
+            my, other, confidence = 70, 30, 0.76
+        else:
+            my, other, confidence = (30 if not facts.get("lane_change") else 45), (70 if not facts.get("lane_change") else 55), 0.62
     elif scenario_type in ("pedestrian_crosswalk_accident", "school_zone_child_accident"):
         my, other, confidence = 70, 30, 0.55
     else:
