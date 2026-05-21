@@ -49,6 +49,8 @@ const requiredErrorUx = [
   "상세 기준 수집 필요",
   "상세 기준 수집",
   "검색순위에만 저장",
+  "기본과실은 상세 기준 수집 후 표시됩니다",
+  "수집 요청은 완료됐지만 상세 기준 본문이 저장되지 않았습니다",
   "KNIA 기준을 불러오지 못했습니다",
   "KNIA JSON 검색에 실패했습니다",
   "autocomplete=\"current-password\"",

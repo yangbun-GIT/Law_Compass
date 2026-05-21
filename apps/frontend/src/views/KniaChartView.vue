@@ -47,13 +47,19 @@
           </section>
           <section class="glass-box">
             <p class="eyebrow">기본과실</p>
-            <FaultBar :a="baseA" :b="baseB" />
-            <p class="fault-caption">KNIA 원문 기본과실 A{{ baseA }} : B{{ baseB }}</p>
+            <template v-if="hasBaseFault">
+              <FaultBar :a="baseAForBar" :b="baseBForBar" />
+              <p class="fault-caption">KNIA 원문 기본과실 A {{ baseAForBar }}% : B {{ baseBForBar }}%</p>
+            </template>
+            <p v-else class="empty-note compact-note">기본과실은 상세 기준 수집 후 표시됩니다.</p>
           </section>
           <section class="glass-box emphasis">
             <p class="eyebrow">사용자 수동 조정 결과</p>
-            <FaultBar :a="manualFault.A" :b="manualFault.B" />
-            <p class="fault-caption">선택한 가감요소 기준 A{{ manualFault.A }} : B{{ manualFault.B }}</p>
+            <template v-if="hasBaseFault">
+              <FaultBar :a="manualFault.A" :b="manualFault.B" />
+              <p class="fault-caption">선택한 가감요소 기준 A {{ manualFault.A }}% : B {{ manualFault.B }}%</p>
+            </template>
+            <p v-else class="empty-note compact-note">수동 조정 결과는 기본과실 수집 후 계산됩니다.</p>
           </section>
         </div>
 
@@ -160,9 +166,12 @@ const tabs = [
   { value: "cases", label: "판례·조정사례" },
 ];
 
-const baseA = computed(() => numberOr(chart.value?.base_fault_a, chart.value?.applied_fault_a, 50));
-const baseB = computed(() => numberOr(chart.value?.base_fault_b, chart.value?.applied_fault_b, 100 - baseA.value));
-const baseFaultLabel = computed(() => `기본 A ${baseA.value}% / B ${baseB.value}%`);
+const baseA = computed(() => numberOr(chart.value?.base_fault_a, chart.value?.applied_fault_a));
+const baseB = computed(() => numberOr(chart.value?.base_fault_b, chart.value?.applied_fault_b));
+const hasBaseFault = computed(() => baseA.value !== null && baseB.value !== null);
+const baseAForBar = computed(() => baseA.value ?? 0);
+const baseBForBar = computed(() => baseB.value ?? 0);
+const baseFaultLabel = computed(() => hasBaseFault.value ? `기본 A ${baseAForBar.value}% / B ${baseBForBar.value}%` : "");
 const detailUrl = computed(() => chart.value?.source_detail_url || chart.value?.source_url || "");
 const adjustmentFactors = computed(() => Array.isArray(chart.value?.adjustment_factors) ? chart.value.adjustment_factors : []);
 const adjustmentExplanations = computed(() => Array.isArray(chart.value?.adjustment_explanations) ? chart.value.adjustment_explanations : []);
@@ -171,7 +180,8 @@ const caseReferences = computed(() => Array.isArray(chart.value?.case_references
 const isAdmin = computed(() => session.user?.role === "admin");
 const canCollectDetail = computed(() => Boolean(chart.value?.chart_no) && isAdmin.value && !chart.value?.detail_collected_at);
 const manualFault = computed(() => {
-  let a = baseA.value;
+  if (!hasBaseFault.value) return { A: 0, B: 0 };
+  let a = baseAForBar.value;
   for (const factor of adjustmentFactors.value) {
     if (!manualSelected.value.includes(factorKey(factor))) continue;
     const da = Number(factor.delta_a || 0);
@@ -217,9 +227,17 @@ async function collectDetail() {
   collectError.value = "";
   try {
     const chartNo = String(chart.value.chart_no);
-    await api.adminCollectKnia({ menu: false, ranking: false, charts: true, chart_nos: [chartNo], max_charts: 1 });
-    collectMessage.value = `${chartNo} 상세 기준을 수집했습니다. 화면을 다시 불러옵니다.`;
+    const result = await api.adminCollectKnia({ menu: false, ranking: false, charts: true, chart_nos: [chartNo], max_charts: 1 });
     await load();
+    const chartResult = result?.result?.charts ?? {};
+    const errors = Array.isArray(chartResult?.errors) ? chartResult.errors.filter(Boolean) : [];
+    if (chart.value?.detail_collected_at) {
+      collectMessage.value = `${chartNo} 상세 기준을 수집했습니다.`;
+    } else {
+      collectError.value = errors.length
+        ? `상세 기준 본문이 아직 저장되지 않았습니다.\n${errors.join("\n")}`
+        : "수집 요청은 완료됐지만 상세 기준 본문이 저장되지 않았습니다. KNIA 원문 응답 또는 파서 결과를 확인해야 합니다.";
+    }
   } catch (e) {
     collectError.value = formatApiError(e, "KNIA 상세 기준 수집에 실패했습니다.");
   } finally {
@@ -229,10 +247,11 @@ async function collectDetail() {
 
 function numberOr(...values: any[]) {
   for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
     const n = Number(value);
     if (Number.isFinite(n)) return n;
   }
-  return 0;
+  return null;
 }
 function text(value: unknown) { return sanitizeDisplayText(value); }
 function factorKey(factor: any) { return `${factor.factor_order ?? factor.label}-${factor.label}-${factor.delta_a}-${factor.delta_b}`; }
@@ -308,6 +327,7 @@ onMounted(load);
 .case-card { border-color: rgba(251, 191, 36, 0.24); }
 .decision { color: #fde68a; }
 .empty-note { color: #cbd5e1; padding: 16px; border-radius: 16px; border: 1px dashed rgba(255,255,255,0.16); }
+.compact-note { margin: 0; padding: 12px; }
 .spacer { margin-top: 16px; }
 .source-card { display: grid; gap: 12px; }
 .state-card { display: grid; gap: 12px; justify-items: start; }
