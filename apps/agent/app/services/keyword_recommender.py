@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.input_requirements import build_input_requirements, input_question_texts
 from app.services.scenario_search_terms import scenario_search_terms
 
 
@@ -27,8 +28,18 @@ def recommend_keywords(
     return list(dict.fromkeys([x for x in out if x]))[:16]
 
 
-def suggest_next_inputs(facts: dict[str, Any], scenario_type: str, missing_fields: list[str]) -> list[str]:
-    suggestions = [f"{field} 정보를 보완하면 정확도가 올라갑니다." for field in missing_fields]
+def suggest_next_inputs(
+    facts: dict[str, Any],
+    scenario_type: str,
+    missing_fields: list[str],
+    input_requirements: dict[str, Any] | None = None,
+) -> list[str]:
+    requirements = input_requirements or build_input_requirements(
+        facts=facts,
+        scenario_type=scenario_type,
+        missing_fields=missing_fields,
+    )
+    suggestions = input_question_texts(requirements)
     by_scenario = {
         "school_zone_child_accident": [
             "어린이보호구역 표지나 노면 표시 여부를 확인해 주세요.",

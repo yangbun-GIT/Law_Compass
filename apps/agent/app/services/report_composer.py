@@ -27,6 +27,7 @@ def compose_analysis_output(
     suggested_next_inputs: list[str],
     llm_enabled: bool,
     ai_profile: str,
+    input_requirements: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     final = generate_final_report(normalized_input=normalized_input, scenario=scenario, evidence=evidence, legal_analysis=legal_analysis, fault_ratio=fault_ratio, legal_liability=legal_liability, insurance_guide=insurance_guide, action_plan=action_plan)
     summary = final.get("accident_summary") if isinstance(final, dict) else None
@@ -34,6 +35,7 @@ def compose_analysis_output(
         summary = _fallback_summary(normalized_input, scenario, legal_analysis)
     uncertainty_level = evidence_audit.get("uncertainty_level", "medium")
     party_type_action_guide = party_type_action_guide or {}
+    input_requirements = input_requirements or {}
     technical = {
         "accident_summary": summary,
         "scenario_type": scenario["scenario_type"],
@@ -48,6 +50,8 @@ def compose_analysis_output(
             "accident_party_label": scenario.get("accident_party_label", "사고유형 확인 필요"),
             "video_context": video_context,
             "missing_fields": normalized_input["missing_fields"],
+            "required_input_fields": input_requirements.get("blocking_fields") or [],
+            "optional_input_fields": input_requirements.get("optional_fields") or [],
         },
         "legal_analysis": legal_analysis,
         "fault_ratio": fault_ratio,
@@ -64,6 +68,8 @@ def compose_analysis_output(
         "uncertainty": {"level": uncertainty_level, "reason": "근거 문서와 입력 사실의 충분성에 따라 추정 신뢰도가 달라질 수 있습니다.", "confidence": {"low": 0.78, "medium": 0.55, "high": 0.35}.get(uncertainty_level, 0.5)},
         "disclaimers": ["본 결과는 법률/보험 자문이 아닌 AI 기반 참고 정보입니다.", "최종 과실비율, 보상금액, 형사책임은 수사기관, 보험사, 법원의 판단에 따릅니다.", "개인정보와 원본 영상은 필요한 범위에서만 보관하고, 민감정보 입력은 최소화해 주세요."],
         "followup_questions": evidence_audit.get("followup_questions", []),
+        "input_requirements": input_requirements,
+        "required_input_questions": input_requirements.get("questions") or [],
         "recommended_keywords": recommended_keywords,
         "recommended_specialists": recommended_specialists,
         "suggested_next_inputs": suggested_next_inputs,

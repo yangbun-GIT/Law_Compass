@@ -7,7 +7,8 @@ const TECHNICAL_KEYS = new Set([
   "claim_evidence", "claim_id", "evidence_refs", "required_evidence_family", "support_level", "unsupported_claims",
   "evidence_support_level", "decision_status", "judgment_status", "agent_judgment", "stage_statuses", "blocking_reasons",
   "must_not_present_as_final", "user_reference_allowed", "agent_judgment_contract_version", "agent_judgment_overall_status",
-  "presentation_policy", "presentation_status", "restricted_sections", "finality"
+  "presentation_policy", "presentation_status", "restricted_sections", "finality",
+  "input_requirements", "required_input_questions", "blocking_fields", "optional_fields"
 ]);
 const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi];
 function asArray(value: any): any[] { return Array.isArray(value) ? value : []; }
@@ -39,6 +40,12 @@ function detectMissingFields(facts: AnyRecord = {}) {
 }
 function safeEvidenceSummaries(evidence: any[]) {
   return evidence.slice(0, 5).map((ev: AnyRecord) => cleanText(ev.related_reason ?? ev.plain_summary ?? ev.used_for ?? ev.title, "이 사고 판단에 참고할 수 있는 근거입니다."));
+}
+function requiredQuestionTexts(result: AnyRecord = {}) {
+  return asArray(result.required_input_questions ?? result.input_requirements?.questions)
+    .map((item) => cleanText(item && typeof item === "object" ? item.question ?? item.label : item))
+    .filter(Boolean)
+    .slice(0, 8);
 }
 function toNumber(value: any, fallback = 0) {
   const n = Number(value);
@@ -122,6 +129,7 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
   const facts = result.structured_facts ?? context.case?.structured_facts ?? {};
   const scenario = result.scenario_type ?? facts.scenario_type ?? "general_collision";
   const evidence = asArray(result.evidence);
+  const requiredQuestions = requiredQuestionTexts(result);
   const fault = result.fault_ratio ?? {};
   const legal = result.legal_liability ?? {};
   const insurance = result.insurance_guide ?? {};
@@ -140,7 +148,7 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
     insurance_explanation: { title: "보험 처리 안내", simple_summary: cleanText(insurance.summary, "대물 접수와 대인 접수 여부를 확인해야 합니다."), steps: asArray(insurance.steps).map((x) => cleanText(x)).slice(0, 6), documents: asArray(insurance.required_documents).map((x) => cleanText(x)).slice(0, 8) },
     legal_explanation: { title: "법률상 확인할 점", simple_summary: legal.reporting_required ? "신고나 형사 문제를 확인해 볼 필요가 있습니다." : "인명피해가 있거나 큰 위반이 의심되면 신고 여부를 확인해야 합니다.", risk_label: legal.criminal_risk_level === "high" ? "높음" : legal.criminal_risk_level === "low" ? "낮음" : "보통", checklist: asArray(legal.checklist).map((x) => cleanText(x)).slice(0, 7), caution: "형사책임 여부는 경찰이나 법원의 판단이 필요합니다." },
     legal_basis_cards: evidence.slice(0, 6).map((ev: AnyRecord) => ({ law_name: cleanText(ev.law_name ?? "교통사고 관련 기준"), easy_title: cleanText(ev.article_title ?? ev.chunk_summary ?? "교통사고 관련 확인 사항"), easy_explanation: cleanText(ev.plain_summary ?? ev.snippet, "이 사고에서 확인해야 할 법률상 기준입니다."), related_to_this_case: cleanText(ev.related_reason ?? ev.used_for, "입력하신 사고 사실과 연결해서 참고할 수 있는 근거입니다."), confidence_label: "관련성이 있는 근거입니다.", source_label: cleanText(ev.source ?? "교통사고 법률 설명 자료") })),
-    missing_info: { title: "더 정확한 분석을 위해 필요한 정보", items: Array.from(new Set([...detectMissingFields(facts), ...asArray(result.suggested_next_inputs).map((x) => cleanText(x)), ...asArray(result.followup_questions).map((x) => cleanText(x))])).slice(0, 6) },
+    missing_info: { title: "더 정확한 분석을 위해 필요한 정보", items: Array.from(new Set([...requiredQuestions, ...(requiredQuestions.length ? [] : detectMissingFields(facts)), ...asArray(result.suggested_next_inputs).map((x) => cleanText(x)), ...asArray(result.followup_questions).map((x) => cleanText(x))])).slice(0, 6) },
     detail_sections: { evidence_summaries: safeEvidenceSummaries(evidence) }
   }), result);
 }

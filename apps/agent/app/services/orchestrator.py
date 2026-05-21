@@ -15,6 +15,7 @@ from app.services.analysts.traffic_law_analyst import analyze_traffic_law
 from app.services.claim_evidence_validator import apply_claim_evidence_audit, validate_claim_evidence
 from app.services.elderly_friendly.report_simplifier import build_elderly_friendly_report
 from app.services.input_normalizer import normalize_analysis_input
+from app.services.input_requirements import build_input_requirements
 from app.services.judgment_contract import apply_judgment_contract_to_output, build_judgment_contract
 from app.services.keyword_recommender import recommend_keywords, suggest_next_inputs
 from app.services.knia.knia_matcher import match_knia_charts
@@ -112,6 +113,14 @@ def _analyze_core(
         normalized["structured_facts"],
         scenario.get("scenario_type"),
     )
+    input_requirements = build_input_requirements(
+        facts=normalized["structured_facts"],
+        scenario_type=scenario["scenario_type"],
+        accident_party_type=scenario.get("accident_party_type"),
+        missing_fields=normalized["missing_fields"],
+        description_text=normalized["description_text"],
+    )
+    decision_blocking_missing_fields = list(input_requirements.get("blocking_fields") or [])
     knia_result = match_knia_charts(
         description_text=normalized["description_text"],
         structured_facts=normalized["structured_facts"],
@@ -189,7 +198,14 @@ def _analyze_core(
     legal_liability = analyze_criminal_liability(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, legal_analysis=legal_analysis, text=text)
     insurance_guide = analyze_insurance(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, text=text)
     action_plan = analyze_action_plan(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], legal_liability=legal_liability, insurance_guide=insurance_guide, evidence=evidence, text=text)
-    evidence_audit = audit_evidence(scenario_type=scenario["scenario_type"], evidence=evidence, legal_analysis=legal_analysis, fault_ratio=fault_ratio, missing_fields=normalized["missing_fields"])
+    evidence_audit = audit_evidence(
+        scenario_type=scenario["scenario_type"],
+        evidence=evidence,
+        legal_analysis=legal_analysis,
+        fault_ratio=fault_ratio,
+        missing_fields=decision_blocking_missing_fields,
+        input_requirements=input_requirements,
+    )
     claim_evidence = validate_claim_evidence(
         legal_analysis=legal_analysis,
         fault_ratio=fault_ratio,
@@ -209,10 +225,16 @@ def _analyze_core(
         action_plan=action_plan,
         evidence_audit=evidence_audit,
         claim_evidence=claim_evidence,
-        missing_fields=normalized["missing_fields"],
+        missing_fields=decision_blocking_missing_fields,
+        input_requirements=input_requirements,
     )
     recommended_keywords = recommend_keywords(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], selected_keywords=normalized["selected_keywords"], evidence=evidence)
-    suggested_next_inputs = suggest_next_inputs(normalized["structured_facts"], scenario["scenario_type"], normalized["missing_fields"])
+    suggested_next_inputs = suggest_next_inputs(
+        normalized["structured_facts"],
+        scenario["scenario_type"],
+        decision_blocking_missing_fields,
+        input_requirements=input_requirements,
+    )
     profile = ai_profile or _profile_for_scenario(scenario["scenario_type"])
     recommended_specialists = specialist_roles or pick_specialists(profile, None)
     recommended_specialists = list(dict.fromkeys([*recommended_specialists, *SCENARIO_PERSONA_HINTS.get(scenario["scenario_type"], [])]))[:12]
@@ -234,6 +256,7 @@ def _analyze_core(
         evidence_audit=evidence_audit,
         recommended_keywords=recommended_keywords,
         recommended_specialists=recommended_specialists,
+        input_requirements=input_requirements,
         suggested_next_inputs=suggested_next_inputs,
         llm_enabled=bool(os.getenv("OPENAI_API_KEY")),
         ai_profile=profile,

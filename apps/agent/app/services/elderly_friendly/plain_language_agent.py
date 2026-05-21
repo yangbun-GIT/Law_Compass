@@ -109,7 +109,10 @@ class PlainLanguageAgent:
 
     def make_missing_info(self, result: dict[str, Any]) -> dict[str, Any]:
         facts = result.get("structured_facts", {}) or {}
-        missing = list(facts.get("missing_fields") or []) + list(result.get("suggested_next_inputs") or []) + list(result.get("followup_questions") or [])
+        required_questions = _required_question_texts(result)
+        missing = required_questions + list(result.get("suggested_next_inputs") or []) + list(result.get("followup_questions") or [])
+        if not required_questions:
+            missing = list(facts.get("missing_fields") or []) + missing
         if not missing: missing = ["사고 당시 완전히 정차 중이었는지", "급정거가 있었는지", "목이나 허리 통증이 있는지", "경찰 신고를 했는지"]
         items: list[str] = []
         for item in missing:
@@ -123,6 +126,20 @@ class PlainLanguageAgent:
 
 def _needs_review(section: dict[str, Any]) -> bool:
     return section.get("judgment_status") in {"needs_review", "unsupported"} or section.get("evidence_support_level") in {"partial", "insufficient"}
+
+
+def _required_question_texts(result: dict[str, Any]) -> list[str]:
+    questions = result.get("required_input_questions") or (result.get("input_requirements") or {}).get("questions") or []
+    out: list[str] = []
+    for item in questions:
+        if isinstance(item, dict):
+            text = item.get("question") or item.get("label")
+        else:
+            text = item
+        cleaned = scrub_user_text(text)
+        if cleaned and cleaned not in out:
+            out.append(cleaned)
+    return out
 
 
 def _section_notice(section: dict[str, Any], fallback: str) -> str:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.services.evidence_quality_gate import evaluate_evidence_quality
+from app.services.input_requirements import build_input_requirements, input_question_texts
 
 
 _QUALITY_ORDER = {"low": 0, "medium": 1, "high": 2}
@@ -15,6 +16,7 @@ def audit_evidence(
     legal_analysis: dict[str, Any],
     fault_ratio: dict[str, Any],
     missing_fields: list[str],
+    input_requirements: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     count = len(evidence)
     avg_score = sum(float(ev.get("score", 0) or 0) for ev in evidence) / count if count else 0.0
@@ -40,7 +42,7 @@ def audit_evidence(
         "used_evidence_ids": [ev.get("chunk_id") for ev in evidence if ev.get("chunk_id")],
         "scenario_evidence_coverage": scenario_coverage,
         "weak_points": weak_points,
-        "followup_questions": _followups(scenario_type, missing_fields),
+        "followup_questions": _followups(scenario_type, missing_fields, input_requirements),
         "uncertainty_level": "low" if quality == "high" else ("medium" if quality == "medium" else "high"),
     }
 
@@ -49,8 +51,17 @@ def _lower_quality(first: str, second: str) -> str:
     return first if _QUALITY_ORDER.get(first, 0) <= _QUALITY_ORDER.get(second, 0) else second
 
 
-def _followups(scenario_type: str, missing_fields: list[str]) -> list[str]:
-    out = [f"{field} 정보를 추가로 입력해 주세요." for field in missing_fields]
+def _followups(
+    scenario_type: str,
+    missing_fields: list[str],
+    input_requirements: dict[str, Any] | None = None,
+) -> list[str]:
+    requirements = input_requirements or build_input_requirements(
+        facts={},
+        scenario_type=scenario_type,
+        missing_fields=missing_fields,
+    )
+    out = input_question_texts(requirements)
     if scenario_type == "school_zone_child_accident":
         out.extend(["피해자가 만 13세 미만인지 확인해 주세요.", "어린이보호구역 표지와 제한속도를 확인해 주세요."])
     if scenario_type == "intersection_signal_violation":

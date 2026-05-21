@@ -31,6 +31,7 @@ def build_judgment_contract(
     evidence_audit: dict[str, Any],
     claim_evidence: dict[str, Any],
     missing_fields: list[str],
+    input_requirements: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     stages = [
         _stage(
@@ -64,6 +65,7 @@ def build_judgment_contract(
     ]
     blocking_reasons = _blocking_reasons(stages, claim_evidence, missing_fields)
     overall_status = _overall_status(stages, blocking_reasons)
+    input_requirements = input_requirements or {}
     return {
         "version": "agent-judgment-contract-v1",
         "overall_status": overall_status,
@@ -72,6 +74,13 @@ def build_judgment_contract(
         "blocking_reasons": blocking_reasons,
         "stage_statuses": stages,
         "missing_fields": list(missing_fields or []),
+        "input_requirements": {
+            "version": input_requirements.get("version"),
+            "blocking_fields": list(input_requirements.get("blocking_fields") or []),
+            "optional_fields": list(input_requirements.get("optional_fields") or []),
+            "question_count": len(input_requirements.get("questions") or []),
+            "summary": input_requirements.get("summary"),
+        },
         "claim_coverage": {
             "level": claim_evidence.get("coverage_level"),
             "ratio": claim_evidence.get("coverage_ratio"),
