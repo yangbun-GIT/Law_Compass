@@ -161,6 +161,7 @@ Gateway 주요 로직:
 | `apps/agent/app/services/analyst_output_contracts.py` | 법률/과실/형사/보험 분석가 출력의 Pydantic 계약 모델 |
 | `apps/agent/app/services/analyst_output_guard.py` | 법률/과실/형사/보험 분석가 출력에 근거 충분성, caveat, 신뢰도 상한을 적용하는 공통 가드 |
 | `apps/agent/app/services/claim_evidence_validator.py` | Agent 분석 결과의 주요 판단과 근거 문서를 연결하고 근거 누락 판단을 `evidence_audit`에 반영 |
+| `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | 쉬운 리포트 문장 생성. analyst 근거 상태가 약하면 과실/법률/보험 문장을 확정 표현 대신 추가 확인 표현으로 완화 |
 | `apps/agent/app/services/scenario_classifier.py` | 사고 유형 및 당사자 유형 분류 |
 | `apps/agent/app/services/analysts/*` | 과실비율, 형사 책임, 보험, 행동 계획, 법규 분석 |
 | `apps/agent/app/services/legal/*` | 법률 문서 수집, chunking, vectorizing, evidence retrieval |
@@ -286,6 +287,7 @@ Agent 주요 DTO:
 | `apps/agent/app/services/orchestrator.py` | `_knia_estimate_to_evidence`, `_knia_refs_to_evidence` | KNIA 추정/참조 데이터 | evidence list | 과실 기본값, 가감요소, 관련 법규/사례를 evidence item으로 변환 |
 | `apps/agent/app/services/analyst_output_contracts.py` | `validate_*_output` | analyst result dict | normalized analyst result dict | 문자열/배열/숫자/불리언 필드를 Pydantic 계약에 맞춰 정규화하고 extra context는 보존 |
 | `apps/agent/app/services/analyst_output_guard.py` | `guard_*_output` | analyst result, evidence list | guarded analyst result | 법률/KNIA/일반 근거 family를 판별해 `evidence_support_level`, `judgment_status`, `used_evidence_ids`, `caveats`를 부여하고 과실비율 confidence를 직접 근거 수준에 맞게 제한 |
+| `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | `make_headline`, `make_summary`, `make_fault_explanation`, `make_legal_explanation`, `make_insurance_explanation` | final analysis dict | elderly-friendly report sections | `judgment_status` 또는 `evidence_support_level`이 약하면 사용자 문장을 "확정"이 아닌 "추가 확인 필요" 표현으로 완화 |
 | `apps/agent/app/services/legal_api_clients.py` | `fetch_law_search` | query, limit | evidence-like rows | 국가법령정보센터 `lawSearch.do`에서 법령/판례 검색 |
 | `apps/agent/app/services/legal_api_clients.py` | `fetch_data_go_traffic` | query, limit | evidence-like rows | 공공데이터포털 교통사고 API 응답을 내부 근거 형식으로 변환 |
 | `apps/worker/worker/main.py` | `init_group` | 없음 | 없음 | Redis Stream consumer group 생성 |
@@ -337,6 +339,7 @@ Agent 주요 DTO:
 | `apps/agent/app/schemas.py` | `AnalysisOutput` | Agent internal API response | 최종 분석 결과 표준 응답 |
 | `apps/agent/app/services/analyst_output_contracts.py` | Analyst Pydantic contracts | Agent internal API response 일부 | `legal_analysis`, `fault_ratio`, `legal_liability`, `insurance_guide` dict의 내부 출력 계약 |
 | `apps/agent/app/services/analyst_output_guard.py` | `evidence_support_level`, `judgment_status`, `used_evidence_ids`, `caveats`, `evidence_count`, `evidence_ids` | Agent internal API response 일부 | 분석가별 판단이 직접 근거, 간접 근거, 근거 부족 중 어디에 속하는지 표시하고 확정 판단 방지를 위한 주의 문구를 제공 |
+| `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | 쉬운 리포트 섹션 dict | Gateway public report response 일부 | 근거 부족 상태를 사용자 친화적인 경고/주의 문장으로 반영 |
 | `apps/agent/app/services/claim_evidence_validator.py` | `claim_evidence` dict | Agent internal API response 일부 | 법규, 과실비율, 형사책임, 보험 안내, 행동계획의 주요 claim별 연결 근거와 지원 수준 |
 
 #### 테스트 및 유지보수 상태 매핑
@@ -356,6 +359,7 @@ Agent 주요 DTO:
 | `apps/agent/app/services/orchestrator.py` | 구현 완료, 핵심 복합 로직 | `apps/agent/tests/test_orchestrator.py`, `apps/agent/scripts/test_legal_rag.py`, `test_knia_*`, `test_chat_*` 간접 검증 | KNIA/RAG/분석가 로직이 한 파이프라인에 결합되어 있어 입력 케이스별 회귀 테스트가 중요 |
 | `apps/agent/app/services/analyst_output_contracts.py` | 구현 완료, Analyst 출력 계약 | `apps/agent/tests/test_analyst_output_guard.py`, `apps/agent/tests/test_orchestrator.py` | LLM이 예외적인 JSON 타입을 반환해도 가능한 범위에서 정규화하되, 신규 analyst 추가 시 계약 모델을 함께 추가해야 함 |
 | `apps/agent/app/services/analyst_output_guard.py` | 구현 완료, Analyst 신뢰도 가드 | `apps/agent/tests/test_analyst_output_guard.py`, `apps/agent/tests/test_orchestrator.py` | 신규 analyst 출력 필드가 프론트 일반 화면에 기술 문자열로 노출되지 않도록 Gateway/Frontend sanitizer와 함께 관리 필요 |
+| `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | 구현 완료, 근거 상태 기반 문장 완화 | `apps/agent/tests/test_elderly_report_support_language.py`, `apps/agent/tests/test_orchestrator.py` | 쉬운 리포트 문장은 내부 코드가 아니라 사용자 표시 문구만 포함해야 하며, 근거 부족 시 확정 표현을 피해야 함 |
 | `apps/agent/app/services/claim_evidence_validator.py` | 구현 완료, Agent 신뢰도 보강 로직 | `apps/agent/tests/test_claim_evidence_validator.py`, `apps/agent/tests/test_orchestrator.py` | 주요 판단별 근거 연결 상태를 산출하고 analyst의 `used_evidence_ids`가 있으면 claim별 evidence ref 선정에 우선 사용한다. 향후 Analyst별 claim 형식이 바뀌면 함께 갱신 필요 |
 | `apps/agent/app/services/legal_api_clients.py` | 구현 완료, 외부 권한 의존 | `apps/agent/scripts/check_external_apis.py` | 국가법령정보센터 IP/도메인 검증, 공공데이터포털 활용신청 권한 상태에 따라 실패 가능 |
 | `apps/worker/worker/main.py` | 구현 완료 | `apps/worker/tests/test_keys.py`, E2E smoke에서 간접 검증 | ffmpeg/ffprobe 설치와 로컬 파일 경로 접근 권한에 의존 |

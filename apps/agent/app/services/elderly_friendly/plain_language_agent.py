@@ -7,6 +7,10 @@ class PlainLanguageAgent:
     def make_headline(self, result: dict[str, Any]) -> str:
         scenario = result.get("scenario_type") or result.get("structured_facts", {}).get("scenario_type")
         facts = result.get("structured_facts", {}) or {}
+        fault = result.get("fault_ratio", {}) or {}
+        legal = result.get("legal_liability", {}) or {}
+        if _needs_review(fault) or _needs_review(legal):
+            return "입력하신 사고는 근거가 더 필요해 과실과 신고 필요 여부를 조심스럽게 확인해야 합니다."
         if scenario == "school_zone_child_accident" or facts.get("school_zone"):
             return "어린이보호구역 사고로 보이며, 신고와 형사 문제를 꼭 확인해 보셔야 합니다."
         if scenario == "rear_end_collision":
@@ -23,7 +27,8 @@ class PlainLanguageAgent:
         scenario = result.get("scenario_type") or result.get("structured_facts", {}).get("scenario_type")
         summary = scrub_user_text(result.get("accident_summary"), "입력하신 사고 내용을 바탕으로 교통사고 대응 방향을 정리했습니다.")
         fault = result.get("fault_ratio", {}) or {}
-        return {"accident_type_label": scenario_label(scenario), "short_summary": self._shorten(summary), "confidence_label": confidence_label(fault.get("confidence")), "warning": "정확한 과실비율은 보험사나 분쟁심의 결과에 따라 달라질 수 있습니다."}
+        confidence = "추가 확인 필요" if _needs_review(fault) else confidence_label(fault.get("confidence"))
+        return {"accident_type_label": scenario_label(scenario), "short_summary": self._shorten(summary), "confidence_label": confidence, "warning": _section_notice(fault, "정확한 과실비율은 보험사나 분쟁심의 결과에 따라 달라질 수 있습니다.")}
 
     def make_top_actions(self, result: dict[str, Any]) -> list[dict[str, Any]]:
         facts = result.get("structured_facts", {}) or {}
@@ -72,20 +77,35 @@ class PlainLanguageAgent:
             easy = "입력하신 사고 내용과 관련 근거를 바탕으로 참고용 과실비율을 추정했습니다."
             why = ["사고 유형", "다친 사람 여부", "신호와 차선 상황"]
             caution = "추가 사실에 따라 과실비율은 달라질 수 있습니다."
+        if _needs_review(fault):
+            easy = "현재 연결된 근거만으로는 과실비율을 확정하기 어렵고, 아래 비율은 추가 확인이 필요한 참고 추정입니다."
+            why = _review_reasons(fault, why)
+            caution = _section_notice(fault, "KNIA 기준이나 영상·현장 자료가 보강되기 전까지는 과실비율을 확정처럼 보아서는 안 됩니다.")
         return {"my_percent": my, "other_percent": other, "easy_explanation": easy, "why": why, "caution": caution}
 
     def make_insurance_explanation(self, result: dict[str, Any]) -> dict[str, Any]:
         insurance = result.get("insurance_guide", {}) or {}
         steps = [scrub_user_text(x) for x in (insurance.get("steps") or []) if x] or ["보험사에 사고를 접수합니다.", "블랙박스 원본을 제출할 수 있도록 보관합니다.", "차량 수리 견적서를 받아둡니다.", "통증이 있으면 병원 진료 후 진단서를 받아둡니다."]
         docs = [scrub_user_text(x) for x in (insurance.get("required_documents") or []) if x] or ["블랙박스 영상", "사고 현장 사진", "차량 파손 사진", "수리 견적서", "진단서 또는 진료확인서"]
-        return {"simple_summary": scrub_user_text(insurance.get("summary"), "대물 접수와 대인 접수 여부를 확인해야 합니다."), "steps": steps[:6], "documents": docs[:8]}
+        summary = scrub_user_text(insurance.get("summary"), "대물 접수와 대인 접수 여부를 확인해야 합니다.")
+        if _needs_review(insurance):
+            summary = _section_notice(insurance, "보험 처리 방향은 일반 절차 기준의 참고 안내이며, 보험사 접수 후 실제 보장 범위와 서류를 다시 확인해야 합니다.")
+        return {"simple_summary": summary, "steps": steps[:6], "documents": docs[:8]}
 
     def make_legal_explanation(self, result: dict[str, Any]) -> dict[str, Any]:
         legal = result.get("legal_liability", {}) or {}
         facts = result.get("structured_facts", {}) or {}
         checklist = [scrub_user_text(x) for x in (legal.get("checklist") or []) if x] or ["다친 사람이 있는지 확인", "음주운전이나 무면허 여부 확인", "도주 여부 확인", "신호위반이나 중앙선 침범 같은 중대한 위반 여부 확인"]
         if facts.get("school_zone"): checklist.insert(0, "어린이보호구역 사고인지 확인")
-        return {"simple_summary": "신고나 형사 문제를 확인해 볼 필요가 있습니다." if legal.get("reporting_required") else "인명피해가 있거나 큰 위반이 의심되면 신고 여부를 확인해야 합니다.", "risk_label": risk_label(legal.get("criminal_risk_level")), "checklist": list(dict.fromkeys(checklist))[:7], "caution": "형사책임 여부는 경찰이나 법원의 판단이 필요합니다."}
+        if _needs_review(legal):
+            summary = "현재 근거만으로는 신고나 형사책임 여부를 단정하기 어렵고, 아래 항목을 추가로 확인해야 합니다."
+            label = "확인 필요"
+            caution = _section_notice(legal, "형사책임 여부는 경찰이나 법원의 판단이 필요하며, 직접적인 법률 근거가 보강되면 다시 확인해야 합니다.")
+        else:
+            summary = "신고나 형사 문제를 확인해 볼 필요가 있습니다." if legal.get("reporting_required") else "인명피해가 있거나 큰 위반이 의심되면 신고 여부를 확인해야 합니다."
+            label = risk_label(legal.get("criminal_risk_level"))
+            caution = "형사책임 여부는 경찰이나 법원의 판단이 필요합니다."
+        return {"simple_summary": summary, "risk_label": label, "checklist": list(dict.fromkeys(checklist))[:7], "caution": caution}
 
     def make_missing_info(self, result: dict[str, Any]) -> dict[str, Any]:
         facts = result.get("structured_facts", {}) or {}
@@ -99,3 +119,26 @@ class PlainLanguageAgent:
 
     def _shorten(self, text: str, max_len: int = 150) -> str:
         return text if len(text) <= max_len else text[: max_len - 1].rstrip() + "…"
+
+
+def _needs_review(section: dict[str, Any]) -> bool:
+    return section.get("judgment_status") in {"needs_review", "unsupported"} or section.get("evidence_support_level") in {"partial", "insufficient"}
+
+
+def _section_notice(section: dict[str, Any], fallback: str) -> str:
+    raw = section.get("caveats") or []
+    items = [raw] if isinstance(raw, (str, bytes)) else raw
+    caveats = [scrub_user_text(item) for item in items if item]
+    return caveats[0] if caveats else fallback
+
+
+def _review_reasons(section: dict[str, Any], existing: list[str]) -> list[str]:
+    reasons = list(existing)
+    support = section.get("evidence_support_level")
+    if support == "insufficient":
+        reasons.insert(0, "직접 연결된 근거가 부족하다는 점")
+    elif support == "partial":
+        reasons.insert(0, "직접 근거가 아닌 간접 근거가 포함되어 있다는 점")
+    if section.get("required_evidence_family") == "knia":
+        reasons.insert(0, "KNIA 과실비율 기준 확인이 더 필요하다는 점")
+    return list(dict.fromkeys(reasons))[:4]
