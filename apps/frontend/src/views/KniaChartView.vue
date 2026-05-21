@@ -2,8 +2,13 @@
   <section class="knia-chart-page">
     <div class="btn-row top-actions">
       <RouterLink class="btn secondary" to="/knia/ranking">검색순위로 돌아가기</RouterLink>
+      <button v-if="canCollectDetail" class="btn" :disabled="collectingDetail" @click="collectDetail">
+        {{ collectingDetail ? '상세 기준 수집 중...' : '상세 기준 수집' }}
+      </button>
       <a v-if="detailUrl" class="btn secondary" :href="detailUrl" target="_blank" rel="noopener noreferrer">KNIA 원문 보기</a>
     </div>
+    <p v-if="collectMessage" class="notice success">{{ collectMessage }}</p>
+    <p v-if="collectError" class="notice error">{{ collectError }}</p>
 
     <article v-if="chart" class="card hero-card detail-hero">
       <div>
@@ -17,6 +22,9 @@
           <span v-else class="chip detail-needed">상세 기준 수집 필요</span>
         </div>
         <p v-if="chart.category_path?.length" class="kv">메뉴 경로: {{ chart.category_path.map(text).join(' > ') }}</p>
+        <p v-if="chart.is_ranking_placeholder" class="soft-warning">
+          이 항목은 검색순위에만 저장되어 있어 상세 기준 본문 수집이 필요합니다.
+        </p>
         <p class="big-text">{{ text(chart.accident_explanation || chart.scenario_summary_easy || chart.accident_summary) }}</p>
       </div>
     </article>
@@ -132,12 +140,17 @@ import { computed, defineComponent, h, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { api, formatApiError } from "../api/client";
 import KniaVideoLinkCard from "../components/knia/KniaVideoLinkCard.vue";
+import { useSessionStore } from "../stores/session";
 import { sanitizeDisplayText } from "../utils/displaySanitizer";
 
 const route = useRoute();
+const session = useSessionStore();
 const chart = ref<any>(null);
 const loading = ref(false);
 const error = ref("");
+const collectingDetail = ref(false);
+const collectMessage = ref("");
+const collectError = ref("");
 const activeTab = ref("fault");
 const manualSelected = ref<string[]>([]);
 const tabs = [
@@ -155,6 +168,8 @@ const adjustmentFactors = computed(() => Array.isArray(chart.value?.adjustment_f
 const adjustmentExplanations = computed(() => Array.isArray(chart.value?.adjustment_explanations) ? chart.value.adjustment_explanations : []);
 const relatedLaws = computed(() => Array.isArray(chart.value?.related_laws) ? chart.value.related_laws : []);
 const caseReferences = computed(() => Array.isArray(chart.value?.case_references) ? chart.value.case_references : []);
+const isAdmin = computed(() => session.user?.role === "admin");
+const canCollectDetail = computed(() => Boolean(chart.value?.chart_no) && isAdmin.value && !chart.value?.detail_collected_at);
 const manualFault = computed(() => {
   let a = baseA.value;
   for (const factor of adjustmentFactors.value) {
@@ -180,6 +195,7 @@ const videoCard = computed(() => ({
 async function load() {
   loading.value = true;
   error.value = "";
+  collectError.value = "";
   try {
     const chartType = String(route.query.chartType || "1");
     const data = await api.getKniaChart(route.params.chartNo as string, chartType);
@@ -193,6 +209,24 @@ async function load() {
     loading.value = false;
   }
 }
+
+async function collectDetail() {
+  if (!chart.value?.chart_no) return;
+  collectingDetail.value = true;
+  collectMessage.value = "";
+  collectError.value = "";
+  try {
+    const chartNo = String(chart.value.chart_no);
+    await api.adminCollectKnia({ menu: false, ranking: false, charts: true, chart_nos: [chartNo], max_charts: 1 });
+    collectMessage.value = `${chartNo} 상세 기준을 수집했습니다. 화면을 다시 불러옵니다.`;
+    await load();
+  } catch (e) {
+    collectError.value = formatApiError(e, "KNIA 상세 기준 수집에 실패했습니다.");
+  } finally {
+    collectingDetail.value = false;
+  }
+}
+
 function numberOr(...values: any[]) {
   for (const value of values) {
     const n = Number(value);
@@ -226,13 +260,19 @@ const FaultBar = defineComponent({
   }
 });
 
-watch(() => route.fullPath, load);
+watch(() => route.fullPath, () => {
+  collectMessage.value = "";
+  load();
+});
 onMounted(load);
 </script>
 
 <style scoped>
 .knia-chart-page { display: grid; gap: 18px; }
 .top-actions { justify-content: space-between; }
+.notice { padding: 12px 14px; border-radius: 16px; font-weight: 800; }
+.notice.success { background: rgba(53, 211, 154, 0.13); border: 1px solid rgba(53, 211, 154, 0.35); color: #9ff5d4; }
+.notice.error { background: rgba(255, 112, 132, 0.13); border: 1px solid rgba(255, 112, 132, 0.35); color: #ffb7c3; white-space: pre-line; }
 .detail-hero { border-color: rgba(76, 216, 255, 0.28); }
 .detail-ok { background: rgba(57, 255, 194, 0.14); color: #9ff5d4; }
 .detail-needed { background: rgba(251, 191, 36, 0.13); color: #fde68a; }

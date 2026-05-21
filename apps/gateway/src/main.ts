@@ -1017,7 +1017,81 @@ app.get(`${env.apiPrefix}/knia/charts/:chartNo`, async (req, reply) => {
      LIMIT 1`,
     [chartNo, chartType]
   ).catch(() => ({ rowCount: 0, rows: [] as any[] }));
-  if (!row.rowCount) return reply.code(404).send(errorPayload("KNIA_CHART_NOT_FOUND", "과실비율 기준을 찾을 수 없습니다. 먼저 KNIA 수집을 실행해 주세요.", traceId));
+  if (!row.rowCount) {
+    const rankingRow = await db.query(
+      `SELECT chart_no, COALESCE(chart_type, '1') AS chart_type, title, source_category,
+              accident_party_type, source_url, source_detail_url, local_chart_url, chart_url, collected_at
+       FROM knia_ranking_items
+       WHERE chart_no=$1 AND COALESCE(chart_type, '1')=$2
+       ORDER BY collected_at DESC, rank ASC
+       LIMIT 1`,
+      [chartNo, chartType]
+    ).catch(() => ({ rowCount: 0, rows: [] as any[] }));
+    if (!rankingRow.rowCount) {
+      return reply.code(404).send(errorPayload("KNIA_CHART_NOT_FOUND", "과실비율 기준을 찾을 수 없습니다. 먼저 KNIA 수집을 실행해 주세요.", traceId));
+    }
+    const ranking = rankingRow.rows[0];
+    const sourceDetailUrl = ranking.source_detail_url || ranking.source_url;
+    return {
+      chart: {
+        chart_no: ranking.chart_no,
+        chart_type: ranking.chart_type,
+        title: ranking.title || `KNIA 과실비율 인정기준 ${ranking.chart_no}`,
+        vehicle_a_label: null,
+        vehicle_b_label: null,
+        category_path: [ranking.source_category].filter(Boolean),
+        accident_party_type: ranking.accident_party_type ?? "unknown",
+        accident_party_label: ranking.source_category ?? "사고유형 확인 필요",
+        vehicle_a_role: null,
+        vehicle_b_role: null,
+        vulnerable_road_user_type: null,
+        object_type: null,
+        scenario_summary_easy: "검색순위에는 포함되어 있지만 상세 기준 본문은 아직 로컬 DB에 수집되지 않았습니다.",
+        recommended_user_actions: ["관리자 권한으로 상세 기준 수집을 실행한 뒤 다시 확인해 주세요."],
+        display_tags: ["ranking_only"],
+        accident_summary: "검색순위에는 포함되어 있지만 상세 기준 본문은 아직 로컬 DB에 수집되지 않았습니다.",
+        applicable_text: "상세 기준 수집 후 KNIA 원문 적용 조건을 표시합니다.",
+        non_applicable_text: "상세 기준 수집 후 예외 조건과 주의 사항을 표시합니다.",
+        basic_fault_text: "상세 기준 수집 후 기본 과실비율을 표시합니다.",
+        base_fault_a: null,
+        base_fault_b: null,
+        applied_fault_a: null,
+        applied_fault_b: null,
+        accident_explanation: "상세 기준 수집이 필요한 KNIA 검색순위 항목입니다.",
+        accident_situation_lines: [],
+        adjustment_factors: [],
+        adjustment_explanations: [],
+        related_laws: [],
+        case_references: [],
+        source_url: ranking.source_url,
+        source_detail_url: sourceDetailUrl,
+        thumbnail_url: null,
+        video_url: null,
+        media_embed_url: null,
+        media_provider: "external_url",
+        related_video: {
+          display_mode: "external_link",
+          source_url: sourceDetailUrl || ranking.source_url,
+          embed_url: null,
+          thumbnail_url: null,
+          button_label: "KNIA 원문 보기",
+          attribution: "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털"
+        },
+        license_status: "source_link_only",
+        attribution: "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
+        updated_at: ranking.collected_at,
+        detail_collected_at: null,
+        is_ranking_placeholder: true,
+        adjustment_summary: {
+          adjustment_factor_count: 0,
+          adjustment_explanation_count: 0,
+          related_law_count: 0,
+          case_reference_count: 0,
+        }
+      },
+      trace_id: traceId
+    };
+  }
   const chart = row.rows[0];
   return {
     chart: {

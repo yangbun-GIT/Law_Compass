@@ -47,6 +47,8 @@ const requiredErrorUx = [
   "법률 근거가 부족합니다",
   "검색 조건에 맞는 기준이 없습니다",
   "상세 기준 수집 필요",
+  "상세 기준 수집",
+  "검색순위에만 저장",
   "KNIA 기준을 불러오지 못했습니다",
   "KNIA JSON 검색에 실패했습니다",
   "autocomplete=\"current-password\"",
