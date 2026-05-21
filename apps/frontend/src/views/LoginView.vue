@@ -27,6 +27,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { formatApiError } from "../api/client";
 import { useSessionStore } from "../stores/session";
 
 const email = ref("user@example.com");
@@ -47,7 +48,7 @@ async function submit() {
     const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "/";
     router.push(redirect);
   } catch (e: any) {
-    message.value = e.message;
+    message.value = formatApiError(e, "로그인에 실패했습니다.");
     ok.value = false;
   }
 }

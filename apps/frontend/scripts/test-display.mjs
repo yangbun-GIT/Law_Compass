@@ -19,4 +19,20 @@ if (leaked.length) {
   console.error("display sanitizer failed", leaked, mockVisibleText);
   process.exit(1);
 }
+
+import { readFileSync } from "node:fs";
+
+const apiClient = readFileSync("src/api/client.ts", "utf8");
+const requiredErrorUx = [
+  "export function formatApiError",
+  "normalizeValidation(data?.error?.details?.validation)",
+  "white-space: pre-line"
+];
+const styles = readFileSync("src/styles.css", "utf8");
+const missingErrorUx = requiredErrorUx.filter((token) => !(apiClient.includes(token) || styles.includes(token)));
+if (missingErrorUx.length) {
+  console.error("frontend error UX contract failed", missingErrorUx);
+  process.exit(1);
+}
+
 console.log("frontend_display_safety=passed");

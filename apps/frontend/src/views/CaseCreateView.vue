@@ -53,7 +53,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
-import { api, type AccidentFacts } from "../api/client";
+import { api, formatApiError, type AccidentFacts } from "../api/client";
 
 const DRAFT_KEY = "lawcompass:draftCase";
 const router = useRouter();
@@ -98,7 +98,7 @@ async function create() {
     localStorage.removeItem(DRAFT_KEY);
     await router.push(`/cases/${data.case.id}/wizard`);
   } catch (e: any) {
-    message.value = e.message || "케이스 생성에 실패했습니다.";
+    message.value = formatApiError(e, "케이스 생성에 실패했습니다.");
     ok.value = false;
   } finally {
     loading.value = false;

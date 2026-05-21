@@ -96,7 +96,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import EasyReportView from "../components/easy/EasyReportView.vue";
-import { api, type AccidentFacts, type UploadItem } from "../api/client";
+import { api, formatApiError, type AccidentFacts, type UploadItem } from "../api/client";
 const caseId = useRoute().params.caseId as string;
 const caseData = ref<any>(null);
 const descriptionText = ref("");
@@ -127,14 +127,14 @@ function applyPreset() {
 }
 function payload() { return { description_text: descriptionText.value, structured_facts: facts.value, selected_keywords: selectedKeywords.value, analysis_mode: analysisMode.value }; }
 async function loadCase() { const data = await api.getCase(caseId); caseData.value = data.case; descriptionText.value = data.case.description_text || ""; facts.value = { ...facts.value, ...(data.case.structured_facts || {}) }; selectedKeywords.value = data.case.selected_keywords?.length ? data.case.selected_keywords : selectedKeywords.value; analysisMode.value = data.case.analysis_mode || analysisMode.value; }
-async function saveCaseInputs() { try { const data = await api.updateCase(caseId, { description_text: descriptionText.value, structured_facts: facts.value, selected_keywords: selectedKeywords.value, analysis_mode: analysisMode.value }); caseData.value = data.case; message.value = "입력값을 저장했습니다."; messageOk.value = true; } catch (e: any) { message.value = e.message; messageOk.value = false; } }
+async function saveCaseInputs() { try { const data = await api.updateCase(caseId, { description_text: descriptionText.value, structured_facts: facts.value, selected_keywords: selectedKeywords.value, analysis_mode: analysisMode.value }); caseData.value = data.case; message.value = "입력값을 저장했습니다."; messageOk.value = true; } catch (e: any) { message.value = formatApiError(e, "입력값 저장에 실패했습니다."); messageOk.value = false; } }
 async function loadUploads() { const data = await api.getCaseUploads(caseId); uploads.value = data.items || []; if (!selectedUploadId.value && uploads.value.length) selectedUploadId.value = uploads.value[0].id; }
-async function uploadLocal() { if (!file.value) return; uploading.value = true; try { await saveCaseInputs(); const data = await api.localUpload(caseId, file.value); selectedUploadId.value = data.upload_id; message.value = "로컬 업로드가 완료되었습니다."; await loadUploads(); } catch (e: any) { message.value = e.message; messageOk.value = false; } finally { uploading.value = false; } }
-async function completeUpload() { try { const data = await api.completeUpload(activeUploadId.value); message.value = `전처리 작업 등록: ${data.job_id}`; await loadJobs(); startPollingJobs(); } catch (e: any) { message.value = e.message; messageOk.value = false; } }
+async function uploadLocal() { if (!file.value) return; uploading.value = true; try { await saveCaseInputs(); const data = await api.localUpload(caseId, file.value); selectedUploadId.value = data.upload_id; message.value = "로컬 업로드가 완료되었습니다."; messageOk.value = true; await loadUploads(); } catch (e: any) { message.value = formatApiError(e, "영상 업로드에 실패했습니다."); messageOk.value = false; } finally { uploading.value = false; } }
+async function completeUpload() { try { const data = await api.completeUpload(activeUploadId.value); message.value = `전처리 작업 등록: ${data.job_id}`; messageOk.value = true; await loadJobs(); startPollingJobs(); } catch (e: any) { message.value = formatApiError(e, "전처리 작업 등록에 실패했습니다."); messageOk.value = false; } }
 async function fetchViewUrl() { viewUrl.value = (await api.getViewUrl(activeUploadId.value)).view_url; }
 async function fetchDownloadUrl() { window.open((await api.getDownloadUrl(activeUploadId.value)).download_url, "_blank"); }
-async function analyzeText() { analyzing.value = true; try { await api.analyzeText(caseId, payload()); await loadReport(); } catch (e: any) { message.value = e.message; messageOk.value = false; } finally { analyzing.value = false; } }
-async function analyzeVideo() { analyzing.value = true; try { await saveCaseInputs(); const data = await api.analyzeVideo(caseId, { upload_id: activeUploadId.value, ...payload() }); message.value = `영상 분석 작업 등록: ${data.job_id}`; await loadJobs(); startPollingJobs(); } catch (e: any) { message.value = e.message; messageOk.value = false; } finally { analyzing.value = false; } }
+async function analyzeText() { analyzing.value = true; try { await api.analyzeText(caseId, payload()); message.value = "텍스트 분석을 완료했습니다."; messageOk.value = true; await loadReport(); } catch (e: any) { message.value = formatApiError(e, "텍스트 분석에 실패했습니다."); messageOk.value = false; } finally { analyzing.value = false; } }
+async function analyzeVideo() { analyzing.value = true; try { await saveCaseInputs(); const data = await api.analyzeVideo(caseId, { upload_id: activeUploadId.value, ...payload() }); message.value = `영상 분석 작업 등록: ${data.job_id}`; messageOk.value = true; await loadJobs(); startPollingJobs(); } catch (e: any) { message.value = formatApiError(e, "영상 분석 작업 등록에 실패했습니다."); messageOk.value = false; } finally { analyzing.value = false; } }
 async function loadJobs() { jobs.value = (await api.getJobs(caseId)).items || []; }
 async function loadReport() { try { report.value = await api.getEasyReport(caseId); } catch { report.value = null; } }
 async function loadAll() { await loadCase(); await loadUploads(); await loadJobs(); await loadReport(); }

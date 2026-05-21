@@ -52,13 +52,68 @@ export type UploadItem = {
 const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 const API_BASE = RAW_API_BASE.endsWith("/api/v1") ? RAW_API_BASE.slice(0, -"/api/v1".length) : RAW_API_BASE;
 
-type ApiError = Error & { code?: string; status?: number; traceId?: string };
+export type ApiValidationIssue = {
+  field: string;
+  message: string;
+  keyword?: string;
+};
 
-function makeApiError(message: string, code?: string, status?: number, traceId?: string) {
+export type ApiError = Error & {
+  code?: string;
+  status?: number;
+  traceId?: string;
+  validation?: ApiValidationIssue[];
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  "body.email": "이메일",
+  "body.password": "비밀번호",
+  "body.display_name": "표시 이름",
+  "body.title": "케이스 제목",
+  "body.description_text": "사고 설명",
+  "body.case_id": "케이스",
+  "body.file_name": "파일 이름",
+  "body.content_type": "파일 형식",
+  "body.file_size_bytes": "파일 크기",
+  "body.upload_id": "업로드"
+};
+
+function normalizeValidation(value: unknown): ApiValidationIssue[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const issues = value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const raw = item as Record<string, unknown>;
+      const field = typeof raw.field === "string" ? raw.field : "";
+      const message = typeof raw.message === "string" ? raw.message : "";
+      const keyword = typeof raw.keyword === "string" ? raw.keyword : undefined;
+      if (!field || !message) return null;
+      const issue: ApiValidationIssue = { field, message };
+      if (keyword) issue.keyword = keyword;
+      return issue;
+    })
+    .filter((item): item is ApiValidationIssue => item !== null);
+  return issues.length ? issues : undefined;
+}
+
+function fieldLabel(field: string) {
+  return FIELD_LABELS[field] || field.replace(/^body\./, "");
+}
+
+export function formatApiError(error: unknown, fallback = "요청 처리에 실패했습니다.") {
+  const apiError = error as Partial<ApiError> | undefined;
+  const message = typeof apiError?.message === "string" && apiError.message.trim() ? apiError.message : fallback;
+  if (!apiError?.validation?.length) return message;
+  const validationText = apiError.validation.map((issue) => `- ${fieldLabel(issue.field)}: ${issue.message}`).join("\n");
+  return `${message}\n${validationText}`;
+}
+
+function makeApiError(message: string, code?: string, status?: number, traceId?: string, validation?: ApiValidationIssue[]) {
   const err = new Error(message) as ApiError;
   err.code = code;
   err.status = status;
   err.traceId = traceId;
+  err.validation = validation;
   return err;
 }
 
@@ -81,7 +136,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw makeApiError("서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.", "INVALID_JSON_RESPONSE", res.status);
   }
   if (!res.ok) {
-    throw makeApiError(data?.error?.message || "요청 처리에 실패했습니다.", data?.error?.code, res.status, data?.error?.trace_id);
+    throw makeApiError(
+      data?.error?.message || "요청 처리에 실패했습니다.",
+      data?.error?.code,
+      res.status,
+      data?.error?.trace_id,
+      normalizeValidation(data?.error?.details?.validation)
+    );
   }
   return data as T;
 }

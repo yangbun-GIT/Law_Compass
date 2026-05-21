@@ -66,6 +66,7 @@ textarea { resize: vertical; min-height: 96px; }
 .badge.warn { color: #fde68a; border-color: rgba(250,204,21,0.6); }
 .badge.fail { color: #fecdd3; border-color: rgba(251,113,133,0.6); }
 
+.msg-error, .msg-ok { white-space: pre-line; }
 .msg-error { color: var(--danger); }
 .msg-ok { color: var(--ok); }
 

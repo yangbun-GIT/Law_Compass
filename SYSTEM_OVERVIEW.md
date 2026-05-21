@@ -244,7 +244,7 @@ Agent 주요 DTO:
 | 파일 | Key Methods | Input | Output | Core Logic |
 | --- | --- | --- | --- | --- |
 | `apps/frontend/src/router/index.ts` | `router.beforeEach` | 대상 route | redirect 또는 `true` | `session.bootstrap()` 후 인증 필요 route에서 미로그인 사용자를 `/login`으로 이동 |
-| `apps/frontend/src/api/client.ts` | `request<T>` | API path, `RequestInit` | typed JSON response | `fetch`에 cookie 포함, JSON 파싱, 오류 객체 정규화 |
+| `apps/frontend/src/api/client.ts` | `request<T>`, `formatApiError` | API path, `RequestInit`, API 오류 객체 | typed JSON response 또는 사용자 표시용 오류 문구 | `fetch`에 cookie 포함, JSON 파싱, 오류 객체 정규화, Gateway validation detail을 화면 표시용 필드 안내로 변환 |
 | `apps/frontend/src/api/client.ts` | `api.login`, `api.createCase`, `api.analyzeText`, `api.searchKniaJson` 등 | 화면 DTO | Gateway 응답 DTO | `/api/v1/*` 공개 API 호출을 함수 단위로 래핑 |
 | `apps/frontend/src/stores/session.ts` | `restoreLocal` | 없음 | 없음 | `localStorage`의 `lawcompass:user`를 읽어 세션 상태 복원 |
 | `apps/frontend/src/stores/session.ts` | `bootstrap` | 없음 | 없음 | `/auth/me` 실패 시 `/auth/refresh` 재시도 후 사용자 상태 갱신 |
@@ -326,7 +326,7 @@ Agent 주요 DTO:
 
 | 파일/영역 | Progress State | Test Status | Known Issues / Review Notes |
 | --- | --- | --- | --- |
-| `apps/frontend/src/api/client.ts` | 구현 완료 | `apps/frontend/scripts/test-display.mjs`, `apps/frontend/scripts/test-chat.mjs`에서 간접 검증 | 네트워크 오류와 JSON 파싱 오류를 사용자 문구로 정규화한다 |
+| `apps/frontend/src/api/client.ts` | 구현 완료 | `apps/frontend/scripts/test-display.mjs`, `apps/frontend/scripts/test-chat.mjs`에서 간접 검증 | 네트워크/JSON/API 오류를 사용자 문구로 정규화하고 Gateway validation detail을 로그인, 회원가입, 케이스 생성, 케이스 상세 주요 액션에서 필드별 안내로 표시한다 |
 | `apps/frontend/src/router/index.ts` | 구현 완료 | 전용 단위 테스트 없음 | 인증 bootstrap가 route guard마다 실행되므로 초기 진입 지연 가능성은 관찰 대상 |
 | `apps/frontend/src/stores/session.ts` | 구현 완료 | 전용 단위 테스트 없음 | localStorage 사용자 정보와 cookie 세션 불일치 시 refresh 흐름에 의존 |
 | `apps/gateway/src/main.ts` | 구현 완료, 라우트 규모 큼 | `apps/gateway/test/error-format.test.ts`, `npm test` | validation 오류는 400 `VALIDATION_ERROR`로 정규화된다. 한 파일에 인증/케이스/업로드/분석/KNIA/admin 라우트가 집중되어 유지보수 비용이 높다 |
@@ -459,7 +459,7 @@ Agent 주요 DTO:
 | --- | --- |
 | S3 업로드 구현 | Gateway에 AWS SDK 의존성은 있으나 `S3StorageProvider.putUpload()`가 `S3_STORAGE_NOT_ENABLED`를 던진다. 현재 실제 업로드 경로는 로컬 저장소 중심이다 |
 | 로그인 식별자 | DB와 API 스키마는 `email`만 로그인 식별자로 사용한다. 별도 `username` 또는 `login_id` 컬럼/입력은 보이지 않는다 |
-| 오류 응답 UX | Gateway validation 오류와 프론트 API client 오류 문구는 1차 정리되었다. 각 화면에서 field별 안내 문구를 표시하는 세부 UX는 추가 개선 여지가 있다 |
+| 오류 응답 UX | Gateway validation 오류와 프론트 API client 오류 문구가 정규화되었고 로그인, 회원가입, 케이스 생성, 케이스 상세의 저장/업로드/분석 주요 액션에서 field별 안내 문구를 표시한다. KNIA 조회 화면 등 일부 조회 중심 화면은 route-level 메시지 중심으로 남아 있다 |
 | 외부 API 권한 의존 | `docs/OPERATIONS.md`에 국가법령정보센터 IP/도메인 검증, 공공데이터포털 활용신청/권한 이슈 가능성이 명시되어 있다 |
 | Agent fallback | 법률 API 또는 KB 적재가 부족할 때 정적 fallback 근거를 반환하는 코드가 존재한다 |
 | 테스트 산출물/캐시 파일 | `__pycache__`, `dist`, `storage` 내 테스트/실행 산출물이 저장소에 존재한다 |

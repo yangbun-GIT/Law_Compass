@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { api } from "../api/client";
+import { api, formatApiError } from "../api/client";
 
 const email = ref("user@example.com");
 const name = ref("홍길동");
@@ -42,7 +42,7 @@ async function submit() {
     message.value = "가입 완료, 로그인 페이지로 이동하세요.";
     ok.value = true;
   } catch (e: any) {
-    message.value = e.message;
+    message.value = formatApiError(e, "회원가입에 실패했습니다.");
     ok.value = false;
   }
 }
