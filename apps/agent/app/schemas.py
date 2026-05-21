@@ -65,6 +65,7 @@ class AnalysisOutput(BaseModel):
     claim_evidence: dict[str, Any] = Field(default_factory=dict)
     agent_judgment: dict[str, Any] = Field(default_factory=dict)
     input_requirements: dict[str, Any] = Field(default_factory=dict)
+    followup_loop: dict[str, Any] = Field(default_factory=dict)
     required_input_questions: list[dict[str, Any]] = Field(default_factory=list)
     uncertainty: dict[str, Any]
     disclaimers: list[str]

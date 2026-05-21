@@ -4,6 +4,8 @@ from typing import Any
 
 
 VERSION = "agent-input-requirements-v1"
+LOOP_VERSION = "agent-followup-loop-v1"
+MAX_FOLLOWUP_ITERATIONS = 3
 
 EMPTY_VALUES = {None, "", "unknown", "모름", "None", "null"}
 
@@ -272,6 +274,44 @@ def input_question_texts(input_requirements: dict[str, Any] | None) -> list[str]
     return out
 
 
+def build_followup_loop_state(input_requirements: dict[str, Any], facts: dict[str, Any] | None) -> dict[str, Any]:
+    fact_map = facts or {}
+    blocking_fields = list(input_requirements.get("blocking_fields") or [])
+    optional_fields = list(input_requirements.get("optional_fields") or [])
+    remaining_fields = [*blocking_fields, *optional_fields]
+    iteration = _as_int(fact_map.get("_followup_iteration"), 0)
+    answered_fields = _string_list(fact_map.get("_followup_answered_fields"))
+    unresolved_fields = _string_list(fact_map.get("_followup_unresolved_fields"))
+    if not remaining_fields:
+        status = "complete"
+        stop_reason = "required_inputs_resolved"
+    elif iteration >= MAX_FOLLOWUP_ITERATIONS:
+        status = "stopped"
+        stop_reason = "max_iterations_reached"
+    elif not answered_fields and not unresolved_fields:
+        status = "waiting_for_input"
+        stop_reason = "awaiting_first_followup"
+    elif not blocking_fields:
+        status = "optional_followup_available"
+        stop_reason = "blocking_inputs_resolved"
+    else:
+        status = "continue"
+        stop_reason = "blocking_inputs_remaining"
+    return {
+        "version": LOOP_VERSION,
+        "status": status,
+        "iteration": iteration,
+        "max_iterations": MAX_FOLLOWUP_ITERATIONS,
+        "stop_reason": stop_reason,
+        "answered_fields": answered_fields,
+        "unresolved_fields": unresolved_fields,
+        "remaining_blocking_fields": blocking_fields,
+        "remaining_optional_fields": optional_fields,
+        "remaining_question_count": len(remaining_fields),
+        "can_request_more_input": status in {"waiting_for_input", "continue", "optional_followup_available"},
+    }
+
+
 def _base_spec_for_field(field: str, scenario_type: str) -> dict[str, Any]:
     spec = dict(BASE_FIELD_SPECS.get(field) or _unknown_spec(field))
     if field == "signal_state" and scenario_type not in SIGNAL_RELEVANT_SCENARIOS:
@@ -327,6 +367,12 @@ def _is_satisfied(field: str, facts: dict[str, Any], text: str, scenario_type: s
         return True
     if field == "accident_type" and scenario_type not in {"general_collision", "general_vehicle_collision", "unknown"}:
         return True
+    if scenario_type == "rear_end_collision" and field == "opponent_behavior":
+        if any(keyword in text for keyword in ("뒤에서", "후미", "뒷차", "추돌당", "받혔", "받힘")):
+            return True
+    if scenario_type == "rear_end_collision" and field == "stopped":
+        if any(keyword in text for keyword in ("정차", "신호대기", "멈춰", "주차")):
+            return True
     haystack = text.lower()
     return any(keyword.lower() in haystack for keyword in TEXT_SIGNALS.get(field, ()))
 
@@ -347,3 +393,20 @@ def _summary(blocking_fields: list[str], optional_fields: list[str]) -> str:
     if optional_fields:
         return f"판단 보강에 도움이 되는 추가 확인 항목 {len(optional_fields)}개가 있습니다."
     return "현재 입력만으로 필수 확인 항목은 충족된 상태입니다."
+
+
+def _as_int(value: Any, default: int) -> int:
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes)):
+        return [str(value)] if str(value).strip() else []
+    if isinstance(value, (list, tuple, set)):
+        return [str(item) for item in value if str(item).strip()]
+    return [str(value)]

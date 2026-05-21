@@ -188,7 +188,7 @@ export const api = {
 
   analyzeText: (caseId: string, payload: { description_text: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; ai_profile?: string; specialist_roles?: string[] }) =>
     request<any>(`/api/v1/cases/${caseId}/analyze-text`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
-  reanalyzeText: (caseId: string, payload: { description_text?: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; ai_profile?: string; specialist_roles?: string[] }) =>
+  reanalyzeText: (caseId: string, payload: { description_text?: string; structured_facts?: AccidentFacts; followup_answers?: Record<string, string>; selected_keywords?: string[]; analysis_mode?: string; ai_profile?: string; specialist_roles?: string[] }) =>
     request<any>(`/api/v1/cases/${caseId}/reanalyze`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
   analyzeVideo: (caseId: string, payload: { upload_id: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; specialist_roles?: string[] }) =>
     request<any>(`/api/v1/cases/${caseId}/analyze-video`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),

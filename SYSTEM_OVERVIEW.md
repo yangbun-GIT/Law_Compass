@@ -1,5 +1,31 @@
 # LawCompass 시스템 구성 명세서
 
+## 2026-05-22 Agent P1 보완 질문 루프 고도화
+
+보완 질문 답변을 프론트 임시 매핑에만 의존하지 않고 Gateway에서 서버 기준으로 정규화하며, Agent가 재분석 반복 상태와 종료 사유를 결과에 남기도록 보강했다. 이 변경은 기존 `/api/v1/cases/:caseId/reanalyze` 흐름을 확장하며 DB schema, Redis key, 환경 변수, 외부 API 계약은 변경하지 않는다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/lib/followup-normalizer.ts` | 사용자 보완 답변을 canonical `structured_facts` patch로 변환한다. 예: `다친 사람 없음 -> injury=false`, `상대 차량 -> opponent_lane_change=true`, `적색 -> red`, `확인 중 -> unresolved field`로 정규화한다. `_followup_iteration`, `_followup_answered_fields`, `_followup_unresolved_fields` 메타데이터도 함께 생성한다. |
+| `apps/gateway/src/main.ts` | `/api/v1/cases/:caseId/reanalyze`에서 `followup_answers`를 받아 서버 정규화 결과를 기존 케이스 facts와 병합한 뒤 Agent에 전달한다. 기존 `structured_facts` payload도 계속 허용한다. |
+| `apps/frontend/src/api/client.ts`, `apps/frontend/src/views/CaseResultView.vue` | 결과 화면의 보완 답변 제출 시 기존 `structured_facts`와 함께 원본 `followup_answers`도 Gateway에 전달해 서버 정규화가 항상 실행되도록 했다. |
+| `apps/agent/app/services/input_requirements.py` | `agent-followup-loop-v1`을 추가했다. 남은 blocking/optional 질문 수, 반복 횟수, 답변/미확인 필드, `complete`, `waiting_for_input`, `continue`, `optional_followup_available`, `stopped` 상태와 종료 사유를 산정한다. 후방추돌 문맥에서 `정차`, `뒤에서 추돌`이 문장에 있으면 정차 여부와 상대 행동을 반복 질문하지 않도록 만족 판정을 보강했다. |
+| `apps/agent/app/services/orchestrator.py`, `apps/agent/app/services/report_composer.py`, `apps/agent/app/schemas.py` | Agent 최종 결과에 `followup_loop`를 포함하고 `model_info.followup_loop`에도 기록한다. |
+| `apps/gateway/src/lib/report-composer.ts`, `apps/frontend/src/utils/displaySanitizer.ts`, `apps/frontend/src/utils/displaySanitizer.js` | `followup_loop` 내부 메타데이터가 일반 사용자 리포트에 원시 필드로 노출되지 않도록 필터링한다. |
+| `apps/gateway/test/followup-normalizer.test.ts`, `apps/agent/tests/test_input_requirements.py` | 보완 답변 정규화, 미확인 답변 처리, 반복 횟수 증가, blocking 질문 해소/최대 반복 도달 상태를 검증한다. |
+
+보완 루프 상태 의미:
+
+| 상태 | 의미 |
+| --- | --- |
+| `waiting_for_input` | 첫 보완 답변을 기다리는 상태 |
+| `continue` | 필수 질문이 아직 남아 추가 보완이 필요한 상태 |
+| `optional_followup_available` | 확정 판단을 막는 필수 질문은 해소됐고 선택 보완 질문만 남은 상태 |
+| `complete` | 남은 보완 질문이 없는 상태 |
+| `stopped` | 최대 보완 반복 횟수에 도달해 더 이상 질문을 늘리지 않는 상태 |
+
+현재 최대 반복 횟수는 Agent 내부 상수 `MAX_FOLLOWUP_ITERATIONS=3`이다. 이후 같은 영역의 다음 P1 작업은 영상 전처리 결과를 Agent 입력 계약으로 명확히 연결하는 단계다.
+
 ## 2026-05-22 Agent P1 LLM/fallback 책임 분리
 
 Agent P1 첫 단계로 LLM이 판단 수치나 근거 존재 여부를 임의로 결정하지 못하도록 섹션별 LLM 사용 정책을 추가했다. 이 변경은 외부 도구를 새로 도입하지 않고 기존 `OPENAI_API_KEY`, `ENABLE_OPENAI_ANALYSTS` 기반 호출 흐름에 정책 게이트와 결과 메타데이터를 더하는 방식이다. DB schema, Redis key, 환경 변수 이름, 외부 API 계약은 변경하지 않았다.

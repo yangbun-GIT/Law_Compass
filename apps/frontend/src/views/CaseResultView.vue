@@ -86,6 +86,7 @@ async function submitFollowup(answers: Record<string, string>) {
     const response = await api.reanalyzeText(caseId, {
       description_text: currentCase.description_text || "",
       structured_facts: nextFacts,
+      followup_answers: answers,
       selected_keywords: currentCase.selected_keywords || [],
       analysis_mode: currentCase.analysis_mode || "quick_summary",
     });

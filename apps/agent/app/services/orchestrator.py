@@ -15,7 +15,7 @@ from app.services.analysts.traffic_law_analyst import analyze_traffic_law
 from app.services.claim_evidence_validator import apply_claim_evidence_audit, validate_claim_evidence
 from app.services.elderly_friendly.report_simplifier import build_elderly_friendly_report
 from app.services.input_normalizer import normalize_analysis_input
-from app.services.input_requirements import build_input_requirements
+from app.services.input_requirements import build_followup_loop_state, build_input_requirements
 from app.services.judgment_contract import apply_judgment_contract_to_output, build_judgment_contract
 from app.services.keyword_recommender import recommend_keywords, suggest_next_inputs
 from app.services.knia.knia_matcher import match_knia_charts
@@ -120,6 +120,7 @@ def _analyze_core(
         missing_fields=normalized["missing_fields"],
         description_text=normalized["description_text"],
     )
+    followup_loop = build_followup_loop_state(input_requirements, normalized["structured_facts"])
     decision_blocking_missing_fields = list(input_requirements.get("blocking_fields") or [])
     knia_result = match_knia_charts(
         description_text=normalized["description_text"],
@@ -259,6 +260,7 @@ def _analyze_core(
         recommended_keywords=recommended_keywords,
         recommended_specialists=recommended_specialists,
         input_requirements=input_requirements,
+        followup_loop=followup_loop,
         suggested_next_inputs=suggested_next_inputs,
         llm_enabled=bool(os.getenv("OPENAI_API_KEY")),
         ai_profile=profile,

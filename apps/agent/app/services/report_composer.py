@@ -29,6 +29,7 @@ def compose_analysis_output(
     llm_enabled: bool,
     ai_profile: str,
     input_requirements: dict[str, Any] | None = None,
+    followup_loop: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     final_report_usage = evaluate_llm_usage(section="final_report", evidence=evidence, facts=normalized_input.get("structured_facts") or {})
     final = generate_final_report(normalized_input=normalized_input, scenario=scenario, evidence=evidence, legal_analysis=legal_analysis, fault_ratio=fault_ratio, legal_liability=legal_liability, insurance_guide=insurance_guide, action_plan=action_plan) if final_report_usage["allowed"] else None
@@ -39,6 +40,7 @@ def compose_analysis_output(
     uncertainty_level = evidence_audit.get("uncertainty_level", "medium")
     party_type_action_guide = party_type_action_guide or {}
     input_requirements = input_requirements or {}
+    followup_loop = followup_loop or {}
     technical = {
         "accident_summary": summary,
         "scenario_type": scenario["scenario_type"],
@@ -72,6 +74,7 @@ def compose_analysis_output(
         "disclaimers": ["본 결과는 법률/보험 자문이 아닌 AI 기반 참고 정보입니다.", "최종 과실비율, 보상금액, 형사책임은 수사기관, 보험사, 법원의 판단에 따릅니다.", "개인정보와 원본 영상은 필요한 범위에서만 보관하고, 민감정보 입력은 최소화해 주세요."],
         "followup_questions": evidence_audit.get("followup_questions", []),
         "input_requirements": input_requirements,
+        "followup_loop": followup_loop,
         "required_input_questions": input_requirements.get("questions") or [],
         "recommended_keywords": recommended_keywords,
         "recommended_specialists": recommended_specialists,
@@ -90,6 +93,7 @@ def compose_analysis_output(
                 "insurance_guidance": insurance_guide,
                 "final_report": {"llm_usage": final_report_usage},
             }),
+            "followup_loop": followup_loop,
         },
     }
     technical["elderly_friendly_report"] = build_elderly_friendly_report(technical)

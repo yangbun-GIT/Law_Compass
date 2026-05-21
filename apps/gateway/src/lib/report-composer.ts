@@ -9,7 +9,7 @@ const TECHNICAL_KEYS = new Set([
   "must_not_present_as_final", "user_reference_allowed", "agent_judgment_contract_version", "agent_judgment_overall_status",
   "decision_blockers", "decision_readiness", "knia_basis",
   "presentation_policy", "presentation_status", "restricted_sections", "finality",
-  "input_requirements", "required_input_questions", "blocking_fields", "optional_fields"
+  "input_requirements", "followup_loop", "required_input_questions", "blocking_fields", "optional_fields"
 ]);
 const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi];
 const SAFE_INPUT_FIELDS = new Set(["accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "pedestrian_signal", "bicycle_location", "bicycle_direction"]);

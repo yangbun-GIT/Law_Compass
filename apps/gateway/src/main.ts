@@ -11,6 +11,7 @@ import { Redis } from "ioredis";
 import bcrypt from "bcryptjs";
 import { callInternalAgent } from "./lib/internal-client.js";
 import { composeClientReport, composeDebugReport, composeEasyFallback, composeReanalysisChangeCard, enrichEasyReport, sanitizeEasyReport } from "./lib/report-composer.js";
+import { normalizeFollowupAnswers } from "./lib/followup-normalizer.js";
 import { maskSensitive, sha256 } from "./lib/security.js";
 import { errorPayload, requestErrorPayload, validationErrorPayload } from "./lib/errors.js";
 import { selectVideoAiRoute } from "./lib/ai-router.js";
@@ -822,9 +823,11 @@ app.post(`${env.apiPrefix}/cases/:caseId/reanalyze`, async (req, reply) => {
     [caseId, (req as any).user.id]
   );
   const previousResult = previousResultRow.rows[0]?.result ?? {};
+  const normalizedFollowup = normalizeFollowupAnswers(body?.followup_answers ?? body?.followupAnswers ?? {}, currentCase.structured_facts ?? {});
   const structuredFacts = {
     ...(currentCase.structured_facts ?? {}),
-    ...(body?.structured_facts ?? {})
+    ...(body?.structured_facts ?? {}),
+    ...normalizedFollowup.patch
   };
   const descriptionText = maskSensitive(body?.description_text ?? currentCase.description_text ?? "");
   const selectedKeywords = body?.selected_keywords ?? currentCase.selected_keywords ?? [];
