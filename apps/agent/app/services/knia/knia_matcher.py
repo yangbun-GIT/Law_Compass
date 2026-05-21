@@ -12,6 +12,7 @@ import redis
 from app.providers.embedding import get_embedding_provider, vector_literal
 from app.services.knia.knia_media_selector import select_media
 from app.services.knia.taxonomy import infer_party_type_from_text, party_actions, party_label
+from app.services.scenario_search_terms import scenario_search_terms
 
 DB_URL = os.getenv("DATABASE_URL", "postgresql://law:lawpass@postgres:5432/lawcompass")
 REDIS_URL = os.getenv("REDIS_URL", "")
@@ -51,7 +52,14 @@ def match_knia_charts(
     facts = structured_facts or {}
     keywords = selected_keywords or []
     party = accident_party_type or facts.get("accident_party_type") or infer_party_type_from_text(description_text, {**facts, "accident_type": scenario_type or facts.get("accident_type")})
-    q = normalize_query(" ".join([description_text or "", json.dumps(facts, ensure_ascii=False), " ".join(keywords), scenario_type or "", party or ""]))
+    expansion_terms = scenario_search_terms(
+        scenario_type=scenario_type,
+        scenario_tags=SCENARIO_TO_TAGS.get(scenario_type or "", []),
+        facts=facts,
+        selected_keywords=keywords,
+        accident_party_type=party,
+    )
+    q = normalize_query(" ".join([description_text or "", json.dumps(facts, ensure_ascii=False), " ".join(keywords), scenario_type or "", party or "", " ".join(expansion_terms)]))
     chart_direct = re.search(r"[차보자기단]\d{1,3}(?:-\d+)?", q)
     tags = list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)]))
     cache_key = "knia:match:v2:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
@@ -59,7 +67,7 @@ def match_knia_charts(
     if cache:
         cached = cache.get(cache_key)
         if cached:
-            return {"items": json.loads(cached), "cache_hit": True, "cache_key": cache_key, "accident_party_type": party}
+            return {"items": json.loads(cached), "cache_hit": True, "cache_key": cache_key, "accident_party_type": party, "query_expansion_terms": expansion_terms}
     try:
         if chart_direct:
             items = _direct_lookup(chart_direct.group(0), limit)
@@ -71,7 +79,7 @@ def match_knia_charts(
         items = []
     if cache:
         cache.setex(cache_key, 900, json.dumps(items, ensure_ascii=False))
-    return {"items": items, "cache_hit": False, "cache_key": cache_key, "accident_party_type": party}
+    return {"items": items, "cache_hit": False, "cache_key": cache_key, "accident_party_type": party, "query_expansion_terms": expansion_terms}
 
 
 def _tags_from_text(text: str, party: str | None = None) -> list[str]:

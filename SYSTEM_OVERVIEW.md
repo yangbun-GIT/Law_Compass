@@ -521,3 +521,17 @@ docker compose exec agent python scripts/ingest_kb.py
 7. `apps/agent/app/routers/internal.py` 내부 분석 API 변경 여부
 8. `infra/postgres/migrations` 테이블/인덱스 변경 여부
 9. `apps/frontend/src/api/client.ts` 프론트 DTO 및 API 호출 변경 여부
+
+## 2026-05-21 Agent 검색 품질 보강 기록
+
+Agent 레이어의 판례/법률 RAG, KNIA 기준 매칭, 추천 키워드가 서로 다른 검색어 기준을 쓰면 같은 사고 입력이라도 근거 검색 품질이 흔들릴 수 있어 공통 검색어 보강 모듈을 추가했다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/scenario_search_terms.py` | 시나리오, 태그, 사고 당사자 유형, 구조화 사실을 표준 검색어로 확장하는 공통 모듈 |
+| `apps/agent/app/services/rag_client.py` | 법률 근거 검색 전에 시나리오 검색어를 붙이고 `query_expansion_terms`를 retrieval 메타데이터에 기록 |
+| `apps/agent/app/services/knia/knia_matcher.py` | KNIA FTS/vector/tag 검색 쿼리에 시나리오별 표준 검색어를 반영하고 `knia_query_expansion_terms` 추적 가능 |
+| `apps/agent/app/services/keyword_recommender.py` | 추천 키워드와 후속 입력 안내를 공통 검색어 기준으로 정리 |
+| `apps/agent/tests/test_scenario_search_terms.py` | 검색어 확장, 추천 키워드, 주정차 분류 회귀 테스트 |
+
+DB schema, Redis key, 외부 API, 환경 변수 변경은 없다. Agent 최종 응답의 `model_info.retrieval`에는 `query_expansion_terms`, `knia_query_expansion_terms`가 추가된다. 실제 근거 품질은 DB에 적재된 법률 KB/KNIA 원문 상세 기준의 충실도에 계속 의존하므로 다음 Agent 단계에서는 직접 관련성 점수 하한과 시나리오별 필수 근거군 검증을 보강해야 한다.

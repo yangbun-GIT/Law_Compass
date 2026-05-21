@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+import json
+from typing import Any
+
+
+SCENARIO_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
+    "rear_end_collision": ("후미추돌", "뒤차 추돌", "안전거리", "정차 중 추돌", "급정거"),
+    "lane_change_collision": ("차선변경", "진로변경", "방향지시등", "깜빡이", "측면충돌", "사각지대"),
+    "intersection_signal_violation": ("교차로", "신호위반", "적색신호", "좌회전", "직진", "우선권"),
+    "pedestrian_crosswalk_accident": ("보행자", "횡단보도", "보행자 보호의무", "무단횡단", "인명피해"),
+    "school_zone_child_accident": ("어린이보호구역", "민식이법", "어린이", "제한속도", "보행자 보호의무"),
+    "bicycle_collision": ("자전거", "차대 자전거", "자전거도로", "교차로 자전거", "취약 교통참여자"),
+    "object_collision": ("시설물 충돌", "기물 파손", "가드레일", "전봇대", "중앙분리대", "대물배상"),
+    "single_vehicle_accident": ("단독사고", "도로이탈", "전복", "빗길", "눈길", "운전자 부주의"),
+    "parking_or_stopped_vehicle_accident": ("주차 차량", "정차 차량", "주정차", "개문 사고", "정차 중 접촉"),
+    "drunk_or_unlicensed_accident": ("음주운전", "무면허운전", "12대 중과실", "형사책임", "보험 면책"),
+    "hit_and_run_risk": ("뺑소니", "도주", "사고 후 미조치", "신고의무", "구호조치"),
+    "general_collision": ("교통사고", "과실비율", "보험접수", "블랙박스", "사고 경위"),
+}
+
+TAG_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
+    "injury": ("부상", "진단서", "대인접수"),
+    "school_zone": ("어린이보호구역", "제한속도"),
+    "child_protection": ("어린이", "보호의무"),
+    "pedestrian": ("보행자", "횡단보도"),
+    "bicycle": ("자전거", "취약 교통참여자"),
+    "object": ("시설물", "기물 파손"),
+    "single_vehicle": ("단독사고", "도로이탈"),
+    "intersection": ("교차로", "우선권"),
+    "signal_violation": ("신호위반", "적색신호"),
+    "lane_change": ("차선변경", "진로변경"),
+    "rear_end": ("후미추돌", "안전거리"),
+    "parking": ("주정차", "정차 차량"),
+    "safe_distance": ("안전거리", "급정거"),
+    "reporting_duty": ("신고의무", "구호조치"),
+    "twelve_gross_negligence": ("12대 중과실", "형사책임"),
+}
+
+PARTY_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
+    "car_vs_car": ("차대차", "상대 차량"),
+    "car_vs_person": ("차대 보행자", "보행자 보호의무"),
+    "car_vs_bicycle": ("차대 자전거", "자전거 사고"),
+    "car_vs_object": ("차대 시설물", "대물배상"),
+    "single_vehicle": ("단독사고", "운전자 부주의"),
+}
+
+
+def scenario_search_terms(
+    *,
+    scenario_type: str | None,
+    scenario_tags: list[str] | None = None,
+    facts: dict[str, Any] | None = None,
+    selected_keywords: list[str] | None = None,
+    accident_party_type: str | None = None,
+    max_terms: int = 18,
+) -> list[str]:
+    facts = facts or {}
+    terms: list[str] = []
+    _extend_unique(terms, SCENARIO_SEARCH_TERMS.get(scenario_type or "", ()))
+    for tag in scenario_tags or []:
+        _extend_unique(terms, TAG_SEARCH_TERMS.get(str(tag), ()))
+
+    party = accident_party_type or facts.get("accident_party_type") or facts.get("party_type")
+    _extend_unique(terms, PARTY_SEARCH_TERMS.get(str(party or ""), ()))
+
+    if facts.get("injury"):
+        _extend_unique(terms, ("부상", "진단서", "대인접수", "인명피해"))
+    if facts.get("stopped"):
+        _extend_unique(terms, ("정차 중", "정차 차량", "후미추돌"))
+    if facts.get("lane_change"):
+        _extend_unique(terms, ("차선변경", "진로변경", "방향지시등"))
+    if facts.get("intersection"):
+        _extend_unique(terms, ("교차로", "우선권", "신호"))
+    if facts.get("crosswalk_nearby"):
+        _extend_unique(terms, ("횡단보도", "보행자 보호의무"))
+    if facts.get("school_zone"):
+        _extend_unique(terms, ("어린이보호구역", "제한속도"))
+
+    for keyword in selected_keywords or []:
+        if isinstance(keyword, str) and keyword.strip():
+            terms.append(keyword.strip())
+
+    return _dedupe(terms)[:max_terms]
+
+
+def expand_query_text(
+    base_text: str,
+    *,
+    scenario_type: str | None,
+    scenario_tags: list[str] | None = None,
+    facts: dict[str, Any] | None = None,
+    selected_keywords: list[str] | None = None,
+    accident_party_type: str | None = None,
+    max_terms: int = 18,
+) -> str:
+    terms = scenario_search_terms(
+        scenario_type=scenario_type,
+        scenario_tags=scenario_tags,
+        facts=facts,
+        selected_keywords=selected_keywords,
+        accident_party_type=accident_party_type,
+        max_terms=max_terms,
+    )
+    normalized_base = _compact_text(base_text)
+    additions = [term for term in terms if _compact_text(term) not in normalized_base]
+    if not additions:
+        return base_text
+    return " ".join([base_text or "", "검색보강", *additions]).strip()
+
+
+def evidence_query_payload(
+    *,
+    description_text: str,
+    facts: dict[str, Any] | None,
+    selected_keywords: list[str] | None,
+    scenario_type: str | None,
+    scenario_tags: list[str] | None,
+    accident_party_type: str | None,
+) -> dict[str, Any]:
+    terms = scenario_search_terms(
+        scenario_type=scenario_type,
+        scenario_tags=scenario_tags,
+        facts=facts,
+        selected_keywords=selected_keywords,
+        accident_party_type=accident_party_type,
+    )
+    return {
+        "scenario_type": scenario_type or "general_collision",
+        "accident_party_type": accident_party_type or (facts or {}).get("accident_party_type") or "unknown",
+        "query_terms": terms,
+        "query_text": " ".join(
+            [
+                description_text or "",
+                json.dumps(facts or {}, ensure_ascii=False),
+                " ".join(selected_keywords or []),
+                " ".join(terms),
+            ]
+        ).strip(),
+    }
+
+
+def _extend_unique(target: list[str], values: tuple[str, ...]) -> None:
+    for value in values:
+        if value:
+            target.append(value)
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value).strip()
+        key = _compact_text(text)
+        if text and key and key not in seen:
+            out.append(text)
+            seen.add(key)
+    return out
+
+
+def _compact_text(value: str | None) -> str:
+    return " ".join(str(value or "").lower().split())

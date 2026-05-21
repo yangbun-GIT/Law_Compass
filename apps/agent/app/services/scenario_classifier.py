@@ -48,13 +48,14 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
     elif any(w in haystack for w in ["뺑소니", "도주"]):
         scenario_type = "hit_and_run_risk"
         tags.update(["hit_and_run", "reporting_duty"])
+    elif any(w in haystack for w in ["주차", "주정차"]):
+        scenario_type = "parking_or_stopped_vehicle_accident"
+        accident_party_type = "car_vs_car"
+        tags.update(["stopped_vehicle", "parking"])
     elif facts.get("stopped") or any(w in haystack for w in ["후미", "뒤차", "후방", "안전거리", "정차"]):
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance", "stopped_vehicle"])
-    elif any(w in haystack for w in ["주차", "주정차"]):
-        scenario_type = "parking_or_stopped_vehicle_accident"
-        tags.update(["stopped_vehicle", "parking"])
 
     if facts.get("injury"):
         tags.add("injury")

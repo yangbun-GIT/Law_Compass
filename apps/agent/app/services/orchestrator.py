@@ -22,6 +22,7 @@ from app.services.rag_client import retrieve_for_scenario
 from app.services.rag.two_stage_cache import search_knia_json_cached
 from app.services.report_composer import compose_analysis_output
 from app.services.scenario_classifier import classify_scenario
+from app.services.scenario_search_terms import evidence_query_payload
 from app.services.specialists import pick_specialists
 from app.services.video_context_analyzer import summarize_video_context
 
@@ -110,8 +111,16 @@ def _analyze_core(
         limit=5,
     )
     knia_matches = knia_result.get("items") or []
+    evidence_query = evidence_query_payload(
+        description_text=normalized["description_text"],
+        facts=normalized["structured_facts"],
+        selected_keywords=normalized["selected_keywords"],
+        scenario_type=scenario.get("scenario_type"),
+        scenario_tags=scenario.get("scenario_tags"),
+        accident_party_type=scenario.get("accident_party_type"),
+    )
     knia_json_result = search_knia_json_cached(
-        " ".join([normalized["description_text"], " ".join(normalized["selected_keywords"])]),
+        evidence_query["query_text"],
         accident_party_type=scenario.get("accident_party_type"),
         scenario_type=scenario.get("scenario_type"),
         limit=5,
@@ -142,7 +151,7 @@ def _analyze_core(
         scenario_type=scenario["scenario_type"],
         scenario_tags=scenario["scenario_tags"],
         description_text=normalized["description_text"],
-        facts=normalized["structured_facts"],
+        facts={**normalized["structured_facts"], "accident_party_type": scenario.get("accident_party_type")},
         selected_keywords=normalized["selected_keywords"],
         video_context=video_context,
         limit=8,
@@ -225,6 +234,8 @@ def _analyze_core(
         "knia_cache_hit": knia_result.get("cache_hit"),
         "knia_cache_key": knia_result.get("cache_key"),
         "knia_json_cache": knia_json_result.get("cache"),
+        "query_expansion_terms": retrieval.get("query_expansion_terms") or evidence_query.get("query_terms"),
+        "knia_query_expansion_terms": knia_result.get("query_expansion_terms") or [],
     }
     output["model_info"]["scenario_classifier"] = scenario
     return output
