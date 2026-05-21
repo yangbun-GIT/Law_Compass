@@ -1,5 +1,32 @@
 # LawCompass 시스템 구성 명세서
 
+## 2026-05-22 Agent P1 LLM/fallback 책임 분리
+
+Agent P1 첫 단계로 LLM이 판단 수치나 근거 존재 여부를 임의로 결정하지 못하도록 섹션별 LLM 사용 정책을 추가했다. 이 변경은 외부 도구를 새로 도입하지 않고 기존 `OPENAI_API_KEY`, `ENABLE_OPENAI_ANALYSTS` 기반 호출 흐름에 정책 게이트와 결과 메타데이터를 더하는 방식이다. DB schema, Redis key, 환경 변수 이름, 외부 API 계약은 변경하지 않았다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/llm_policy.py` | `llm-policy-v1`을 추가했다. traffic law, fault ratio, criminal liability, insurance, action plan, final report 섹션별로 LLM 허용 조건, 필요한 근거군, LLM이 생성해도 되는 출력, 결정론적 로직이 우선하는 출력 필드를 정의한다. |
+| `apps/agent/app/services/analysts/traffic_law_analyst.py` | 법률 근거가 있을 때만 LLM 보조 해석을 허용하고, 적용 법규와 판단 상태는 근거/guard가 우선하도록 `llm_usage`와 `analysis_source`를 남긴다. |
+| `apps/agent/app/services/analysts/fault_ratio_analyst.py` | KNIA 근거가 없으면 과실비율 LLM 호출을 차단한다. 과실 수치, 사용자 관점 변환, KNIA 산정값은 결정론적 로직과 KNIA 산정기가 우선한다. |
+| `apps/agent/app/services/analysts/criminal_liability_analyst.py` | 법률 근거가 있을 때만 형사책임 체크리스트 보조 생성을 허용하고, 신고 필요 여부와 위험도는 guard와 입력 사실 중심으로 유지한다. |
+| `apps/agent/app/services/analysts/insurance_analyst.py`, `apps/agent/app/services/analysts/action_plan_analyst.py` | LLM은 절차 안내와 행동 목록 보조에만 사용하고, 보상금액이나 책임 확정 표현을 생성하는 역할로 쓰지 않는다. |
+| `apps/agent/app/services/report_composer.py` | 최종 리포트 LLM 호출도 요약 전용 정책을 통과할 때만 실행한다. `model_info.llm_policy`에 섹션별 LLM 허용/사용/차단 사유를 기록한다. |
+| `apps/gateway/src/lib/report-composer.ts`, `apps/frontend/src/utils/displaySanitizer.ts`, `apps/frontend/src/utils/displaySanitizer.js` | `llm_usage`, `llm_policy`, `analysis_source` 등 내부 정책 필드가 일반 사용자 화면에 원시 JSON으로 노출되지 않도록 필터링한다. |
+| `apps/agent/tests/test_llm_policy.py`, `apps/agent/tests/test_orchestrator.py` | KNIA 근거가 없는 과실비율 LLM 호출 차단, 법률 근거가 있는 법률 분석 허용, Agent 결과의 `model_info.llm_policy` 포함 여부를 검증한다. |
+
+정책의 핵심은 다음과 같다.
+
+| 섹션 | LLM 허용 범위 | 결정론적 우선 영역 |
+| --- | --- | --- |
+| 법률 분석 | 검색된 법률 근거의 쉬운 해석, 위험 플래그, 추가 확인 사실 정리 | 적용 법규 존재 여부, 근거 ID, 판단 상태 |
+| 과실비율 | KNIA 근거가 있을 때 설명과 key factor 보조 | `my/other` 수치, KNIA 기준 매칭, 사용자 차량 역할, KNIA 가감요소 산정 |
+| 형사책임 | 법률 근거 기반 체크리스트 보조 | 신고 필요 여부, 형사 리스크 등급, 판단 상태 |
+| 보험 안내/행동 계획 | 절차 안내와 필요 서류, 행동 순서 보조 | 보상금액 확정, 책임 확정, 과실 판단 |
+| 최종 리포트 | 이미 검증된 섹션을 쉬운 문장으로 요약 | 과실, 법률책임, 근거, Agent 판단 계약 |
+
+현재 LLM은 `ENABLE_OPENAI_ANALYSTS=1`이고 `OPENAI_API_KEY`가 있을 때만 후보가 되며, 각 섹션의 필수 근거군이 부족하면 deterministic fallback으로 내려간다. 이 단계 이후 P1의 다음 작업은 보완 질문 답변을 반복 분석 루프에서 정규화하고 종료 조건을 명확히 하는 것이다.
+
 ## 2026-05-21 Agent P0 판단 골격 보강
 
 Agent 레이어의 P0 골격을 보강하여 “입력 부족”, “근거 부족”, “KNIA 기준 부족”, “확정 판단 불가”가 하나의 `needs_review` 상태로 뭉개지지 않도록 판단 계약을 세분화했다. 이 변경은 Agent/Gateway/Frontend 표시 필터와 테스트만 수정하며, DB schema, Redis key, 환경 변수, 외부 API 계약은 변경하지 않았다.

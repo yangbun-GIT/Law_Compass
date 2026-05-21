@@ -4,6 +4,7 @@ from typing import Any
 
 from app.services.analyst_output_guard import guard_criminal_liability_output
 from app.services.llm_client import generate_criminal_liability_analysis
+from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage
 
 
 def analyze_criminal_liability(
@@ -14,16 +15,17 @@ def analyze_criminal_liability(
     legal_analysis: dict[str, Any],
     text: str,
 ) -> dict[str, Any]:
-    llm = generate_criminal_liability_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence, legal_analysis=legal_analysis)
+    llm_usage = evaluate_llm_usage(section="criminal_liability_analysis", evidence=evidence, facts=facts)
+    llm = generate_criminal_liability_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence, legal_analysis=legal_analysis) if llm_usage["allowed"] else None
     if llm:
-        return guard_criminal_liability_output(llm, evidence)
+        return attach_llm_usage(guard_criminal_liability_output(llm, evidence), llm_usage, used=True)
 
     risk_flags = set(legal_analysis.get("risk_flags", []))
     if facts.get("injury"):
         risk_flags.add("injury_reporting_review")
     reporting_required = bool(facts.get("injury") or scenario_type in {"school_zone_child_accident", "hit_and_run_risk", "drunk_or_unlicensed_accident"})
     level = "high" if scenario_type in {"school_zone_child_accident", "hit_and_run_risk", "drunk_or_unlicensed_accident"} else ("medium" if reporting_required else "low")
-    return guard_criminal_liability_output({
+    return attach_llm_usage(guard_criminal_liability_output({
         "reporting_required": reporting_required,
         "criminal_risk_level": level,
         "risk_flags": sorted(risk_flags),
@@ -35,4 +37,4 @@ def analyze_criminal_liability(
         ],
         "note": "형사책임은 수사기관과 법원의 판단 영역이며, 본 결과는 검토 필요성을 알려주는 참고 정보입니다.",
         "evidence_ids": [ev.get("chunk_id") for ev in evidence[:6] if ev.get("chunk_id")],
-    }, evidence)
+    }, evidence), llm_usage, used=False)

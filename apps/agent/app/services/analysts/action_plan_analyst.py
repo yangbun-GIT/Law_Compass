@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.services.llm_client import generate_action_plan
+from app.services.llm_policy import evaluate_llm_usage
 
 
 def analyze_action_plan(
@@ -14,7 +15,8 @@ def analyze_action_plan(
     evidence: list[dict[str, Any]],
     text: str,
 ) -> list[str]:
-    llm = generate_action_plan(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence)
+    llm_usage = evaluate_llm_usage(section="action_plan", evidence=evidence, facts=facts)
+    llm = generate_action_plan(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence) if llm_usage["allowed"] else None
     if isinstance(llm, dict) and isinstance(llm.get("action_plan"), list):
         return [str(x) for x in llm["action_plan"]]
     actions = ["블랙박스 원본과 추출된 대표 프레임을 보관하세요.", "보험사에 사고를 접수하고 사고접수번호를 기록하세요.", "차량 파손 사진과 수리 견적서를 확보하세요."]

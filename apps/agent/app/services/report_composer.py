@@ -3,6 +3,7 @@ from typing import Any
 from app.services.elderly_friendly.report_simplifier import build_elderly_friendly_report
 from app.services.elderly_friendly.ui_text_mapper import scenario_label
 from app.services.llm_client import generate_final_report
+from app.services.llm_policy import evaluate_llm_usage, summarize_case_llm_policy
 
 
 def compose_analysis_output(
@@ -29,8 +30,10 @@ def compose_analysis_output(
     ai_profile: str,
     input_requirements: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    final = generate_final_report(normalized_input=normalized_input, scenario=scenario, evidence=evidence, legal_analysis=legal_analysis, fault_ratio=fault_ratio, legal_liability=legal_liability, insurance_guide=insurance_guide, action_plan=action_plan)
+    final_report_usage = evaluate_llm_usage(section="final_report", evidence=evidence, facts=normalized_input.get("structured_facts") or {})
+    final = generate_final_report(normalized_input=normalized_input, scenario=scenario, evidence=evidence, legal_analysis=legal_analysis, fault_ratio=fault_ratio, legal_liability=legal_liability, insurance_guide=insurance_guide, action_plan=action_plan) if final_report_usage["allowed"] else None
     summary = final.get("accident_summary") if isinstance(final, dict) else None
+    final_report_usage = {**final_report_usage, "used": bool(summary)}
     if not summary:
         summary = _fallback_summary(normalized_input, scenario, legal_analysis)
     uncertainty_level = evidence_audit.get("uncertainty_level", "medium")
@@ -73,7 +76,21 @@ def compose_analysis_output(
         "recommended_keywords": recommended_keywords,
         "recommended_specialists": recommended_specialists,
         "suggested_next_inputs": suggested_next_inputs,
-        "model_info": {"orchestrator": "legal-rag-multi-analyst-v2-party-type", "ai_profile": ai_profile, "llm_enabled": llm_enabled, "rag_top_k": len(evidence), "evidence_cache_key": evidence[0].get("cache_key") if evidence else None, "security_flags": normalized_input["security_flags"]},
+        "model_info": {
+            "orchestrator": "legal-rag-multi-analyst-v2-party-type",
+            "ai_profile": ai_profile,
+            "llm_enabled": llm_enabled,
+            "rag_top_k": len(evidence),
+            "evidence_cache_key": evidence[0].get("cache_key") if evidence else None,
+            "security_flags": normalized_input["security_flags"],
+            "llm_policy": summarize_case_llm_policy({
+                "traffic_law_analysis": legal_analysis,
+                "fault_ratio_analysis": fault_ratio,
+                "criminal_liability_analysis": legal_liability,
+                "insurance_guidance": insurance_guide,
+                "final_report": {"llm_usage": final_report_usage},
+            }),
+        },
     }
     technical["elderly_friendly_report"] = build_elderly_friendly_report(technical)
     return technical

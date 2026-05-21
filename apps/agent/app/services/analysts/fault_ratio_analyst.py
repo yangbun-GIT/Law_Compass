@@ -13,6 +13,7 @@ from app.services.accident_perspective import (
     infer_user_vehicle_role,
 )
 from app.services.llm_client import generate_fault_ratio_analysis
+from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage
 
 
 def analyze_fault_ratio(
@@ -22,9 +23,10 @@ def analyze_fault_ratio(
     evidence: list[dict[str, Any]],
     text: str,
 ) -> dict[str, Any]:
-    llm = generate_fault_ratio_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence)
+    llm_usage = evaluate_llm_usage(section="fault_ratio_analysis", evidence=evidence, facts=facts)
+    llm = generate_fault_ratio_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence) if llm_usage["allowed"] else None
     if llm:
-        return guard_fault_ratio_output(_normalize(llm, evidence), evidence)
+        return attach_llm_usage(guard_fault_ratio_output(_normalize(llm, evidence), evidence), llm_usage, used=True)
 
     knia = next((ev for ev in evidence if ev.get("source_type") == "knia_fault_standard"), None)
     user_vehicle_role = infer_user_vehicle_role(text, facts, scenario_type)
@@ -57,7 +59,7 @@ def analyze_fault_ratio(
     basis = "사고 유형, 구조화 입력, 법률 RAG 근거를 함께 반영한 참고용 과실 추정입니다."
     if knia:
         basis = "KNIA 과실비율 인정기준과 법률 RAG 근거를 함께 반영한 참고용 과실 추정입니다."
-    return guard_fault_ratio_output({
+    return attach_llm_usage(guard_fault_ratio_output({
         "my": my,
         "other": other,
         "confidence": confidence,
@@ -66,7 +68,7 @@ def analyze_fault_ratio(
         "key_factors": ["사고 유형", "신호·정차·차선변경 여부", "인명피해 여부", "관련 법규와 KNIA 기준"],
         "user_vehicle_role": user_vehicle_role,
         "evidence_ids": [ev.get("chunk_id") for ev in evidence[:6] if ev.get("chunk_id")],
-    }, evidence)
+    }, evidence), llm_usage, used=False)
 
 
 def _normalize(data: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str, Any]:

@@ -26,5 +26,7 @@ def test_analyze_case_minimum_fields():
     assert "evidence_support_level" in result["fault_ratio"]
     assert "evidence_support_level" in result["legal_liability"]
     assert "evidence_support_level" in result["insurance_guide"]
+    assert result["model_info"]["llm_policy"]["version"] == "llm-policy-v1"
+    assert "fault_ratio_analysis" in result["model_info"]["llm_policy"]["sections"]
     AnalysisOutput(**result)
 
