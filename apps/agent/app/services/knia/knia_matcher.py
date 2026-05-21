@@ -62,7 +62,7 @@ def match_knia_charts(
     q = normalize_query(" ".join([description_text or "", json.dumps(facts, ensure_ascii=False), " ".join(keywords), scenario_type or "", party or "", " ".join(expansion_terms)]))
     chart_direct = re.search(r"[차보자기단]\d{1,3}(?:-\d+)?", q)
     tags = list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)]))
-    cache_key = "knia:match:v4:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+    cache_key = "knia:match:v5:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
     cache = _redis_client()
     if cache:
         cached = cache.get(cache_key)
@@ -199,6 +199,17 @@ def _hybrid_lookup(
 
 def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any], joined_text: str) -> bool:
     chart_no = str(row.get("chart_no") or "")
+    party = _row_party_type(row)
+    expected_parties = {
+        "pedestrian_crosswalk_accident": {"car_vs_person"},
+        "school_zone_child_accident": {"car_vs_person"},
+        "bicycle_collision": {"car_vs_bicycle"},
+        "object_collision": {"car_vs_object"},
+        "single_vehicle_accident": {"single_vehicle"},
+    }.get(scenario_type or "")
+    if expected_parties and party not in expected_parties:
+        return True
+
     has_signal_terms = any(w in joined_text for w in ["신호위반", "적색", "빨간불", "교차로 신호"])
     if scenario_type == "intersection_signal_violation":
         return not (chart_no.startswith("차12") or has_signal_terms)
@@ -246,7 +257,7 @@ def _reason(row: dict[str, Any], tags: list[str], party: str | None = None) -> s
 
 def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
     media = select_media(row)
-    party = _party_from_chart_no(row.get("chart_no")) or row.get("accident_party_type") or "unknown"
+    party = _row_party_type(row)
     return {
         "chart_id": str(row.get("id")),
         "chart_no": row.get("chart_no"),
@@ -270,6 +281,10 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
         "media": media,
         "attribution": row.get("attribution") or "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
     }
+
+
+def _row_party_type(row: dict[str, Any]) -> str:
+    return _party_from_chart_no(row.get("chart_no")) or row.get("accident_party_type") or "unknown"
 
 
 def _party_from_chart_no(chart_no: Any) -> str | None:

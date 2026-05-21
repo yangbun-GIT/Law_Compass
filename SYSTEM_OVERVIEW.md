@@ -580,3 +580,15 @@ Agent 레이어의 개별 결과값을 단순 출력하지 않고, 시나리오 
 | `apps/agent/tests/test_judgment_contract.py` | analyst support level이 claim evidence에 반영되는지, unsupported claim이 최종 판단 계약에서 확정 표현 차단 상태로 이어지는지 검증한다. |
 
 DB schema, Redis key, 외부 API, 환경 변수 변경은 없다. 이 변경은 Agent 판단 구조와 근거 검증 체계의 내부 계약을 강화하는 작업이며, 사용자 화면은 기존 쉬운 리포트와 근거 연결 카드 중심으로 유지된다.
+
+## 2026-05-21 Agent 대표 시나리오 회귀 검증 추가
+
+Agent 판단 구조가 사고 유형, 사용자 관점, KNIA 기준 매칭, 최종 판단 계약을 함께 유지하는지 확인하기 위해 대표 사고 시나리오 스모크 검증을 추가했다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/scripts/test_agent_regression_scenarios.py` | 후방추돌 피해자, 상대 차선변경, 사용자 차선변경, 상대 신호위반, 사용자 자전거 사고를 `analyze_case()`로 실행하고 `scenario_type`, 사용자 기준 과실비율, `user_vehicle_role`, KNIA 1순위 기준, `agent_judgment` 계약 존재 여부를 검증한다. `pytest` 없이 컨테이너에서 직접 실행 가능한 회귀 스크립트다. |
+| `apps/agent/app/services/knia/knia_matcher.py` | 보행자, 어린이보호구역, 자전거, 시설물, 단독 사고 시나리오에서 사고 당사자 유형이 맞지 않는 KNIA 기준을 엄격히 배제한다. 자전거 사고가 차대차 차선변경 기준(`차43-2`)에 잘못 연결되는 문제를 막기 위해 KNIA 매칭 캐시 키를 `knia:match:v5`로 갱신했다. |
+| `apps/agent/tests/test_knia_strict_party_matching.py` | 자전거/보행자 시나리오가 관련 없는 차대차 기준을 거부하고 올바른 기준번호 계열은 허용하는지 단위 테스트로 고정했다. |
+
+DB schema, Redis key 구조, 환경 변수, 외부 API 계약 변경은 없다. Redis KNIA 매칭 캐시 prefix만 `knia:match:v5`로 변경되어 기존 잘못된 매칭 캐시를 재사용하지 않는다.
