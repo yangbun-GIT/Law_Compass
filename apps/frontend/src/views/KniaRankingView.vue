@@ -6,7 +6,8 @@
         <h2>많이 검색된 사고유형</h2>
         <p>
           과실비율정보포털 원본의 검색순위를 기준으로 정리했습니다.
-          이 화면은 검색순위전용이며, 탭은 원본과 같이 4개만 제공합니다.
+          이 화면은 KNIA 원본 검색순위의 로컬 저장 스냅샷입니다.
+          수집 시점과 원본 사이트 상태에 따라 표시 결과가 달라질 수 있습니다.
         </p>
       </div>
       <a class="btn secondary source-link" href="https://accident.knia.or.kr/ranking" target="_blank" rel="noopener noreferrer">
@@ -28,8 +29,9 @@
       <AccidentPartyTypeTabs v-model="selectedParty" />
 
       <div class="ranking-search-row">
-        <input v-model="searchQuery" placeholder="저장된 순위에서 기준번호 또는 사고유형 검색" @keyup.enter="load" />
-        <button class="btn secondary" :disabled="loading" @click="load">검색</button>
+        <input v-model="searchQuery" placeholder="저장된 순위에서 기준번호 또는 사고유형 검색" @keyup.enter="load()" />
+        <button class="btn secondary" :disabled="loading" @click="load()">검색</button>
+        <button v-if="isFiltered" class="btn secondary" :disabled="loading" @click="resetSearch">초기화</button>
       </div>
 
       <p v-if="message" class="notice success">{{ message }}</p>
@@ -49,11 +51,12 @@
       <ul v-else class="evidence-list ranking-list">
         <KniaRankingCard v-for="item in items" :key="`${item.rank}-${item.chart_no}-${selectedParty}`" :item="item" />
         <li v-if="!items.length" class="empty-state ranking-empty">
-          <strong>아직 수집된 검색순위가 없습니다.</strong>
-          <span>아래 버튼을 누르면 KNIA 원본 ranking 데이터를 수집한 뒤 다시 표시합니다.</span>
-          <button class="btn" :disabled="collecting" @click="collectRanking">
+          <strong>{{ emptyTitle }}</strong>
+          <span>{{ emptyDescription }}</span>
+          <button v-if="!isFiltered" class="btn" :disabled="collecting" @click="collectRanking">
             {{ collecting ? '수집 중...' : '검색순위 수집/새로고침' }}
           </button>
+          <button v-else class="btn secondary" :disabled="loading" @click="resetSearch">검색 조건 초기화</button>
         </li>
       </ul>
       <p class="kv attribution">자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털</p>
@@ -63,7 +66,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { api } from '../api/client';
+import { api, formatApiError } from '../api/client';
 import AccidentPartyTypeTabs from '../components/knia/AccidentPartyTypeTabs.vue';
 import KniaRankingCard from '../components/knia/KniaRankingCard.vue';
 
@@ -83,6 +86,13 @@ const error = ref('');
 const message = ref('');
 
 const selectedLabel = computed(() => tabs.find((x) => x.value === selectedParty.value)?.label ?? '전체');
+const isFiltered = computed(() => Boolean(searchQuery.value.trim()) || selectedParty.value !== 'all');
+const emptyTitle = computed(() => isFiltered.value ? '검색 조건에 맞는 기준이 없습니다.' : '아직 수집된 검색순위가 없습니다.');
+const emptyDescription = computed(() =>
+  isFiltered.value
+    ? '기준번호나 사고유형 단어를 줄여 다시 검색하거나 전체 탭에서 확인해 주세요.'
+    : '검색순위 수집/새로고침을 실행하면 KNIA 원본 ranking 데이터를 로컬 DB에 저장한 뒤 표시합니다.'
+);
 
 function describeCollectResult(result: any) {
   const ranking = result?.result?.ranking ?? result?.ranking ?? result;
@@ -94,15 +104,15 @@ function describeCollectResult(result: any) {
     : '수집은 완료되었지만 저장된 검색순위가 없습니다. 잠시 후 다시 시도해 주세요.';
 }
 
-async function load() {
+async function load(options: { preserveMessage?: boolean } = {}) {
   loading.value = true;
   error.value = '';
+  if (!options.preserveMessage) message.value = '';
   try {
-    const data = await api.getKniaRanking(20, selectedParty.value, searchQuery.value);
+    const data = await api.getKniaRanking(20, selectedParty.value, searchQuery.value.trim());
     items.value = data.items || [];
-    if (!items.value.length && data.empty_message) message.value = data.empty_message;
   } catch (err: any) {
-    error.value = err?.message || '검색순위를 불러오지 못했습니다.';
+    error.value = formatApiError(err, '검색순위를 불러오지 못했습니다.');
   } finally {
     loading.value = false;
   }
@@ -115,15 +125,23 @@ async function collectRanking() {
   try {
     const result = await api.adminCollectKnia({ menu: false, ranking: true, charts: false });
     message.value = describeCollectResult(result);
-    await load();
+    await load({ preserveMessage: true });
     if (!items.value.length) {
       error.value = result?.result?.ranking?.errors?.join('\n') || '수집 후에도 표시할 데이터가 없습니다. KNIA 원본 응답 또는 네트워크 상태를 확인해 주세요.';
     }
   } catch (err: any) {
-    error.value = err?.message || '검색순위 수집에 실패했습니다.';
+    error.value = formatApiError(err, '검색순위 수집에 실패했습니다.');
   } finally {
     collecting.value = false;
   }
+}
+
+function resetSearch() {
+  const shouldLoad = selectedParty.value === 'all';
+  selectedParty.value = 'all';
+  searchQuery.value = '';
+  message.value = '';
+  if (shouldLoad) load();
 }
 
 watch(selectedParty, () => {
@@ -142,7 +160,7 @@ onMounted(load);
 .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
 .section-heading h3 { margin: 0; font-size: 1.35rem; }
 .section-heading.compact { margin-bottom: 12px; }
-.ranking-search-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.ranking-search-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; }
 .ranking-search-row input { min-height: 46px; }
 .collect-btn { min-width: 190px; }
 .notice { padding: 12px 14px; border-radius: 16px; font-weight: 700; }

@@ -459,7 +459,7 @@ Agent 주요 DTO:
 | --- | --- |
 | S3 업로드 구현 | Gateway에 AWS SDK 의존성은 있으나 `S3StorageProvider.putUpload()`가 `S3_STORAGE_NOT_ENABLED`를 던진다. 현재 실제 업로드 경로는 로컬 저장소 중심이다 |
 | 로그인 식별자 | DB와 API 스키마는 `email`만 로그인 식별자로 사용한다. 별도 `username` 또는 `login_id` 컬럼/입력은 보이지 않는다. 프론트 로그인/회원가입 화면도 email-only 정책을 따르며 기본 데모 계정값을 자동 입력하지 않는다 |
-| 오류 응답 UX | Gateway validation 오류와 프론트 API client 오류 문구가 정규화되었고 로그인, 회원가입, 케이스 생성, 케이스 상세의 저장/업로드/분석 주요 액션에서 field별 안내 문구를 표시한다. 결과/근거 화면은 로딩, 결과 없음, 오류 상태를 구분하며 내부 근거 식별자와 원문 덤프는 debug 모드에서만 표시한다. KNIA 조회 화면 등 일부 조회 중심 화면은 route-level 메시지 중심으로 남아 있다 |
+| 오류 응답 UX | Gateway validation 오류와 프론트 API client 오류 문구가 정규화되었고 로그인, 회원가입, 케이스 생성, 케이스 상세의 저장/업로드/분석 주요 액션에서 field별 안내 문구를 표시한다. 결과/근거 화면은 로딩, 결과 없음, 오류 상태를 구분하며 내부 근거 식별자와 원문 덤프는 debug 모드에서만 표시한다. KNIA 검색순위/상세/JSON 근거 검색 화면은 API 실패, 검색 결과 없음, 미수집 상태, 상세 기준 수집 필요 상태를 구분해 표시한다 |
 | 외부 API 권한 의존 | `docs/OPERATIONS.md`에 국가법령정보센터 IP/도메인 검증, 공공데이터포털 활용신청/권한 이슈 가능성이 명시되어 있다 |
 | Agent fallback | 법률 API 또는 KB 적재가 부족할 때 정적 fallback 근거를 반환하는 코드가 존재한다 |
 | 테스트 산출물/캐시 파일 | `__pycache__`, `dist`, `storage` 내 테스트/실행 산출물이 저장소에 존재한다 |

@@ -14,6 +14,7 @@
           <span class="chip selected">{{ text(chart.accident_party_label || '사고유형 확인 필요') }}</span>
           <span v-if="baseFaultLabel" class="chip">{{ baseFaultLabel }}</span>
           <span v-if="chart.detail_collected_at" class="chip detail-ok">상세 수집 완료</span>
+          <span v-else class="chip detail-needed">상세 기준 수집 필요</span>
         </div>
         <p v-if="chart.category_path?.length" class="kv">메뉴 경로: {{ chart.category_path.map(text).join(' > ') }}</p>
         <p class="big-text">{{ text(chart.accident_explanation || chart.scenario_summary_easy || chart.accident_summary) }}</p>
@@ -66,7 +67,7 @@
               <span class="factor-source">KNIA 원문</span>
             </label>
           </div>
-          <p v-else class="empty-note">수집된 가감요소가 없습니다. 상세 수집을 먼저 실행해 주세요.</p>
+          <p v-else class="empty-note">{{ missingDetailText('가감요소') }}</p>
         </div>
 
         <div class="glass-box">
@@ -83,7 +84,7 @@
           <h3>{{ text(item.title || '수정요소해설') }}</h3>
           <p>{{ text(item.body) }}</p>
         </article>
-        <p v-if="!adjustmentExplanations.length" class="empty-note">수집된 수정요소해설이 없습니다.</p>
+        <p v-if="!adjustmentExplanations.length" class="empty-note">{{ missingDetailText('수정요소해설') }}</p>
       </div>
 
       <div v-else-if="activeTab === 'laws'" class="tab-panel cards-panel">
@@ -92,7 +93,7 @@
           <h3>{{ text(item.law_title || '관련 법규') }}</h3>
           <p>{{ text(item.law_text) }}</p>
         </article>
-        <p v-if="!relatedLaws.length" class="empty-note">수집된 관련법규가 없습니다.</p>
+        <p v-if="!relatedLaws.length" class="empty-note">{{ missingDetailText('관련법규') }}</p>
       </div>
 
       <div v-else class="tab-panel cards-panel">
@@ -102,7 +103,7 @@
           <p>{{ text(item.case_body) }}</p>
           <p v-if="item.decision_summary" class="decision">요약: {{ text(item.decision_summary) }}</p>
         </article>
-        <p v-if="!caseReferences.length" class="empty-note">수집된 판례·조정사례가 없습니다.</p>
+        <p v-if="!caseReferences.length" class="empty-note">{{ missingDetailText('판례·조정사례') }}</p>
       </div>
     </article>
 
@@ -112,21 +113,31 @@
       <p class="soft-warning">위 계산과 법규 및 사례는 KNIA 과실비율정보포털 원문 기준에서 수집한 참고 근거입니다. 최종 과실비율과 법적 판단은 보험사·분쟁심의위·수사기관·법원의 판단에 따라 달라질 수 있습니다.</p>
     </article>
 
-    <article v-if="!chart && !loading" class="card"><h2>기준을 찾을 수 없습니다</h2><p>검색순위 수집과 상세 기준 수집을 먼저 실행해 주세요.</p></article>
     <article v-if="loading" class="card"><h2>불러오는 중입니다</h2><p>KNIA 상세 기준을 확인하고 있습니다.</p></article>
+    <article v-else-if="error" class="card state-card error-state">
+      <h2>KNIA 기준을 불러오지 못했습니다</h2>
+      <p>{{ error }}</p>
+      <RouterLink class="btn secondary" to="/knia/ranking">검색순위로 돌아가기</RouterLink>
+    </article>
+    <article v-else-if="!chart" class="card state-card">
+      <h2>기준을 찾을 수 없습니다</h2>
+      <p>저장된 KNIA 기준에 해당 기준번호가 없습니다. 검색순위 화면에서 기준번호를 다시 선택하거나 관리자 수집 작업을 먼저 실행해야 합니다.</p>
+      <RouterLink class="btn secondary" to="/knia/ranking">검색순위로 돌아가기</RouterLink>
+    </article>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { api } from "../api/client";
+import { api, formatApiError } from "../api/client";
 import KniaVideoLinkCard from "../components/knia/KniaVideoLinkCard.vue";
 import { sanitizeDisplayText } from "../utils/displaySanitizer";
 
 const route = useRoute();
 const chart = ref<any>(null);
 const loading = ref(false);
+const error = ref("");
 const activeTab = ref("fault");
 const manualSelected = ref<string[]>([]);
 const tabs = [
@@ -168,11 +179,16 @@ const videoCard = computed(() => ({
 
 async function load() {
   loading.value = true;
+  error.value = "";
   try {
     const chartType = String(route.query.chartType || "1");
     const data = await api.getKniaChart(route.params.chartNo as string, chartType);
     chart.value = data.chart;
     manualSelected.value = [];
+  } catch (e) {
+    chart.value = null;
+    manualSelected.value = [];
+    error.value = formatApiError(e, "KNIA 상세 기준 조회에 실패했습니다.");
   } finally {
     loading.value = false;
   }
@@ -194,6 +210,11 @@ function deltaClass(value: any) {
   const n = Number(value || 0);
   return { delta: true, plus: n > 0, minus: n < 0 };
 }
+function missingDetailText(label: string) {
+  return chart.value?.detail_collected_at
+    ? `수집된 ${label}가 없습니다. KNIA 원문에 해당 항목이 없거나 파싱 가능한 표/문단이 없을 수 있습니다.`
+    : `${label}는 상세 기준 수집 후 표시됩니다. 현재는 ranking 또는 기본 기준 정보만 저장된 상태입니다.`;
+}
 
 const FaultBar = defineComponent({
   props: { a: { type: Number, required: true }, b: { type: Number, required: true } },
@@ -214,6 +235,7 @@ onMounted(load);
 .top-actions { justify-content: space-between; }
 .detail-hero { border-color: rgba(76, 216, 255, 0.28); }
 .detail-ok { background: rgba(57, 255, 194, 0.14); color: #9ff5d4; }
+.detail-needed { background: rgba(251, 191, 36, 0.13); color: #fde68a; }
 .tab-card { display: grid; gap: 18px; }
 .knia-tabs { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px; border-radius: 20px; background: rgba(5, 12, 24, 0.45); border: 1px solid rgba(255,255,255,0.09); }
 .tab-button { border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #dbeafe; border-radius: 999px; padding: 11px 16px; font-weight: 800; cursor: pointer; }
@@ -248,6 +270,8 @@ onMounted(load);
 .empty-note { color: #cbd5e1; padding: 16px; border-radius: 16px; border: 1px dashed rgba(255,255,255,0.16); }
 .spacer { margin-top: 16px; }
 .source-card { display: grid; gap: 12px; }
+.state-card { display: grid; gap: 12px; justify-items: start; }
+.error-state { border-color: rgba(255, 112, 132, 0.35); }
 @media (max-width: 900px) {
   .fault-grid { grid-template-columns: 1fr; }
   .factor-head { display: none; }

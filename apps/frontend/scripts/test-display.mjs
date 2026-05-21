@@ -31,6 +31,9 @@ const signupView = readFileSync("src/views/SignupView.vue", "utf8");
 const resultView = readFileSync("src/views/CaseResultView.vue", "utf8");
 const evidenceView = readFileSync("src/views/EvidenceDetailView.vue", "utf8");
 const easyReportView = readFileSync("src/components/easy/EasyReportView.vue", "utf8");
+const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
+const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
+const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
 const requiredErrorUx = [
   "export function formatApiError",
   "normalizeValidation(data?.error?.details?.validation)",
@@ -42,11 +45,15 @@ const requiredErrorUx = [
   "Analysis Result",
   "개발자 전용 원문",
   "법률 근거가 부족합니다",
+  "검색 조건에 맞는 기준이 없습니다",
+  "상세 기준 수집 필요",
+  "KNIA 기준을 불러오지 못했습니다",
+  "KNIA JSON 검색에 실패했습니다",
   "autocomplete=\"current-password\"",
   "autocomplete=\"new-password\""
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, loginView, signupView, resultView, evidenceView, easyReportView];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, loginView, signupView, resultView, evidenceView, easyReportView, kniaRankingView, kniaChartView, kniaJsonSearchBox];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
