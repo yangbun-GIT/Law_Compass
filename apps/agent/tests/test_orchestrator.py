@@ -22,5 +22,9 @@ def test_analyze_case_minimum_fields():
     assert result["claim_evidence"]["claim_count"] >= 1
     assert "coverage_level" in result["claim_evidence"]
     assert "claim_evidence_coverage" in result["evidence_audit"]
+    assert "evidence_support_level" in result["legal_analysis"]
+    assert "evidence_support_level" in result["fault_ratio"]
+    assert "evidence_support_level" in result["legal_liability"]
+    assert "evidence_support_level" in result["insurance_guide"]
     AnalysisOutput(**result)
 

@@ -22,7 +22,9 @@ const TECHNICAL_KEYS = new Set([
   "orchestrator",
   "rag_top_k",
   "llm_enabled",
-  "security_flags"
+  "security_flags",
+  "evidence_support_level",
+  "decision_status"
 ]);
 
 function stripTechnical(value: any): any {

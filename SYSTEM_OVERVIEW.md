@@ -158,6 +158,7 @@ Gateway 주요 로직:
 | `apps/agent/app/routers/internal.py` | 내부 전용 `/internal/v1/*` API 라우터 |
 | `apps/agent/app/schemas.py` | Pydantic 요청/응답 모델 |
 | `apps/agent/app/services/orchestrator.py` | 사고 분석 파이프라인 총괄 |
+| `apps/agent/app/services/analyst_output_guard.py` | 법률/과실/형사/보험 분석가 출력에 근거 충분성, caveat, 신뢰도 상한을 적용하는 공통 가드 |
 | `apps/agent/app/services/claim_evidence_validator.py` | Agent 분석 결과의 주요 판단과 근거 문서를 연결하고 근거 누락 판단을 `evidence_audit`에 반영 |
 | `apps/agent/app/services/scenario_classifier.py` | 사고 유형 및 당사자 유형 분류 |
 | `apps/agent/app/services/analysts/*` | 과실비율, 형사 책임, 보험, 행동 계획, 법규 분석 |
@@ -189,6 +190,7 @@ Agent 주요 DTO:
 | `AnalyzeVideoRequest` | `case_id`, `user_id`, `upload_id`, `preprocessed_summary`, `video_metadata`, `structured_facts`, `selected_keywords`, `analysis_mode` |
 | `EvidenceItem` | `chunk_id`, `title`, `source`, `score`, `snippet`, `law_name`, `article_title`, `plain_summary`, `source_url`, `source_type` |
 | `AnalysisOutput` | 사고 요약, 시나리오, 법률 분석, 과실비율, 보험/형사 가이드, 근거, KNIA 매칭, 불확실성, 후속 질문, 모델 정보, 쉬운 리포트 |
+| Analyst output guard fields | `legal_analysis`, `fault_ratio`, `legal_liability`, `insurance_guide` 내부의 `evidence_support_level`, `evidence_count`, `evidence_ids`, `caveats`. 직접 근거 부족 시 확정 표현을 피하도록 경고하고 과실비율 `confidence`를 제한 |
 | `claim_evidence` | Agent 주요 판단별 근거 연결 상태, 지원 수준, 미지원 판단, 근거 커버리지 |
 
 ### Worker
@@ -234,6 +236,7 @@ Agent 주요 DTO:
 | `apps/agent/app/routers/internal.py` | FastAPI internal router/controller | Gateway/Worker 전용 분석, 법률, KNIA, 채팅, 캐시 내부 API를 제공한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/schemas.py` | Pydantic DTO schema | 분석 요청/응답과 근거 item 모델을 정의한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/services/orchestrator.py` | Analysis orchestration service | 사고 분석 전체 파이프라인을 조립하고 최종 `AnalysisOutput` payload를 만든다 | 저장소 내 명시 없음 |
+| `apps/agent/app/services/analyst_output_guard.py` | Analyst output guard service | 분석가별 LLM/fallback 출력을 근거 충분성 기준으로 보강하고 직접 근거 부족 시 caveat와 confidence 상한을 적용한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/services/legal_api_clients.py` | External legal/public API client | 국가법령정보센터와 공공데이터포털 교통 API 검색 결과를 내부 근거 형식으로 변환한다 | 저장소 내 명시 없음 |
 | `apps/worker/worker/main.py` | Redis Streams worker | 영상 전처리, 프레임 추출, 영상 분석 job 실행, DB 상태 갱신을 수행한다 | 저장소 내 명시 없음 |
 | `AGENTS.md` | Agent entry instruction document | 에이전트가 작업 전 `DEVELOPMENT_PROMPT.md`와 `SYSTEM_OVERVIEW.md`를 먼저 읽도록 안내한다 | 저장소 내 명시 없음 |
@@ -278,6 +281,7 @@ Agent 주요 DTO:
 | `apps/agent/app/services/orchestrator.py` | `analyze_video_case` | preprocessed summary, video metadata | analysis dict | 영상 요약과 metadata를 `_analyze_core`로 전달 |
 | `apps/agent/app/services/orchestrator.py` | `_analyze_core` | normalized accident inputs | final analysis dict | 입력 정규화, 시나리오 분류, KNIA/법률 근거 검색, 분석가 함수 실행, 리포트 조립 |
 | `apps/agent/app/services/orchestrator.py` | `_knia_estimate_to_evidence`, `_knia_refs_to_evidence` | KNIA 추정/참조 데이터 | evidence list | 과실 기본값, 가감요소, 관련 법규/사례를 evidence item으로 변환 |
+| `apps/agent/app/services/analyst_output_guard.py` | `guard_*_output` | analyst result, evidence list | guarded analyst result | 법률/KNIA/일반 근거 family를 판별해 `evidence_support_level`, `caveats`, `evidence_ids`를 부여하고 과실비율 confidence를 직접 근거 수준에 맞게 제한 |
 | `apps/agent/app/services/legal_api_clients.py` | `fetch_law_search` | query, limit | evidence-like rows | 국가법령정보센터 `lawSearch.do`에서 법령/판례 검색 |
 | `apps/agent/app/services/legal_api_clients.py` | `fetch_data_go_traffic` | query, limit | evidence-like rows | 공공데이터포털 교통사고 API 응답을 내부 근거 형식으로 변환 |
 | `apps/worker/worker/main.py` | `init_group` | 없음 | 없음 | Redis Stream consumer group 생성 |
@@ -306,6 +310,7 @@ Agent 주요 DTO:
 | `apps/agent/app/routers/internal.py` | Gateway, Worker | orchestrator, legal, KNIA, chat, cache services | `INTERNAL_SERVICE_TOKEN`, `DATABASE_URL` | KB/KNIA/semantic cache DB 테이블, Agent service 함수 | `agent` 내부 `/internal/v1/*` |
 | `apps/agent/app/schemas.py` | `internal.py`, tests | Pydantic | 없음 | 없음 | Agent DTO layer |
 | `apps/agent/app/services/orchestrator.py` | `internal.py`, tests | classifier, analysts, RAG, KNIA, report composer, OpenAI flag | `OPENAI_API_KEY` 존재 여부 | 법률 RAG, KNIA DB/Redis 검색은 하위 service에서 접근 | Agent domain service |
+| `apps/agent/app/services/analyst_output_guard.py` | Agent analyst modules | 없음 | 없음 | 입력 evidence list만 사용 | Agent domain guard |
 | `apps/agent/app/services/legal_api_clients.py` | legal ingestion/retrieval 계열 service/script | `httpx` | `LAW_API_OC`, `LAW_API_BASE`, `LAW_API_TARGETS`, `DATA_GO_*` | `law.go.kr`, `apis.data.go.kr` 외부 HTTP | Agent egress |
 | `apps/worker/worker/main.py` | Worker container process | Redis, psycopg, ffmpeg/ffprobe, urllib | `REDIS_URL`, `REDIS_STREAM_KEY`, `REDIS_STREAM_GROUP`, `DATABASE_URL`, `INTERNAL_AGENT_URL`, `INTERNAL_SERVICE_TOKEN`, `LOCAL_STORAGE_ROOT` | `jobs`, `uploads`, `cases`, `analysis_results`, Redis stream/status key, local frames | `worker` service, no public port |
 
@@ -325,6 +330,7 @@ Agent 주요 DTO:
 | `apps/agent/app/schemas.py` | `AnalyzeVideoRequest` | Agent internal API request | 영상 분석 요청 검증 |
 | `apps/agent/app/schemas.py` | `EvidenceItem` | Agent internal API response | 법률/KNIA 근거 item 규격 |
 | `apps/agent/app/schemas.py` | `AnalysisOutput` | Agent internal API response | 최종 분석 결과 표준 응답 |
+| `apps/agent/app/services/analyst_output_guard.py` | `evidence_support_level`, `caveats`, `evidence_count`, `evidence_ids` | Agent internal API response 일부 | 분석가별 판단이 직접 근거, 간접 근거, 근거 부족 중 어디에 속하는지 표시하고 확정 판단 방지를 위한 주의 문구를 제공 |
 | `apps/agent/app/services/claim_evidence_validator.py` | `claim_evidence` dict | Agent internal API response 일부 | 법규, 과실비율, 형사책임, 보험 안내, 행동계획의 주요 claim별 연결 근거와 지원 수준 |
 
 #### 테스트 및 유지보수 상태 매핑
@@ -342,6 +348,7 @@ Agent 주요 DTO:
 | `apps/agent/app/routers/internal.py` | 구현 완료 | `apps/agent/scripts/test_*.py`에서 경로별 간접 검증 | 내부 token 누락/불일치 시 401 |
 | `apps/agent/app/schemas.py` | 구현 완료 | `apps/agent/tests/test_orchestrator.py` 및 scripts에서 간접 검증 | 응답 모델이 크므로 프론트 표시 필드와 동기화 관리 필요 |
 | `apps/agent/app/services/orchestrator.py` | 구현 완료, 핵심 복합 로직 | `apps/agent/tests/test_orchestrator.py`, `apps/agent/scripts/test_legal_rag.py`, `test_knia_*`, `test_chat_*` 간접 검증 | KNIA/RAG/분석가 로직이 한 파이프라인에 결합되어 있어 입력 케이스별 회귀 테스트가 중요 |
+| `apps/agent/app/services/analyst_output_guard.py` | 구현 완료, Analyst 신뢰도 가드 | `apps/agent/tests/test_analyst_output_guard.py`, `apps/agent/tests/test_orchestrator.py` | 신규 analyst 출력 필드가 프론트 일반 화면에 기술 문자열로 노출되지 않도록 Gateway/Frontend sanitizer와 함께 관리 필요 |
 | `apps/agent/app/services/claim_evidence_validator.py` | 구현 완료, Agent 신뢰도 보강 로직 | `apps/agent/tests/test_claim_evidence_validator.py`, `apps/agent/tests/test_orchestrator.py` | 주요 판단별 근거 연결 상태를 산출하므로 향후 Analyst별 claim 형식이 바뀌면 함께 갱신 필요 |
 | `apps/agent/app/services/legal_api_clients.py` | 구현 완료, 외부 권한 의존 | `apps/agent/scripts/check_external_apis.py` | 국가법령정보센터 IP/도메인 검증, 공공데이터포털 활용신청 권한 상태에 따라 실패 가능 |
 | `apps/worker/worker/main.py` | 구현 완료 | `apps/worker/tests/test_keys.py`, E2E smoke에서 간접 검증 | ffmpeg/ffprobe 설치와 로컬 파일 경로 접근 권한에 의존 |

@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from app.services.analyst_output_guard import guard_fault_ratio_output
 from app.services.llm_client import generate_fault_ratio_analysis
 
 
@@ -14,7 +15,7 @@ def analyze_fault_ratio(
 ) -> dict[str, Any]:
     llm = generate_fault_ratio_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence)
     if llm:
-        return _normalize(llm, evidence)
+        return guard_fault_ratio_output(_normalize(llm, evidence), evidence)
 
     knia = next((ev for ev in evidence if ev.get("source_type") == "knia_fault_standard"), None)
     if scenario_type == "rear_end_collision":
@@ -31,7 +32,7 @@ def analyze_fault_ratio(
     basis = "사고 유형, 구조화 입력, 법률 RAG 근거를 함께 반영한 참고용 과실 추정입니다."
     if knia:
         basis = "KNIA 과실비율 인정기준과 법률 RAG 근거를 함께 반영한 참고용 과실 추정입니다."
-    return {
+    return guard_fault_ratio_output({
         "my": my,
         "other": other,
         "confidence": confidence,
@@ -39,7 +40,7 @@ def analyze_fault_ratio(
         "evidence_count": len(evidence),
         "key_factors": ["사고 유형", "신호·정차·차선변경 여부", "인명피해 여부", "관련 법규와 KNIA 기준"],
         "evidence_ids": [ev.get("chunk_id") for ev in evidence[:6] if ev.get("chunk_id")],
-    }
+    }, evidence)
 
 
 def _normalize(data: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str, Any]:
