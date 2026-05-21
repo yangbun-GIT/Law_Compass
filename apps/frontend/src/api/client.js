@@ -102,6 +102,7 @@ export const api = {
     getViewUrl: (uploadId) => request(`/api/v1/uploads/${uploadId}/view-url`),
     getDownloadUrl: (uploadId) => request(`/api/v1/uploads/${uploadId}/download-url`),
     analyzeText: (caseId, payload) => request(`/api/v1/cases/${caseId}/analyze-text`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
+    reanalyzeText: (caseId, payload) => request(`/api/v1/cases/${caseId}/reanalyze`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
     analyzeVideo: (caseId, payload) => request(`/api/v1/cases/${caseId}/analyze-video`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
     getJobs: (caseId) => request(`/api/v1/cases/${caseId}/jobs`),
     getResult: (caseId) => request(`/api/v1/cases/${caseId}/result`),

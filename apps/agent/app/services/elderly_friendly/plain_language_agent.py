@@ -109,16 +109,17 @@ class PlainLanguageAgent:
 
     def make_missing_info(self, result: dict[str, Any]) -> dict[str, Any]:
         facts = result.get("structured_facts", {}) or {}
-        required_questions = _required_question_texts(result)
-        missing = required_questions + list(result.get("suggested_next_inputs") or []) + list(result.get("followup_questions") or [])
-        if not required_questions:
+        required_questions = _required_questions(result)
+        required_question_texts = [item["question"] for item in required_questions]
+        missing = required_question_texts + list(result.get("suggested_next_inputs") or []) + list(result.get("followup_questions") or [])
+        if not required_question_texts:
             missing = list(facts.get("missing_fields") or []) + missing
         if not missing: missing = ["사고 당시 완전히 정차 중이었는지", "급정거가 있었는지", "목이나 허리 통증이 있는지", "경찰 신고를 했는지"]
         items: list[str] = []
         for item in missing:
             text = field_label(item) if isinstance(item, str) and item in {"accident_type", "signal_state", "injury", "opponent_behavior", "damage_level"} else scrub_user_text(item)
             if text and text not in items: items.append(text)
-        return {"items": items[:6]}
+        return {"items": items[:6], "questions": required_questions[:6]}
 
     def _shorten(self, text: str, max_len: int = 150) -> str:
         return text if len(text) <= max_len else text[: max_len - 1].rstrip() + "…"
@@ -128,17 +129,33 @@ def _needs_review(section: dict[str, Any]) -> bool:
     return section.get("judgment_status") in {"needs_review", "unsupported"} or section.get("evidence_support_level") in {"partial", "insufficient"}
 
 
-def _required_question_texts(result: dict[str, Any]) -> list[str]:
+def _required_questions(result: dict[str, Any]) -> list[dict[str, Any]]:
     questions = result.get("required_input_questions") or (result.get("input_requirements") or {}).get("questions") or []
-    out: list[str] = []
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
     for item in questions:
         if isinstance(item, dict):
-            text = item.get("question") or item.get("label")
+            field = scrub_user_text(item.get("field"))
+            text = scrub_user_text(item.get("question") or item.get("label"))
+            label = scrub_user_text(item.get("label") or item.get("field") or text)
+            input_type = scrub_user_text(item.get("input_type") or "text")
+            options = [scrub_user_text(option) for option in (item.get("options") or []) if scrub_user_text(option)]
         else:
-            text = item
-        cleaned = scrub_user_text(text)
-        if cleaned and cleaned not in out:
-            out.append(cleaned)
+            field = ""
+            text = scrub_user_text(item)
+            label = text
+            input_type = "text"
+            options = []
+        key = field or text
+        if text and key not in seen:
+            seen.add(key)
+            out.append({
+                "field": field,
+                "label": label,
+                "question": text,
+                "input_type": input_type,
+                "options": options,
+            })
     return out
 
 

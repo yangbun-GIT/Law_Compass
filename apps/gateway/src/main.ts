@@ -814,16 +814,42 @@ app.post(`${env.apiPrefix}/cases/:caseId/reanalyze`, async (req, reply) => {
   const traceId = req.headers["x-correlation-id"] as string;
   const { caseId } = req.params as any;
   const body = req.body as any;
-  const caseRow = await db.query(`SELECT description_text FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`, [caseId, (req as any).user.id]);
+  const caseRow = await db.query(`SELECT * FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`, [caseId, (req as any).user.id]);
   if (!caseRow.rowCount) return reply.code(404).send(errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
+  const currentCase = caseRow.rows[0];
+  const structuredFacts = {
+    ...(currentCase.structured_facts ?? {}),
+    ...(body?.structured_facts ?? {})
+  };
+  const descriptionText = maskSensitive(body?.description_text ?? currentCase.description_text ?? "");
+  const selectedKeywords = body?.selected_keywords ?? currentCase.selected_keywords ?? [];
+  const analysisMode = body?.analysis_mode ?? currentCase.analysis_mode ?? "quick_summary";
+
+  await db.query(
+    `UPDATE cases
+     SET description_text=$3,
+         structured_facts=$4::jsonb,
+         selected_keywords=$5,
+         analysis_mode=$6,
+         status='analyzing'
+     WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`,
+    [caseId, (req as any).user.id, descriptionText, JSON.stringify(structuredFacts), selectedKeywords, analysisMode]
+  );
+
   let agentResp;
   try {
     agentResp = await callInternalAgent("/internal/v1/analyze/text", {
       case_id: caseId,
       user_id: (req as any).user.id,
-      description_text: maskSensitive(body?.description_text ?? caseRow.rows[0].description_text ?? "")
+      description_text: descriptionText,
+      structured_facts: structuredFacts,
+      selected_keywords: selectedKeywords,
+      analysis_mode: analysisMode,
+      ai_profile: body?.ai_profile,
+      specialist_roles: body?.specialist_roles
     }, traceId, { baseUrl: env.agentUrl, internalToken: env.internalToken, timeoutMs: env.analyzeTimeoutMs, retryCount: env.retryCount });
   } catch {
+    await db.query(`UPDATE cases SET status='failed' WHERE id=$1 AND owner_user_id=$2`, [caseId, (req as any).user.id]).catch(() => undefined);
     return reply.code(502).send(errorPayload("AI_TEMPORARY_UNAVAILABLE", "AI 분석 서비스가 일시적으로 불안정합니다. 잠시 후 재시도해 주세요.", traceId));
   }
   const ver = await db.query(`SELECT COALESCE(MAX(version),0)+1 AS v FROM analysis_results WHERE case_id=$1`, [caseId]);
@@ -860,7 +886,15 @@ app.post(`${env.apiPrefix}/cases/:caseId/reanalyze`, async (req, reply) => {
     `UPDATE analysis_results SET knia_matches=$2, knia_primary_match=$3 WHERE id=$1`,
     [inserted.rows[0].id, JSON.stringify(agentResp.knia_matches ?? []), JSON.stringify(agentResp.knia_primary_match ?? null)]
   ).catch(() => undefined);
-  return { result_id: inserted.rows[0].id, version: nextVersion, trace_id: traceId };
+  await db.query(`UPDATE cases SET status='completed', latest_result_id=$2 WHERE id=$1`, [caseId, inserted.rows[0].id]);
+  const easyReport = enrichEasyReport(sanitizeEasyReport(agentResp.elderly_friendly_report ?? composeEasyFallback(agentResp, { case: { ...currentCase, structured_facts: structuredFacts } })), agentResp);
+  return {
+    result_id: inserted.rows[0].id,
+    version: nextVersion,
+    result: easyReport,
+    report: easyReport,
+    trace_id: traceId
+  };
 });
 
 app.get(`${env.apiPrefix}/cases/:caseId/evidence`, async (req, reply) => {

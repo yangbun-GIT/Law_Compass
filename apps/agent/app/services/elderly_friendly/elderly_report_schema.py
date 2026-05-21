@@ -78,6 +78,7 @@ class KniaBasisCard(BaseModel):
 class MissingInfo(BaseModel):
     title: str = "더 정확한 분석을 위해 필요한 정보"
     items: list[str] = Field(default_factory=list)
+    questions: list[dict[str, Any]] = Field(default_factory=list)
 
 class DetailSections(BaseModel):
     evidence_summaries: list[str] = Field(default_factory=list)

@@ -71,7 +71,12 @@
         </div>
       </div>
     </article>
-    <MissingInfoCard :missing="safeReport.missing_info || {}" />
+    <MissingInfoCard
+      :missing="report?.missing_info || safeReport.missing_info || {}"
+      :submitting="followupSubmitting"
+      :error="followupError"
+      @submit="(answers) => emit('submitFollowup', answers)"
+    />
     <DetailToggleSection :details="safeReport.detail_sections || {}" />
   </section>
 </template>
@@ -88,7 +93,8 @@ import RelatedKniaStandardCard from "../knia/RelatedKniaStandardCard.vue";
 import RelatedVideoCard from "../knia/RelatedVideoCard.vue";
 import AccidentPartyTypeActionCard from "../result/AccidentPartyTypeActionCard.vue";
 import { removeTechnicalFields, sanitizeDisplayText } from "../../utils/displaySanitizer";
-const props = defineProps<{ report: any }>();
+const props = defineProps<{ report: any; followupSubmitting?: boolean; followupError?: string }>();
+const emit = defineEmits<{ submitFollowup: [answers: Record<string, string>] }>();
 const showAllBasis = ref(false);
 const safeReport = computed(() => removeTechnicalFields(props.report || {}));
 const basisCards = computed(() => safeReport.value?.legal_basis_cards || []);

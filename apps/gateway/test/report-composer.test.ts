@@ -27,4 +27,27 @@ describe("report composer", () => {
     expect(text).not.toContain("evidence_refs");
     expect(text).not.toContain("support_level");
   });
+
+  it("keeps user-safe missing-info questions usable after sanitizing", () => {
+    const report = sanitizeEasyReport({
+      missing_info: {
+        title: "더 정확한 분석을 위해 필요한 정보",
+        questions: [
+          {
+            field: "injury",
+            label: "인명피해 여부",
+            question: "다친 사람이 있나요?",
+            input_type: "single_choice",
+            options: ["다친 사람 없음", "내가 다침"],
+          },
+        ],
+      },
+      input_requirements: { blocking_fields: ["injury"] },
+    });
+
+    expect(report.missing_info.questions[0].field).toBe("injury");
+    expect(report.missing_info.questions[0].question).toBe("다친 사람이 있나요?");
+    expect(JSON.stringify(report)).not.toContain("input_requirements");
+    expect(JSON.stringify(report)).not.toContain("blocking_fields");
+  });
 });
