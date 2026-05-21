@@ -12,6 +12,7 @@ import bcrypt from "bcryptjs";
 import { callInternalAgent } from "./lib/internal-client.js";
 import { composeClientReport, composeDebugReport, composeEasyFallback, sanitizeEasyReport } from "./lib/report-composer.js";
 import { maskSensitive, sha256 } from "./lib/security.js";
+import { errorPayload, requestErrorPayload, validationErrorPayload } from "./lib/errors.js";
 import { selectVideoAiRoute } from "./lib/ai-router.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { LocalStorageProvider } from "./storage/provider.js";
@@ -66,10 +67,6 @@ app.addHook("onRequest", async (req, reply) => {
     reply.clearCookie("lc_at");
   }
 });
-
-function errorPayload(code: string, message: string, traceId: string) {
-  return { error: { code, message, trace_id: traceId } };
-}
 
 function routeKey(req: any) {
   return req.routeOptions?.url ?? req.url;
@@ -1215,7 +1212,7 @@ app.post(`${env.apiPrefix}/admin/knia/import-json`, async (req, reply) => {
     const result = await callInternalAgent("/internal/v1/knia/import-json", req.body ?? {}, traceId, { baseUrl: env.agentUrl, internalToken: env.internalToken, timeoutMs: 600000, retryCount: 0 });
     return { result, trace_id: traceId };
   } catch (err: any) {
-    return reply.code(502).send(errorPayload("KNIA_JSON_IMPORT_FAILED", "KNIA JSON ??? ??????. ?? ??? ?????? ??? ??? ???.", traceId));
+    return reply.code(502).send(errorPayload("KNIA_JSON_IMPORT_FAILED", "KNIA JSON 데이터를 가져오지 못했습니다. 파일 경로와 데이터 형식을 확인해 주세요.", traceId));
   }
 });
 
@@ -1227,7 +1224,7 @@ app.post(`${env.apiPrefix}/admin/knia/json/rebuild-embeddings`, async (req, repl
     const result = await callInternalAgent("/internal/v1/knia/json/rebuild-embeddings", req.body ?? {}, traceId, { baseUrl: env.agentUrl, internalToken: env.internalToken, timeoutMs: 600000, retryCount: 0 });
     return { result, trace_id: traceId };
   } catch {
-    return reply.code(502).send(errorPayload("KNIA_JSON_EMBEDDING_FAILED", "KNIA JSON ??? ??? ??????.", traceId));
+    return reply.code(502).send(errorPayload("KNIA_JSON_EMBEDDING_FAILED", "KNIA JSON 임베딩 재생성에 실패했습니다.", traceId));
   }
 });
 
@@ -1237,7 +1234,7 @@ app.get(`${env.apiPrefix}/knia/myaccident-pages`, async (req, reply) => {
     const result = await callInternalAgentGet("/internal/v1/knia/myaccident-pages", traceId);
     return { items: result.items ?? [], trace_id: traceId };
   } catch {
-    return reply.code(502).send(errorPayload("KNIA_MENU_FAILED", "KNIA ???? ??? ???? ?????.", traceId));
+    return reply.code(502).send(errorPayload("KNIA_MENU_FAILED", "KNIA 메뉴 목록을 불러오지 못했습니다.", traceId));
   }
 });
 
@@ -1248,7 +1245,7 @@ app.get(`${env.apiPrefix}/knia/myaccident/:myaccidentNo/tree`, async (req, reply
     const result = await callInternalAgentGet(`/internal/v1/knia/myaccident/${myaccidentNo}/tree`, traceId);
     return { ...result, trace_id: traceId };
   } catch {
-    return reply.code(502).send(errorPayload("KNIA_TREE_FAILED", "KNIA ???? ??? ???? ?????.", traceId));
+    return reply.code(502).send(errorPayload("KNIA_TREE_FAILED", "KNIA 사고유형 트리를 불러오지 못했습니다.", traceId));
   }
 });
 
@@ -1266,11 +1263,11 @@ app.get(`${env.apiPrefix}/knia/json/search`, async (req, reply) => {
       source_url: x.source_url,
       accident_party_label: x.accident_party_label,
       display_tags: x.display_tags ?? [],
-      attribution: x.attribution ?? "?? ??: ?????? ????? ???? ??????? ????????"
+      attribution: x.attribution ?? "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회"
     }));
     return { items, cache: result.cache ? { exact_hit: !!result.cache.exact_hit, semantic_hit: !!result.cache.semantic_hit } : undefined, trace_id: traceId };
   } catch {
-    return reply.code(502).send(errorPayload("KNIA_JSON_SEARCH_FAILED", "KNIA JSON ?? ??? ??????.", traceId));
+    return reply.code(502).send(errorPayload("KNIA_JSON_SEARCH_FAILED", "KNIA JSON 검색에 실패했습니다.", traceId));
   }
 });
 
@@ -1283,7 +1280,7 @@ app.get(`${env.apiPrefix}/knia/media/search`, async (req, reply) => {
     const result = await callInternalAgentGet(path, traceId);
     return { items: result.items ?? [], trace_id: traceId };
   } catch {
-    return reply.code(502).send(errorPayload("KNIA_MEDIA_SEARCH_FAILED", "KNIA ?? ??/?? ?? ??? ??????.", traceId));
+    return reply.code(502).send(errorPayload("KNIA_MEDIA_SEARCH_FAILED", "KNIA 영상/문서 검색에 실패했습니다.", traceId));
   }
 });
 
@@ -1295,7 +1292,7 @@ app.post(`${env.apiPrefix}/admin/cache/invalidate`, async (req, reply) => {
     const result = await callInternalAgent("/internal/v1/cache/invalidate", req.body ?? { scope: "knia_json" }, traceId, { baseUrl: env.agentUrl, internalToken: env.internalToken, timeoutMs: 60000, retryCount: 0 });
     return { result, trace_id: traceId };
   } catch {
-    return reply.code(502).send(errorPayload("CACHE_INVALIDATE_FAILED", "?? ???? ??????.", traceId));
+    return reply.code(502).send(errorPayload("CACHE_INVALIDATE_FAILED", "캐시 무효화에 실패했습니다.", traceId));
   }
 });
 
@@ -1362,8 +1359,17 @@ app.addHook("onResponse", async (req, reply) => {
 
 app.setErrorHandler((err, req, reply) => {
   const traceId = (req.headers["x-correlation-id"] as string) || randomUUID();
+  if (Array.isArray((err as any).validation)) {
+    req.log.warn({ err, traceId }, "request_validation_failed");
+    return reply.code(400).send(validationErrorPayload(err, traceId));
+  }
+  const statusCode = Number((err as any).statusCode ?? (err as any).status);
+  if (Number.isInteger(statusCode) && statusCode >= 400 && statusCode < 500) {
+    req.log.warn({ err, traceId }, "request_rejected");
+    return reply.code(statusCode).send(requestErrorPayload(err, traceId));
+  }
   req.log.error({ err, traceId }, "request_failed");
-  reply.code(500).send(errorPayload("INTERNAL_ERROR", "요청 처리 중 문제가 발생했습니다.", traceId));
+  return reply.code(500).send(errorPayload("INTERNAL_ERROR", "요청 처리 중 문제가 발생했습니다.", traceId));
 });
 
 await app.listen({ port: env.port, host: "0.0.0.0" });

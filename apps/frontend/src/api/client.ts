@@ -52,6 +52,16 @@ export type UploadItem = {
 const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 const API_BASE = RAW_API_BASE.endsWith("/api/v1") ? RAW_API_BASE.slice(0, -"/api/v1".length) : RAW_API_BASE;
 
+type ApiError = Error & { code?: string; status?: number; traceId?: string };
+
+function makeApiError(message: string, code?: string, status?: number, traceId?: string) {
+  const err = new Error(message) as ApiError;
+  err.code = code;
+  err.status = status;
+  err.traceId = traceId;
+  return err;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers || {});
   if (!headers.has("content-type") && init?.body && !(init.body instanceof FormData)) {
@@ -61,17 +71,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(`${API_BASE}${path}`, { ...init, credentials: "include", headers });
   } catch {
-    const err = new Error("서버에 연결하지 못했습니다. Docker Compose와 gateway/edge 실행 상태를 확인해 주세요.") as Error & { code?: string; status?: number };
-    err.code = "NETWORK_ERROR";
-    throw err;
+    throw makeApiError("서버에 연결하지 못했습니다. Docker Compose와 gateway/edge 실행 상태를 확인해 주세요.", "NETWORK_ERROR");
   }
   const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw makeApiError("서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.", "INVALID_JSON_RESPONSE", res.status);
+  }
   if (!res.ok) {
-    const err = new Error(data?.error?.message || "요청 처리에 실패했습니다.") as Error & { code?: string; status?: number };
-    err.code = data?.error?.code;
-    err.status = res.status;
-    throw err;
+    throw makeApiError(data?.error?.message || "요청 처리에 실패했습니다.", data?.error?.code, res.status, data?.error?.trace_id);
   }
   return data as T;
 }

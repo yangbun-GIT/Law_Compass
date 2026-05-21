@@ -223,6 +223,18 @@ components:
             code: { type: string }
             message: { type: string }
             trace_id: { type: string }
+            details:
+              type: object
+              additionalProperties: true
+              properties:
+                validation:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      field: { type: string }
+                      message: { type: string }
+                      keyword: { type: string }
     SignupRequest:
       type: object
       required: [email, password, display_name]
