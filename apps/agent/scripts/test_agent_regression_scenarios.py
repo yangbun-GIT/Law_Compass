@@ -135,15 +135,20 @@ def _check_user_bicycle_collision(result: dict[str, Any]) -> None:
 
 def _assert_common_contract(result: dict[str, Any]) -> None:
     judgment = result.get("agent_judgment") or {}
+    evidence_coverage = (result.get("evidence_audit") or {}).get("scenario_evidence_coverage") or {}
     assert judgment.get("overall_status") in SUPPORTED_OR_REVIEW, judgment
     assert "stage_statuses" in judgment, judgment
     assert "claim_coverage" in judgment, judgment
     assert result.get("presentation_policy", {}).get("finality") in {"supported", "reference_only", "blocked_for_final"}, result.get("presentation_policy")
+    assert evidence_coverage.get("coverage_level") in {"high", "medium", "low"}, evidence_coverage
+    assert "scenario_relevant_count" in evidence_coverage, evidence_coverage
+    assert "evidence_family_counts" in evidence_coverage, evidence_coverage
 
 
 def _print_result(status: str, name: str, result: dict[str, Any]) -> None:
     fault = result.get("fault_ratio") or {}
     judgment = result.get("agent_judgment") or {}
+    coverage = ((result.get("evidence_audit") or {}).get("scenario_evidence_coverage") or {}).get("coverage_level")
     primary_match = result.get("knia_primary_match") or {}
     print(
         " ".join(
@@ -155,6 +160,7 @@ def _print_result(status: str, name: str, result: dict[str, Any]) -> None:
                 f"role={fault.get('user_vehicle_role')}",
                 f"knia={primary_match.get('chart_no')}",
                 f"judgment={judgment.get('overall_status')}",
+                f"evidence_coverage={coverage}",
             ]
         )
     )

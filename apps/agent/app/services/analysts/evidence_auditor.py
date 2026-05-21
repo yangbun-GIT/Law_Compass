@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.evidence_quality_gate import evaluate_evidence_quality
+
+
+_QUALITY_ORDER = {"low": 0, "medium": 1, "high": 2}
+
 
 def audit_evidence(
     *,
@@ -20,16 +25,28 @@ def audit_evidence(
         weak_points.append("근거 점수가 낮아 추가 확인이 필요합니다.")
     if missing_fields:
         weak_points.append("필수 사고 사실 일부가 비어 있습니다.")
-    quality = "high" if count >= 5 and avg_score >= 0.35 and not missing_fields else ("medium" if count >= 3 else "low")
+    base_quality = "high" if count >= 5 and avg_score >= 0.35 and not missing_fields else ("medium" if count >= 3 else "low")
+    scenario_coverage = evaluate_evidence_quality(
+        scenario_type=scenario_type,
+        evidence=evidence,
+        missing_fields=missing_fields,
+    )
+    weak_points.extend(scenario_coverage.get("weak_points") or [])
+    quality = _lower_quality(base_quality, str(scenario_coverage.get("coverage_level") or "low"))
     return {
         "evidence_quality": quality,
         "evidence_count": count,
         "average_score": round(avg_score, 4),
         "used_evidence_ids": [ev.get("chunk_id") for ev in evidence if ev.get("chunk_id")],
+        "scenario_evidence_coverage": scenario_coverage,
         "weak_points": weak_points,
         "followup_questions": _followups(scenario_type, missing_fields),
         "uncertainty_level": "low" if quality == "high" else ("medium" if quality == "medium" else "high"),
     }
+
+
+def _lower_quality(first: str, second: str) -> str:
+    return first if _QUALITY_ORDER.get(first, 0) <= _QUALITY_ORDER.get(second, 0) else second
 
 
 def _followups(scenario_type: str, missing_fields: list[str]) -> list[str]:
