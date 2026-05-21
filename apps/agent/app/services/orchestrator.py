@@ -14,6 +14,7 @@ from app.services.analysts.insurance_analyst import analyze_insurance
 from app.services.analysts.traffic_law_analyst import analyze_traffic_law
 from app.services.claim_evidence_validator import apply_claim_evidence_audit, validate_claim_evidence
 from app.services.input_normalizer import normalize_analysis_input
+from app.services.judgment_contract import apply_judgment_contract_to_output, build_judgment_contract
 from app.services.keyword_recommender import recommend_keywords, suggest_next_inputs
 from app.services.knia.knia_matcher import match_knia_charts
 from app.services.knia.knia_fault_adjuster import estimate_knia_fault
@@ -197,6 +198,18 @@ def _analyze_core(
         evidence=evidence,
     )
     evidence_audit = apply_claim_evidence_audit(evidence_audit, claim_evidence)
+    judgment_contract = build_judgment_contract(
+        scenario=scenario,
+        evidence=evidence,
+        legal_analysis=legal_analysis,
+        fault_ratio=fault_ratio,
+        legal_liability=legal_liability,
+        insurance_guide=insurance_guide,
+        action_plan=action_plan,
+        evidence_audit=evidence_audit,
+        claim_evidence=claim_evidence,
+        missing_fields=normalized["missing_fields"],
+    )
     recommended_keywords = recommend_keywords(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], selected_keywords=normalized["selected_keywords"], evidence=evidence)
     suggested_next_inputs = suggest_next_inputs(normalized["structured_facts"], scenario["scenario_type"], normalized["missing_fields"])
     profile = ai_profile or _profile_for_scenario(scenario["scenario_type"])
@@ -224,6 +237,7 @@ def _analyze_core(
         llm_enabled=bool(os.getenv("OPENAI_API_KEY")),
         ai_profile=profile,
     )
+    output = apply_judgment_contract_to_output(output, judgment_contract)
     output["claim_evidence"] = claim_evidence
     output["knia_json_evidence"] = knia_json_evidence
     if knia_fault_estimate:

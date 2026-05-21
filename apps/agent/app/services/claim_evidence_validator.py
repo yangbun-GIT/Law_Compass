@@ -33,7 +33,7 @@ def validate_claim_evidence(
 
     warnings: list[str] = []
     if unsupported:
-        warnings.append("일부 판단은 연결된 근거가 없어 단정 표현을 피해야 합니다.")
+        warnings.append("일부 판단은 연결된 근거가 부족하므로 확정 표현을 피해야 합니다.")
     if weak:
         warnings.append("일부 판단은 간접 근거만 있어 추가 확인이 필요합니다.")
     if not knia_refs:
@@ -77,40 +77,43 @@ def apply_claim_evidence_audit(evidence_audit: dict[str, Any], claim_evidence: d
 def _legal_claims(legal_analysis: dict[str, Any], legal_refs: list[dict[str, Any]], any_refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     claims: list[dict[str, Any]] = []
     refs = _prefer_used_refs(legal_refs or any_refs, legal_analysis.get("used_evidence_ids") or legal_analysis.get("evidence_ids"))
+    analyst_support = _analyst_support(legal_analysis)
     rules = [str(x) for x in legal_analysis.get("applicable_rules") or [] if x]
     if rules:
-        claims.append(_claim("legal_rules", f"적용 가능 법규: {', '.join(rules[:5])}", refs, required_family="legal"))
+        claims.append(_claim("legal_rules", f"적용 가능 법규: {', '.join(rules[:5])}", refs, required_family="legal", analyst_support_level=analyst_support))
     issue = str(legal_analysis.get("legal_issue_summary") or "").strip()
     if issue:
-        claims.append(_claim("legal_issue_summary", issue, refs, required_family="legal"))
+        claims.append(_claim("legal_issue_summary", issue, refs, required_family="legal", analyst_support_level=analyst_support))
     flags = [str(x) for x in legal_analysis.get("risk_flags") or [] if x]
     if flags:
-        claims.append(_claim("legal_risk_flags", f"법률 리스크 검토 항목: {', '.join(flags[:5])}", refs, required_family="legal"))
+        claims.append(_claim("legal_risk_flags", f"법률 리스크 검토 항목: {', '.join(flags[:5])}", refs, required_family="legal", analyst_support_level=analyst_support))
     return claims
 
 
 def _fault_claims(fault_ratio: dict[str, Any], knia_refs: list[dict[str, Any]], any_refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     claims: list[dict[str, Any]] = []
     refs = _prefer_used_refs(knia_refs or any_refs, fault_ratio.get("used_evidence_ids") or fault_ratio.get("evidence_ids"))
+    analyst_support = _analyst_support(fault_ratio)
     my = fault_ratio.get("my")
     other = fault_ratio.get("other")
     if isinstance(my, (int, float)) and isinstance(other, (int, float)):
-        claims.append(_claim("fault_ratio_estimate", f"참고 과실비율: 내 책임 {int(my)}%, 상대방 {int(other)}%", refs, required_family="knia"))
+        claims.append(_claim("fault_ratio_estimate", f"참고 과실비율: 내 책임 {int(my)}%, 상대방 {int(other)}%", refs, required_family="knia", analyst_support_level=analyst_support))
     basis = str(fault_ratio.get("basis") or "").strip()
     if basis:
-        claims.append(_claim("fault_ratio_basis", basis, refs, required_family="knia"))
+        claims.append(_claim("fault_ratio_basis", basis, refs, required_family="knia", analyst_support_level=analyst_support))
     return claims
 
 
 def _liability_claims(legal_liability: dict[str, Any], legal_refs: list[dict[str, Any]], any_refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     claims: list[dict[str, Any]] = []
     refs = _prefer_used_refs(legal_refs or any_refs, legal_liability.get("used_evidence_ids") or legal_liability.get("evidence_ids"))
+    analyst_support = _analyst_support(legal_liability)
     if "reporting_required" in legal_liability:
-        label = "경찰 신고 또는 형사책임 검토가 필요합니다." if legal_liability.get("reporting_required") else "현재 입력만으로는 신고 필요성이 높게 보이지 않습니다."
-        claims.append(_claim("reporting_required", label, refs, required_family="legal"))
+        label = "신고 또는 형사책임 검토가 필요합니다." if legal_liability.get("reporting_required") else "현재 입력만으로는 신고 필요성이 높게 보이지 않습니다."
+        claims.append(_claim("reporting_required", label, refs, required_family="legal", analyst_support_level=analyst_support))
     level = legal_liability.get("criminal_risk_level")
     if level:
-        claims.append(_claim("criminal_risk_level", f"형사책임 리스크 수준: {level}", refs, required_family="legal"))
+        claims.append(_claim("criminal_risk_level", f"형사책임 리스크 수준: {level}", refs, required_family="legal", analyst_support_level=analyst_support))
     return claims
 
 
@@ -119,7 +122,7 @@ def _insurance_claims(insurance_guide: dict[str, Any], any_refs: list[dict[str, 
     if not summary:
         return []
     refs = _prefer_used_refs(any_refs, insurance_guide.get("used_evidence_ids") or insurance_guide.get("evidence_ids"))
-    return [_claim("insurance_summary", summary, refs, required_family="any")]
+    return [_claim("insurance_summary", summary, refs, required_family="any", analyst_support_level=_analyst_support(insurance_guide))]
 
 
 def _action_claims(action_plan: list[str], any_refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -130,11 +133,22 @@ def _action_claims(action_plan: list[str], any_refs: list[dict[str, Any]]) -> li
     return claims
 
 
-def _claim(claim_type: str, text: str, refs: list[dict[str, Any]], *, required_family: str) -> dict[str, Any]:
+def _claim(
+    claim_type: str,
+    text: str,
+    refs: list[dict[str, Any]],
+    *,
+    required_family: str,
+    analyst_support_level: str | None = None,
+) -> dict[str, Any]:
     selected = refs[:4]
     support_level = "supported" if selected else "unsupported"
     if selected and required_family != "any" and not any(ref["family"] == required_family for ref in selected):
         support_level = "weak"
+    if analyst_support_level == "insufficient":
+        support_level = "unsupported"
+    elif analyst_support_level == "partial" and required_family != "any":
+        support_level = "weak" if selected else "unsupported"
     return {
         "claim_id": _claim_id(claim_type, text),
         "claim_type": claim_type,
@@ -143,6 +157,11 @@ def _claim(claim_type: str, text: str, refs: list[dict[str, Any]], *, required_f
         "support_level": support_level,
         "evidence_refs": selected,
     }
+
+
+def _analyst_support(output: dict[str, Any]) -> str | None:
+    support = output.get("evidence_support_level")
+    return str(support) if support in {"direct", "partial", "insufficient"} else None
 
 
 def _prefer_used_refs(refs: list[dict[str, Any]], used_ids: Any) -> list[dict[str, Any]]:
@@ -173,7 +192,14 @@ def _evidence_ref(item: dict[str, Any]) -> dict[str, Any]:
 
 def _family(item: dict[str, Any]) -> str:
     source_type = str(item.get("source_type") or "").lower()
-    source = " ".join([str(item.get("source") or ""), str(item.get("title") or ""), str(item.get("source_url") or "")]).lower()
+    source = " ".join(
+        [
+            str(item.get("source") or ""),
+            str(item.get("title") or ""),
+            str(item.get("source_url") or ""),
+            str(item.get("law_name") or ""),
+        ]
+    ).lower()
     if source_type.startswith("knia") or "knia" in source or "과실비율정보포털" in source:
         return "knia"
     if item.get("chunk_id") or item.get("law_name") or "law.go.kr" in source or "법" in source:
