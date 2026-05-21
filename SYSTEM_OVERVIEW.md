@@ -1,5 +1,18 @@
 # LawCompass 시스템 구성 명세서
 
+## 2026-05-22 Worker P1 이벤트 프레임 추출 및 GPT 프레임 분석
+
+영상 업로드 후 고정 4장만 뽑던 전처리를 짧은 사고 영상에 맞는 시간순 이벤트 프레임 추출로 보강하고, 선택적으로 OpenAI 이미지 입력 분석을 실행해 관측 가능한 사고 사실을 `observations`로 저장하도록 확장했다. GPT API는 과실비율이나 법률 판단을 하지 않고, 프레임에서 보이는 물리적 사실 후보만 JSON으로 추출한다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/worker/worker/main.py` | `frame_times_for_duration()`과 `extract_event_frames()`를 추가했다. 5초 이하는 0.5초 간격, 10초 이하는 0.75초 간격, 그 이상은 길이에 맞춰 시간순 프레임을 추출하고 최대 장수로 균등 선별한다. 추출 프레임은 `representative_frame_details`에 time_sec/role/path와 함께 저장한다. |
+| `apps/worker/worker/main.py` | `analyze_frames_with_openai()`를 추가했다. `ENABLE_OPENAI_FRAME_ANALYSIS=1`이고 `OPENAI_API_KEY`가 있을 때만 OpenAI Responses API에 프레임 이미지를 base64 data URL로 전달한다. 결과는 `openai_frame_analysis`와 `observations`에 저장하며 worker 로그에도 모델명, 프레임 수, 관측값 요약을 한 번 출력한다. |
+| `apps/agent/app/services/video_input_contract.py` | OpenAI 프레임 분석 결과의 `frame_refs`와 `reason`을 Agent 영상 입력 계약에 보존한다. `source=frame_analysis:openai`는 기존 `frame_analysis` 계열 source로 처리되어 confidence 기준을 통과해야만 facts로 승격된다. |
+| `compose.yaml` | worker에 `ENABLE_OPENAI_FRAME_ANALYSIS`, `OPENAI_API_KEY`, `OPENAI_VISION_MODEL`, `OPENAI_FRAME_ANALYSIS_MAX_FRAMES`, `OPENAI_FRAME_ANALYSIS_DETAIL`, `OPENAI_TIMEOUT_SEC` 환경변수 전달을 추가했다. 기본값은 비용 방지를 위해 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이다. |
+
+OpenAI 프레임 분석은 공식 OpenAI Images/Vision 및 Responses API 문서 기준의 이미지 입력 흐름을 사용한다. 이미지 입력은 비용이 발생하므로 기본은 꺼져 있으며, 활성화 시 기본 `detail=low`, 최대 8프레임으로 제한한다. 향후 교통사고 특화 모델을 도입할 경우 `analyze_frames_with_openai()` 위치를 `VideoAnalyzerProvider` 추상화로 분리해 OpenAI, ML Kit, TFLite, 사고 특화 모델을 교체 가능하게 만드는 것이 다음 구조화 단계다.
+
 ## 2026-05-22 Agent P1 영상 전처리 입력 계약 연결
 
 영상 전처리 결과가 Agent의 일반 `video_metadata` 문자열로만 합쳐지던 흐름을 `agent-video-input-contract-v1` 계약으로 정규화했다. 현재 worker 전처리는 ffprobe/ffmpeg 기반 기술 메타데이터와 대표 프레임 추출까지 수행하므로, Agent는 이 기술 메타데이터를 사고 사실로 직접 승격하지 않는다. 향후 영상 분석/프레임 분석기가 `observations` 형태의 명시적 관측값을 넣으면, 출처와 신뢰도 기준을 통과한 항목만 `structured_facts`에 병합된다.

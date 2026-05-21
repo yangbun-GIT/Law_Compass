@@ -192,6 +192,8 @@ def _normalize_observation(raw: Any) -> dict[str, Any] | None:
         "confidence": _as_float(confidence),
         "verified": bool(raw.get("verified")),
         "source": raw.get("source") or raw.get("provider") or raw.get("detector"),
+        "frame_refs": raw.get("frame_refs") or raw.get("frames") or [],
+        "reason": raw.get("reason") or raw.get("evidence") or "",
     }
 
 

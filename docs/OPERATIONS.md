@@ -6,6 +6,10 @@
 - 아래 값 확인
   - `OPENAI_API_KEY` (실제 키)
   - `OPENAI_MODEL` (기본 `gpt-4.1-mini`)
+  - `ENABLE_OPENAI_FRAME_ANALYSIS` (영상 프레임 GPT 분석 사용 시 `1`)
+  - `OPENAI_VISION_MODEL` (기본 `gpt-4.1-mini`)
+  - `OPENAI_FRAME_ANALYSIS_MAX_FRAMES` (기본 `8`)
+  - `OPENAI_FRAME_ANALYSIS_DETAIL` (기본 `low`)
   - `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
   - `LAW_API_OC`, `LAW_API_TARGETS`
   - `DATA_GO_SERVICE_KEY`, `DATA_GO_TRAFFIC_URL`
@@ -43,6 +47,16 @@ PowerShell:
 ```powershell
 ./scripts/smoke_e2e.ps1 -BaseUrl http://localhost
 ```
+
+## 3-1) 영상 프레임 분석 점검
+프레임 분석은 비용 방지를 위해 기본 비활성화되어 있습니다. 사용하려면 `.env`에서 `ENABLE_OPENAI_FRAME_ANALYSIS=1`로 설정한 뒤 worker를 재시작합니다.
+
+```bash
+docker compose up -d --build worker
+docker compose logs worker --tail=100
+```
+
+worker 로그의 `openai_frame_analysis` 항목에서 분석 모델, 프레임 수, `observations`를 확인할 수 있습니다. 이 출력에는 API 키를 포함하지 않습니다.
 
 ## 4) 프론트에서 기능 확인
 1. 회원가입
