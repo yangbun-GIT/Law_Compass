@@ -11,10 +11,14 @@ def test_analyze_case_minimum_fields():
         "legal_liability",
         "action_plan",
         "evidence",
+        "claim_evidence",
         "uncertainty",
         "disclaimers",
         "followup_questions",
         "model_info",
     }
     assert keys.issubset(set(result.keys()))
+    assert result["claim_evidence"]["claim_count"] >= 1
+    assert "coverage_level" in result["claim_evidence"]
+    assert "claim_evidence_coverage" in result["evidence_audit"]
 

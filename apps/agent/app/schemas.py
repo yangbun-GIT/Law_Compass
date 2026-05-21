@@ -62,6 +62,7 @@ class AnalysisOutput(BaseModel):
     knia_matches: list[dict[str, Any]] = Field(default_factory=list)
     knia_primary_match: dict[str, Any] | None = None
     evidence_audit: dict[str, Any]
+    claim_evidence: dict[str, Any] = Field(default_factory=dict)
     uncertainty: dict[str, Any]
     disclaimers: list[str]
     followup_questions: list[str]
