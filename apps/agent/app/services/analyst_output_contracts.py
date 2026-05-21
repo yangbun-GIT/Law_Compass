@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 EvidenceSupportLevel = Literal["direct", "partial", "insufficient"]
+JudgmentStatus = Literal["evidence_supported", "needs_review", "unsupported"]
 
 
 class AnalystOutputBase(BaseModel):
@@ -13,13 +14,21 @@ class AnalystOutputBase(BaseModel):
 
     evidence_count: int = Field(default=0, ge=0)
     evidence_ids: list[str] = Field(default_factory=list)
+    used_evidence_ids: list[str] = Field(default_factory=list)
+    required_evidence_family: str = "any"
     evidence_support_level: EvidenceSupportLevel = "insufficient"
+    judgment_status: JudgmentStatus = "unsupported"
     caveats: list[str] = Field(default_factory=list)
 
-    @field_validator("evidence_ids", "caveats", mode="before")
+    @field_validator("evidence_ids", "used_evidence_ids", "caveats", mode="before")
     @classmethod
     def _normalize_common_lists(cls, value: Any) -> list[str]:
         return _string_list(value)
+
+    @field_validator("required_evidence_family", mode="before")
+    @classmethod
+    def _normalize_family(cls, value: Any) -> str:
+        return _string_value(value) or "any"
 
 
 class TrafficLawAnalysisOutput(AnalystOutputBase):

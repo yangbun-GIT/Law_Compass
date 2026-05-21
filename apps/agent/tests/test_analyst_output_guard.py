@@ -16,6 +16,8 @@ def test_fault_ratio_caps_confidence_without_knia_evidence():
     )
 
     assert guarded["evidence_support_level"] == SUPPORT_INSUFFICIENT
+    assert guarded["judgment_status"] == "unsupported"
+    assert guarded["used_evidence_ids"] == []
     assert guarded["confidence"] <= 0.45
     assert "기존 경고" in guarded["caveats"]
 
@@ -27,6 +29,8 @@ def test_fault_ratio_marks_partial_when_only_legal_evidence_exists():
     )
 
     assert guarded["evidence_support_level"] == SUPPORT_PARTIAL
+    assert guarded["judgment_status"] == "needs_review"
+    assert guarded["used_evidence_ids"] == ["law-1"]
     assert guarded["confidence"] <= 0.65
 
 
@@ -37,6 +41,8 @@ def test_legal_and_criminal_outputs_mark_direct_legal_support():
     liability = guard_criminal_liability_output({"reporting_required": False}, evidence)
 
     assert legal["evidence_support_level"] == SUPPORT_DIRECT
+    assert legal["judgment_status"] == "evidence_supported"
+    assert legal["used_evidence_ids"] == ["law-1"]
     assert liability["evidence_support_level"] == SUPPORT_DIRECT
     assert liability["decision_status"] == "reference_only"
 
@@ -50,7 +56,10 @@ def test_contract_normalizes_llm_shape_without_dropping_extra_context():
             "key_factors": "정차 여부",
             "evidence_count": 1,
             "evidence_ids": "law-1",
+            "used_evidence_ids": "law-1",
+            "required_evidence_family": "knia",
             "evidence_support_level": SUPPORT_DIRECT,
+            "judgment_status": "evidence_supported",
             "caveats": "참고용",
             "source_model": "test-model",
         }
@@ -61,6 +70,9 @@ def test_contract_normalizes_llm_shape_without_dropping_extra_context():
     assert validated["confidence"] == 0.82
     assert validated["key_factors"] == ["정차 여부"]
     assert validated["evidence_ids"] == ["law-1"]
+    assert validated["used_evidence_ids"] == ["law-1"]
+    assert validated["required_evidence_family"] == "knia"
+    assert validated["judgment_status"] == "evidence_supported"
     assert validated["caveats"] == ["참고용"]
     assert validated["source_model"] == "test-model"
 

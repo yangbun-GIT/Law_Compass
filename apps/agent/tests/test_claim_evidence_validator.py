@@ -35,3 +35,23 @@ def test_claim_evidence_lowers_audit_when_missing_support():
     assert result["unsupported_claim_count"] >= 1
     assert audit["uncertainty_level"] == "high"
     assert audit["claim_evidence_coverage"]["level"] == "low"
+
+
+def test_claim_evidence_prefers_used_evidence_ids():
+    result = validate_claim_evidence(
+        legal_analysis={
+            "applicable_rules": ["SAFE_DISTANCE"],
+            "used_evidence_ids": ["law-used"],
+        },
+        fault_ratio={},
+        legal_liability={},
+        insurance_guide={},
+        action_plan=[],
+        evidence=[
+            {"chunk_id": "law-unused", "title": "사용하지 않은 법률 근거", "law_name": "도로교통법"},
+            {"chunk_id": "law-used", "title": "사용한 법률 근거", "law_name": "도로교통법"},
+        ],
+    )
+
+    legal_claim = next(claim for claim in result["claims"] if claim["claim_type"] == "legal_rules")
+    assert legal_claim["evidence_refs"][0]["ref_id"] == "law-used"

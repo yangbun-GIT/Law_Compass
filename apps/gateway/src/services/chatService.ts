@@ -23,8 +23,12 @@ const TECHNICAL_KEYS = new Set([
   "rag_top_k",
   "llm_enabled",
   "security_flags",
+  "evidence_ids",
+  "used_evidence_ids",
+  "required_evidence_family",
   "evidence_support_level",
-  "decision_status"
+  "decision_status",
+  "judgment_status"
 ]);
 
 function stripTechnical(value: any): any {

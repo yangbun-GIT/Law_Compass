@@ -76,38 +76,41 @@ def apply_claim_evidence_audit(evidence_audit: dict[str, Any], claim_evidence: d
 
 def _legal_claims(legal_analysis: dict[str, Any], legal_refs: list[dict[str, Any]], any_refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     claims: list[dict[str, Any]] = []
+    refs = _prefer_used_refs(legal_refs or any_refs, legal_analysis.get("used_evidence_ids") or legal_analysis.get("evidence_ids"))
     rules = [str(x) for x in legal_analysis.get("applicable_rules") or [] if x]
     if rules:
-        claims.append(_claim("legal_rules", f"적용 가능 법규: {', '.join(rules[:5])}", legal_refs or any_refs, required_family="legal"))
+        claims.append(_claim("legal_rules", f"적용 가능 법규: {', '.join(rules[:5])}", refs, required_family="legal"))
     issue = str(legal_analysis.get("legal_issue_summary") or "").strip()
     if issue:
-        claims.append(_claim("legal_issue_summary", issue, legal_refs or any_refs, required_family="legal"))
+        claims.append(_claim("legal_issue_summary", issue, refs, required_family="legal"))
     flags = [str(x) for x in legal_analysis.get("risk_flags") or [] if x]
     if flags:
-        claims.append(_claim("legal_risk_flags", f"법률 리스크 검토 항목: {', '.join(flags[:5])}", legal_refs or any_refs, required_family="legal"))
+        claims.append(_claim("legal_risk_flags", f"법률 리스크 검토 항목: {', '.join(flags[:5])}", refs, required_family="legal"))
     return claims
 
 
 def _fault_claims(fault_ratio: dict[str, Any], knia_refs: list[dict[str, Any]], any_refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     claims: list[dict[str, Any]] = []
+    refs = _prefer_used_refs(knia_refs or any_refs, fault_ratio.get("used_evidence_ids") or fault_ratio.get("evidence_ids"))
     my = fault_ratio.get("my")
     other = fault_ratio.get("other")
     if isinstance(my, (int, float)) and isinstance(other, (int, float)):
-        claims.append(_claim("fault_ratio_estimate", f"참고 과실비율: 내 책임 {int(my)}%, 상대방 {int(other)}%", knia_refs or any_refs, required_family="knia"))
+        claims.append(_claim("fault_ratio_estimate", f"참고 과실비율: 내 책임 {int(my)}%, 상대방 {int(other)}%", refs, required_family="knia"))
     basis = str(fault_ratio.get("basis") or "").strip()
     if basis:
-        claims.append(_claim("fault_ratio_basis", basis, knia_refs or any_refs, required_family="knia"))
+        claims.append(_claim("fault_ratio_basis", basis, refs, required_family="knia"))
     return claims
 
 
 def _liability_claims(legal_liability: dict[str, Any], legal_refs: list[dict[str, Any]], any_refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     claims: list[dict[str, Any]] = []
+    refs = _prefer_used_refs(legal_refs or any_refs, legal_liability.get("used_evidence_ids") or legal_liability.get("evidence_ids"))
     if "reporting_required" in legal_liability:
         label = "경찰 신고 또는 형사책임 검토가 필요합니다." if legal_liability.get("reporting_required") else "현재 입력만으로는 신고 필요성이 높게 보이지 않습니다."
-        claims.append(_claim("reporting_required", label, legal_refs or any_refs, required_family="legal"))
+        claims.append(_claim("reporting_required", label, refs, required_family="legal"))
     level = legal_liability.get("criminal_risk_level")
     if level:
-        claims.append(_claim("criminal_risk_level", f"형사책임 리스크 수준: {level}", legal_refs or any_refs, required_family="legal"))
+        claims.append(_claim("criminal_risk_level", f"형사책임 리스크 수준: {level}", refs, required_family="legal"))
     return claims
 
 
@@ -115,7 +118,8 @@ def _insurance_claims(insurance_guide: dict[str, Any], any_refs: list[dict[str, 
     summary = str(insurance_guide.get("summary") or "").strip()
     if not summary:
         return []
-    return [_claim("insurance_summary", summary, any_refs, required_family="any")]
+    refs = _prefer_used_refs(any_refs, insurance_guide.get("used_evidence_ids") or insurance_guide.get("evidence_ids"))
+    return [_claim("insurance_summary", summary, refs, required_family="any")]
 
 
 def _action_claims(action_plan: list[str], any_refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -139,6 +143,18 @@ def _claim(claim_type: str, text: str, refs: list[dict[str, Any]], *, required_f
         "support_level": support_level,
         "evidence_refs": selected,
     }
+
+
+def _prefer_used_refs(refs: list[dict[str, Any]], used_ids: Any) -> list[dict[str, Any]]:
+    if isinstance(used_ids, (str, bytes)):
+        used_items = [used_ids]
+    else:
+        used_items = used_ids or []
+    ids = {str(item) for item in used_items if item}
+    if not ids:
+        return refs
+    selected = [ref for ref in refs if str(ref.get("ref_id")) in ids]
+    return selected or refs
 
 
 def _evidence_ref(item: dict[str, Any]) -> dict[str, Any]:

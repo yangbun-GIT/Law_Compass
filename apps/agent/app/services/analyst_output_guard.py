@@ -71,10 +71,14 @@ def guard_insurance_output(data: dict[str, Any] | None, evidence: list[dict[str,
 
 def _guard_dict(data: dict[str, Any] | None, evidence: list[dict[str, Any]], *, required_family: str) -> dict[str, Any]:
     output = dict(data or {})
+    support = _support_level(evidence, required_family=required_family)
     output["evidence_count"] = len(evidence)
     output["evidence_ids"] = _evidence_ids(evidence)
-    output["evidence_support_level"] = _support_level(evidence, required_family=required_family)
-    if output["evidence_support_level"] == SUPPORT_INSUFFICIENT:
+    output["used_evidence_ids"] = _used_evidence_ids(evidence, required_family=required_family, support_level=support)
+    output["required_evidence_family"] = required_family
+    output["evidence_support_level"] = support
+    output["judgment_status"] = _judgment_status(support)
+    if support == SUPPORT_INSUFFICIENT:
         _append_unique(output, "caveats", ANY_EVIDENCE_CAVEAT)
     return output
 
@@ -114,6 +118,22 @@ def _evidence_ids(evidence: list[dict[str, Any]]) -> list[str]:
         if ref:
             ids.append(str(ref))
     return ids
+
+
+def _used_evidence_ids(evidence: list[dict[str, Any]], *, required_family: str, support_level: str) -> list[str]:
+    if support_level == SUPPORT_INSUFFICIENT:
+        return []
+    if required_family == "any" or support_level == SUPPORT_PARTIAL:
+        return _evidence_ids(evidence)
+    return _evidence_ids([item for item in evidence if _family(item) == required_family])
+
+
+def _judgment_status(support_level: str) -> str:
+    if support_level == SUPPORT_DIRECT:
+        return "evidence_supported"
+    if support_level == SUPPORT_PARTIAL:
+        return "needs_review"
+    return "unsupported"
 
 
 def _append_unique(output: dict[str, Any], key: str, value: str) -> None:
