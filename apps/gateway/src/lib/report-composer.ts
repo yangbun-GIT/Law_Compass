@@ -3,7 +3,8 @@
 const TECHNICAL_KEYS = new Set([
   "model_info", "technical_model_info", "scenario_classifier", "retrieval", "cache_key", "evidence_cache_key",
   "chunk_id", "score", "rag_top_k", "ai_profile", "llm_enabled", "orchestrator", "security_flags",
-  "scenario_tags", "scenario_type", "document_id", "source_uri", "used_evidence_ids", "persona_outputs"
+  "scenario_tags", "scenario_type", "document_id", "source_uri", "used_evidence_ids", "persona_outputs",
+  "claim_evidence", "claim_id", "evidence_refs", "required_evidence_family", "support_level", "unsupported_claims"
 ]);
 const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi];
 function asArray(value: any): any[] { return Array.isArray(value) ? value : []; }
@@ -33,6 +34,53 @@ function detectMissingFields(facts: AnyRecord = {}) {
 }
 function safeEvidenceSummaries(evidence: any[]) {
   return evidence.slice(0, 5).map((ev: AnyRecord) => cleanText(ev.related_reason ?? ev.plain_summary ?? ev.used_for ?? ev.title, "이 사고 판단에 참고할 수 있는 근거입니다."));
+}
+function toNumber(value: any, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+function coverageLabel(level: any) {
+  if (level === "high" || level === "높음") return "높음";
+  if (level === "low" || level === "낮음") return "낮음";
+  return "보통";
+}
+function composeEvidenceReliabilityCard(result: AnyRecord = {}) {
+  const claim = result.claim_evidence ?? {};
+  const coverage = result.evidence_audit?.claim_evidence_coverage ?? {};
+  const claimCount = toNumber(claim.claim_count);
+  const supportedCount = toNumber(claim.supported_claim_count);
+  const unsupportedCount = toNumber(claim.unsupported_claim_count ?? coverage.unsupported_claim_count);
+  const weakCount = toNumber(claim.weak_claim_count ?? coverage.weak_claim_count);
+  const level = coverageLabel(claim.coverage_level ?? coverage.level);
+  const ratioRaw = toNumber(claim.coverage_ratio ?? coverage.ratio, 0);
+  const ratio = ratioRaw > 1 ? Math.round(ratioRaw) : Math.round(ratioRaw * 100);
+  if (!claimCount && !coverage.level && !claim.coverage_level) return undefined;
+  const warnings = asArray(claim.warnings)
+    .map((item) => cleanText(item, "근거 확인이 필요한 항목이 있습니다."))
+    .filter(Boolean)
+    .slice(0, 4);
+  const summary = claimCount
+    ? `주요 판단 ${claimCount}개 중 ${supportedCount}개가 근거와 연결되었습니다.`
+    : "주요 판단과 근거 문서의 연결 상태를 확인했습니다.";
+  return {
+    title: "근거 연결 상태",
+    level_label: level,
+    summary,
+    stats: [
+      { label: "근거 연결률", value: `${ratio}%` },
+      { label: "전체 판단", value: `${claimCount}개` },
+      { label: "근거 부족", value: `${unsupportedCount}개` },
+      { label: "간접 근거", value: `${weakCount}개` },
+    ],
+    warnings,
+    notice: level === "낮음"
+      ? "근거가 부족한 판단은 확정 표현보다 추가 확인이 필요한 참고 정보로 보셔야 합니다."
+      : "근거와 연결된 판단이라도 최종 판단은 보험사, 분쟁심의위, 수사기관, 법원의 확인이 필요합니다.",
+  };
+}
+export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {}) {
+  const card = composeEvidenceReliabilityCard(result);
+  return card ? { ...report, evidence_reliability_card: card } : report;
 }
 export function sanitizeEasyReport(report: AnyRecord = {}) {
   const safe: AnyRecord = {};
@@ -75,7 +123,7 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
   const headline = scenario === "rear_end_collision" ? "이번 사고는 정차 중 뒤차가 들이받은 사고로 보이며, 상대 차량 책임이 더 클 가능성이 높습니다." : scenario === "school_zone_child_accident" ? "어린이보호구역 사고로 보이며, 신고와 형사 문제를 꼭 확인해 보셔야 합니다." : "입력하신 사고는 추가 사실을 확인하면서 과실과 신고 필요 여부를 살펴봐야 합니다.";
   const my = typeof fault.my === "number" ? Math.round(fault.my) : scenario === "rear_end_collision" ? 10 : 50;
   const other = typeof fault.other === "number" ? Math.round(fault.other) : 100 - my;
-  return sanitizeEasyReport({
+  return enrichEasyReport(sanitizeEasyReport({
     headline,
     summary_for_user: { accident_type_label: scenarioLabel(scenario), short_summary: cleanText(result.accident_summary, "입력하신 사고 내용을 바탕으로 대응 방향을 정리했습니다."), confidence_label: Number(fault.confidence ?? 0) >= 0.65 ? "비교적 신뢰할 수 있음" : "보통", warning: "정확한 과실비율은 보험사나 분쟁심의 결과에 따라 달라질 수 있습니다." },
     top_actions: [
@@ -89,7 +137,7 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
     legal_basis_cards: evidence.slice(0, 6).map((ev: AnyRecord) => ({ law_name: cleanText(ev.law_name ?? "교통사고 관련 기준"), easy_title: cleanText(ev.article_title ?? ev.chunk_summary ?? "교통사고 관련 확인 사항"), easy_explanation: cleanText(ev.plain_summary ?? ev.snippet, "이 사고에서 확인해야 할 법률상 기준입니다."), related_to_this_case: cleanText(ev.related_reason ?? ev.used_for, "입력하신 사고 사실과 연결해서 참고할 수 있는 근거입니다."), confidence_label: "관련성이 있는 근거입니다.", source_label: cleanText(ev.source ?? "교통사고 법률 설명 자료") })),
     missing_info: { title: "더 정확한 분석을 위해 필요한 정보", items: Array.from(new Set([...detectMissingFields(facts), ...asArray(result.suggested_next_inputs).map((x) => cleanText(x)), ...asArray(result.followup_questions).map((x) => cleanText(x))])).slice(0, 6) },
     detail_sections: { evidence_summaries: safeEvidenceSummaries(evidence) }
-  });
+  }), result);
 }
 export function composeClientReport(result: AnyRecord = {}, context: AnyRecord = {}) {
   return composeEasyFallback(result, context);

@@ -1,4 +1,5 @@
-﻿from app.services.orchestrator import analyze_case
+﻿from app.schemas import AnalysisOutput
+from app.services.orchestrator import analyze_case
 
 
 def test_analyze_case_minimum_fields():
@@ -21,4 +22,5 @@ def test_analyze_case_minimum_fields():
     assert result["claim_evidence"]["claim_count"] >= 1
     assert "coverage_level" in result["claim_evidence"]
     assert "claim_evidence_coverage" in result["evidence_audit"]
+    AnalysisOutput(**result)
 

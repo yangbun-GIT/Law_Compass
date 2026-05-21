@@ -81,6 +81,7 @@
 | `apps/frontend/src/components/chat/*` | AI 사고 상담 패널, 메시지, 초안 케이스, KNIA 매칭 카드 |
 | `apps/frontend/src/components/knia/*` | KNIA 순위, 기준, 미디어, JSON 검색 UI |
 | `apps/frontend/src/components/easy/*` | 고령자 친화 리포트 표시 컴포넌트 |
+| `apps/frontend/src/components/easy/EvidenceReliabilityCard.vue` | Agent 판단과 근거 문서의 연결 상태를 사용자용 카드로 표시 |
 
 주요 화면 라우트:
 
@@ -117,7 +118,7 @@
 | `apps/gateway/src/services/chatService.ts` | 채팅 세션 저장, Agent 채팅 호출, 메시지 저장 |
 | `apps/gateway/src/lib/internal-client.ts` | 내부 Agent POST 호출 및 재시도 |
 | `apps/gateway/src/lib/errors.ts` | 표준 오류 응답 envelope, validation 오류 정규화 |
-| `apps/gateway/src/lib/report-composer.ts` | 분석 결과를 클라이언트 리포트/쉬운 리포트 형태로 조립 |
+| `apps/gateway/src/lib/report-composer.ts` | 분석 결과를 클라이언트 리포트/쉬운 리포트 형태로 조립하고 `claim_evidence`를 사용자용 근거 연결 상태 카드로 요약 |
 | `apps/gateway/src/lib/security.ts` | 민감값 마스킹, 해시 유틸리티 |
 | `apps/gateway/src/lib/ai-router.ts` | 영상 분석용 AI 라우팅 결정 |
 | `apps/gateway/src/storage/provider.ts` | 로컬 업로드 저장소 구현. S3 저장소 인터페이스는 있으나 현재 미활성 |
@@ -319,6 +320,7 @@ Agent 주요 DTO:
 | `apps/gateway/src/storage/provider.ts` | `StoredObject`, `StorageProvider` | Gateway 내부 | 업로드 저장 결과 및 provider 추상화 |
 | `apps/gateway/src/lib/internal-client.ts` | `AgentCallOptions` | Gateway 내부 | Agent 호출 timeout/retry/token 옵션 |
 | `apps/gateway/src/services/chatService.ts` | `ChatServiceOptions` | Gateway 내부 | 채팅 service가 DB/Agent 설정을 받는 규격 |
+| `apps/gateway/src/lib/report-composer.ts` | `evidence_reliability_card` | Gateway public report response 일부 | raw `claim_evidence`를 숨기고 근거 연결률, 판단 수, 근거 부족 수, 주의 문구를 일반 사용자용 카드로 요약 |
 | `apps/agent/app/schemas.py` | `AnalyzeTextRequest` | Agent internal API request | 텍스트 분석 요청 검증 |
 | `apps/agent/app/schemas.py` | `AnalyzeVideoRequest` | Agent internal API request | 영상 분석 요청 검증 |
 | `apps/agent/app/schemas.py` | `EvidenceItem` | Agent internal API response | 법률/KNIA 근거 item 규격 |
@@ -329,10 +331,11 @@ Agent 주요 DTO:
 
 | 파일/영역 | Progress State | Test Status | Known Issues / Review Notes |
 | --- | --- | --- | --- |
-| `apps/frontend/src/api/client.ts` | 구현 완료 | `apps/frontend/scripts/test-display.mjs`, `apps/frontend/scripts/test-chat.mjs`에서 간접 검증 | 네트워크/JSON/API 오류를 사용자 문구로 정규화하고 Gateway validation detail을 로그인, 회원가입, 케이스 생성, 케이스 상세 주요 액션에서 필드별 안내로 표시한다. 결과/근거 화면은 로딩, 결과 없음, 오류 상태를 구분하고 일반 사용자 화면에서는 내부 근거 식별자와 원문 덤프를 숨긴다. 인증 폼은 데모 기본값 없이 email 형식과 8자 이상 비밀번호를 선제 검증한다 |
+| `apps/frontend/src/api/client.ts`, `apps/frontend/src/components/easy/*` | 구현 완료 | `apps/frontend/scripts/test-display.mjs`, `apps/frontend/scripts/test-chat.mjs`에서 간접 검증 | 네트워크/JSON/API 오류를 사용자 문구로 정규화하고 Gateway validation detail을 로그인, 회원가입, 케이스 생성, 케이스 상세 주요 액션에서 필드별 안내로 표시한다. 결과/근거 화면은 로딩, 결과 없음, 오류 상태를 구분하고 일반 사용자 화면에서는 내부 근거 식별자와 원문 덤프를 숨긴다. 쉬운 리포트는 `evidence_reliability_card`로 Agent 판단의 근거 연결 상태를 표시한다. 인증 폼은 데모 기본값 없이 email 형식과 8자 이상 비밀번호를 선제 검증한다 |
 | `apps/frontend/src/router/index.ts` | 구현 완료 | 전용 단위 테스트 없음 | 인증 bootstrap가 route guard마다 실행되므로 초기 진입 지연 가능성은 관찰 대상 |
 | `apps/frontend/src/stores/session.ts` | 구현 완료 | 전용 단위 테스트 없음 | localStorage 사용자 정보와 cookie 세션 불일치 시 refresh 흐름에 의존 |
 | `apps/gateway/src/main.ts` | 구현 완료, 라우트 규모 큼 | `apps/gateway/test/error-format.test.ts`, `npm test` | validation 오류는 400 `VALIDATION_ERROR`로 정규화된다. 한 파일에 인증/케이스/업로드/분석/KNIA/admin 라우트가 집중되어 유지보수 비용이 높다 |
+| `apps/gateway/src/lib/report-composer.ts` | 구현 완료, 리포트 안전화 로직 | `apps/gateway/test/report-composer.test.ts`, `npm test` | raw Agent 결과를 일반 사용자 화면용 리포트로 변환하므로 내부 식별자/점수/claim 세부 구조가 노출되지 않도록 테스트 유지 필요 |
 | `apps/gateway/src/routes/chat.ts` | 구현 완료 | Gateway test에서 직접 매핑 확인 필요 | 일부 route는 `requireUser`를 명시적으로 강제하지 않고 익명 세션도 허용하는 구조다 |
 | `apps/gateway/src/services/chatService.ts` | 구현 완료 | 전용 단위 테스트 없음 | Agent 장애 시 Gateway route에서 502로 변환된다 |
 | `apps/gateway/src/storage/provider.ts` | 로컬 provider 구현, S3 provider 미구현 | 전용 단위 테스트 없음 | `S3StorageProvider`는 현재 의도적으로 비활성 상태 |

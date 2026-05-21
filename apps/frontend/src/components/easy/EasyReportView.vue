@@ -3,6 +3,7 @@
     <TopConclusionCard :report="safeReport" />
     <AccidentPartyTypeActionCard v-if="safeReport.accident_party_type_card" :card="safeReport.accident_party_type_card" />
     <ElderlyActionCard :actions="safeReport.top_actions || []" />
+    <EvidenceReliabilityCard v-if="safeReport.evidence_reliability_card" :card="safeReport.evidence_reliability_card" />
     <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
     <article class="card easy-card">
       <h2>{{ text(safeReport.insurance_explanation?.title || "보험 처리 안내") }}</h2>
@@ -72,6 +73,7 @@
 import { computed, ref } from "vue";
 import TopConclusionCard from "./TopConclusionCard.vue";
 import ElderlyActionCard from "./ElderlyActionCard.vue";
+import EvidenceReliabilityCard from "./EvidenceReliabilityCard.vue";
 import EasyFaultRatioCard from "./EasyFaultRatioCard.vue";
 import EasyLegalBasisCard from "./EasyLegalBasisCard.vue";
 import MissingInfoCard from "./MissingInfoCard.vue";

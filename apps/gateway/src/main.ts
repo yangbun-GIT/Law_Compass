@@ -10,7 +10,7 @@ import { Pool } from "pg";
 import { Redis } from "ioredis";
 import bcrypt from "bcryptjs";
 import { callInternalAgent } from "./lib/internal-client.js";
-import { composeClientReport, composeDebugReport, composeEasyFallback, sanitizeEasyReport } from "./lib/report-composer.js";
+import { composeClientReport, composeDebugReport, composeEasyFallback, enrichEasyReport, sanitizeEasyReport } from "./lib/report-composer.js";
 import { maskSensitive, sha256 } from "./lib/security.js";
 import { errorPayload, requestErrorPayload, validationErrorPayload } from "./lib/errors.js";
 import { selectVideoAiRoute } from "./lib/ai-router.js";
@@ -680,7 +680,7 @@ app.post(`${env.apiPrefix}/cases/:caseId/analyze-text`, async (req, reply) => {
     `UPDATE analysis_results SET knia_matches=$2, knia_primary_match=$3 WHERE id=$1`,
     [inserted.rows[0].id, JSON.stringify(agentResp.knia_matches ?? []), JSON.stringify(agentResp.knia_primary_match ?? null)]
   ).catch(() => undefined);
-  const easyReport = sanitizeEasyReport(agentResp.elderly_friendly_report ?? composeEasyFallback(agentResp, { case: caseRow.rows[0] }));
+  const easyReport = enrichEasyReport(sanitizeEasyReport(agentResp.elderly_friendly_report ?? composeEasyFallback(agentResp, { case: caseRow.rows[0] })), agentResp);
 
   return {
     result_id: inserted.rows[0].id,
@@ -745,7 +745,7 @@ app.get(`${env.apiPrefix}/cases/:caseId/result`, async (req, reply) => {
   if (!row.rowCount) return reply.code(404).send(errorPayload("RESULT_NOT_FOUND", "분석 결과가 없습니다.", traceId));
   const context = await buildReportContext(caseId, (req as any).user.id, row.rows[0]);
   const debug = String((req.query as any)?.debug ?? "") === "1";
-  const easyReport = sanitizeEasyReport(row.rows[0].elderly_friendly_report && Object.keys(row.rows[0].elderly_friendly_report).length ? row.rows[0].elderly_friendly_report : composeEasyFallback(row.rows[0].result, context));
+  const easyReport = enrichEasyReport(sanitizeEasyReport(row.rows[0].elderly_friendly_report && Object.keys(row.rows[0].elderly_friendly_report).length ? row.rows[0].elderly_friendly_report : composeEasyFallback(row.rows[0].result, context)), row.rows[0].result);
   return debug
     ? { result: easyReport, report: easyReport, debug: composeDebugReport(row.rows[0].result, context), trace_id: traceId }
     : { result: easyReport, report: easyReport, trace_id: traceId };
@@ -759,7 +759,7 @@ app.get(`${env.apiPrefix}/cases/:caseId/report`, async (req, reply) => {
   if (!row.rowCount) return reply.code(404).send(errorPayload("RESULT_NOT_FOUND", "분석 결과가 없습니다.", traceId));
   const context = await buildReportContext(caseId, (req as any).user.id, row.rows[0]);
   const debug = String((req.query as any)?.debug ?? "") === "1";
-  const report = sanitizeEasyReport(row.rows[0].elderly_friendly_report && Object.keys(row.rows[0].elderly_friendly_report).length ? row.rows[0].elderly_friendly_report : composeClientReport(row.rows[0].result, context));
+  const report = enrichEasyReport(sanitizeEasyReport(row.rows[0].elderly_friendly_report && Object.keys(row.rows[0].elderly_friendly_report).length ? row.rows[0].elderly_friendly_report : composeClientReport(row.rows[0].result, context)), row.rows[0].result);
   await db.query(`UPDATE analysis_results SET report_payload=$2 WHERE id=$1`, [row.rows[0].id, JSON.stringify(report)]).catch(() => undefined);
   return debug ? { report, debug: composeDebugReport(row.rows[0].result, context), trace_id: traceId } : { report, trace_id: traceId };
 });
@@ -775,13 +775,13 @@ app.get(`${env.apiPrefix}/cases/:caseId/easy-report`, async (req, reply) => {
   if (!row.rowCount) return reply.code(404).send(errorPayload("RESULT_NOT_FOUND", "분석 결과가 없습니다.", traceId));
   const result = row.rows[0].result ?? {};
   const stored = row.rows[0].elderly_friendly_report;
-  const easyReport = sanitizeEasyReport(
+  const easyReport = enrichEasyReport(sanitizeEasyReport(
     stored && Object.keys(stored).length
       ? stored
       : result.elderly_friendly_report && Object.keys(result.elderly_friendly_report).length
         ? result.elderly_friendly_report
         : composeEasyFallback(result, await buildReportContext(caseId, (req as any).user.id, row.rows[0]))
-  );
+  ), result);
   await db.query(`UPDATE analysis_results SET elderly_friendly_report=$2 WHERE id=$1`, [row.rows[0].id, JSON.stringify(easyReport)]).catch(() => undefined);
   if (String((req.query as any)?.debug ?? "") === "1") {
     const context = await buildReportContext(caseId, (req as any).user.id, row.rows[0]);

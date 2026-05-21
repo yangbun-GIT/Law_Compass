@@ -137,7 +137,7 @@ def _analyze_core(
             knia_reference_evidence.extend(_knia_refs_to_evidence(primary, refs))
         except Exception:
             knia_fault_estimate = None
-    knia_evidence = [*build_knia_evidence(knia_matches), *knia_reference_evidence, *knia_json_evidence]
+    knia_evidence = _normalize_evidence_items([*build_knia_evidence(knia_matches), *knia_reference_evidence, *knia_json_evidence], default_source="과실비율정보포털")
     retrieval = retrieve_for_scenario(
         scenario_type=scenario["scenario_type"],
         scenario_tags=scenario["scenario_tags"],
@@ -147,7 +147,7 @@ def _analyze_core(
         video_context=video_context,
         limit=8,
     )
-    legal_evidence = retrieval["items"]
+    legal_evidence = _normalize_evidence_items(retrieval["items"], default_source="법률 근거")
     evidence = [*knia_evidence, *legal_evidence]
     text = normalized["merged_text"]
     legal_analysis = analyze_traffic_law(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, text=text)
@@ -253,6 +253,17 @@ def _knia_estimate_to_evidence(estimate: dict[str, Any]) -> list[dict[str, Any]]
             "used_for": "과실비율 가감요소",
         })
     return evidence
+
+
+def _normalize_evidence_items(items: list[dict[str, Any]], *, default_source: str) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        title = item.get("title") or item.get("article_title") or item.get("law_name") or "교통사고 관련 근거"
+        source = item.get("source") or item.get("source_label") or default_source
+        normalized.append({**item, "title": str(title), "source": str(source)})
+    return normalized
 
 
 def _knia_refs_to_evidence(primary: dict[str, Any], refs: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:

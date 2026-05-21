@@ -1,4 +1,4 @@
-﻿const forbidden = ["chunk_id", "score", "model_info", "cache_key", "rag_top_k", "ai_profile", "llm_enabled", "orchestrator", "scenario_classifier", "rear_end_collision", "REAR_END_SAFE_DISTANCE", "ROAD_ACCIDENT_REPORTING_DUTY", "???", '"injury":', '"stopped":', '"weather":'];
+﻿const forbidden = ["chunk_id", "score", "model_info", "cache_key", "rag_top_k", "ai_profile", "llm_enabled", "orchestrator", "scenario_classifier", "claim_id", "evidence_refs", "required_evidence_family", "rear_end_collision", "REAR_END_SAFE_DISTANCE", "ROAD_ACCIDENT_REPORTING_DUTY", "???", '"injury":', '"stopped":', '"weather":'];
 function sanitize(value) {
   if (value === null || value === undefined) return "";
   if (typeof value === "boolean") return value ? "예" : "아니오";
@@ -31,6 +31,7 @@ const signupView = readFileSync("src/views/SignupView.vue", "utf8");
 const resultView = readFileSync("src/views/CaseResultView.vue", "utf8");
 const evidenceView = readFileSync("src/views/EvidenceDetailView.vue", "utf8");
 const easyReportView = readFileSync("src/components/easy/EasyReportView.vue", "utf8");
+const evidenceReliabilityCard = readFileSync("src/components/easy/EvidenceReliabilityCard.vue", "utf8");
 const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
 const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
@@ -45,6 +46,7 @@ const requiredErrorUx = [
   "Analysis Result",
   "개발자 전용 원문",
   "법률 근거가 부족합니다",
+  "근거 연결 상태",
   "검색 조건에 맞는 기준이 없습니다",
   "상세 기준 수집 필요",
   "상세 기준 수집",
@@ -57,7 +59,7 @@ const requiredErrorUx = [
   "autocomplete=\"new-password\""
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, loginView, signupView, resultView, evidenceView, easyReportView, kniaRankingView, kniaChartView, kniaJsonSearchBox];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, loginView, signupView, resultView, evidenceView, easyReportView, evidenceReliabilityCard, kniaRankingView, kniaChartView, kniaJsonSearchBox];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);

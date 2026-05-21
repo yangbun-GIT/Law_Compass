@@ -225,6 +225,59 @@ textarea { resize: vertical; min-height: 96px; }
 .basis-card p {
   line-height: 1.65;
 }
+.reliability-card {
+  background: linear-gradient(135deg, rgba(134, 239, 172, 0.1), rgba(103, 232, 249, 0.09));
+}
+.reliability-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.reliability-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-weight: 900;
+}
+.reliability-badge--high {
+  color: #dcfce7;
+  border-color: rgba(134, 239, 172, 0.58);
+  background: rgba(22, 163, 74, 0.16);
+}
+.reliability-badge--medium {
+  color: #fef3c7;
+  border-color: rgba(251, 191, 36, 0.44);
+  background: rgba(251, 191, 36, 0.12);
+}
+.reliability-badge--low {
+  color: #ffe4e6;
+  border-color: rgba(253, 164, 175, 0.5);
+  background: rgba(244, 63, 94, 0.14);
+}
+.reliability-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.reliability-stats div {
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.reliability-stats span {
+  display: block;
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: #dffcff;
+}
+.reliability-stats p {
+  margin: 4px 0 0;
+  color: var(--text-sub);
+}
 .detail-toggle {
   width: 100%;
   border: 0;
@@ -274,6 +327,7 @@ textarea { resize: vertical; min-height: 96px; }
 @media (max-width: 760px) {
   .easy-ratio-row { grid-template-columns: 1fr; }
   .action-steps li { padding-left: 64px; }
+  .reliability-head { flex-direction: column; }
 }
 
 /* Floating AI chat */
