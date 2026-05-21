@@ -1,5 +1,29 @@
 # LawCompass 시스템 구성 명세서
 
+## 2026-05-21 Agent P0 판단 골격 보강
+
+Agent 레이어의 P0 골격을 보강하여 “입력 부족”, “근거 부족”, “KNIA 기준 부족”, “확정 판단 불가”가 하나의 `needs_review` 상태로 뭉개지지 않도록 판단 계약을 세분화했다. 이 변경은 Agent/Gateway/Frontend 표시 필터와 테스트만 수정하며, DB schema, Redis key, 환경 변수, 외부 API 계약은 변경하지 않았다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/judgment_contract.py` | 판단 계약 버전을 `agent-judgment-contract-v2`로 올리고 `decision_blockers`, `decision_readiness`, `knia_basis`, `knia_fault_basis` stage를 추가했다. 사고 유형별 KNIA 필요 여부, 대표 KNIA 기준, 기본과실/최종과실 존재 여부, 적용/제외된 가감요소 수, 누락 사유를 추적한다. |
+| `apps/agent/app/services/orchestrator.py` | KNIA 매칭 결과와 KNIA 과실 산정 결과를 판단 계약 생성 단계에 전달해 Agent 최종 결과의 판단 가능 여부가 KNIA 기준 상태까지 반영하도록 연결했다. |
+| `apps/gateway/src/lib/report-composer.ts` | 재분석 비교 카드가 KNIA 기본과실, 가감 후 과실, 적용된 가감요소 수, 추가/제외된 가감요소를 사용자용 문구로 비교하도록 확장했다. 새 내부 계약 필드(`decision_blockers`, `decision_readiness`, `knia_basis`)는 일반 리포트에 노출하지 않는다. |
+| `apps/frontend/src/utils/displaySanitizer.ts`, `apps/frontend/src/utils/displaySanitizer.js` | 새 Agent 내부 계약 필드가 화면에 원시 JSON이나 내부 코드로 노출되지 않도록 기술 필드 목록에 추가했다. |
+| `apps/agent/tests/test_judgment_contract.py` | 입력 부족, 근거 부족, KNIA 기준 부족이 각각 별도 blocker category로 기록되는지와 KNIA 가감요소 basis가 계약에 포함되는지 검증한다. |
+| `apps/gateway/test/report-composer.test.ts` | 재분석 비교 카드가 KNIA 가감요소 변화를 표시하면서 내부 판단 계약과 raw evidence id를 노출하지 않는지 검증한다. |
+
+새 판단 계약의 핵심 필드는 다음과 같다.
+
+| 필드 | 의미 |
+| --- | --- |
+| `agent_judgment.decision_blockers` | 판단을 보류하거나 확정 표시를 막는 사유 목록. category는 `input_missing`, `evidence_missing`, `knia_missing`, `claim_unsupported`, `stage_unsupported`, `stage_review`로 구분한다. |
+| `agent_judgment.decision_readiness` | 사용자에게 보여줄 수 있는 판단 준비 상태. `판단 가능`, `추가 확인 필요`, `확정 판단 불가` 중 하나의 label과 blocker category 요약을 포함한다. |
+| `agent_judgment.knia_basis` | KNIA 기준 필요 여부, 대표 기준번호, 기본/최종 과실, 적용/제외 가감요소 수, KNIA 누락 사유를 포함한다. |
+| `stage_statuses[].name = knia_fault_basis` | KNIA 과실 산정 근거가 Agent 판단 단계에서 별도 stage로 추적된다. |
+
+현재 이 단계는 Agent 판단 구조를 단단히 만드는 P0 작업이며, 이후 P1에서는 LLM/fallback 책임 분리, 보완 질문 루프 고도화, 영상 분석 입력 계약 연결을 진행할 수 있다.
+
 ## 2026-05-21 재분석 전후 판단 비교 카드 추가
 
 보완 입력이 실제 Agent 판단에 어떤 변화를 만들었는지 추적하기 위해, 직전 분석 결과와 새 재분석 결과를 Gateway에서 비교해 사용자용 `analysis_change_card`를 생성하도록 보강했다. 이 변경은 기존 `analysis_results.elderly_friendly_report` JSON에 비교 카드를 저장하는 방식이며, DB schema, Redis key, 환경 변수, 외부 API 연동은 변경하지 않았다.

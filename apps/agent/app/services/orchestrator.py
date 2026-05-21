@@ -227,6 +227,8 @@ def _analyze_core(
         claim_evidence=claim_evidence,
         missing_fields=decision_blocking_missing_fields,
         input_requirements=input_requirements,
+        knia_matches=knia_matches,
+        knia_fault_estimate=knia_fault_estimate,
     )
     recommended_keywords = recommend_keywords(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], selected_keywords=normalized["selected_keywords"], evidence=evidence)
     suggested_next_inputs = suggest_next_inputs(

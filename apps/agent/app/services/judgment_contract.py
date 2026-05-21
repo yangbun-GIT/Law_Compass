@@ -7,6 +7,15 @@ STATUS_SUPPORTED = "evidence_supported"
 STATUS_NEEDS_REVIEW = "needs_review"
 STATUS_UNSUPPORTED = "unsupported"
 
+KNIA_REQUIRED_SCENARIOS = {
+    "rear_end_collision",
+    "lane_change_collision",
+    "intersection_signal_violation",
+    "pedestrian_crosswalk_accident",
+    "school_zone_child_accident",
+    "bicycle_collision",
+}
+
 SECTION_STAGE_MAP = {
     "traffic_law_analysis": "legal_analysis",
     "fault_ratio_analysis": "fault_ratio",
@@ -32,7 +41,15 @@ def build_judgment_contract(
     claim_evidence: dict[str, Any],
     missing_fields: list[str],
     input_requirements: dict[str, Any] | None = None,
+    knia_matches: list[dict[str, Any]] | None = None,
+    knia_fault_estimate: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    knia_basis = _knia_basis_summary(
+        scenario=scenario,
+        evidence_audit=evidence_audit,
+        knia_matches=knia_matches or [],
+        knia_fault_estimate=knia_fault_estimate,
+    )
     stages = [
         _stage(
             name="scenario_classification",
@@ -45,6 +62,12 @@ def build_judgment_contract(
             status=_retrieval_status(evidence, evidence_audit),
             evidence_family="any",
             summary=_retrieval_summary(evidence, evidence_audit),
+        ),
+        _stage(
+            name="knia_fault_basis",
+            status=knia_basis["status"],
+            evidence_family="knia",
+            summary=knia_basis["summary"],
         ),
         _analyst_stage("traffic_law_analysis", legal_analysis),
         _analyst_stage("fault_ratio_analysis", fault_ratio),
@@ -63,17 +86,27 @@ def build_judgment_contract(
             summary=f"coverage={claim_evidence.get('coverage_level', 'unknown')}",
         ),
     ]
-    blocking_reasons = _blocking_reasons(stages, claim_evidence, missing_fields)
+    decision_blockers = _decision_blockers(
+        stages=stages,
+        claim_evidence=claim_evidence,
+        missing_fields=missing_fields,
+        evidence_audit=evidence_audit,
+        knia_basis=knia_basis,
+    )
+    blocking_reasons = _blocking_reasons(decision_blockers)
     overall_status = _overall_status(stages, blocking_reasons)
     input_requirements = input_requirements or {}
     return {
-        "version": "agent-judgment-contract-v1",
+        "version": "agent-judgment-contract-v2",
         "overall_status": overall_status,
         "user_reference_allowed": overall_status != STATUS_UNSUPPORTED,
         "must_not_present_as_final": overall_status != STATUS_SUPPORTED,
         "blocking_reasons": blocking_reasons,
+        "decision_blockers": decision_blockers,
+        "decision_readiness": _decision_readiness(overall_status, decision_blockers),
         "stage_statuses": stages,
         "missing_fields": list(missing_fields or []),
+        "knia_basis": knia_basis,
         "input_requirements": {
             "version": input_requirements.get("version"),
             "blocking_fields": list(input_requirements.get("blocking_fields") or []),
@@ -163,6 +196,77 @@ def _coverage_status(claim_evidence: dict[str, Any]) -> str:
     return STATUS_NEEDS_REVIEW
 
 
+def _knia_basis_summary(
+    *,
+    scenario: dict[str, Any],
+    evidence_audit: dict[str, Any],
+    knia_matches: list[dict[str, Any]],
+    knia_fault_estimate: dict[str, Any] | None,
+) -> dict[str, Any]:
+    scenario_type = str(scenario.get("scenario_type") or "")
+    requires_knia = scenario_type in KNIA_REQUIRED_SCENARIOS
+    primary = knia_matches[0] if knia_matches else None
+    base_fault = (knia_fault_estimate or {}).get("base_fault") or {}
+    final_fault = (knia_fault_estimate or {}).get("final_fault") or {}
+    applied = list((knia_fault_estimate or {}).get("selected_adjustments") or [])
+    rejected = list((knia_fault_estimate or {}).get("rejected_adjustments") or [])
+    coverage = evidence_audit.get("scenario_evidence_coverage") or {}
+    missing_families = list(coverage.get("missing_evidence_families") or [])
+    missing_requirements = list(coverage.get("missing_requirements") or [])
+    missing_reasons: list[str] = []
+
+    if requires_knia and not knia_matches:
+        missing_reasons.append("knia_chart_missing")
+    if requires_knia and "knia" in missing_families:
+        missing_reasons.append("knia_evidence_family_missing")
+    if primary and not _has_fault_pair(base_fault):
+        missing_reasons.append("knia_base_fault_missing")
+    if primary and knia_fault_estimate is None:
+        missing_reasons.append("knia_fault_estimate_unavailable")
+    if primary and not applied and rejected:
+        missing_reasons.append("knia_adjustment_conditions_not_supported_by_input")
+
+    if not requires_knia:
+        status = STATUS_SUPPORTED
+    elif not knia_matches or not _has_fault_pair(base_fault):
+        status = STATUS_NEEDS_REVIEW
+    else:
+        status = STATUS_SUPPORTED
+
+    return {
+        "status": status,
+        "requires_knia": requires_knia,
+        "matched_chart_count": len(knia_matches),
+        "primary_chart_no": primary.get("chart_no") if primary else None,
+        "primary_title": primary.get("title") if primary else None,
+        "base_fault": base_fault or None,
+        "final_fault": final_fault or None,
+        "applied_adjustment_count": len(applied),
+        "rejected_adjustment_count": len(rejected),
+        "missing_reasons": list(dict.fromkeys(missing_reasons)),
+        "missing_requirements": missing_requirements,
+        "summary": _knia_basis_summary_text(primary, base_fault, applied, missing_reasons),
+    }
+
+
+def _has_fault_pair(value: dict[str, Any]) -> bool:
+    return isinstance(value.get("A"), int) and isinstance(value.get("B"), int)
+
+
+def _knia_basis_summary_text(
+    primary: dict[str, Any] | None,
+    base_fault: dict[str, Any],
+    applied: list[dict[str, Any]],
+    missing_reasons: list[str],
+) -> str:
+    if not primary:
+        return "KNIA 기준 매칭 없음"
+    chart_no = primary.get("chart_no") or "기준번호 미확인"
+    if not _has_fault_pair(base_fault):
+        return f"{chart_no} 매칭, 기본과실 미확인"
+    return f"{chart_no} 매칭, 가감요소 {len(applied)}개 적용, 누락사유 {len(missing_reasons)}개"
+
+
 def _status_from_support(support: Any) -> str:
     if support == "direct":
         return STATUS_SUPPORTED
@@ -171,16 +275,110 @@ def _status_from_support(support: Any) -> str:
     return STATUS_UNSUPPORTED
 
 
-def _blocking_reasons(stages: list[dict[str, Any]], claim_evidence: dict[str, Any], missing_fields: list[str]) -> list[str]:
-    reasons: list[str] = []
-    if any(stage["status"] == STATUS_UNSUPPORTED for stage in stages):
-        reasons.append("unsupported_stage_present")
-    if int(claim_evidence.get("unsupported_claim_count") or 0) > 0:
-        reasons.append("unsupported_claims_present")
-    if int(claim_evidence.get("weak_claim_count") or 0) > 0:
-        reasons.append("weak_claims_present")
+def _decision_blockers(
+    *,
+    stages: list[dict[str, Any]],
+    claim_evidence: dict[str, Any],
+    missing_fields: list[str],
+    evidence_audit: dict[str, Any],
+    knia_basis: dict[str, Any],
+) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
+    unsupported_stages = [stage.get("name") for stage in stages if stage.get("status") == STATUS_UNSUPPORTED]
+    review_stages = [stage.get("name") for stage in stages if stage.get("status") == STATUS_NEEDS_REVIEW]
+    coverage = evidence_audit.get("scenario_evidence_coverage") or {}
+
     if missing_fields:
-        reasons.append("required_input_fields_missing")
+        blockers.append(_blocker(
+            code="required_input_fields_missing",
+            category="input_missing",
+            severity="review",
+            message="판단에 필요한 사고 사실 일부가 비어 있습니다.",
+            details={"fields": list(missing_fields)},
+        ))
+    if coverage.get("decision_ready") is False or coverage.get("missing_requirements"):
+        blockers.append(_blocker(
+            code="required_evidence_not_ready",
+            category="evidence_missing",
+            severity="review",
+            message="사고 유형별 필수 근거 조건이 아직 모두 충족되지 않았습니다.",
+            details={
+                "coverage_level": coverage.get("coverage_level"),
+                "missing_requirements": list(coverage.get("missing_requirements") or []),
+                "missing_evidence_families": list(coverage.get("missing_evidence_families") or []),
+            },
+        ))
+    if knia_basis.get("requires_knia") and knia_basis.get("status") != STATUS_SUPPORTED:
+        blockers.append(_blocker(
+            code="knia_basis_missing_or_incomplete",
+            category="knia_missing",
+            severity="review",
+            message="이 사고 유형에 필요한 KNIA 기준 또는 기본과실 정보가 부족합니다.",
+            details={
+                "primary_chart_no": knia_basis.get("primary_chart_no"),
+                "missing_reasons": list(knia_basis.get("missing_reasons") or []),
+            },
+        ))
+    if int(claim_evidence.get("unsupported_claim_count") or 0) > 0:
+        blockers.append(_blocker(
+            code="unsupported_claims_present",
+            category="claim_unsupported",
+            severity="block",
+            message="근거와 연결되지 않은 주요 판단이 있습니다.",
+            details={"unsupported_claim_count": int(claim_evidence.get("unsupported_claim_count") or 0)},
+        ))
+    if int(claim_evidence.get("weak_claim_count") or 0) > 0:
+        blockers.append(_blocker(
+            code="weak_claims_present",
+            category="evidence_missing",
+            severity="review",
+            message="일부 주요 판단은 간접 근거만 확인되었습니다.",
+            details={"weak_claim_count": int(claim_evidence.get("weak_claim_count") or 0)},
+        ))
+    if unsupported_stages:
+        blockers.append(_blocker(
+            code="unsupported_stage_present",
+            category="stage_unsupported",
+            severity="block",
+            message="일부 Agent 단계가 현재 근거만으로 판단을 지원하지 못했습니다.",
+            details={"stages": unsupported_stages},
+        ))
+    elif review_stages:
+        blockers.append(_blocker(
+            code="review_stage_present",
+            category="stage_review",
+            severity="review",
+            message="일부 Agent 단계는 참고 판단으로만 제시해야 합니다.",
+            details={"stages": review_stages},
+        ))
+
+    deduped: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for blocker in blockers:
+        code = str(blocker.get("code"))
+        if code in seen:
+            continue
+        seen.add(code)
+        deduped.append(blocker)
+    return deduped
+
+
+def _blocker(*, code: str, category: str, severity: str, message: str, details: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "code": code,
+        "category": category,
+        "severity": severity,
+        "message": message,
+        "details": details,
+    }
+
+
+def _blocking_reasons(decision_blockers: list[dict[str, Any]]) -> list[str]:
+    reasons: list[str] = []
+    for blocker in decision_blockers:
+        code = blocker.get("code")
+        if code:
+            reasons.append(str(code))
     return list(dict.fromkeys(reasons))
 
 
@@ -190,6 +388,27 @@ def _overall_status(stages: list[dict[str, Any]], blocking_reasons: list[str]) -
     if blocking_reasons or any(stage["status"] == STATUS_NEEDS_REVIEW for stage in stages):
         return STATUS_NEEDS_REVIEW
     return STATUS_SUPPORTED
+
+
+def _decision_readiness(overall_status: str, decision_blockers: list[dict[str, Any]]) -> dict[str, Any]:
+    categories = list(dict.fromkeys(str(item.get("category")) for item in decision_blockers if item.get("category")))
+    blocker_messages = [str(item.get("message")) for item in decision_blockers if item.get("message")]
+    if overall_status == STATUS_SUPPORTED:
+        label = "판단 가능"
+        can_present_final = True
+    elif any(item.get("severity") == "block" for item in decision_blockers):
+        label = "확정 판단 불가"
+        can_present_final = False
+    else:
+        label = "추가 확인 필요"
+        can_present_final = False
+    return {
+        "status": overall_status,
+        "label": label,
+        "can_present_final": can_present_final,
+        "blocker_categories": categories,
+        "blocker_messages": blocker_messages,
+    }
 
 
 def _apply_presentation_policy(output: dict[str, Any], contract: dict[str, Any]) -> dict[str, Any]:

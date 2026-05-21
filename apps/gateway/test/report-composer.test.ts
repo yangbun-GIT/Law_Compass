@@ -57,6 +57,9 @@ describe("report composer", () => {
         scenario_type: "rear_end_collision",
         fault_ratio: { my: 30, other: 70 },
         knia_primary_match: { chart_no: "차41-1", title: "후방 추돌" },
+        knia_base_fault: { A: 0, B: 100 },
+        knia_final_fault: { A: 0, B: 100 },
+        knia_applied_adjustments: [],
         evidence: [
           { chunk_id: "prev-knia-1", source_type: "knia_fault_standard", title: "차41-1 후방 추돌" },
           { chunk_id: "prev-law-1", law_name: "도로교통법", title: "안전거리" },
@@ -75,6 +78,11 @@ describe("report composer", () => {
         scenario_type: "rear_end_collision",
         fault_ratio: { my: 10, other: 90 },
         knia_primary_match: { chart_no: "차41-1", title: "후방 추돌" },
+        knia_base_fault: { A: 0, B: 100 },
+        knia_final_fault: { A: 10, B: 90 },
+        knia_applied_adjustments: [
+          { label: "상대 차량의 현저한 과실", applied_effect: { A: 10, B: -10 }, matched_by: ["급제동 입력"] },
+        ],
         evidence: [
           { chunk_id: "prev-knia-1", source_type: "knia_fault_standard", title: "차41-1 후방 추돌" },
           { chunk_id: "next-knia-law", source_type: "knia_related_law", title: "KNIA 관련 법규" },
@@ -95,9 +103,13 @@ describe("report composer", () => {
 
     expect(card?.changes.map((item: any) => item.label)).toContain("과실비율");
     expect(card?.changes.map((item: any) => item.label)).toContain("근거 구성");
+    expect(card?.changes.map((item: any) => item.label)).toContain("KNIA 가감 후 과실");
+    expect(card?.changes.map((item: any) => item.label)).toContain("적용된 가감요소");
     expect(card?.stats.find((item: any) => item.label === "남은 질문")?.value).toBe("0개");
     expect(card?.stats.find((item: any) => item.label === "관련 근거")?.value).toBe("3개");
     expect(card?.evidence_notes.join(" ")).toContain("현재 대표 KNIA 기준");
+    expect(card?.evidence_notes.join(" ")).toContain("현재 적용된 KNIA 가감요소: 1개");
+    expect(card?.knia_adjustment_changes.added.map((item: any) => item.label)).toContain("상대 차량의 현저한 과실");
     expect(card?.evidence_changes.added.map((item: any) => item.title)).toContain("KNIA 관련 법규");
     expect(card?.evidence_changes.added.map((item: any) => item.family_label)).toContain("KNIA 기준");
     expect(JSON.stringify(card)).not.toContain("agent_judgment");

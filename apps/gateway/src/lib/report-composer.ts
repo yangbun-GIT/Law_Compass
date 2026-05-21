@@ -7,6 +7,7 @@ const TECHNICAL_KEYS = new Set([
   "claim_evidence", "claim_id", "evidence_refs", "required_evidence_family", "support_level", "unsupported_claims",
   "evidence_support_level", "decision_status", "judgment_status", "agent_judgment", "stage_statuses", "blocking_reasons",
   "must_not_present_as_final", "user_reference_allowed", "agent_judgment_contract_version", "agent_judgment_overall_status",
+  "decision_blockers", "decision_readiness", "knia_basis",
   "presentation_policy", "presentation_status", "restricted_sections", "finality",
   "input_requirements", "required_input_questions", "blocking_fields", "optional_fields"
 ]);
@@ -130,6 +131,52 @@ function evidenceStatsOf(result: AnyRecord = {}) {
 function evidenceStatsLabel(stats: ReturnType<typeof evidenceStatsOf>) {
   return `전체 ${stats.total}개 / 관련 ${stats.relevant}개 / KNIA ${stats.knia}개`;
 }
+function faultABLabel(value: AnyRecord | undefined) {
+  if (!value || typeof value !== "object") return "";
+  const a = Number(value.A);
+  const b = Number(value.B);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return "";
+  return `A ${Math.round(a)}% / B ${Math.round(b)}%`;
+}
+function adjustmentItemsOf(result: AnyRecord = {}) {
+  const card = result.elderly_friendly_report?.knia_fault_adjustment_card ?? {};
+  const applied = asArray(result.knia_applied_adjustments ?? card.applied_adjustments);
+  return applied
+    .map((item: AnyRecord) => ({
+      label: cleanText(item?.label, ""),
+      effect: item?.applied_effect && typeof item.applied_effect === "object"
+        ? faultABLabel({ A: item.applied_effect.A, B: item.applied_effect.B })
+        : "",
+      reason: cleanText(asArray(item?.matched_by).join(", "), ""),
+    }))
+    .filter((item) => item.label)
+    .slice(0, 8);
+}
+function adjustmentKey(item: ReturnType<typeof adjustmentItemsOf>[number]) {
+  return `${item.label}|${item.effect}`.toLowerCase();
+}
+function adjustmentDiff(previous: AnyRecord = {}, next: AnyRecord = {}) {
+  const previousItems = adjustmentItemsOf(previous);
+  const nextItems = adjustmentItemsOf(next);
+  const previousKeys = new Set(previousItems.map(adjustmentKey));
+  const nextKeys = new Set(nextItems.map(adjustmentKey));
+  return {
+    added: nextItems.filter((item) => !previousKeys.has(adjustmentKey(item))).slice(0, 5),
+    removed: previousItems.filter((item) => !nextKeys.has(adjustmentKey(item))).slice(0, 5),
+  };
+}
+function adjustmentSummaryOf(result: AnyRecord = {}) {
+  const card = result.elderly_friendly_report?.knia_fault_adjustment_card ?? {};
+  const baseFault = result.knia_base_fault ?? card.base_fault;
+  const finalFault = result.knia_final_fault ?? card.final_fault;
+  const applied = adjustmentItemsOf(result);
+  return {
+    baseLabel: faultABLabel(baseFault),
+    finalLabel: faultABLabel(finalFault),
+    appliedCount: applied.length,
+    applied,
+  };
+}
 function evidenceFamilyLabel(family: string) {
   if (family === "knia") return "KNIA 기준";
   if (family === "legal") return "법률 근거";
@@ -200,6 +247,9 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   const beforeEvidence = evidenceStatsOf(previous);
   const afterEvidence = evidenceStatsOf(next);
   const evidenceChanges = evidenceDiff(previous, next);
+  const beforeAdjustments = adjustmentSummaryOf(previous);
+  const afterAdjustments = adjustmentSummaryOf(next);
+  const adjustmentChanges = adjustmentDiff(previous, next);
   const beforeQuestionCount = questionCountOf(previous);
   const afterQuestionCount = questionCountOf(next);
   const changes: AnyRecord[] = [];
@@ -211,6 +261,11 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   pushChange(changes, "대표 KNIA 기준", kniaStandardLabel(previous), kniaStandardLabel(next));
   pushChange(changes, "근거 충족도", coverageLevelOf(previous), coverageLevelOf(next));
   pushChange(changes, "근거 구성", evidenceStatsLabel(beforeEvidence), evidenceStatsLabel(afterEvidence));
+  pushChange(changes, "KNIA 기본과실", beforeAdjustments.baseLabel, afterAdjustments.baseLabel);
+  pushChange(changes, "KNIA 가감 후 과실", beforeAdjustments.finalLabel, afterAdjustments.finalLabel);
+  if (beforeAdjustments.appliedCount !== afterAdjustments.appliedCount) {
+    changes.push({ label: "적용된 가감요소", before: `${beforeAdjustments.appliedCount}개`, after: `${afterAdjustments.appliedCount}개` });
+  }
   pushChange(changes, "판단 상태", judgmentLabel(previous.agent_judgment?.overall_status), judgmentLabel(next.agent_judgment?.overall_status));
   if (beforeEvidence.missingRequirements !== afterEvidence.missingRequirements) {
     changes.push({ label: "부족한 근거 조건", before: `${beforeEvidence.missingRequirements}개`, after: `${afterEvidence.missingRequirements}개` });
@@ -220,6 +275,10 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   }
   const evidenceNotes = [
     `현재 대표 KNIA 기준: ${kniaStandardLabel(next)}`,
+    afterAdjustments.finalLabel
+      ? `현재 KNIA 가감 후 과실: ${afterAdjustments.finalLabel}`
+      : "현재 KNIA 가감 후 과실은 확인되지 않았습니다.",
+    `현재 적용된 KNIA 가감요소: ${afterAdjustments.appliedCount}개`,
     `현재 근거 구성: 법률 ${afterEvidence.legal}개, KNIA ${afterEvidence.knia}개, 기타 ${afterEvidence.general}개`,
     `사고 유형과 직접 맞는 근거: ${afterEvidence.relevant}개`,
     afterEvidence.missingRequirements
@@ -243,6 +302,7 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
     ],
     evidence_notes: evidenceNotes,
     evidence_changes: evidenceChanges,
+    knia_adjustment_changes: adjustmentChanges,
     notice: "이 비교는 같은 케이스에서 직전 분석과 새 분석을 대조한 참고 정보입니다. 최종 책임 판단은 보험사, 분쟁심의위, 수사기관, 법원 판단에 따라 달라질 수 있습니다.",
   };
 }
