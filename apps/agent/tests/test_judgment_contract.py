@@ -67,3 +67,40 @@ def test_judgment_contract_blocks_final_language_when_claims_are_unsupported():
     assert output["legal_liability"]["presentation_status"] == "blocked_for_final"
     assert output["legal_liability"]["confidence"] <= 0.35
     assert output["insurance_guide"].get("presentation_status") is None
+
+
+def test_evidence_retrieval_requires_high_scenario_coverage_for_supported_stage():
+    claim_evidence = {
+        "coverage_level": "high",
+        "coverage_ratio": 1.0,
+        "unsupported_claim_count": 0,
+        "weak_claim_count": 0,
+    }
+    contract = build_judgment_contract(
+        scenario={"scenario_type": "rear_end_collision", "accident_party_type": "car_vs_car", "confidence": 0.9},
+        evidence=[
+            {"chunk_id": "law-1", "score": 0.4},
+            {"chunk_id": "law-2", "score": 0.36},
+            {"source_type": "knia_base_fault", "score": 0.39},
+        ],
+        legal_analysis={"judgment_status": STATUS_SUPPORTED, "evidence_support_level": "direct", "required_evidence_family": "legal"},
+        fault_ratio={"judgment_status": STATUS_SUPPORTED, "evidence_support_level": "direct", "required_evidence_family": "knia"},
+        legal_liability={"judgment_status": STATUS_SUPPORTED, "evidence_support_level": "direct", "required_evidence_family": "legal"},
+        insurance_guide={"judgment_status": STATUS_SUPPORTED, "evidence_support_level": "direct", "required_evidence_family": "any"},
+        action_plan=["preserve evidence"],
+        evidence_audit={
+            "evidence_quality": "medium",
+            "scenario_evidence_coverage": {
+                "coverage_level": "medium",
+                "decision_ready": False,
+                "missing_requirements": ["total_evidence"],
+            },
+        },
+        claim_evidence=claim_evidence,
+        missing_fields=[],
+    )
+
+    retrieval_stage = next(stage for stage in contract["stage_statuses"] if stage["name"] == "evidence_retrieval")
+    assert retrieval_stage["status"] == STATUS_NEEDS_REVIEW
+    assert contract["overall_status"] == STATUS_NEEDS_REVIEW
+    assert "coverage=medium" in retrieval_stage["summary"]

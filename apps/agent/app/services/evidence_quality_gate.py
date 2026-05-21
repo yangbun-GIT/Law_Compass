@@ -8,32 +8,42 @@ from typing import Any
 class EvidenceProfile:
     tags: tuple[str, ...]
     terms: tuple[str, ...]
+    required_families: tuple[str, ...] = ("legal",)
+    min_total: int = 4
+    min_relevant: int = 2
+    min_average_score: float = 0.3
 
 
 SCENARIO_PROFILES: dict[str, EvidenceProfile] = {
     "rear_end_collision": EvidenceProfile(
         tags=("rear_end", "safe_distance"),
         terms=("rear-end", "rear end", "추돌", "후방", "안전거리", "정차", "급정거"),
+        required_families=("legal", "knia"),
     ),
     "lane_change_collision": EvidenceProfile(
         tags=("lane_change",),
         terms=("lane change", "차선변경", "진로변경", "끼어들", "방향지시"),
+        required_families=("legal", "knia"),
     ),
     "intersection_signal_violation": EvidenceProfile(
         tags=("signal_violation", "intersection"),
         terms=("signal", "red light", "intersection", "신호위반", "교차로", "빨간불", "적색"),
+        required_families=("legal", "knia"),
     ),
     "pedestrian_crosswalk_accident": EvidenceProfile(
         tags=("pedestrian", "crosswalk"),
         terms=("pedestrian", "crosswalk", "보행자", "횡단보도"),
+        required_families=("legal", "knia"),
     ),
     "school_zone_child_accident": EvidenceProfile(
         tags=("school_zone", "child"),
         terms=("school zone", "child", "어린이보호구역", "스쿨존", "어린이"),
+        required_families=("legal", "knia"),
     ),
     "bicycle_collision": EvidenceProfile(
         tags=("bicycle",),
         terms=("bicycle", "자전거"),
+        required_families=("legal", "knia"),
     ),
     "object_collision": EvidenceProfile(
         tags=("object",),
@@ -43,7 +53,7 @@ SCENARIO_PROFILES: dict[str, EvidenceProfile] = {
         tags=("single_vehicle",),
         terms=("single vehicle", "단독사고", "공작물"),
     ),
-    "general_collision": EvidenceProfile(tags=(), terms=()),
+    "general_collision": EvidenceProfile(tags=(), terms=(), min_total=3, min_relevant=0),
 }
 
 
@@ -76,15 +86,23 @@ def evaluate_evidence_quality(
         matched_terms.update(item_match["terms"])
         matched_tags.update(item_match["tags"])
 
-    missing_families = []
-    if count and family_counts.get("legal", 0) == 0:
-        missing_families.append("legal")
+    missing_families = [family for family in profile.required_families if family_counts.get(family, 0) == 0]
+    missing_requirements = _missing_requirements(
+        profile=profile,
+        evidence_count=count,
+        average_score=avg_score,
+        relevant_count=len(matched_items),
+        family_counts=family_counts,
+        missing_fields=missing_fields,
+    )
 
     weak_points = []
     if count == 0:
         weak_points.append("검색된 근거가 없어 사고 판단을 확정할 수 없습니다.")
     if count and family_counts.get("legal", 0) == 0:
         weak_points.append("법령 또는 판례 계열 근거가 부족합니다.")
+    if count and missing_families:
+        weak_points.append("사고 판단에 필요한 근거군이 일부 부족합니다.")
     if profile.tags or profile.terms:
         if not matched_items:
             weak_points.append("사고 유형과 직접 맞는 근거 신호를 확인하지 못했습니다.")
@@ -102,19 +120,52 @@ def evaluate_evidence_quality(
         has_legal=family_counts.get("legal", 0) > 0,
         has_missing_fields=bool(missing_fields),
         has_profile=bool(profile.tags or profile.terms),
+        missing_requirements=missing_requirements,
     )
 
     return {
         "coverage_level": coverage_level,
+        "decision_ready": coverage_level == "high",
         "scenario_type": scenario_type,
         "scenario_relevant_count": len(matched_items),
         "evidence_family_counts": family_counts,
+        "required_evidence": {
+            "families": list(profile.required_families),
+            "min_total": profile.min_total,
+            "min_relevant": profile.min_relevant,
+            "min_average_score": profile.min_average_score,
+        },
         "matched_evidence": matched_items[:8],
         "matched_terms": sorted(matched_terms),
         "matched_tags": sorted(matched_tags),
         "missing_evidence_families": missing_families,
+        "missing_requirements": missing_requirements,
         "weak_points": weak_points,
     }
+
+
+def _missing_requirements(
+    *,
+    profile: EvidenceProfile,
+    evidence_count: int,
+    average_score: float,
+    relevant_count: int,
+    family_counts: dict[str, int],
+    missing_fields: list[str],
+) -> list[str]:
+    missing: list[str] = []
+    if evidence_count < profile.min_total:
+        missing.append("total_evidence")
+    if profile.min_relevant and relevant_count < profile.min_relevant:
+        missing.append("scenario_relevant_evidence")
+    for family in profile.required_families:
+        if family_counts.get(family, 0) == 0:
+            missing.append(f"family:{family}")
+    if evidence_count and average_score < profile.min_average_score:
+        missing.append("average_score")
+    if missing_fields:
+        missing.append("required_input_fields")
+    return missing
 
 
 def _coverage_level(
@@ -125,18 +176,21 @@ def _coverage_level(
     has_legal: bool,
     has_missing_fields: bool,
     has_profile: bool,
+    missing_requirements: list[str],
 ) -> str:
     if evidence_count == 0:
         return "low"
     if not has_profile:
-        if evidence_count >= 3 and has_legal and average_score >= 0.25 and not has_missing_fields:
+        if not missing_requirements and has_legal and not has_missing_fields:
+            return "high"
+        if evidence_count >= 3 and has_legal:
             return "medium"
         return "low"
-    if relevant_count >= 2 and evidence_count >= 4 and has_legal and average_score >= 0.3 and not has_missing_fields:
+    if not missing_requirements and relevant_count >= 2 and evidence_count >= 4 and has_legal and average_score >= 0.3 and not has_missing_fields:
         return "high"
     if relevant_count >= 1 and has_legal:
         return "medium"
-    if evidence_count >= 3 and has_legal:
+    if evidence_count >= 3 and has_legal and not has_profile:
         return "medium"
     return "low"
 

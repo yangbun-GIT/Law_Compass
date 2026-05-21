@@ -43,7 +43,7 @@ def build_judgment_contract(
             name="evidence_retrieval",
             status=_retrieval_status(evidence, evidence_audit),
             evidence_family="any",
-            summary=f"{len(evidence)} evidence items",
+            summary=_retrieval_summary(evidence, evidence_audit),
         ),
         _analyst_stage("traffic_law_analysis", legal_analysis),
         _analyst_stage("fault_ratio_analysis", fault_ratio),
@@ -119,11 +119,26 @@ def _analyst_stage(name: str, output: dict[str, Any]) -> dict[str, Any]:
 
 def _retrieval_status(evidence: list[dict[str, Any]], evidence_audit: dict[str, Any]) -> str:
     quality = evidence_audit.get("evidence_quality")
-    if len(evidence) >= 3 and quality in {"high", "medium"}:
+    coverage = evidence_audit.get("scenario_evidence_coverage") or {}
+    coverage_level = coverage.get("coverage_level")
+    if not evidence:
+        return STATUS_UNSUPPORTED
+    if quality == "high" and coverage_level == "high" and coverage.get("decision_ready") is True:
         return STATUS_SUPPORTED
-    if evidence:
+    if quality in {"high", "medium"} or coverage_level in {"high", "medium"}:
         return STATUS_NEEDS_REVIEW
-    return STATUS_UNSUPPORTED
+    return STATUS_NEEDS_REVIEW
+
+
+def _retrieval_summary(evidence: list[dict[str, Any]], evidence_audit: dict[str, Any]) -> str:
+    coverage = evidence_audit.get("scenario_evidence_coverage") or {}
+    missing = coverage.get("missing_requirements") or []
+    return (
+        f"{len(evidence)} evidence items, "
+        f"quality={evidence_audit.get('evidence_quality', 'unknown')}, "
+        f"coverage={coverage.get('coverage_level', 'unknown')}, "
+        f"missing_requirements={len(missing)}"
+    )
 
 
 def _coverage_status(claim_evidence: dict[str, Any]) -> str:

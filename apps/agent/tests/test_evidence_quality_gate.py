@@ -23,9 +23,30 @@ def test_rear_end_evidence_matches_scenario_profile():
     )
 
     assert result["coverage_level"] == "medium"
+    assert result["decision_ready"] is False
     assert result["scenario_relevant_count"] == 2
     assert result["evidence_family_counts"]["legal"] == 1
     assert result["evidence_family_counts"]["knia"] == 1
+    assert result["missing_requirements"] == ["total_evidence"]
+
+
+def test_complete_rear_end_evidence_is_high_coverage():
+    result = evaluate_evidence_quality(
+        scenario_type="rear_end_collision",
+        missing_fields=[],
+        evidence=[
+            {"chunk_id": "law-safe-distance", "scenario_tags": ["rear_end", "safe_distance"], "score": 0.4},
+            {"chunk_id": "law-duty", "scenario_tags": ["rear_end"], "score": 0.36},
+            {"source_type": "knia_base_fault", "title": "KNIA rear-end base fault", "scenario_tags": ["rear_end"], "score": 0.42},
+            {"source_type": "knia_chart", "title": "KNIA safe distance chart", "scenario_tags": ["safe_distance"], "score": 0.39},
+        ],
+    )
+
+    assert result["coverage_level"] == "high"
+    assert result["decision_ready"] is True
+    assert result["scenario_relevant_count"] == 4
+    assert result["missing_evidence_families"] == []
+    assert result["missing_requirements"] == []
 
 
 def test_unrelated_evidence_is_not_treated_as_signal_support():
@@ -45,6 +66,7 @@ def test_unrelated_evidence_is_not_treated_as_signal_support():
 
     assert result["coverage_level"] == "low"
     assert result["scenario_relevant_count"] == 0
+    assert "scenario_relevant_evidence" in result["missing_requirements"]
     assert "사고 유형과 직접 맞는 근거 신호를 확인하지 못했습니다." in result["weak_points"]
 
 
@@ -57,4 +79,5 @@ def test_no_evidence_is_low_coverage():
 
     assert result["coverage_level"] == "low"
     assert result["scenario_relevant_count"] == 0
-    assert result["missing_evidence_families"] == []
+    assert result["missing_evidence_families"] == ["legal", "knia"]
+    assert "total_evidence" in result["missing_requirements"]
