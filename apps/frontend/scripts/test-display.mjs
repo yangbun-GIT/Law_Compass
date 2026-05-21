@@ -25,8 +25,12 @@ import { readFileSync } from "node:fs";
 const apiClient = readFileSync("src/api/client.ts", "utf8");
 const appView = readFileSync("src/App.vue", "utf8");
 const dashboardView = readFileSync("src/views/DashboardView.vue", "utf8");
+const caseDetailView = readFileSync("src/views/CaseDetailView.vue", "utf8");
 const loginView = readFileSync("src/views/LoginView.vue", "utf8");
 const signupView = readFileSync("src/views/SignupView.vue", "utf8");
+const resultView = readFileSync("src/views/CaseResultView.vue", "utf8");
+const evidenceView = readFileSync("src/views/EvidenceDetailView.vue", "utf8");
+const easyReportView = readFileSync("src/components/easy/EasyReportView.vue", "utf8");
 const requiredErrorUx = [
   "export function formatApiError",
   "normalizeValidation(data?.error?.details?.validation)",
@@ -34,11 +38,16 @@ const requiredErrorUx = [
   "v-if=\"!session.user\"",
   "dashboard-hero",
   "첫 케이스 만들기",
+  "Case Workspace",
+  "Analysis Result",
+  "개발자 전용 원문",
+  "법률 근거가 부족합니다",
   "autocomplete=\"current-password\"",
   "autocomplete=\"new-password\""
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const missingErrorUx = requiredErrorUx.filter((token) => !(apiClient.includes(token) || styles.includes(token) || appView.includes(token) || dashboardView.includes(token) || loginView.includes(token) || signupView.includes(token)));
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, loginView, signupView, resultView, evidenceView, easyReportView];
+const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
   process.exit(1);
@@ -53,6 +62,13 @@ if (authDefaults.length) {
 
 if (loginView.includes("S3에 private로 저장")) {
   console.error("login guide still describes inactive S3 storage");
+  process.exit(1);
+}
+
+const forbiddenEvidenceText = ["chunk_id:", "{{ chunk?.id }}", "<pre v-if=\"chunk?.chunk_text\">"];
+const evidenceLeaks = forbiddenEvidenceText.filter((token) => evidenceView.includes(token));
+if (evidenceLeaks.length) {
+  console.error("evidence detail exposes internal identifiers by default", evidenceLeaks);
   process.exit(1);
 }
 

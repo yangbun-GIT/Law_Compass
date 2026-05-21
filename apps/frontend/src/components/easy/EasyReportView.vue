@@ -23,6 +23,7 @@
       <h2>법률 근거 쉽게 보기</h2>
       <p class="easy-summary">법 이름보다 “이 사고와 어떤 관련이 있는지”를 먼저 보시면 됩니다.</p>
       <div class="basis-grid"><EasyLegalBasisCard v-for="card in visibleBasisCards" :key="`${card.law_name}-${card.easy_title}`" :card="card" /></div>
+      <p v-if="!basisCards.length" class="soft-warning">현재 표시할 수 있는 법률 근거가 부족합니다. 법률 KB 적재 상태나 외부 API 권한을 확인한 뒤 다시 분석해 주세요.</p>
       <button v-if="basisCards.length > 3" class="btn secondary" @click="showAllBasis = !showAllBasis">{{ showAllBasis ? "근거 줄이기" : `근거 ${basisCards.length - 3}개 더 보기` }}</button>
     </article>
     <RelatedKniaStandardCard v-if="safeReport.related_fault_standard" :standard="safeReport.related_fault_standard" />
