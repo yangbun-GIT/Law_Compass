@@ -20,6 +20,9 @@
       </div>
     </div>
     <p v-else class="kv">핵심 판단 항목은 이전 분석과 크게 달라지지 않았습니다.</p>
+    <ul v-if="card.evidence_notes?.length" class="check-list">
+      <li v-for="note in card.evidence_notes" :key="note">{{ text(note) }}</li>
+    </ul>
     <p class="soft-warning">{{ text(card.notice) }}</p>
   </article>
 </template>
@@ -49,7 +52,7 @@ function text(value: unknown) {
 
 .change-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
 }
 
@@ -64,9 +67,10 @@ function text(value: unknown) {
 .change-stats span {
   display: block;
   color: #67e8f9;
-  font-size: 1.35rem;
+  font-size: 1.1rem;
   font-weight: 900;
   line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .change-stats p,
@@ -88,16 +92,11 @@ function text(value: unknown) {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  overflow-wrap: anywhere;
 }
 
 .change-row b {
   color: #67e8f9;
-}
-
-@media (max-width: 900px) {
-  .change-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 560px) {

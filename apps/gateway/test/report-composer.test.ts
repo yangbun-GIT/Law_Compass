@@ -56,22 +56,50 @@ describe("report composer", () => {
       {
         scenario_type: "rear_end_collision",
         fault_ratio: { my: 30, other: 70 },
-        evidence_audit: { scenario_evidence_coverage: { coverage_level: "low" } },
+        knia_primary_match: { chart_no: "차41-1", title: "후방 추돌" },
+        evidence: [
+          { source_type: "knia_fault_standard", title: "차41-1 후방 추돌" },
+          { law_name: "도로교통법", title: "안전거리" },
+        ],
+        evidence_audit: {
+          scenario_evidence_coverage: {
+            coverage_level: "low",
+            scenario_relevant_count: 1,
+            missing_requirements: ["total_evidence", "family:knia"],
+          },
+        },
         agent_judgment: { overall_status: "needs_review" },
         required_input_questions: [{ field: "injury", question: "다친 사람이 있나요?" }],
       },
       {
         scenario_type: "rear_end_collision",
         fault_ratio: { my: 10, other: 90 },
-        evidence_audit: { scenario_evidence_coverage: { coverage_level: "high" } },
+        knia_primary_match: { chart_no: "차41-1", title: "후방 추돌" },
+        evidence: [
+          { source_type: "knia_fault_standard", title: "차41-1 후방 추돌" },
+          { source_type: "knia_related_law", title: "KNIA 관련 법규" },
+          { law_name: "도로교통법", title: "안전거리" },
+          { law_name: "도로교통법", title: "사고 후 조치" },
+        ],
+        evidence_audit: {
+          scenario_evidence_coverage: {
+            coverage_level: "high",
+            scenario_relevant_count: 3,
+            missing_requirements: [],
+          },
+        },
         agent_judgment: { overall_status: "evidence_supported" },
         required_input_questions: [],
       }
     );
 
     expect(card?.changes.map((item: any) => item.label)).toContain("과실비율");
+    expect(card?.changes.map((item: any) => item.label)).toContain("근거 구성");
     expect(card?.stats.find((item: any) => item.label === "남은 질문")?.value).toBe("0개");
+    expect(card?.stats.find((item: any) => item.label === "관련 근거")?.value).toBe("3개");
+    expect(card?.evidence_notes.join(" ")).toContain("현재 대표 KNIA 기준");
     expect(JSON.stringify(card)).not.toContain("agent_judgment");
     expect(JSON.stringify(card)).not.toContain("evidence_supported");
+    expect(JSON.stringify(card)).not.toContain("source_type");
   });
 });

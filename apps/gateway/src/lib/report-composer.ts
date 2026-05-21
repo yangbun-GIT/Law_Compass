@@ -97,6 +97,39 @@ function coverageLevelOf(result: AnyRecord = {}) {
       ?? result.evidence_audit?.claim_evidence_coverage?.level
   );
 }
+function kniaStandardLabel(result: AnyRecord = {}) {
+  const primary = result.knia_primary_match ?? asArray(result.knia_matches)[0];
+  if (!primary || typeof primary !== "object") return "관련 KNIA 기준 없음";
+  const chartNo = cleanText(primary.chart_no, "");
+  const title = cleanText(primary.title, "");
+  if (chartNo && title) return `${chartNo} ${title}`;
+  return chartNo || title || "관련 KNIA 기준 없음";
+}
+function evidenceFamily(item: AnyRecord = {}) {
+  const sourceType = String(item.source_type ?? "").toLowerCase();
+  const source = [
+    item.source,
+    item.title,
+    item.source_url,
+    item.law_name,
+  ].map((value) => String(value ?? "").toLowerCase()).join(" ");
+  if (sourceType.startsWith("knia") || source.includes("knia") || source.includes("과실비율")) return "knia";
+  if (item.chunk_id || item.law_name || source.includes("law.go.kr") || source.includes("법")) return "legal";
+  return "general";
+}
+function evidenceStatsOf(result: AnyRecord = {}) {
+  const evidence = asArray(result.evidence);
+  const familyCounts = result.evidence_audit?.scenario_evidence_coverage?.evidence_family_counts ?? {};
+  const legal = toNumber(familyCounts.legal, evidence.filter((item) => evidenceFamily(item) === "legal").length);
+  const knia = toNumber(familyCounts.knia, evidence.filter((item) => evidenceFamily(item) === "knia").length);
+  const general = toNumber(familyCounts.general, evidence.filter((item) => evidenceFamily(item) === "general").length);
+  const relevant = toNumber(result.evidence_audit?.scenario_evidence_coverage?.scenario_relevant_count, 0);
+  const missingRequirements = asArray(result.evidence_audit?.scenario_evidence_coverage?.missing_requirements);
+  return { total: evidence.length, legal, knia, general, relevant, missingRequirements: missingRequirements.length };
+}
+function evidenceStatsLabel(stats: ReturnType<typeof evidenceStatsOf>) {
+  return `전체 ${stats.total}개 / 관련 ${stats.relevant}개 / KNIA ${stats.knia}개`;
+}
 function questionCountOf(result: AnyRecord = {}) {
   return asArray(result.required_input_questions ?? result.input_requirements?.questions).length;
 }
@@ -110,6 +143,8 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   if (!previous || !Object.keys(previous).length) return undefined;
   const beforeFault = faultPair(previous);
   const afterFault = faultPair(next);
+  const beforeEvidence = evidenceStatsOf(previous);
+  const afterEvidence = evidenceStatsOf(next);
   const beforeQuestionCount = questionCountOf(previous);
   const afterQuestionCount = questionCountOf(next);
   const changes: AnyRecord[] = [];
@@ -118,11 +153,24 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   if (beforeFault.my !== undefined && afterFault.my !== undefined && beforeFault.other !== undefined && afterFault.other !== undefined) {
     pushChange(changes, "과실비율", `내 책임 ${beforeFault.my}% / 상대 ${beforeFault.other}%`, `내 책임 ${afterFault.my}% / 상대 ${afterFault.other}%`);
   }
+  pushChange(changes, "대표 KNIA 기준", kniaStandardLabel(previous), kniaStandardLabel(next));
   pushChange(changes, "근거 충족도", coverageLevelOf(previous), coverageLevelOf(next));
+  pushChange(changes, "근거 구성", evidenceStatsLabel(beforeEvidence), evidenceStatsLabel(afterEvidence));
   pushChange(changes, "판단 상태", judgmentLabel(previous.agent_judgment?.overall_status), judgmentLabel(next.agent_judgment?.overall_status));
+  if (beforeEvidence.missingRequirements !== afterEvidence.missingRequirements) {
+    changes.push({ label: "부족한 근거 조건", before: `${beforeEvidence.missingRequirements}개`, after: `${afterEvidence.missingRequirements}개` });
+  }
   if (beforeQuestionCount !== afterQuestionCount) {
     changes.push({ label: "남은 보완 질문", before: `${beforeQuestionCount}개`, after: `${afterQuestionCount}개` });
   }
+  const evidenceNotes = [
+    `현재 대표 KNIA 기준: ${kniaStandardLabel(next)}`,
+    `현재 근거 구성: 법률 ${afterEvidence.legal}개, KNIA ${afterEvidence.knia}개, 기타 ${afterEvidence.general}개`,
+    `사고 유형과 직접 맞는 근거: ${afterEvidence.relevant}개`,
+    afterEvidence.missingRequirements
+      ? `아직 충족되지 않은 근거 조건이 ${afterEvidence.missingRequirements}개 남아 있습니다.`
+      : "필수 근거 조건은 현재 비교 기준에서 충족된 상태입니다.",
+  ];
 
   return {
     title: "보완 입력 반영 결과",
@@ -135,7 +183,10 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
       { label: "현재 상대 책임", value: afterFault.other !== undefined ? `${afterFault.other}%` : "확인 필요" },
       { label: "근거 충족도", value: coverageLevelOf(next) },
       { label: "남은 질문", value: `${afterQuestionCount}개` },
+      { label: "대표 KNIA", value: kniaStandardLabel(next) },
+      { label: "관련 근거", value: `${afterEvidence.relevant}개` },
     ],
+    evidence_notes: evidenceNotes,
     notice: "이 비교는 같은 케이스에서 직전 분석과 새 분석을 대조한 참고 정보입니다. 최종 책임 판단은 보험사, 분쟁심의위, 수사기관, 법원 판단에 따라 달라질 수 있습니다.",
   };
 }
