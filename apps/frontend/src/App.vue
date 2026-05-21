@@ -29,13 +29,16 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from "vue-router";
 import AiChatFloatingButton from "./components/chat/AiChatFloatingButton.vue";
 import { useSessionStore } from "./stores/session";
 
+const router = useRouter();
 const session = useSessionStore();
 
 async function logout() {
   await session.logout();
+  await router.push("/login");
 }
 </script>
 

@@ -3,14 +3,16 @@
     <article class="card">
       <h2>로그인</h2>
       <p class="kv">기존 계정으로 케이스를 조회하고 분석을 진행하세요.</p>
-      <label>이메일
-        <input v-model="email" type="email" placeholder="user@example.com" />
-      </label>
-      <label>비밀번호
-        <input v-model="password" type="password" placeholder="8자 이상" />
-      </label>
-      <button class="btn" :disabled="session.loading" @click="submit">{{ session.loading ? "로그인 중..." : "로그인" }}</button>
-      <p :class="messageClass">{{ message }}</p>
+      <form class="auth-form" @submit.prevent="submit">
+        <label>이메일
+          <input v-model.trim="email" type="email" autocomplete="email" placeholder="name@example.com" />
+        </label>
+        <label>비밀번호
+          <input v-model="password" type="password" autocomplete="current-password" placeholder="8자 이상" />
+        </label>
+        <button class="btn" :disabled="session.loading || !canSubmit" type="submit">{{ session.loading ? "로그인 중..." : "로그인" }}</button>
+      </form>
+      <p v-if="message" :class="messageClass">{{ message }}</p>
     </article>
 
     <article class="card">
@@ -30,17 +32,27 @@ import { useRoute, useRouter } from "vue-router";
 import { formatApiError } from "../api/client";
 import { useSessionStore } from "../stores/session";
 
-const email = ref("user@example.com");
-const password = ref("password123");
 const message = ref("");
 const ok = ref(false);
 const router = useRouter();
 const route = useRoute();
 const session = useSessionStore();
+const email = ref(typeof route.query.email === "string" ? route.query.email : "");
+const password = ref("");
 
 const messageClass = computed(() => (ok.value ? "msg-ok" : "msg-error"));
+const canSubmit = computed(() => isEmail(email.value) && password.value.length >= 8);
+
+function isEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
 
 async function submit() {
+  if (!canSubmit.value) {
+    message.value = "이메일 형식과 8자 이상 비밀번호를 입력해 주세요.";
+    ok.value = false;
+    return;
+  }
   try {
     await session.login(email.value, password.value);
     message.value = "로그인 성공";
