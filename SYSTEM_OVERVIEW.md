@@ -1,5 +1,19 @@
 # LawCompass 시스템 구성 명세서
 
+## 2026-05-22 Agent P1 영상/사용자 사실 중재 계층
+
+영상 프레임 분석 결과가 Agent 판단에 들어올 때 사용자 입력과 단순 병합하지 않고 `agent-fact-arbitration-v1` 계약으로 출처와 우선순위를 기록하도록 보강했다. 목적은 사용자가 주관적으로 잘못 입력할 수 있는 물리적 사고 사실은 고신뢰 영상 관찰값을 우선하고, 사용자가 직접 알고 있는 사고 유형/부상/보험 상태 같은 문맥 정보는 사용자 입력을 우선해 Agent 판단의 입력 근거를 명확히 남기는 것이다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/fact_arbitration.py` | 신규 `agent-fact-arbitration-v1` 모듈이다. `stopped`, `opponent_behavior`, `lane_change_actor`, 신호/횡단보도/스쿨존/손상 정도처럼 프레임에서 관찰 가능한 물리적 사실은 `video_primary`로 분류한다. `accident_type`, `injury`, 치료/보험/운전자 역할 정보는 `user_primary`로 분류한다. 충돌 시 승자, 원래 사용자 값, 영상 값, confidence, frame_refs를 `conflicts`와 `requires_confirmation`에 기록한다. |
+| `apps/agent/app/services/input_normalizer.py` | 기존 `video_fact_patch + user_facts` 단순 병합을 중단하고 `arbitrate_facts()`를 거쳐 `structured_facts`를 만든다. Agent 분석 텍스트에는 영상 입력 계약과 별도로 사실 중재 계약 요약을 포함해 어떤 값이 영상에서 채택됐는지 추적할 수 있게 했다. |
+| `apps/agent/app/services/report_composer.py`, `apps/agent/app/schemas.py` | Agent 결과에 `fact_arbitration`을 top-level과 `model_info.fact_arbitration`으로 포함한다. 사용자 표시용 `structured_facts`에는 `_fact_arbitration`, `_fact_sources`를 숨김 추적 정보로 함께 보관한다. |
+| `apps/gateway/src/lib/report-composer.ts`, `apps/frontend/src/utils/displaySanitizer.ts`, `apps/frontend/src/utils/displaySanitizer.js` | 사실 중재 계약의 내부 필드가 일반 사용자용 쉬운 보고서/프론트 화면에 원문 JSON으로 노출되지 않도록 기술 필드 필터에 추가했다. |
+| `apps/agent/tests/test_fact_arbitration.py`, `apps/agent/tests/test_video_input_contract.py` | 영상 우선 물리 사실 충돌, 사용자 우선 문맥 정보 충돌, 사용자/영상 일치값 확인 처리를 검증하는 테스트 케이스를 추가했다. |
+
+현재 정책상 정차 여부처럼 영상에서 확인 가능한 사실은 `ENABLE_OPENAI_FRAME_ANALYSIS=1`로 추출된 고신뢰 관찰값이 사용자 입력과 충돌해도 Agent 입력에서 우선된다. 반대로 부상 여부는 영상으로 정확히 판단하기 어렵기 때문에 사용자 입력이 우선된다. 이 변경은 DB schema, Redis key, storage path, 외부 API 계약을 변경하지 않으며 Agent 응답 DTO에 `fact_arbitration` 메타데이터만 추가한다.
+
 ## 2026-05-22 Worker P1 이벤트 프레임 추출 및 GPT 프레임 분석
 
 영상 업로드 후 고정 4장만 뽑던 전처리를 짧은 사고 영상에 맞는 시간순 이벤트 프레임 추출로 보강하고, 선택적으로 OpenAI 이미지 입력 분석을 실행해 관측 가능한 사고 사실을 `observations`로 저장하도록 확장했다. GPT API는 과실비율이나 법률 판단을 하지 않고, 프레임에서 보이는 물리적 사실 후보만 JSON으로 추출한다.

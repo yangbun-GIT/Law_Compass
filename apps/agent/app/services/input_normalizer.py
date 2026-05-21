@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from app.services.fact_arbitration import arbitrate_facts
 from app.services.security_filter import sanitize_input
 from app.services.video_input_contract import normalize_video_input_contract
 
@@ -77,9 +78,10 @@ def _compact_for_analysis(value: Any) -> Any:
 def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None) -> dict[str, Any]:
     clean_text, security_flags = sanitize_input(description_text or "")
     video_contract = normalize_video_input_contract(video_metadata, preprocessed_summary=clean_text)
-    video_fact_patch = _compact_for_analysis(video_contract.get("fact_patch") or {})
     user_facts = _compact_for_analysis(structured_facts or {})
-    facts = {**video_fact_patch, **user_facts}
+    arbitration = arbitrate_facts(user_facts=user_facts, video_contract=video_contract)
+    fact_arbitration = arbitration["contract"]
+    facts = _compact_for_analysis(arbitration["facts"])
     keywords = [str(x).strip() for x in (selected_keywords or []) if str(x).strip()]
     missing_fields = [field for field in REQUIRED_FACTS if _is_empty(facts.get(field))]
     facts_display = clean_structured_facts_for_display(facts)
@@ -91,11 +93,19 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "uncertain_observations": video_contract.get("uncertain_observations"),
         "warnings": video_contract.get("warnings"),
     })
+    arbitration_for_text = _compact_for_analysis({
+        "version": fact_arbitration.get("version"),
+        "applied_video_fields": fact_arbitration.get("applied_video_fields"),
+        "kept_user_fields": fact_arbitration.get("kept_user_fields"),
+        "confirmed_fields": fact_arbitration.get("confirmed_fields"),
+        "conflicts": fact_arbitration.get("conflicts"),
+    })
     merged_text = "\n".join([
         clean_text,
         "분석용 사고 사실: " + json.dumps(facts, ensure_ascii=False, separators=(",", ":")),
         "분석용 선택 키워드: " + ", ".join(keywords),
         "분석용 영상 입력 계약: " + json.dumps(video_contract_for_text, ensure_ascii=False, separators=(",", ":")),
+        "분석용 사실 중재 계약: " + json.dumps(arbitration_for_text, ensure_ascii=False, separators=(",", ":")),
         "분석 모드: " + (analysis_mode or "quick_summary"),
     ])
     return {
@@ -106,6 +116,7 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "selected_keywords": keywords,
         "video_metadata": video_metadata or {},
         "video_input_contract": video_contract,
+        "fact_arbitration": fact_arbitration,
         "analysis_mode": analysis_mode or "quick_summary",
         "security_flags": security_flags,
         "missing_fields": missing_fields,

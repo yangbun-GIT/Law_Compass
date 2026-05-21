@@ -49,7 +49,7 @@ def test_technical_preprocess_metadata_does_not_create_accident_facts():
     assert contract["technical_metadata"]["width"] == 1920
 
 
-def test_video_fact_patch_is_merged_without_overriding_user_facts():
+def test_video_physical_fact_overrides_conflicting_user_fact():
     normalized = normalize_analysis_input(
         "rear impact while stopped",
         structured_facts={"stopped": False},
@@ -63,6 +63,26 @@ def test_video_fact_patch_is_merged_without_overriding_user_facts():
         },
     )
 
-    assert normalized["structured_facts"]["stopped"] is False
+    assert normalized["structured_facts"]["stopped"] is True
     assert normalized["structured_facts"]["opponent_behavior"] == "rear_collision"
     assert normalized["video_input_contract"]["version"] == VERSION
+    assert normalized["fact_arbitration"]["conflicts"][0]["field"] == "stopped"
+    assert normalized["fact_arbitration"]["conflicts"][0]["winner"] == "video"
+
+
+def test_user_context_fact_remains_primary_over_video_observation():
+    normalized = normalize_analysis_input(
+        "rear impact while stopped",
+        structured_facts={"injury": False},
+        video_metadata={
+            "metadata": {
+                "observations": [
+                    {"field": "injury", "value": True, "confidence": 0.95, "source": "frame_analysis"},
+                ]
+            }
+        },
+    )
+
+    assert normalized["structured_facts"]["injury"] is False
+    assert normalized["fact_arbitration"]["conflicts"][0]["field"] == "injury"
+    assert normalized["fact_arbitration"]["conflicts"][0]["winner"] == "user"
