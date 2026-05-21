@@ -119,6 +119,9 @@ def _check_opponent_signal_violation(result: dict[str, Any]) -> None:
     assert fault.get("my") == 0, fault
     assert fault.get("other") == 100, fault
     assert primary_match is None or str(primary_match.get("chart_no") or "").startswith("\ucc2812"), primary_match
+    if primary_match is None:
+        assert fault.get("presentation_status") == "review_required", fault
+        assert result.get("presentation_policy", {}).get("finality") == "reference_only", result.get("presentation_policy")
 
 
 def _check_user_bicycle_collision(result: dict[str, Any]) -> None:
@@ -135,6 +138,7 @@ def _assert_common_contract(result: dict[str, Any]) -> None:
     assert judgment.get("overall_status") in SUPPORTED_OR_REVIEW, judgment
     assert "stage_statuses" in judgment, judgment
     assert "claim_coverage" in judgment, judgment
+    assert result.get("presentation_policy", {}).get("finality") in {"supported", "reference_only", "blocked_for_final"}, result.get("presentation_policy")
 
 
 def _print_result(status: str, name: str, result: dict[str, Any]) -> None:

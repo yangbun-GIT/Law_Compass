@@ -7,6 +7,17 @@ STATUS_SUPPORTED = "evidence_supported"
 STATUS_NEEDS_REVIEW = "needs_review"
 STATUS_UNSUPPORTED = "unsupported"
 
+SECTION_STAGE_MAP = {
+    "traffic_law_analysis": "legal_analysis",
+    "fault_ratio_analysis": "fault_ratio",
+    "criminal_liability_analysis": "legal_liability",
+    "insurance_guidance": "insurance_guide",
+}
+
+REFERENCE_ONLY_NOTICE = "근거가 부족하거나 추가 확인이 필요한 판단은 확정 결론이 아니라 참고용 검토 결과입니다."
+SECTION_REVIEW_NOTICE = "이 항목은 직접 근거가 충분하지 않아 추가 확인이 필요한 참고 판단입니다."
+SECTION_UNSUPPORTED_NOTICE = "이 항목은 현재 근거만으로 확정 판단처럼 제시할 수 없습니다."
+
 
 def build_judgment_contract(
     *,
@@ -76,17 +87,16 @@ def apply_judgment_contract_to_output(output: dict[str, Any], contract: dict[str
     updated.setdefault("model_info", {})["agent_judgment_contract_version"] = contract.get("version")
     updated["model_info"]["agent_judgment_overall_status"] = contract.get("overall_status")
     if contract.get("must_not_present_as_final"):
-        disclaimer = "근거가 부족하거나 추가 확인이 필요한 판단은 확정 결론이 아니라 참고용 검토 결과입니다."
         disclaimers = list(updated.get("disclaimers") or [])
-        if disclaimer not in disclaimers:
-            disclaimers.insert(0, disclaimer)
+        if REFERENCE_ONLY_NOTICE not in disclaimers:
+            disclaimers.insert(0, REFERENCE_ONLY_NOTICE)
         updated["disclaimers"] = disclaimers
         uncertainty = dict(updated.get("uncertainty") or {})
         if uncertainty.get("level") == "low":
             uncertainty["level"] = "medium"
         uncertainty["reason"] = "Agent 판단 계약과 근거 검증 결과에 따라 추가 확인이 필요한 항목이 있습니다."
         updated["uncertainty"] = uncertainty
-    return updated
+    return _apply_presentation_policy(updated, contract)
 
 
 def _stage(*, name: str, status: str, evidence_family: str, summary: str) -> dict[str, Any]:
@@ -156,3 +166,62 @@ def _overall_status(stages: list[dict[str, Any]], blocking_reasons: list[str]) -
     if blocking_reasons or any(stage["status"] == STATUS_NEEDS_REVIEW for stage in stages):
         return STATUS_NEEDS_REVIEW
     return STATUS_SUPPORTED
+
+
+def _apply_presentation_policy(output: dict[str, Any], contract: dict[str, Any]) -> dict[str, Any]:
+    updated = dict(output)
+    stages = {stage.get("name"): stage for stage in contract.get("stage_statuses") or []}
+    restricted_sections: list[str] = []
+    for stage_name, section_key in SECTION_STAGE_MAP.items():
+        stage = stages.get(stage_name) or {}
+        status = stage.get("status")
+        if status == STATUS_SUPPORTED:
+            continue
+        section = updated.get(section_key)
+        if not isinstance(section, dict):
+            continue
+        restricted_sections.append(section_key)
+        updated[section_key] = _soften_section_for_presentation(section, status)
+
+    finality = "supported"
+    if contract.get("overall_status") == STATUS_UNSUPPORTED:
+        finality = "blocked_for_final"
+    elif contract.get("must_not_present_as_final"):
+        finality = "reference_only"
+
+    updated["presentation_policy"] = {
+        "finality": finality,
+        "user_message": REFERENCE_ONLY_NOTICE if finality != "supported" else "근거와 연결된 참고 판단입니다.",
+        "restricted_sections": restricted_sections,
+        "blocking_reasons": list(contract.get("blocking_reasons") or []),
+    }
+    return updated
+
+
+def _soften_section_for_presentation(section: dict[str, Any], status: Any) -> dict[str, Any]:
+    softened = dict(section)
+    is_unsupported = status == STATUS_UNSUPPORTED
+    notice = SECTION_UNSUPPORTED_NOTICE if is_unsupported else SECTION_REVIEW_NOTICE
+    softened["presentation_status"] = "blocked_for_final" if is_unsupported else "review_required"
+    softened["finality_notice"] = notice
+    softened.setdefault("judgment_status", status or STATUS_NEEDS_REVIEW)
+    _append_unique(softened, "caveats", notice)
+    if "confidence" in softened:
+        softened["confidence"] = _cap_confidence(softened.get("confidence"), 0.35 if is_unsupported else 0.65)
+    return softened
+
+
+def _append_unique(target: dict[str, Any], key: str, value: str) -> None:
+    raw = target.get(key) or []
+    items = [raw] if isinstance(raw, (str, bytes)) else list(raw)
+    if value not in items:
+        items.append(value)
+    target[key] = items
+
+
+def _cap_confidence(value: Any, maximum: float) -> float:
+    try:
+        confidence = float(value)
+    except (TypeError, ValueError):
+        confidence = maximum
+    return round(max(0.0, min(maximum, confidence)), 2)

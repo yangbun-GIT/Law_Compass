@@ -13,6 +13,7 @@ from app.services.analysts.fault_ratio_analyst import analyze_fault_ratio
 from app.services.analysts.insurance_analyst import analyze_insurance
 from app.services.analysts.traffic_law_analyst import analyze_traffic_law
 from app.services.claim_evidence_validator import apply_claim_evidence_audit, validate_claim_evidence
+from app.services.elderly_friendly.report_simplifier import build_elderly_friendly_report
 from app.services.input_normalizer import normalize_analysis_input
 from app.services.judgment_contract import apply_judgment_contract_to_output, build_judgment_contract
 from app.services.keyword_recommender import recommend_keywords, suggest_next_inputs
@@ -238,6 +239,7 @@ def _analyze_core(
         ai_profile=profile,
     )
     output = apply_judgment_contract_to_output(output, judgment_contract)
+    output["elderly_friendly_report"] = build_elderly_friendly_report(output)
     output["claim_evidence"] = claim_evidence
     output["knia_json_evidence"] = knia_json_evidence
     if knia_fault_estimate:

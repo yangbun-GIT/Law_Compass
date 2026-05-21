@@ -48,9 +48,22 @@ def test_judgment_contract_blocks_final_language_when_claims_are_unsupported():
     assert "unsupported_claims_present" in contract["blocking_reasons"]
 
     output = apply_judgment_contract_to_output(
-        {"disclaimers": [], "model_info": {}, "uncertainty": {"level": "low", "reason": "old"}},
+        {
+            "disclaimers": [],
+            "model_info": {},
+            "uncertainty": {"level": "low", "reason": "old"},
+            "fault_ratio": {"my": 80, "other": 20, "confidence": 0.99},
+            "legal_liability": {"criminal_risk_level": "high", "confidence": 0.91},
+            "insurance_guide": {"confidence": 0.9},
+        },
         contract,
     )
     assert output["agent_judgment"] == contract
     assert output["uncertainty"]["level"] == "medium"
     assert output["disclaimers"]
+    assert output["presentation_policy"]["finality"] == "blocked_for_final"
+    assert output["fault_ratio"]["presentation_status"] == "review_required"
+    assert output["fault_ratio"]["confidence"] <= 0.65
+    assert output["legal_liability"]["presentation_status"] == "blocked_for_final"
+    assert output["legal_liability"]["confidence"] <= 0.35
+    assert output["insurance_guide"].get("presentation_status") is None
