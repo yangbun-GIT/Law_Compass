@@ -33,6 +33,7 @@ const resultView = readFileSync("src/views/CaseResultView.vue", "utf8");
 const evidenceView = readFileSync("src/views/EvidenceDetailView.vue", "utf8");
 const easyReportView = readFileSync("src/components/easy/EasyReportView.vue", "utf8");
 const evidenceReliabilityCard = readFileSync("src/components/easy/EvidenceReliabilityCard.vue", "utf8");
+const videoFactExplanationCard = readFileSync("src/components/easy/VideoFactExplanationCard.vue", "utf8");
 const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
 const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
@@ -58,10 +59,14 @@ const requiredErrorUx = [
   "KNIA 기준을 불러오지 못했습니다",
   "KNIA JSON 검색에 실패했습니다",
   "autocomplete=\"current-password\"",
-  "autocomplete=\"new-password\""
+  "autocomplete=\"new-password\"",
+  "comparison-row",
+  "input_label",
+  "video_label",
+  "영상 신뢰도"
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, evidenceReliabilityCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);

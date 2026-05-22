@@ -211,7 +211,8 @@ function text(value: unknown) {
 
 @media (max-width: 760px) {
   .video-fact-stats,
-  .video-fact-list {
+  .video-fact-list,
+  .comparison-row {
     grid-template-columns: 1fr;
   }
 
