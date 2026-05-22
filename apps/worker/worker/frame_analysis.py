@@ -46,6 +46,9 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "Allowed observation fields: stopped, sudden_brake, impact_direction, collision_direction, "
             "opponent_behavior, lane_change_actor, turn_signal, user_signal, opponent_signal, "
             "opponent_signal_violation, crosswalk_nearby, school_zone, damage_level. "
+            "For stopped, judge whether the ego/user vehicle was stationary at or immediately before the collision. "
+            "Do not mark stopped=false merely because the dashcam image changes, the camera shakes, or surrounding vehicles move. "
+            "Return stopped=false only when multiple frame_refs clearly show ego/user vehicle forward movement at the relevant moment; otherwise omit stopped or use unknown. "
             "Do not infer injury status from frames. Do not infer absence facts such as no damage, no school zone, "
             "or no signal violation just because they are not visible. Omit fields that are not observable. "
             "Each observation must include field, value, confidence between 0 and 1, frame_refs, and reason. "
@@ -292,7 +295,7 @@ def _normalize_openai_observations(raw_observations: Any, selected_frames: list[
         if _should_drop_openai_observation(field, value):
             continue
         frame_refs = [str(ref) for ref in item.get("frame_refs") or item.get("frames") or [] if str(ref) in allowed_frame_refs]
-        confidence = _as_float(item.get("confidence"), 0.0)
+        confidence = _normalize_observation_confidence(field, value, item.get("confidence"), frame_refs)
         observations.append({
             "field": field,
             "value": value,
@@ -304,6 +307,18 @@ def _normalize_openai_observations(raw_observations: Any, selected_frames: list[
             "observation_quality": _observation_quality(field, confidence, frame_refs),
         })
     return observations
+
+
+def _normalize_observation_confidence(field: str, value: Any, confidence_value: Any, frame_refs: list[str]) -> float:
+    confidence = _as_float(confidence_value, 0.0)
+    if field == "stopped" and value is False:
+        # Moving dashcam pixels are easy to overread as "not stopped".
+        # Keep negative stopped observations below Agent fact threshold unless
+        # a later provider adds stronger motion evidence in the contract.
+        if len(frame_refs) < 3:
+            return min(confidence, 0.74)
+        return min(confidence, 0.81)
+    return confidence
 
 
 def _observation_quality_summary(observations: list[dict[str, Any]]) -> dict[str, Any]:

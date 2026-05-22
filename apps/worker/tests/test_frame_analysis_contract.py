@@ -125,6 +125,42 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(frame_analysis._generation_controls_for_model("gpt-4.1-mini"), {"temperature": 0})
         self.assertNotIn("verbosity", frame_analysis._text_options_for_model("gpt-4.1-mini"))
 
+    def test_prompt_and_confidence_gate_reduce_negative_stopped_false_positives(self):
+        captured = {}
+
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            captured["payload"] = payload
+            return {
+                "id": "resp_stopped_false",
+                "output_text": (
+                    '{"observations":['
+                    '{"field":"stopped","value":false,"confidence":0.95,'
+                    '"frame_refs":["frame_001.jpg","frame_002.jpg","frame_003.jpg"],'
+                    '"reason":"dashcam scene changes across frames"}]}'
+                ),
+            }
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_VISION_MODEL = "gpt-4.1-mini"
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 4):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        prompt_text = captured["payload"]["input"][0]["content"][0]["text"]
+        self.assertIn("Do not mark stopped=false merely because the dashcam image changes", prompt_text)
+        self.assertEqual(result["observations"][0]["field"], "stopped")
+        self.assertEqual(result["observations"][0]["value"], False)
+        self.assertEqual(result["observations"][0]["confidence"], 0.81)
+        self.assertEqual(result["observations"][0]["observation_quality"]["level"], "low")
+
 
 if __name__ == "__main__":
     unittest.main()

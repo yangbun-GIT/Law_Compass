@@ -70,6 +70,17 @@
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다.
 
+### 영상 `stopped=false` 오판 방지 보강
+
+실제 프레임 분석에서 dashcam 화면 변화, 카메라 흔들림, 주변 차량 이동을 근거로 사용자 차량이 주행 중이었다고 과잉 판단할 수 있으므로 Worker의 OpenAI 프레임 분석 프롬프트와 정규화 정책을 보강했다. `stopped=false`는 사용자 차량이 충돌 직전 또는 충돌 시점에 실제로 전진 이동 중인 장면이 여러 프레임에서 명확해야만 반환하도록 요청하며, Worker 정규화 단계에서는 현재 OpenAI 관찰값만으로는 Agent의 `stopped` 사실 승격 기준인 0.82를 넘지 않도록 confidence를 제한한다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/worker/worker/frame_analysis.py` | `stopped=false` 판단 기준을 프롬프트에 명시하고, `stopped=false` 관찰값은 3프레임 이상이어도 confidence 최대 0.81, 그보다 적으면 0.74로 제한한다. 이 값은 Agent에서 바로 `fact_patch`로 승격되지 않고 확인 후보/보완 질문 흐름으로 남는다. |
+| `apps/worker/tests/test_frame_analysis_contract.py` | OpenAI 응답이 `stopped=false` 0.95를 반환해도 Worker가 0.81 low quality로 낮추고 프롬프트에 dashcam 화면 변화 오판 방지 문구가 포함되는지 검증한다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. 실제 OpenAI 호출 없이 계약 테스트와 Agent 입력 계약 스모크로 확인했으며, 운영 기본값은 계속 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이다.
+
 ## 2026-05-23 easy-report 사용자 흐름 및 payload 표시 정합성 보정
 
 Agent 결과 payload가 사용자 화면에서 카드별로 중복되거나 과도한 경고처럼 보이지 않도록 easy-report 표시 계약을 정리했다. 보완 질문은 `missing_info.questions`의 선택형 입력으로만 강조하고, 동일 문장은 `missing_info.items` 체크리스트에서 제거해 한 화면 안에서 같은 질문이 반복되지 않도록 했다. 근거 연결, 영상 관찰, Agent 처리 과정, 재분석 비교 카드의 안내 문구는 최종 판정 경고를 반복하지 않고 각 카드가 보여주는 상태 설명으로 낮췄다.
