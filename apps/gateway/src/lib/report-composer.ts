@@ -456,16 +456,26 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
     .map((item: AnyRecord) => {
       const field = String(item?.field ?? "");
       const winner = String(item?.winner ?? item?.selected_source ?? "");
+      const videoValue = item.video_value;
+      const userValue = item.user_value;
       const selectedValue = winner === "video" ? item.video_value : item.user_value;
+      const videoValueLabel = videoFactValueLabel(field, videoValue);
+      const userValueLabel = videoFactValueLabel(field, userValue);
       return {
         label: videoFactLabel(field),
         selected_source: winner === "video" ? "영상" : "사용자 입력",
         selected_value: videoFactValueLabel(field, selectedValue),
+        input_label: userValueLabel,
+        video_label: videoValueLabel,
+        status_label: winner === "video" ? "영상 기준 반영" : "확인 후 사용자 입력 유지",
+        comparison: userValueLabel && videoValueLabel
+          ? `사용자 입력은 ${userValueLabel}, 영상 관찰은 ${videoValueLabel}로 달라 보입니다.`
+          : "",
         confidence: confidenceLabel(item.video_confidence ?? item.confidence),
         frame_label: frameCountLabel(item.frame_refs),
         explanation: winner === "video"
           ? "영상에서 직접 확인 가능한 물리적 사실이라 영상 기준을 우선 적용했습니다."
-          : "영상만으로 확정하기 어려운 항목이라 사용자 입력을 유지했습니다.",
+          : "영상 관찰값이 기존 입력과 다르지만, 확정 기준을 넘지 않아 사용자 입력을 유지하고 확인 질문으로 넘겼습니다.",
       };
     })
     .filter((item) => item.label)
@@ -577,12 +587,17 @@ function composeVideoConflictQuestions(result: AnyRecord = {}) {
     const alternateValue = winner === "video" ? item.user_value : item.video_value;
     const selectedLabel = videoFactValueLabel(field, selectedValue);
     const alternateLabel = videoFactValueLabel(field, alternateValue);
+    const userLabel = videoFactValueLabel(field, item.user_value);
+    const videoLabel = videoFactValueLabel(field, item.video_value);
     const label = videoFactLabel(field);
     const options = unique([selectedLabel, alternateLabel, "확인 필요"]).filter((value: string) => value !== "확인 필요" || selectedLabel !== "확인 필요");
+    const question = userLabel && videoLabel && userLabel !== videoLabel
+      ? `영상 기준 ${label}: ${videoLabel}, 기존 입력: ${userLabel}입니다. 실제 상황은 어느 쪽에 가깝나요?`
+      : `${label}은(는) ${selectedLabel}로 보입니다. 실제와 맞나요?`;
     questions.push({
       field,
       label,
-      question: `${label}은(는) ${selectedLabel}로 보입니다. 실제와 맞나요?`,
+      question,
       input_type: "single_choice",
       options: options.length ? options : ["맞음", "아님", "확인 필요"],
     });
@@ -830,7 +845,20 @@ function videoFactLabel(field: string) {
 }
 
 function videoFactValueLabel(field: string, value: any) {
-  if (typeof value === "boolean") return value ? "예" : "아니오";
+  if (typeof value === "boolean") {
+    const booleanLabels: Record<string, [string, string]> = {
+      stopped: ["정차 중", "주행 중"],
+      sudden_brake: ["급정거함", "급정거 아님"],
+      opponent_signal_violation: ["신호위반 있음", "신호위반 없음"],
+      crosswalk_nearby: ["횡단보도 주변", "횡단보도 아님"],
+      school_zone: ["어린이보호구역", "어린이보호구역 아님"],
+      victim_is_child: ["어린이 피해", "어린이 피해 아님"],
+      injury: ["다친 사람 있음", "다친 사람 없음"],
+    };
+    const labels = booleanLabels[field];
+    if (labels) return value ? labels[0] : labels[1];
+    return value ? "예" : "아니오";
+  }
   const key = String(value ?? "");
   const labels: AnyRecord = {
     rear_collision: "뒤에서 추돌",

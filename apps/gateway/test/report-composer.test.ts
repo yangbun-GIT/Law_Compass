@@ -205,6 +205,10 @@ describe("report composer", () => {
     expect(card.applied_items[0].value).toBe("상대 차량");
     expect(card.applied_items[0].confidence).toBe("91%");
     expect(card.review_items[0].selected_source).toBe("영상");
+    expect(card.review_items[0].status_label).toBe("영상 기준 반영");
+    expect(card.review_items[0].input_label).toBe("내 차량");
+    expect(card.review_items[0].video_label).toBe("상대 차량");
+    expect(card.review_items[0].comparison).toContain("사용자 입력은 내 차량");
     expect(card.uncertain_items[0].label).toBe("방향지시등 사용");
     expect(card.quality_summary.status_label).toBe("일부 반영");
     expect(card.quality_summary.multi_frame_count).toBe(1);
@@ -226,6 +230,62 @@ describe("report composer", () => {
     expect(text).not.toContain("user_value");
     expect(text).not.toContain("video_value");
     expect(text).not.toContain("reason");
+  });
+
+  it("explains high-confidence video conflicts without applying them as final facts", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      video_input_contract: {
+        accepted_observations: [
+          {
+            field: "stopped",
+            value: false,
+            confidence: 0.9,
+            frame_refs: ["frame_1.jpg", "frame_3.jpg", "frame_5.jpg"],
+          },
+        ],
+        fact_patch: { stopped: false },
+        observation_quality_summary: {
+          accepted_count: 1,
+          uncertain_count: 0,
+          ignored_count: 0,
+          accepted_multi_frame_count: 1,
+        },
+      },
+      fact_arbitration: {
+        applied_video_fields: [],
+        conflicts: [
+          {
+            field: "stopped",
+            user_value: true,
+            video_value: false,
+            winner: "user",
+            video_confidence: 0.9,
+            frame_refs: ["frame_1.jpg", "frame_3.jpg", "frame_5.jpg"],
+          },
+        ],
+      },
+    });
+
+    const card = enriched.video_fact_explanation_card!;
+    const conflict = card.review_items[0];
+    expect(conflict.label).toBe("정차 여부");
+    expect(conflict.selected_source).toBe("사용자 입력");
+    expect(conflict.selected_value).toBe("정차 중");
+    expect(conflict.input_label).toBe("정차 중");
+    expect(conflict.video_label).toBe("주행 중");
+    expect(conflict.status_label).toBe("확인 후 사용자 입력 유지");
+    expect(conflict.comparison).toContain("영상 관찰은 주행 중");
+    expect(conflict.explanation).toContain("확인 질문");
+    expect(conflict.confidence).toBe("90%");
+    const question = (enriched as any).missing_info.questions[0];
+    expect(question.field).toBe("stopped");
+    expect(question.question).toContain("영상 기준 정차 여부: 주행 중");
+    expect(question.question).toContain("기존 입력: 정차 중");
+    expect(question.options).toContain("정차 중");
+    expect(question.options).toContain("주행 중");
+    expect(JSON.stringify(card)).not.toContain("user_value");
+    expect(JSON.stringify(card)).not.toContain("video_value");
+    expect(JSON.stringify(card)).not.toContain("frame_refs");
   });
 
   it("orders uncertain video questions by accident-flow priority", () => {

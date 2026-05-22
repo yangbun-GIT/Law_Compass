@@ -58,6 +58,18 @@
 
 이 결과는 영상 관찰값을 우선 고려하되, 충돌하거나 임계값이 낮은 경우 바로 확정하지 않고 사용자 확인 또는 재분석 흐름으로 넘기는 현재 정책이 실제 영상에서도 동작한다는 근거다. 이후 튜닝 후보는 `stopped=false`처럼 높은 confidence지만 사용자 입력과 충돌한 관찰값을 결과 화면에서 더 명확히 보여주는 방식이다.
 
+### 영상/사용자 입력 충돌 표시 보강
+
+실제 영상 재검증에서 `stopped=false`가 높은 confidence로 관찰됐지만 사용자 입력 `stopped=true`와 충돌한 사례를 반영해, 일반 결과 화면의 영상 기반 사실 카드가 충돌 내용을 더 명확히 보여주도록 보강했다. 이 변경은 Agent의 승격/보류 정책을 바꾸지 않고, 사용자가 확인해야 할 차이를 안전한 문구로 보여주는 표시 계층 변경이다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | `video_fact_explanation_card.review_items`에 입력값 라벨, 영상 관찰 라벨, 충돌 비교 문구, 상태 라벨을 추가했다. 보완 질문도 “영상 기준 값”과 “기존 입력 값”을 함께 보여준다. |
+| `apps/frontend/src/components/easy/VideoFactExplanationCard.vue` | 사용자 입력과 영상 관찰값을 나란히 표시하고, 유지/반영 상태와 영상 신뢰도를 카드 안에서 확인할 수 있게 했다. |
+| `apps/gateway/test/report-composer.test.ts` | 높은 confidence 영상 관찰값이 사용자 입력과 충돌할 때 최종 사실으로 덮지 않고, 공개 카드와 보완 질문에 안전하게 표시되는지 회귀 테스트로 고정했다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다.
+
 ## 2026-05-23 easy-report 사용자 흐름 및 payload 표시 정합성 보정
 
 Agent 결과 payload가 사용자 화면에서 카드별로 중복되거나 과도한 경고처럼 보이지 않도록 easy-report 표시 계약을 정리했다. 보완 질문은 `missing_info.questions`의 선택형 입력으로만 강조하고, 동일 문장은 `missing_info.items` 체크리스트에서 제거해 한 화면 안에서 같은 질문이 반복되지 않도록 했다. 근거 연결, 영상 관찰, Agent 처리 과정, 재분석 비교 카드의 안내 문구는 최종 판정 경고를 반복하지 않고 각 카드가 보여주는 상태 설명으로 낮췄다.

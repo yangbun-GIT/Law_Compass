@@ -62,7 +62,17 @@
         <div v-for="item in card.review_items" :key="`${item.label}-${item.selected_source}`" class="video-fact-item">
           <span class="item-label">{{ text(item.label) }}</span>
           <strong>{{ text(item.selected_source) }} 기준: {{ text(item.selected_value) }}</strong>
+          <div v-if="item.input_label || item.video_label" class="comparison-row">
+            <span>입력 {{ text(item.input_label) }}</span>
+            <span>영상 {{ text(item.video_label) }}</span>
+          </div>
+          <p v-if="item.comparison">{{ text(item.comparison) }}</p>
           <p>{{ text(item.explanation) }}</p>
+          <div class="chips compact">
+            <span v-if="item.status_label" class="chip selected">{{ text(item.status_label) }}</span>
+            <span v-if="item.confidence" class="chip">영상 신뢰도 {{ text(item.confidence) }}</span>
+            <span v-if="item.frame_label" class="chip">{{ text(item.frame_label) }}</span>
+          </div>
         </div>
       </div>
     </section>
@@ -149,6 +159,24 @@ function text(value: unknown) {
 .video-fact-item p {
   color: #c5d0df;
   margin: 10px 0 0;
+}
+
+.comparison-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.comparison-row span {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  color: #edf6ff;
+  font-weight: 800;
+  min-width: 0;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
 }
 
 .quality-section {
