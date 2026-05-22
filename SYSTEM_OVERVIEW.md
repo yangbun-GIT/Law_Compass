@@ -43,6 +43,21 @@
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. 공개 결과 화면은 기존 보완 질문 흐름을 유지하며, 새 후보 계약은 Agent/관리자 진단/실제 영상 E2E에서 입력 품질을 해석하는 데 사용한다.
 
+### 실제 영상 재검증 결과
+
+`car_accident_1.mp4`로 실제 OpenAI 프레임 분석을 다시 실행했다. worker는 실행 전 `ENABLE_OPENAI_FRAME_ANALYSIS=1`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 일시 재기동했고, 검증 후 비용 안전을 위해 `ENABLE_OPENAI_FRAME_ANALYSIS=0`으로 되돌렸다.
+
+| 항목 | 결과 |
+| --- | --- |
+| OpenAI 프레임 분석 | 성공. `gpt-4.1-mini`, `detail=low`, 6프레임 분석 |
+| Worker 관찰값 | 3개 생성: `stopped=false` 0.9, `lane_change_actor=opponent` 0.8, `sudden_brake=false` 0.7 |
+| Agent 반영 | `stopped=false`는 품질 기준을 통과했지만 사용자 입력 `stopped=true`와 충돌해 최종 구조화 사실에는 바로 적용하지 않았다. |
+| 확인 후보 | `lane_change_actor`, `sudden_brake` 2개가 `confirmation_candidates`로 생성됐다. |
+| 후보 그룹 | `lane_change_candidate` 1개가 `confirmation_groups`에 생성됐다. |
+| 보완 질문 E2E | 보류 관찰값 질문 제출과 재분석 `analysis_change_card` 생성까지 통과했다. |
+
+이 결과는 영상 관찰값을 우선 고려하되, 충돌하거나 임계값이 낮은 경우 바로 확정하지 않고 사용자 확인 또는 재분석 흐름으로 넘기는 현재 정책이 실제 영상에서도 동작한다는 근거다. 이후 튜닝 후보는 `stopped=false`처럼 높은 confidence지만 사용자 입력과 충돌한 관찰값을 결과 화면에서 더 명확히 보여주는 방식이다.
+
 ## 2026-05-23 easy-report 사용자 흐름 및 payload 표시 정합성 보정
 
 Agent 결과 payload가 사용자 화면에서 카드별로 중복되거나 과도한 경고처럼 보이지 않도록 easy-report 표시 계약을 정리했다. 보완 질문은 `missing_info.questions`의 선택형 입력으로만 강조하고, 동일 문장은 `missing_info.items` 체크리스트에서 제거해 한 화면 안에서 같은 질문이 반복되지 않도록 했다. 근거 연결, 영상 관찰, Agent 처리 과정, 재분석 비교 카드의 안내 문구는 최종 판정 경고를 반복하지 않고 각 카드가 보여주는 상태 설명으로 낮췄다.

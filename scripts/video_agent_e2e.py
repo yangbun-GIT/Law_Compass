@@ -11,6 +11,11 @@ from urllib import error, request
 DEFAULT_BASE_URL = "http://localhost"
 DEFAULT_TIMEOUT_SEC = 180
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 class E2EError(RuntimeError):
     pass
