@@ -16,6 +16,9 @@ build/
 coverage/
 .nyc_output/
 
+# Frontend source is TypeScript-only. Do not track emitted JS beside TS files.
+apps/frontend/src/**/*.js
+
 # Python caches and test artifacts
 __pycache__/
 *.py[cod]

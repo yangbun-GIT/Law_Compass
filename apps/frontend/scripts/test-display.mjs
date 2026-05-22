@@ -35,6 +35,7 @@ const evidenceReliabilityCard = readFileSync("src/components/easy/EvidenceReliab
 const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
 const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
+const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
 const requiredErrorUx = [
   "export function formatApiError",
   "normalizeValidation(data?.error?.details?.validation)",
@@ -59,7 +60,7 @@ const requiredErrorUx = [
   "autocomplete=\"new-password\""
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, loginView, signupView, resultView, evidenceView, easyReportView, evidenceReliabilityCard, kniaRankingView, kniaChartView, kniaJsonSearchBox];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, loginView, signupView, resultView, evidenceView, easyReportView, evidenceReliabilityCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
