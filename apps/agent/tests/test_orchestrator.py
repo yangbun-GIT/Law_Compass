@@ -13,6 +13,7 @@ def test_analyze_case_minimum_fields():
         "action_plan",
         "evidence",
         "claim_evidence",
+        "agent_trace",
         "uncertainty",
         "disclaimers",
         "followup_questions",
@@ -28,6 +29,16 @@ def test_analyze_case_minimum_fields():
     assert "evidence_support_level" in result["insurance_guide"]
     assert result["model_info"]["llm_policy"]["version"] == "llm-policy-v1"
     assert "fault_ratio_analysis" in result["model_info"]["llm_policy"]["sections"]
+    assert result["agent_trace"]["version"] == "agent-execution-trace-v1"
+    assert result["agent_trace"]["trace_policy"] == "safe_metadata_only_no_raw_user_text"
+    assert result["agent_trace"]["step_count"] == len(result["agent_trace"]["steps"])
+    assert {step["id"] for step in result["agent_trace"]["steps"]} >= {
+        "input_normalization",
+        "scenario_classification",
+        "evidence_retrieval",
+        "judgment_contract",
+    }
+    assert "신호대기 중 후방 차량 추돌" not in str(result["agent_trace"])
     AnalysisOutput(**result)
 
 
@@ -53,5 +64,8 @@ def test_analyze_video_case_applies_video_input_contract():
     assert result["structured_facts"]["opponent_behavior"] == "rear_collision"
     assert result["video_input_contract"]["version"] == "agent-video-input-contract-v1"
     assert result["model_info"]["video_input_contract"]["technical_metadata"]["representative_frame_count"] == 1
+    trace_steps = {step["id"]: step for step in result["agent_trace"]["steps"]}
+    assert trace_steps["input_normalization"]["packet"]["has_video_contract"] is True
+    assert trace_steps["fact_arbitration"]["packet"]["video_observation_count"] == 2
     AnalysisOutput(**result)
 

@@ -6,6 +6,7 @@ from typing import Any
 from app.personas.accident_scenario_personas import SCENARIO_PERSONA_HINTS
 from app.services.accident_party_action_guide import build_party_type_action_guide
 from app.services.accident_perspective import infer_user_vehicle_role, map_fault_ratio_to_user
+from app.services.agent_execution_trace import VERSION as AGENT_TRACE_VERSION, build_agent_execution_trace
 from app.services.analysts.action_plan_analyst import analyze_action_plan
 from app.services.analysts.criminal_liability_analyst import analyze_criminal_liability
 from app.services.analysts.evidence_auditor import audit_evidence
@@ -266,6 +267,8 @@ def _analyze_core(
         ai_profile=profile,
     )
     output = apply_judgment_contract_to_output(output, judgment_contract)
+    output["agent_trace"] = build_agent_execution_trace(output)
+    output["model_info"]["agent_trace_version"] = AGENT_TRACE_VERSION
     output["elderly_friendly_report"] = build_elderly_friendly_report(output)
     output["claim_evidence"] = claim_evidence
     output["knia_json_evidence"] = knia_json_evidence

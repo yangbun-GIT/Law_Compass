@@ -64,6 +64,7 @@ class AnalysisOutput(BaseModel):
     evidence_audit: dict[str, Any]
     claim_evidence: dict[str, Any] = Field(default_factory=dict)
     agent_judgment: dict[str, Any] = Field(default_factory=dict)
+    agent_trace: dict[str, Any] = Field(default_factory=dict)
     input_requirements: dict[str, Any] = Field(default_factory=dict)
     followup_loop: dict[str, Any] = Field(default_factory=dict)
     video_input_contract: dict[str, Any] = Field(default_factory=dict)

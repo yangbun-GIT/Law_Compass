@@ -882,3 +882,16 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | Token/cost dashboard | LLM use is already gated; detailed billing UI can come after core loops. |
 | S3/direct upload migration | Local storage works for current MVP and collaboration constraints. |
 | Specialized traffic-accident video model | Desired later; current frame extraction plus optional OpenAI observation path is enough for next stabilization. |
+
+## 2026-05-22 Agent Execution Trace Update
+
+This update addresses the lecture-derived gap around Agent pipeline observability, packet-style data flow, and production guardrails. It adds a safe execution trace to each Agent analysis result without exposing raw user text or secrets.
+
+| Path | Change |
+| --- | --- |
+| `apps/agent/app/services/agent_execution_trace.py` | Adds `agent-execution-trace-v1`, a safe metadata-only trace builder covering input normalization, fact arbitration, scenario classification, evidence retrieval, analyst execution, claim validation, judgment contract, and follow-up loop stages. |
+| `apps/agent/app/services/orchestrator.py` | Adds `agent_trace` to final Agent output after the judgment contract is applied, and records `agent_trace_version` in `model_info`. |
+| `apps/agent/app/schemas.py` | Adds `agent_trace` to `AnalysisOutput` so downstream Gateway/frontend consumers can safely inspect the Agent pipeline state. |
+| `apps/agent/tests/test_orchestrator.py` | Adds contract assertions for trace version, safe metadata policy, stage IDs, video contract presence, video observation counts, and raw-text exclusion. |
+
+The trace intentionally records counts, statuses, confidence-related state, and missing requirements rather than hidden chain-of-thought or raw user descriptions. This keeps the Agent debuggable while preserving privacy and output safety.

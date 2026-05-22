@@ -346,3 +346,13 @@ These items protect product trust and should be handled before broad new feature
 ### Application Rule
 
 If a new request conflicts with a Must Reinforce item, complete or explicitly account for the reinforcement first. If the request is unrelated to judgment trust or service boundaries, keep the scope narrow and do not block on deferred enhancements.
+
+## 2026-05-22 Lecture-Derived Agent Quality Bar
+
+The lecture reference on AI Agent architecture highlights production Agent quality around control loops, packet-style data flow, tool/observation traceability, reflection, guardrails, and bounded execution. Apply these points when reinforcing the Agent layer.
+
+- Every Agent judgment change should preserve a safe execution trace that shows stage-level packets and status without exposing raw user text or secrets.
+- Tool-like internal steps such as video preprocessing, KNIA matching, legal retrieval, evidence audit, and judgment contract application should produce observable metadata: status, input/output counts, confidence, missing requirements, and recovery path.
+- When an observation or evidence check fails, treat the error or insufficiency as an explicit observation for recovery instead of silently continuing to a final-looking answer.
+- Reflection/reverification should be bounded: retry or request missing input only within a small, documented loop and then mark the result as reference-only when still unresolved.
+- Multi-agent expansion is deferred until the current specialist modules have clear input/output contracts, trace visibility, and regression coverage.
