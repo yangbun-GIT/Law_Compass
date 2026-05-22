@@ -14,6 +14,7 @@ def _int_env(name: str, default: int) -> int:
 
 
 FRAME_ANALYSIS_CONTRACT_VERSION = "openai-frame-analysis-v1"
+FRAME_SELECTION_STRATEGY = "start-end-context-plus-midpoint-sequence"
 ENABLE_OPENAI_FRAME_ANALYSIS = os.getenv("ENABLE_OPENAI_FRAME_ANALYSIS", "0") == "1"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
@@ -29,14 +30,20 @@ FRAME_ANALYSIS_FIXTURE_MODE = os.getenv("FRAME_ANALYSIS_FIXTURE_MODE", "").strip
 
 def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dict[str, Any]) -> dict[str, Any]:
     if not ENABLE_OPENAI_FRAME_ANALYSIS:
-        return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "ENABLE_OPENAI_FRAME_ANALYSIS is not 1"}
+        return {
+            "version": FRAME_ANALYSIS_CONTRACT_VERSION,
+            "enabled": False,
+            "reason": "ENABLE_OPENAI_FRAME_ANALYSIS is not 1",
+            **_frame_selection_metadata(frame_details, []),
+        }
     selected_frames = _select_openai_frames(frame_details, OPENAI_FRAME_ANALYSIS_MAX_FRAMES)
+    selection_metadata = _frame_selection_metadata(frame_details, selected_frames)
     if not selected_frames:
-        return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "no frames extracted"}
+        return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "no frames extracted", **selection_metadata}
     if FRAME_ANALYSIS_FIXTURE_MODE:
-        return _fixture_frame_analysis(selected_frames, context, FRAME_ANALYSIS_FIXTURE_MODE)
+        return _fixture_frame_analysis(selected_frames, context, FRAME_ANALYSIS_FIXTURE_MODE, selection_metadata)
     if not OPENAI_API_KEY:
-        return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "OPENAI_API_KEY is empty"}
+        return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "OPENAI_API_KEY is empty", **selection_metadata}
     content: list[dict[str, Any]] = [{
         "type": "input_text",
         "text": (
@@ -92,6 +99,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "response_id": data.get("id"),
             "response_status": data.get("status"),
             "incomplete_details": data.get("incomplete_details"),
+            **selection_metadata,
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "summary": parsed.get("summary") or parsed.get("scene_summary"),
             "observations": observations,
@@ -115,6 +123,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "model": OPENAI_VISION_MODEL,
             "detail": OPENAI_FRAME_ANALYSIS_DETAIL,
             "error": str(exc),
+            **selection_metadata,
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "observations": [],
             "observation_quality_summary": _observation_quality_summary([]),
@@ -164,6 +173,16 @@ def _event_focused_frame_indexes(frame_count: int, max_frames: int) -> list[int]
     return sorted(selected)
 
 
+def _frame_selection_metadata(frame_details: list[dict[str, Any]], selected_frames: list[dict[str, Any]]) -> dict[str, Any]:
+    available_frame_count = len([frame for frame in frame_details if frame.get("path") and Path(frame["path"]).exists()])
+    return {
+        "frame_selection_strategy": FRAME_SELECTION_STRATEGY,
+        "available_frame_count": available_frame_count,
+        "selected_frame_count": len(selected_frames),
+        "frame_selection_max_frames": OPENAI_FRAME_ANALYSIS_MAX_FRAMES,
+    }
+
+
 def _text_options_for_model(model: str) -> dict[str, Any]:
     options: dict[str, Any] = {"format": {"type": "json_object"}}
     if _is_gpt5_family(model):
@@ -190,7 +209,12 @@ def _normalized_reasoning_effort(model: str) -> str:
     return requested if requested in allowed else "minimal"
 
 
-def _fixture_frame_analysis(selected_frames: list[dict[str, Any]], context: dict[str, Any], mode: str) -> dict[str, Any]:
+def _fixture_frame_analysis(
+    selected_frames: list[dict[str, Any]],
+    context: dict[str, Any],
+    mode: str,
+    selection_metadata: dict[str, Any],
+) -> dict[str, Any]:
     frame_refs = [Path(str(frame.get("path", ""))).name for frame in selected_frames if frame.get("path")]
     primary_ref = frame_refs[:2] or ["fixture-frame.jpg"]
     observations = _fixture_observations(mode, primary_ref)
@@ -205,6 +229,7 @@ def _fixture_frame_analysis(selected_frames: list[dict[str, Any]], context: dict
         "provider": "fixture",
         "model": f"fixture:{mode}",
         "detail": "fixture",
+        **selection_metadata,
         "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
         "summary": _fixture_summary(mode, context),
         "observations": observations,

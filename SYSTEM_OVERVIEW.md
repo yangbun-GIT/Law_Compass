@@ -8,7 +8,7 @@
 | --- | --- |
 | 영상 저장 | Gateway가 로컬 스토리지에 업로드 파일을 저장하고 Worker job으로 넘긴다. S3 직접 업로드는 후속 전환 항목이다. |
 | 영상 전처리 | Worker가 `ffprobe`로 메타데이터를 읽고 `ffmpeg`로 최대 12장의 대표 프레임을 추출한다. 짧은 사고 영상은 0.5~0.75초 간격과 비율 앵커를 섞어 전후 맥락을 남긴다. |
-| OpenAI 프레임 분석 | Worker가 최대 6프레임만 OpenAI Responses API로 보낸다. 선택 프레임은 시작/끝 문맥과 영상 중앙부 연속 프레임을 우선 포함해 짧은 사고의 충돌 전후 변화가 빠지지 않도록 한다. |
+| OpenAI 프레임 분석 | Worker가 최대 6프레임만 OpenAI Responses API로 보낸다. 선택 프레임은 시작/끝 문맥과 영상 중앙부 연속 프레임을 우선 포함해 짧은 사고의 충돌 전후 변화가 빠지지 않도록 한다. OpenAI가 꺼져 있어도 `frame_selection_strategy`, 사용 가능 프레임 수, 선택 프레임 수를 결과 메타데이터에 남긴다. |
 | 비용/안전 정책 | 모델, 프레임 수, 출력 토큰, detail, timeout은 환경변수로 제한한다. 응답 저장은 `store=false`이고, 기본값은 OpenAI 비활성화다. |
 | 관찰값 품질 | `stopped=false`처럼 오판 위험이 큰 값은 Worker에서 confidence를 제한하고, Agent에서 확정 사실이 아닌 확인 후보로 다룬다. |
 | Agent 연결 | 영상 관찰값은 `video_input_contract`에서 사용자 입력과 충돌 여부, 보류 사유, 확인 후보, 후보 그룹으로 정리된다. 낮은 confidence나 방향/행동 혼동값은 판정에 바로 반영하지 않는다. |

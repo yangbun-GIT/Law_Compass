@@ -22,6 +22,22 @@ class FrameAnalysisContractTest(unittest.TestCase):
         frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS = self._max_output_tokens
         frame_analysis._post_json = self._post_json
 
+    def test_disabled_mode_reports_available_frames_without_analysis(self):
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 4):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        self.assertFalse(result["enabled"])
+        self.assertEqual(result["available_frame_count"], 3)
+        self.assertEqual(result["selected_frame_count"], 0)
+        self.assertEqual(result["frame_selection_strategy"], frame_analysis.FRAME_SELECTION_STRATEGY)
+
     def test_fixture_mode_returns_contract_observations_without_api_key(self):
         frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
         frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = "rear_end"
@@ -44,6 +60,9 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(result["observations"][0]["frame_refs"], ["frame_001.jpg"])
         self.assertEqual(result["observations"][0]["observation_quality"]["frame_ref_count"], 1)
         self.assertEqual(result["observation_quality_summary"]["single_frame_observation_count"], 2)
+        self.assertEqual(result["frame_selection_strategy"], frame_analysis.FRAME_SELECTION_STRATEGY)
+        self.assertEqual(result["available_frame_count"], 1)
+        self.assertEqual(result["selected_frame_count"], 1)
 
     def test_enabled_without_key_reports_disabled_reason_when_no_fixture(self):
         frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
@@ -89,6 +108,7 @@ class FrameAnalysisContractTest(unittest.TestCase):
                 frames.append({"path": str(frame_path), "time_sec": index * 0.5, "role": "time_sequence"})
 
             selected = frame_analysis._select_openai_frames(frames, 6)
+            metadata = frame_analysis._frame_selection_metadata(frames, selected)
 
         refs = [Path(frame["path"]).name for frame in selected]
         self.assertEqual(refs, [
@@ -99,6 +119,9 @@ class FrameAnalysisContractTest(unittest.TestCase):
             "frame_008.jpg",
             "frame_012.jpg",
         ])
+        self.assertEqual(metadata["frame_selection_strategy"], frame_analysis.FRAME_SELECTION_STRATEGY)
+        self.assertEqual(metadata["available_frame_count"], 12)
+        self.assertEqual(metadata["selected_frame_count"], 6)
 
     def test_gpt5_payload_uses_cost_controls_without_temperature(self):
         captured = {}
