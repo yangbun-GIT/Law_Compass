@@ -55,6 +55,16 @@
 
 이 변경은 공개 easy-report payload의 표시용 필드를 추가하지만 DB schema, Redis key, storage path, API route, 외부 API 계약은 변경하지 않는다.
 
+## 2026-05-23 결과 화면 핵심 카드 순서 정리
+
+Agent 결과를 사용자가 행동 가능한 순서로 읽을 수 있도록 easy-report 화면 카드 순서를 조정했다. 결론과 재분석 변화 다음에는 남은 보완 질문을 바로 보여주고, 그 뒤에 과실비율, 영상 사실, 근거 신뢰도, Agent 처리 과정, 보험/법률 안내가 이어진다. 보완 질문이 없으면 빈 카드가 나타나지 않는다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/frontend/src/components/easy/EasyReportView.vue` | `MissingInfoCard`를 결과 하단에서 결론/재분석 카드 바로 아래로 이동하고, `safeReport.missing_info` 기준으로만 표시한다. 질문, 항목, 우선순위 정보가 없으면 카드를 숨긴다. |
+
+이 변경은 Frontend 표시 순서만 조정하며 DB schema, Redis key, storage path, API route, 외부 API 계약은 변경하지 않는다.
+
 ## 2026-05-22 영상 프레임 관찰값 품질 보정
 
 실제 사고 영상 기반 프레임 분석의 다음 안정화 단계로, OpenAI/fixture 관찰값이 Agent 사실로 승격되기 전 품질 기준을 명확히 했다. 짧은 사고 영상은 유효 프레임 수가 제한적이므로 단일 프레임 관찰값도 보강 입력으로 사용할 수 있지만, 프레임 참조가 없는 관찰값이나 신호위반/스쿨존/횡단보도처럼 오판 위험이 큰 필드는 더 엄격하게 보류한다.

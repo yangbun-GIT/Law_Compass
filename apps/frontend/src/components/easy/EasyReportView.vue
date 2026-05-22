@@ -2,12 +2,19 @@
   <section class="easy-report" v-if="safeReport">
     <TopConclusionCard :report="safeReport" />
     <AccidentPartyTypeActionCard v-if="safeReport.accident_party_type_card" :card="safeReport.accident_party_type_card" />
-    <ElderlyActionCard :actions="safeReport.top_actions || []" />
     <AnalysisChangeCard v-if="safeReport.analysis_change_card" :card="safeReport.analysis_change_card" />
+    <MissingInfoCard
+      v-if="hasMissingInfo"
+      :missing="displayMissingInfo"
+      :submitting="followupSubmitting"
+      :error="followupError"
+      @submit="(answers) => emit('submitFollowup', answers)"
+    />
+    <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
+    <VideoFactExplanationCard v-if="safeReport.video_fact_explanation_card" :card="safeReport.video_fact_explanation_card" />
     <EvidenceReliabilityCard v-if="safeReport.evidence_reliability_card" :card="safeReport.evidence_reliability_card" />
     <AgentProcessCard v-if="safeReport.agent_process_card" :card="safeReport.agent_process_card" />
-    <VideoFactExplanationCard v-if="safeReport.video_fact_explanation_card" :card="safeReport.video_fact_explanation_card" />
-    <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
+    <ElderlyActionCard :actions="safeReport.top_actions || []" />
     <article class="card easy-card">
       <h2>{{ text(safeReport.insurance_explanation?.title || "보험 처리 안내") }}</h2>
       <p class="big-text">{{ text(safeReport.insurance_explanation?.simple_summary) }}</p>
@@ -74,12 +81,6 @@
         </div>
       </div>
     </article>
-    <MissingInfoCard
-      :missing="report?.missing_info || safeReport.missing_info || {}"
-      :submitting="followupSubmitting"
-      :error="followupError"
-      @submit="(answers) => emit('submitFollowup', answers)"
-    />
     <DetailToggleSection :details="safeReport.detail_sections || {}" />
   </section>
 </template>
@@ -105,6 +106,15 @@ const showAllBasis = ref(false);
 const safeReport = computed(() => removeTechnicalFields(props.report || {}));
 const basisCards = computed(() => safeReport.value?.legal_basis_cards || []);
 const visibleBasisCards = computed(() => (showAllBasis.value ? basisCards.value : basisCards.value.slice(0, 3)));
+const displayMissingInfo = computed(() => safeReport.value?.missing_info || {});
+const hasMissingInfo = computed(() => {
+  const missing = displayMissingInfo.value || {};
+  return Boolean(
+    (Array.isArray(missing.questions) && missing.questions.length) ||
+    (Array.isArray(missing.items) && missing.items.length) ||
+    (Array.isArray(missing.priority_items) && missing.priority_items.length)
+  );
+});
 function text(value: unknown) { return sanitizeDisplayText(value); }
 function signed(value: unknown) {
   const n = Number(value || 0);
