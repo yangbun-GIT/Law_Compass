@@ -428,14 +428,17 @@ function composeEvidenceReliabilityCard(result: AnyRecord = {}) {
 function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   const contract = result.video_input_contract ?? result.model_info?.video_input_contract ?? {};
   const arbitration = result.fact_arbitration ?? result.model_info?.fact_arbitration ?? {};
+  const technical = contract.technical_metadata && typeof contract.technical_metadata === "object" ? contract.technical_metadata : {};
   const accepted = asArray(contract.accepted_observations);
   const uncertain = asArray(contract.uncertain_observations);
   const observedCount = accepted.length + uncertain.length + asArray(contract.ignored_observations).length;
+  const representativeFrameCount = toNumber(technical.representative_frame_count, 0);
   const appliedFields = asArray(arbitration.applied_video_fields).map((field) => String(field));
   const reviewItems = asArray(arbitration.conflicts);
   const hasVideoFacts = accepted.length || uncertain.length || appliedFields.length || reviewItems.length;
-  if (!hasVideoFacts) return undefined;
-  const qualitySummary = videoObservationQualitySummary(contract);
+  const hasVideoProcessing = Boolean(contract.version) && (representativeFrameCount > 0 || Boolean(contract.observation_quality_summary));
+  if (!hasVideoFacts && !hasVideoProcessing) return undefined;
+  const qualitySummary = videoObservationQualitySummary(contract, representativeFrameCount);
 
   const appliedItems = appliedFields
     .map((field) => {
@@ -494,12 +497,15 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
     ? "영상에서 확인된 물리적 사실을 판단 입력에 우선 반영했습니다."
     : uncertainItems.length
       ? "영상에서 사고 사실 후보를 찾았지만 바로 반영하지 않고 사용자 확인 질문으로 넘겼습니다."
-      : "영상 관찰값은 확인됐지만 기존 입력과 충돌하지 않았습니다.";
+      : representativeFrameCount
+        ? "영상 프레임은 추출됐지만 현재 기준으로 바로 판단에 반영할 수 있는 물리 사실은 확인되지 않았습니다."
+        : "영상 관찰값은 확인됐지만 기존 입력과 충돌하지 않았습니다.";
 
   return {
     title: "영상 기반 사실 반영",
     summary,
     stats: [
+      ...(representativeFrameCount ? [{ label: "대표 프레임", value: `${representativeFrameCount}장` }] : []),
       { label: "영상 관찰 후보", value: `${observedCount}개` },
       { label: "판단 반영", value: `${appliedItems.length}개` },
       { label: "입력 충돌 검토", value: `${conflictItems.length}개` },
@@ -514,7 +520,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   };
 }
 
-function videoObservationQualitySummary(contract: AnyRecord = {}) {
+function videoObservationQualitySummary(contract: AnyRecord = {}, representativeFrameCount = 0) {
   const summary = contract.observation_quality_summary && typeof contract.observation_quality_summary === "object"
     ? contract.observation_quality_summary
     : {};
@@ -531,6 +537,9 @@ function videoObservationQualitySummary(contract: AnyRecord = {}) {
     .filter((item) => item.label && item.count > 0)
     .slice(0, 5);
   const notes = [
+    !acceptedCount && !uncertainCount && !ignoredCount && representativeFrameCount
+      ? `대표 프레임 ${representativeFrameCount}장을 확인했지만 확정 가능한 사고 사실 관찰값은 만들지 않았습니다.`
+      : "",
     acceptedCount
       ? `판단 입력에 반영한 영상 관찰값 ${acceptedCount}개를 확인했습니다.`
       : "바로 반영할 수 있는 영상 관찰값은 아직 없습니다.",
@@ -545,10 +554,11 @@ function videoObservationQualitySummary(contract: AnyRecord = {}) {
       : "",
   ].filter(Boolean);
   return {
-    status_label: videoObservationQualityStatus(acceptedCount, uncertainCount, ignoredCount),
+    status_label: videoObservationQualityStatus(acceptedCount, uncertainCount, ignoredCount, representativeFrameCount),
     accepted_count: acceptedCount,
     uncertain_count: uncertainCount,
     ignored_count: ignoredCount,
+    representative_frame_count: representativeFrameCount,
     single_frame_count: singleFrameCount,
     multi_frame_count: multiFrameCount,
     hold_items: reasonEntries,
@@ -556,10 +566,11 @@ function videoObservationQualitySummary(contract: AnyRecord = {}) {
   };
 }
 
-function videoObservationQualityStatus(acceptedCount: number, uncertainCount: number, ignoredCount: number) {
+function videoObservationQualityStatus(acceptedCount: number, uncertainCount: number, ignoredCount: number, representativeFrameCount = 0) {
   if (acceptedCount > 0 && uncertainCount + ignoredCount === 0) return "반영 가능";
   if (acceptedCount > 0) return "일부 반영";
   if (uncertainCount + ignoredCount > 0) return "확인 필요";
+  if (representativeFrameCount > 0) return "확정 사실 없음";
   return "확인 필요";
 }
 

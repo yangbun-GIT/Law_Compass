@@ -272,6 +272,37 @@ describe("report composer", () => {
     expect(text).not.toContain("reason");
   });
 
+  it("explains processed video with zero observations as no confirmed video fact", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      video_input_contract: {
+        version: "agent-video-input-contract-v1",
+        technical_metadata: {
+          representative_frame_count: 12,
+          duration_sec: 11.167,
+        },
+        accepted_observations: [],
+        uncertain_observations: [],
+        ignored_observations: [],
+        observation_quality_summary: {
+          accepted_count: 0,
+          uncertain_count: 0,
+          ignored_count: 0,
+          uncertain_reasons: {},
+        },
+      },
+    });
+
+    const card = enriched.video_fact_explanation_card!;
+    expect(card.summary).toContain("바로 판단에 반영할 수 있는 물리 사실은 확인되지 않았습니다");
+    expect(card.quality_summary.status_label).toBe("확정 사실 없음");
+    expect(card.quality_summary.representative_frame_count).toBe(12);
+    expect(card.stats).toContainEqual({ label: "대표 프레임", value: "12장" });
+    expect(card.stats).toContainEqual({ label: "영상 관찰 후보", value: "0개" });
+    expect(card.applied_items).toEqual([]);
+    expect(card.review_items).toEqual([]);
+    expect(card.uncertain_items).toEqual([]);
+  });
+
   it("explains high-confidence video conflicts without applying them as final facts", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
       video_input_contract: {

@@ -226,6 +226,24 @@ def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool
     }
 
 
+def assert_video_fact_card(report: dict):
+    card = report.get("video_fact_explanation_card")
+    if not isinstance(card, dict):
+        raise E2EError("easy-report is missing video_fact_explanation_card")
+    quality = card.get("quality_summary") if isinstance(card.get("quality_summary"), dict) else {}
+    stats = card.get("stats") if isinstance(card.get("stats"), list) else []
+    if not quality.get("status_label"):
+        raise E2EError("video_fact_explanation_card is missing quality status")
+    if not stats:
+        raise E2EError("video_fact_explanation_card is missing stats")
+    return {
+        "summary": card.get("summary"),
+        "status_label": quality.get("status_label"),
+        "representative_frame_count": quality.get("representative_frame_count"),
+        "stats": stats,
+    }
+
+
 def missing_questions(report: dict) -> list[dict]:
     missing = report.get("missing_info") if isinstance(report.get("missing_info"), dict) else {}
     questions = missing.get("questions") if isinstance(missing.get("questions"), list) else []
@@ -399,6 +417,7 @@ def main():
     jobs = wait_for_video_pipeline(args.base_url, case_id, token, args.timeout_sec)
     report = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/easy-report", token=token)
     card = assert_agent_process_card(report)
+    video_card = assert_video_fact_card(report)
     priority_summary = assert_missing_info_priority(report)
     debug_report = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/report?debug=1", token=token).get("debug", {})
     uploads = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/uploads", token=token).get("items", [])
@@ -421,6 +440,7 @@ def main():
         "preprocess_summary": upload.get("preprocess_summary"),
         "frame_analysis": frame_summary,
         "agent_video_input": agent_video_summary,
+        "video_fact_card": video_card,
         "agent_process_status": card.get("status_label"),
         "agent_process_stats": card.get("stats", []),
         "agent_process_steps": [step.get("label") for step in card.get("steps", [])],

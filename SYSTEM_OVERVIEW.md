@@ -95,6 +95,18 @@
 
 실제 사고 영상 `car_accident_1.mp4`로 OpenAI 프레임 분석을 다시 실행한 결과, OpenAI 호출은 완료됐지만 보강된 프롬프트 기준에서 관찰값 0개를 반환했다. 따라서 이번 실제 E2E의 의미는 “모델이 애매한 프레임을 확정 사실로 만들지 않음”으로 해석하며, Worker는 검증 후 다시 `ENABLE_OPENAI_FRAME_ANALYSIS=0` 상태로 복구했다. 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
 
+### 영상 관찰값 0개 사용자 표시 보강
+
+영상 업로드와 프레임 추출은 성공했지만 Agent에 반영할 수 있는 관찰값이 0개인 경우, 결과 화면에서 영상 분석이 실패한 것처럼 보이지 않도록 Gateway 표시 계약을 보강했다. `video_input_contract`에 대표 프레임 등 전처리 정보가 있으면 `video_fact_explanation_card`를 생성하고, 상태를 `확정 사실 없음`으로 표시한다. 이 상태는 “영상 처리 실패”가 아니라 “현재 기준으로 바로 판단에 반영할 수 있는 물리 사실을 확정하지 않았다”는 의미다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | accepted/uncertain/conflict가 없어도 대표 프레임 수 또는 품질 요약이 있는 영상 계약이면 영상 카드가 생성되도록 했다. 카드에는 대표 프레임 수, 관찰 후보 0개, 판단 반영 0개, 품질 상태 `확정 사실 없음`을 표시한다. |
+| `apps/gateway/test/report-composer.test.ts` | 대표 프레임 12장이 있지만 관찰값 0개인 계약에서도 영상 카드가 생성되고, 확정 사실 없음 상태와 빈 적용/검토/보류 목록이 유지되는지 검증한다. |
+| `scripts/video_agent_e2e.py` | 실제 영상 E2E에서 `video_fact_explanation_card` 존재 여부, 품질 상태, 대표 프레임 수, 통계 목록을 함께 검증하고 출력한다. |
+
+비용 없는 실제 영상 E2E 기준 `car_accident_1.mp4`는 `duration=11.167s`, 대표 프레임 12장, `frame_observations=0`, `video_fact_card.status_label=확정 사실 없음`으로 통과했다. 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
+
 ## 2026-05-23 easy-report 사용자 흐름 및 payload 표시 정합성 보정
 
 Agent 결과 payload가 사용자 화면에서 카드별로 중복되거나 과도한 경고처럼 보이지 않도록 easy-report 표시 계약을 정리했다. 보완 질문은 `missing_info.questions`의 선택형 입력으로만 강조하고, 동일 문장은 `missing_info.items` 체크리스트에서 제거해 한 화면 안에서 같은 질문이 반복되지 않도록 했다. 근거 연결, 영상 관찰, Agent 처리 과정, 재분석 비교 카드의 안내 문구는 최종 판정 경고를 반복하지 않고 각 카드가 보여주는 상태 설명으로 낮췄다.
