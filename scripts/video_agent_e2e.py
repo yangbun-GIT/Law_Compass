@@ -116,6 +116,40 @@ def wait_for_video_pipeline(base_url: str, case_id: str, token: str, timeout_sec
     raise E2EError(f"video pipeline timed out: {summarize_jobs(last_jobs)}")
 
 
+def frame_analysis_summary(upload: dict, require_observations: bool):
+    metadata = upload.get("metadata") if isinstance(upload.get("metadata"), dict) else {}
+    frame_analysis = metadata.get("openai_frame_analysis") if isinstance(metadata.get("openai_frame_analysis"), dict) else {}
+    observations = frame_analysis.get("observations") if isinstance(frame_analysis.get("observations"), list) else []
+    error_text = str(frame_analysis.get("error") or "")
+    if require_observations:
+        if frame_analysis.get("enabled") is not True:
+            raise E2EError(f"OpenAI frame analysis was not enabled: {frame_analysis.get('reason') or 'unknown reason'}")
+        if error_text:
+            raise E2EError(f"OpenAI frame analysis returned an error: {error_text}")
+        if not observations:
+            raise E2EError("OpenAI frame analysis completed but returned no observations")
+    return {
+        "enabled": frame_analysis.get("enabled"),
+        "provider": frame_analysis.get("provider"),
+        "model": frame_analysis.get("model"),
+        "detail": frame_analysis.get("detail"),
+        "analyzed_frame_count": len(frame_analysis.get("analyzed_frames") or []),
+        "observation_count": len(observations),
+        "summary": frame_analysis.get("summary"),
+        "observations": [
+            {
+                "field": item.get("field"),
+                "value": item.get("value"),
+                "confidence": item.get("confidence"),
+                "frame_refs": item.get("frame_refs") or [],
+            }
+            for item in observations[:5]
+            if isinstance(item, dict)
+        ],
+        "has_error": bool(error_text),
+    }
+
+
 def assert_agent_process_card(report: dict):
     card = report.get("agent_process_card")
     if not isinstance(card, dict):
@@ -137,11 +171,57 @@ def assert_agent_process_card(report: dict):
     return card
 
 
+def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool):
+    technical = debug_report.get("technical") if isinstance(debug_report.get("technical"), dict) else {}
+    video_contract = technical.get("video_input_contract") if isinstance(technical.get("video_input_contract"), dict) else {}
+    arbitration = technical.get("fact_arbitration") if isinstance(technical.get("fact_arbitration"), dict) else {}
+    fact_patch = video_contract.get("fact_patch") if isinstance(video_contract.get("fact_patch"), dict) else {}
+    accepted = video_contract.get("accepted_observations") if isinstance(video_contract.get("accepted_observations"), list) else []
+    uncertain = video_contract.get("uncertain_observations") if isinstance(video_contract.get("uncertain_observations"), list) else []
+    applied_video_fields = arbitration.get("applied_video_fields") if isinstance(arbitration.get("applied_video_fields"), list) else []
+    conflicts = arbitration.get("conflicts") if isinstance(arbitration.get("conflicts"), list) else []
+    if require_agent_video_facts:
+        if not accepted:
+            raise E2EError("Agent video_input_contract accepted no frame observations")
+        if not fact_patch:
+            raise E2EError("Agent video_input_contract produced no fact_patch")
+        if not applied_video_fields:
+            raise E2EError("Agent fact_arbitration applied no video-derived fields")
+    return {
+        "video_contract_version": video_contract.get("version"),
+        "accepted_observation_count": len(accepted),
+        "uncertain_observation_count": len(uncertain),
+        "fact_patch": fact_patch,
+        "applied_video_fields": applied_video_fields,
+        "conflict_count": len(conflicts),
+        "conflicts": [
+            {
+                "field": item.get("field"),
+                "winner": item.get("winner"),
+                "authority": item.get("authority"),
+                "video_confidence": item.get("video_confidence"),
+            }
+            for item in conflicts[:5]
+            if isinstance(item, dict)
+        ],
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run a local video upload -> preprocess -> Agent report E2E check.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
     parser.add_argument("--video-path", required=True)
     parser.add_argument("--timeout-sec", type=int, default=DEFAULT_TIMEOUT_SEC)
+    parser.add_argument(
+        "--require-frame-observations",
+        action="store_true",
+        help="Fail if OpenAI frame analysis is disabled, errored, or returned no observations.",
+    )
+    parser.add_argument(
+        "--require-agent-video-facts",
+        action="store_true",
+        help="Fail if Agent video input contract/fact arbitration did not accept and apply video-derived facts.",
+    )
     args = parser.parse_args()
 
     video_path = Path(args.video_path).expanduser().resolve()
@@ -170,8 +250,11 @@ def main():
     jobs = wait_for_video_pipeline(args.base_url, case_id, token, args.timeout_sec)
     report = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/easy-report", token=token)
     card = assert_agent_process_card(report)
+    debug_report = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/report?debug=1", token=token).get("debug", {})
     uploads = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/uploads", token=token).get("items", [])
     upload = next((item for item in uploads if item.get("id") == upload_id), {})
+    frame_summary = frame_analysis_summary(upload, args.require_frame_observations)
+    agent_video_summary = agent_video_fact_summary(debug_report, args.require_agent_video_facts)
 
     output = {
         "video_agent_e2e": "passed",
@@ -181,6 +264,8 @@ def main():
         "jobs": summarize_jobs(jobs),
         "upload_status": upload.get("status"),
         "preprocess_summary": upload.get("preprocess_summary"),
+        "frame_analysis": frame_summary,
+        "agent_video_input": agent_video_summary,
         "agent_process_status": card.get("status_label"),
         "agent_process_stats": card.get("stats", []),
         "agent_process_steps": [step.get("label") for step in card.get("steps", [])],

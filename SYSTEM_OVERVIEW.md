@@ -6,8 +6,8 @@
 
 | Path | 변경 내용 |
 | --- | --- |
-| `scripts/video_agent_e2e.py` | 임시 로컬 계정을 생성하고 케이스 생성, `/uploads/local` 업로드, `/uploads/complete`, job polling, `/cases/{caseId}/easy-report` 검증을 수행한다. `agent_process_card`가 존재하고 raw `agent_trace`, `reflection_loop`, `packet`, 내부 step id, `next_action`이 노출되지 않는지 검사한다. |
-| `docs/OPERATIONS.md` | 실제 영상 기반 E2E 실행 방법과 `ENABLE_OPENAI_FRAME_ANALYSIS=0`일 때 프레임은 추출되지만 GPT 관찰값은 0개일 수 있다는 주의 사항을 추가했다. |
+| `scripts/video_agent_e2e.py` | 임시 로컬 계정을 생성하고 케이스 생성, `/uploads/local` 업로드, `/uploads/complete`, job polling, `/cases/{caseId}/easy-report` 검증을 수행한다. `agent_process_card`가 존재하고 raw `agent_trace`, `reflection_loop`, `packet`, 내부 step id, `next_action`이 노출되지 않는지 검사한다. `--require-frame-observations` 옵션을 사용하면 OpenAI 프레임 분석이 켜져 있고 오류 없이 1개 이상의 관찰값을 반환해야 통과한다. `--require-agent-video-facts` 옵션을 사용하면 Agent `video_input_contract`가 관찰값을 수용하고 `fact_arbitration`이 영상 기반 사실을 실제 적용해야 통과한다. |
+| `docs/OPERATIONS.md` | 실제 영상 기반 E2E 실행 방법과 `ENABLE_OPENAI_FRAME_ANALYSIS=0`일 때 프레임은 추출되지만 GPT 관찰값은 0개일 수 있다는 주의 사항을 추가했다. OpenAI 관찰값 및 Agent 영상 사실 적용 필수 검증 명령도 함께 기록했다. |
 
 실행 예시는 `python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeout-sec 240`이다. 이 스크립트는 DB schema, Redis key, storage path, 환경 변수, 외부 API 계약을 변경하지 않는다.
 
