@@ -26,6 +26,7 @@ const apiClient = readFileSync("src/api/client.ts", "utf8");
 const appView = readFileSync("src/App.vue", "utf8");
 const dashboardView = readFileSync("src/views/DashboardView.vue", "utf8");
 const caseDetailView = readFileSync("src/views/CaseDetailView.vue", "utf8");
+const caseWorkspaceHeader = readFileSync("src/components/case/CaseWorkspaceHeader.vue", "utf8");
 const loginView = readFileSync("src/views/LoginView.vue", "utf8");
 const signupView = readFileSync("src/views/SignupView.vue", "utf8");
 const resultView = readFileSync("src/views/CaseResultView.vue", "utf8");
@@ -60,7 +61,7 @@ const requiredErrorUx = [
   "autocomplete=\"new-password\""
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, loginView, signupView, resultView, evidenceView, easyReportView, evidenceReliabilityCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, evidenceReliabilityCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);

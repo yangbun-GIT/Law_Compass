@@ -401,6 +401,8 @@ Agent 주요 DTO:
 | `apps/frontend/src/api/client.ts` | Frontend API client/DTO | Gateway API 호출 함수와 프론트 타입 정의를 제공한다 | 저장소 내 명시 없음 |
 | `apps/frontend/src/stores/session.ts` | Pinia session store | 사용자 세션 복원, 로그인, 로그아웃, refresh 흐름을 관리한다 | 저장소 내 명시 없음 |
 | `apps/frontend/src/composables/useCaseWorkspace.ts` | Vue case workspace composable | 케이스 상세 화면의 API 상태, 입력 저장, 업로드, 전처리, 분석 요청, job polling을 관리한다 | 저장소 내 명시 없음 |
+| `apps/frontend/src/views/CaseDetailView.vue` | Frontend case workspace view | 케이스 상세 화면의 페이지 흐름을 조립하고 상태 composable과 섹션 컴포넌트를 연결한다 | 저장소 내 명시 없음 |
+| `apps/frontend/src/components/case/*.vue` | Frontend case workspace components | 케이스 헤더, 요약, 사고 입력, 영상 업로드, 분석 요청 섹션을 표시 전용 책임으로 분리한다 | 저장소 내 명시 없음 |
 | `apps/gateway/src/main.ts` | Fastify API entrypoint/controller | 공개 API 대부분과 인증, rate limit, idempotency, DB/Redis/Agent 연동을 담당한다 | 저장소 내 명시 없음 |
 | `apps/gateway/src/routes/chat.ts` | Fastify chat router | 채팅 세션 생성, 메시지 조회/전송, 빠른 상담 API를 등록한다 | 저장소 내 명시 없음 |
 | `apps/gateway/src/services/chatService.ts` | Chat domain service | 채팅 세션/메시지를 DB에 저장하고 Agent 채팅 API를 호출한다 | 저장소 내 명시 없음 |
@@ -437,6 +439,7 @@ Agent 주요 DTO:
 | `apps/frontend/src/api/client.ts` | `api.login`, `api.createCase`, `api.analyzeText`, `api.searchKniaJson` 등 | 화면 DTO | Gateway 응답 DTO | `/api/v1/*` 공개 API 호출을 함수 단위로 래핑 |
 | `apps/frontend/src/composables/useCaseWorkspace.ts` | `useCaseWorkspace` | `caseId` | 화면 refs/actions | 케이스 상세 화면에서 쓰는 입력값, 업로드 목록, 영상 URL, 분석 job, easy report, polling lifecycle을 하나의 composable로 제공 |
 | `apps/frontend/src/composables/useCaseWorkspace.ts` | `statusLabel`, `statusClass`, `prettySize`, `formatDate` | status/size/date | 표시용 문자열/class | 케이스, 업로드, job 상태 표시 포맷을 CaseDetailView와 분리 |
+| `apps/frontend/src/components/case/*.vue` | `CaseWorkspaceHeader`, `CaseSummaryCard`, `CaseInputStep`, `CaseUploadStep`, `CaseAnalysisStep` | props/events | Vue section markup | 케이스 상세 화면의 헤더, 요약, 입력, 업로드, 분석 요청 UI를 표시 단위로 분리하고 상태 변경은 상위 view/composable로 emit |
 | `apps/frontend/src/stores/session.ts` | `restoreLocal` | 없음 | 없음 | `localStorage`의 `lawcompass:user`를 읽어 세션 상태 복원 |
 | `apps/frontend/src/stores/session.ts` | `bootstrap` | 없음 | 없음 | `/auth/me` 실패 시 `/auth/refresh` 재시도 후 사용자 상태 갱신 |
 | `apps/frontend/src/stores/session.ts` | `login`, `logout` | 이메일/비밀번호 또는 없음 | 없음 | Gateway 인증 API 호출 후 Pinia 상태와 localStorage 동기화. App logout 액션은 세션 정리 후 `/login`으로 이동 |
@@ -903,7 +906,12 @@ This section records the first SRP cleanup pass so future changes can compare mo
 | `apps/agent/app/routers/internal_routes/chat.py` | Owns the internal accident consultation chat endpoint. |
 | `apps/agent/app/routers/internal_routes/cache.py` | Owns Agent semantic cache invalidation endpoint behavior. |
 | `apps/agent/app/routers/internal_routes/health.py` | Owns the unauthenticated Agent health endpoint. |
-| `apps/frontend/src/views/CaseDetailView.vue` | Owns the case workspace template and scoped layout styles only. |
+| `apps/frontend/src/views/CaseDetailView.vue` | Owns case workspace page assembly, composable wiring, and high-level report placement only. |
+| `apps/frontend/src/components/case/CaseWorkspaceHeader.vue` | Owns case workspace title/status and navigation actions. |
+| `apps/frontend/src/components/case/CaseSummaryCard.vue` | Owns case status summary and workspace count metrics. |
+| `apps/frontend/src/components/case/CaseInputStep.vue` | Owns accident description, structured fact inputs, analysis mode, and keyword input rendering. |
+| `apps/frontend/src/components/case/CaseUploadStep.vue` | Owns local upload, selected upload, upload list, and video preview rendering. |
+| `apps/frontend/src/components/case/CaseAnalysisStep.vue` | Owns text/video analysis action controls, status message, and analysis job list rendering. |
 | `apps/frontend/src/composables/useCaseWorkspace.ts` | Owns case workspace state and actions: case load/save, upload, preprocessing, analysis requests, job polling, report loading, and display formatting helpers. |
 | `apps/frontend/tsconfig.json` | Sets `noEmit` so TypeScript source remains the only frontend source of truth under `apps/frontend/src`. |
 | `.gitignore` | Prevents generated JavaScript from being tracked beside TypeScript source under `apps/frontend/src`. |
@@ -914,17 +922,23 @@ Remaining SRP debt to handle in later iterations:
 - `apps/agent/app/services/orchestrator.py` now delegates context, evidence, analysis, reflection, and output enrichment to stage modules. Keep future stage-specific logic out of the orchestrator unless it only changes stage ordering.
 - `apps/agent/app/routers/internal.py` is now thin; keep new internal endpoint behavior inside `apps/agent/app/routers/internal_routes/*`.
 - `apps/worker/worker/main.py` is now a Redis consumer entrypoint; keep video preprocessing, vision analysis, DB persistence, and Agent submission in Worker service modules.
-- `apps/frontend/src/views/CaseDetailView.vue` now delegates workspace state/actions to `useCaseWorkspace`; split visual subsections into components only if template complexity grows further.
+- `apps/frontend/src/views/CaseDetailView.vue` now delegates workspace state/actions to `useCaseWorkspace` and visual subsections to `apps/frontend/src/components/case/*`; keep future case workspace UI additions inside the owning section component unless they change page-level flow.
 - KNIA parser/repository files are functionally cohesive but large; split only when adding new KNIA collection or persistence behavior.
 
 ## 2026-05-22 Frontend Case Workspace SRP Split
 
-The case detail workspace was reduced so the Vue view owns markup and scoped layout while the API state machine lives in a composable. This is behavior-preserving and does not alter public API routes, DTOs, DB schema, Redis keys, storage paths, environment variables, or external integrations.
+The case detail workspace was reduced so the Vue view owns page assembly while the API state machine lives in a composable and visual sections live in dedicated case components. This is behavior-preserving and does not alter public API routes, DTOs, DB schema, Redis keys, storage paths, environment variables, or external integrations.
 
 | Path | Responsibility |
 | --- | --- |
-| `apps/frontend/src/views/CaseDetailView.vue` | Keeps the case workspace page template, user-facing text, EasyReportView placement, and scoped layout styles. |
+| `apps/frontend/src/views/CaseDetailView.vue` | Wires `useCaseWorkspace`, case section components, and `EasyReportView`; keeps only page-level layout. |
 | `apps/frontend/src/composables/useCaseWorkspace.ts` | Owns `useCaseWorkspace(caseId)`, including case load/save, preset handling, local upload, upload completion, video URL issuance, text/video analysis requests, job polling, easy-report loading, and display helpers. |
+| `apps/frontend/src/components/case/CaseWorkspaceHeader.vue` | Renders title/status and refresh/result navigation actions. |
+| `apps/frontend/src/components/case/CaseSummaryCard.vue` | Renders case status, description, keyword/upload/job counts. |
+| `apps/frontend/src/components/case/CaseInputStep.vue` | Renders description, analysis mode, structured fact inputs, and keyword chips through props/events. |
+| `apps/frontend/src/components/case/CaseUploadStep.vue` | Renders local upload controls, selected upload list, view/download actions, and video preview. |
+| `apps/frontend/src/components/case/CaseAnalysisStep.vue` | Renders text/video analysis controls, user message, and job list. |
+| `apps/frontend/scripts/test-display.mjs` | Includes the split case header component in display safety contract checks. |
 
 Verification:
 
