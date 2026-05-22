@@ -828,11 +828,12 @@ This section records the first SRP cleanup pass so future changes can compare mo
 | `apps/worker/worker/frame_analysis.py` | Owns optional OpenAI image/frame observation calls, frame selection for cost control, response JSON parsing, and observation normalization. |
 | `apps/gateway/src/config/env.ts` | Owns Gateway runtime environment defaults and cookie secure mode. |
 | `apps/gateway/src/lib/request-guards.ts` | Owns route key generation plus user/admin request guard behavior. |
+| `apps/gateway/src/routes/auth.ts` | Owns signup, login, refresh, logout, and current-user session routes. |
 | `apps/frontend/tsconfig.json` | Sets `noEmit` so TypeScript source remains the only frontend source of truth under `apps/frontend/src`. |
 
 Remaining SRP debt to handle in later iterations:
 
-- `apps/gateway/src/main.ts` is still a large composition root with many API routes and DB queries. Split routes by domain next: auth/session, cases/uploads, analysis/report, KNIA/admin, legal/admin.
+- `apps/gateway/src/main.ts` is still a large composition root with many API routes and DB queries. Auth/session routes are now split; split cases/uploads, analysis/report, KNIA/admin, and legal/admin next.
 - `apps/agent/app/services/orchestrator.py` should continue moving stage-specific logic into normalizer, classifier, retriever, auditor, judgment, and report modules.
 - `apps/agent/app/routers/internal.py` should stay thin; request validation and service calls should be delegated.
 - `apps/frontend/src/views/CaseDetailView.vue` should be reduced into composables/components for upload, preprocessing status, analysis execution, and report navigation.
@@ -867,7 +868,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. | Provide a structured trace view/API so developers can inspect each stage and packet-like data flow. |
 | P0 | Reflection/reverification loop | Evidence audit and judgment contract can mark `needs_review`; retrieval does not yet automatically retry or branch. | Add a bounded retry/requery/review loop when required evidence or input is missing. |
 | P0 | Agent SRP | `orchestrator.py` still sequences many responsibilities. | Move stage-specific logic into dedicated modules and keep orchestration as sequencing. |
-| P1 | Gateway SRP | `gateway/src/main.ts` remains a large composition root. | Split auth/session, cases/uploads, analysis/report, KNIA/admin, legal/admin routes. |
+| P1 | Gateway SRP | `gateway/src/main.ts` remains a large composition root, but auth/session routes now live in `apps/gateway/src/routes/auth.ts`. | Split cases/uploads, analysis/report, KNIA/admin, legal/admin routes. |
 | P1 | Frontend source hygiene | `tsconfig.json` uses `noEmit`, but `.js` source duplicates still exist under `apps/frontend/src`. | Remove tracked generated JS duplicates or confirm they are intentionally maintained. |
 
 ### Defer Until Core Trust Is Stable

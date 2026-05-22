@@ -8,7 +8,6 @@ import { stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { Redis } from "ioredis";
-import bcrypt from "bcryptjs";
 import { callInternalAgent } from "./lib/internal-client.js";
 import { composeClientReport, composeDebugReport, composeEasyFallback, composeReanalysisChangeCard, enrichEasyReport, sanitizeEasyReport } from "./lib/report-composer.js";
 import { normalizeFollowupAnswers } from "./lib/followup-normalizer.js";
@@ -17,6 +16,7 @@ import { errorPayload, requestErrorPayload, validationErrorPayload } from "./lib
 import { selectVideoAiRoute } from "./lib/ai-router.js";
 import { env, cookieSecure } from "./config/env.js";
 import { routeKey, requireUser, requireAdmin as requireAdminGuard } from "./lib/request-guards.js";
+import { registerAuthRoutes } from "./routes/auth.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { LocalStorageProvider } from "./storage/provider.js";
 
@@ -130,103 +130,13 @@ registerChatRoutes(app, {
   errorPayload
 });
 
-app.post(`${env.apiPrefix}/auth/signup`, {
-  schema: {
-    body: {
-      type: "object",
-      required: ["email", "password", "display_name"],
-      properties: {
-        email: { type: "string", format: "email" },
-        password: { type: "string", minLength: 8 },
-        display_name: { type: "string", minLength: 1, maxLength: 80 }
-      }
-    }
-  }
-}, async (req, reply) => {
-  const traceId = req.headers["x-correlation-id"] as string;
-  const body = req.body as any;
-  const pwHash = await bcrypt.hash(body.password, 10);
-  try {
-    const inserted = await db.query(
-      `INSERT INTO users(email,password_hash,display_name) VALUES ($1,$2,$3) RETURNING id,email,display_name,role`,
-      [body.email.toLowerCase(), pwHash, body.display_name]
-    );
-    return { user: inserted.rows[0], trace_id: traceId };
-  } catch {
-    return reply.code(409).send(errorPayload("EMAIL_EXISTS", "이미 가입된 이메일입니다.", traceId));
-  }
-});
-
-app.post(`${env.apiPrefix}/auth/login`, {
-  schema: {
-    body: {
-      type: "object",
-      required: ["email", "password"],
-      properties: {
-        email: { type: "string", format: "email" },
-        password: { type: "string", minLength: 8 }
-      }
-    }
-  }
-}, async (req, reply) => {
-  const traceId = req.headers["x-correlation-id"] as string;
-  const body = req.body as any;
-  const userRes = await db.query(`SELECT id,email,password_hash,role,display_name FROM users WHERE email=$1 AND deleted_at IS NULL`, [body.email.toLowerCase()]);
-  const user = userRes.rows[0];
-  if (!user || !(await bcrypt.compare(body.password, user.password_hash))) {
-    return reply.code(401).send(errorPayload("INVALID_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다.", traceId));
-  }
-  const accessToken = await app.jwt.sign({ sub: user.id, role: user.role }, { expiresIn: env.jwtAccessTtlSec });
-  const refreshRaw = randomUUID() + randomUUID();
-  const refreshHash = sha256(refreshRaw);
-  await db.query(
-    `INSERT INTO auth_refresh_tokens(user_id, token_hash, expires_at) VALUES($1,$2, now() + ($3 || ' seconds')::interval)`,
-    [user.id, refreshHash, env.jwtRefreshTtlSec]
-  );
-  reply.setCookie("lc_at", accessToken, { httpOnly: true, sameSite: "lax", path: "/", secure: cookieSecure });
-  reply.setCookie("lc_rt", refreshRaw, { httpOnly: true, sameSite: "lax", path: "/", secure: cookieSecure });
-  return { access_token: accessToken, user: { id: user.id, email: user.email, role: user.role, display_name: user.display_name }, trace_id: traceId };
-});
-
-app.post(`${env.apiPrefix}/auth/refresh`, async (req, reply) => {
-  const traceId = req.headers["x-correlation-id"] as string;
-  const refreshRaw = req.cookies.lc_rt;
-  if (!refreshRaw) return reply.code(401).send(errorPayload("NO_REFRESH_TOKEN", "재로그인이 필요합니다.", traceId));
-  const refreshHash = sha256(refreshRaw);
-  const tokenRes = await db.query(
-    `SELECT id,user_id FROM auth_refresh_tokens WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at > now()`, [refreshHash]
-  );
-  if (!tokenRes.rowCount) return reply.code(401).send(errorPayload("INVALID_REFRESH", "세션이 만료되었습니다.", traceId));
-  const row = tokenRes.rows[0];
-  const newRaw = randomUUID() + randomUUID();
-  const newHash = sha256(newRaw);
-  await db.query("UPDATE auth_refresh_tokens SET revoked_at=now() WHERE id=$1", [row.id]);
-  await db.query(
-    `INSERT INTO auth_refresh_tokens(user_id, token_hash, expires_at, rotated_from) VALUES($1,$2, now() + ($3 || ' seconds')::interval, $4)`,
-    [row.user_id, newHash, env.jwtRefreshTtlSec, row.id]
-  );
-  const user = await db.query(`SELECT id,email,role,display_name FROM users WHERE id=$1`, [row.user_id]);
-  const accessToken = await app.jwt.sign({ sub: row.user_id, role: user.rows[0].role }, { expiresIn: env.jwtAccessTtlSec });
-  reply.setCookie("lc_at", accessToken, { httpOnly: true, sameSite: "lax", path: "/", secure: cookieSecure });
-  reply.setCookie("lc_rt", newRaw, { httpOnly: true, sameSite: "lax", path: "/", secure: cookieSecure });
-  return { access_token: accessToken, user: user.rows[0], trace_id: traceId };
-});
-
-app.post(`${env.apiPrefix}/auth/logout`, async (req, reply) => {
-  const traceId = req.headers["x-correlation-id"] as string;
-  const refreshRaw = req.cookies.lc_rt;
-  if (refreshRaw) await db.query(`UPDATE auth_refresh_tokens SET revoked_at=now() WHERE token_hash=$1`, [sha256(refreshRaw)]);
-  reply.clearCookie("lc_at");
-  reply.clearCookie("lc_rt");
-  return { ok: true, trace_id: traceId };
-});
-
-app.get(`${env.apiPrefix}/auth/me`, async (req, reply) => {
-  if (!requireUser(req as any, reply)) return;
-  const traceId = req.headers["x-correlation-id"] as string;
-  const row = await db.query(`SELECT id,email,role,display_name FROM users WHERE id=$1 AND deleted_at IS NULL`, [(req as any).user.id]);
-  if (!row.rowCount) return reply.code(404).send(errorPayload("USER_NOT_FOUND", "사용자를 찾을 수 없습니다.", traceId));
-  return { user: row.rows[0], trace_id: traceId };
+registerAuthRoutes(app, {
+  apiPrefix: env.apiPrefix,
+  db,
+  cookieSecure,
+  jwtAccessTtlSec: env.jwtAccessTtlSec,
+  jwtRefreshTtlSec: env.jwtRefreshTtlSec,
+  errorPayload
 });
 
 app.post(`${env.apiPrefix}/cases`, {
