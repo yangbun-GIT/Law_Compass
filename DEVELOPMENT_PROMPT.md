@@ -222,6 +222,7 @@
     </agent>
 
     <worker>
+      apps/worker 변경 시 `python -m unittest discover -s tests` 및 `python -m compileall worker tests`를 우선 실행
       관련 worker 테스트와 Redis Stream/E2E smoke 흐름 확인
     </worker>
 

@@ -955,13 +955,39 @@ This change is behavior-preserving and does not alter API routes, DB schema, Red
 | Path | Responsibility |
 | --- | --- |
 | `apps/worker/worker/main.py` | Redis consumer group setup, stream polling, ack, and `job:v1:{jobId}:status` cache updates. |
-| `apps/worker/worker/job_processor.py` | `video_preprocess`/`video_analyze` job processing, DB state changes, follow-up job enqueueing, Agent video analysis call, and `analysis_results` insertion. |
+| `apps/worker/worker/job_processor.py` | `video_preprocess`/`video_analyze` job processing, DB state changes, follow-up job enqueueing, Agent video analysis call, `analysis_results` insertion, and pure contract builders for worker tests. |
 | `apps/worker/worker/video_preprocess.py` | ffprobe metadata probing and ffmpeg event-frame extraction. |
 | `apps/worker/worker/frame_analysis.py` | Optional OpenAI frame observation provider and observation normalization. |
+| `apps/worker/tests/test_job_processor_contract.py` | Tests canonical `video_analyze` payload, Agent video request payload, and analysis result value shaping without requiring DB/Redis. |
 
 Verification:
 
+- `python -m unittest discover -s tests` in `apps/worker`
+- `python -m compileall worker tests` in `apps/worker`
 - `docker compose exec -T worker python -m compileall worker`
+
+## 2026-05-22 Worker Job Processor Contract Tests
+
+Worker job payload/result shaping now has local tests that run without PostgreSQL, Redis, ffmpeg, or OpenAI credentials. The DB-facing worker functions still perform the same side effects, but canonical payload assembly was extracted into pure helpers so future changes to video providers or Agent input contracts can be checked quickly.
+
+| Path | Change |
+| --- | --- |
+| `apps/worker/worker/job_processor.py` | Adds `build_video_analyze_payload()`, `build_agent_video_request()`, and `build_analysis_result_values()`. `process_job()` and `mark_failed()` now import `psycopg` lazily, and the retry decorator has a no-op fallback for local contract tests when `tenacity` is not installed. |
+| `apps/worker/tests/test_job_processor_contract.py` | Verifies auto-enqueued video analysis payloads, Agent request metadata/summary preservation, used evidence ID extraction, risk flag fallback, and analyst output persistence shape. |
+
+This change does not alter API routes, DB schema, Redis key names, storage paths, environment variables, external API calls, or public report payloads.
+
+## 2026-05-22 GitHub Actions CI Baseline
+
+The repository now has a hosted CI baseline for fast deterministic checks on `main` pushes and pull requests. It does not require real secrets, DB, Redis, Docker services, OpenAI calls, or public API credentials.
+
+| Path | Change |
+| --- | --- |
+| `.github/workflows/ci.yml` | Adds separate Frontend, Gateway, Worker Contracts, and Agent Contracts jobs. Frontend runs build/display/chat checks, Gateway runs tests/build, Worker runs local unittest/compile checks, and Agent runs requirements install, compile, internal route contract check, and deterministic regression scenarios with LLM disabled. |
+| `apps/agent/app/services/rag/two_stage_cache.py` | Degrades KNIA JSON cache/search to an empty result with `disabled_reason` when `DATABASE_URL` is unavailable, allowing deterministic Agent contract checks without DB services. |
+| `apps/agent/tests/test_knia_cache_fallback.py` | Verifies the no-DB KNIA cache fallback using stdlib unittest so CI can run it without pytest. |
+
+Deferred CI work: full Docker E2E and actual external API smoke checks should only be added after CI secrets, service health timing, and cost controls are explicitly configured.
 
 ## 2026-05-22 Frontend TypeScript Source Hygiene
 
@@ -1030,12 +1056,12 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 
 | Priority | Area | Current State | Needed Work |
 | --- | --- | --- | --- |
-| P0 | Agent regression automation | `scripts/verify_agent_regression.ps1` now runs compile, internal route contract, and representative judgment regression scenarios. `scripts/verify_core.ps1` calls this guard during Docker checks. | Wire the same command into hosted CI when the repository adds CI runners. |
+| P0 | Agent regression automation | `scripts/verify_agent_regression.ps1` now runs compile, internal route contract, and representative judgment regression scenarios. `scripts/verify_core.ps1` calls this guard during Docker checks. `.github/workflows/ci.yml` runs frontend, gateway, worker contract, and Agent contract/regression checks on push/PR. | Keep CI fast and deterministic; add full Docker E2E only after secrets/service dependencies are available in CI. |
 | P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. A safe admin diagnostic API now exposes stage and packet summaries without raw user text. | Add local-only developer UI if needed, but keep public user screens sanitized. |
 | P0 | Reflection/reverification loop | `reflection_loop` now performs one bounded evidence requery when requeryable evidence requirements are missing, then records whether to request input, present reference-only, or finalize. | Continue improving requery terms and add UI/API visibility for the loop state. |
 | P0 | Agent SRP | `orchestrator.py` now delegates input context, evidence collection, analyst execution, reflection requery, and final output enrichment to dedicated stage modules. | Keep future Agent additions inside the owning stage module and add tests before widening the orchestrator again. |
 | P1 | Gateway SRP | `gateway/src/main.ts` remains the composition root. Auth/session, case CRUD, upload, analysis/report, public KNIA, KNIA admin, and legal/admin routes live under `apps/gateway/src/routes/`. | Keep new API behavior in route modules; split large route modules only when they grow further. |
-| P1 | Worker SRP | `main.py` now only consumes Redis Stream messages and delegates DB job processing to `job_processor.py`; ffprobe/ffmpeg preprocessing and OpenAI frame analysis live in dedicated modules. | Add focused tests for job payload/result shaping before expanding video provider behavior. |
+| P1 | Worker SRP | `main.py` now only consumes Redis Stream messages and delegates DB job processing to `job_processor.py`; ffprobe/ffmpeg preprocessing and OpenAI frame analysis live in dedicated modules. Local Worker contract tests now cover video analyze payload, Agent video request payload, and analysis result value shaping. | Add DB/Redis integration tests only when expanding queue persistence or video provider behavior. |
 | P1 | Frontend source hygiene | `apps/frontend/src` is now TypeScript-only for source files; tracked generated `.js` duplicates were removed and `.gitignore` blocks them from returning. | Keep new frontend source in `.ts`/`.vue` files and avoid committing emitted JavaScript beside source. |
 
 ### Defer Until Core Trust Is Stable

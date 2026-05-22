@@ -51,6 +51,8 @@ PowerShell:
 ## 3-0) 핵심 회귀 검증 일괄 실행
 Gateway 테스트/빌드, Frontend 빌드/표시 안전 테스트, Docker 기반 Agent 컴파일/대표 사고 회귀 검증, `/health` 확인을 한 번에 실행합니다.
 
+GitHub에서는 `.github/workflows/ci.yml`이 push/PR마다 Frontend, Gateway, Worker 계약, Agent 계약/회귀 검증을 실행합니다. 실제 외부 API 키나 Docker E2E가 필요한 검증은 아직 CI에 포함하지 않았습니다.
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/verify_core.ps1
 ```
@@ -73,10 +75,28 @@ Agent 계층만 빠르게 확인하려면 아래 명령을 사용합니다. 이 
 powershell -ExecutionPolicy Bypass -File scripts/verify_agent_regression.ps1
 ```
 
+Docker 없이 `apps/agent` 폴더에서 Agent 스크립트를 직접 실행할 때는 앱 루트를 Python 경로에 포함해야 합니다.
+
+```powershell
+cd apps/agent
+$env:PYTHONPATH='.'
+python -m unittest tests.test_knia_cache_fallback
+python scripts/check_internal_routes.py
+python scripts/test_agent_regression_scenarios.py
+```
+
 이미 Docker 컨테이너가 실행 중이면 재빌드 없이 실행할 수 있습니다.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/verify_agent_regression.ps1 -SkipDockerBuild
+```
+
+Worker job payload/result 계약만 빠르게 확인하려면 아래 명령을 사용합니다. PostgreSQL, Redis, ffmpeg, OpenAI 키 없이 로컬 순수 함수 계약을 검증합니다.
+
+```powershell
+cd apps/worker
+python -m unittest discover -s tests
+python -m compileall worker tests
 ```
 
 ## 3-1) 영상 프레임 분석 점검

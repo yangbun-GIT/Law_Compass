@@ -126,7 +126,7 @@ def _check_rear_end_victim(result: dict[str, Any]) -> None:
     assert fault.get("user_vehicle_role") == FRONT_VEHICLE, fault
     assert fault.get("my") == 0, fault
     assert fault.get("other") == 100, fault
-    assert (result.get("knia_primary_match") or {}).get("chart_no") == "\ucc2841-1", result.get("knia_primary_match")
+    _assert_knia_chart_when_db_available(result, "\ucc2841-1")
 
 
 def _check_video_rear_end_conflict(result: dict[str, Any]) -> None:
@@ -156,7 +156,7 @@ def _check_opponent_lane_change(result: dict[str, Any]) -> None:
     assert fault.get("user_vehicle_role") == STRAIGHT_VEHICLE, fault
     assert fault.get("my") == 30, fault
     assert fault.get("other") == 70, fault
-    assert (result.get("knia_primary_match") or {}).get("chart_no") == "\ucc2843-2", result.get("knia_primary_match")
+    _assert_knia_chart_when_db_available(result, "\ucc2843-2")
 
 
 def _check_user_lane_change(result: dict[str, Any]) -> None:
@@ -166,7 +166,7 @@ def _check_user_lane_change(result: dict[str, Any]) -> None:
     assert fault.get("user_vehicle_role") == LANE_CHANGING_VEHICLE, fault
     assert fault.get("my") == 70, fault
     assert fault.get("other") == 30, fault
-    assert (result.get("knia_primary_match") or {}).get("chart_no") == "\ucc2843-2", result.get("knia_primary_match")
+    _assert_knia_chart_when_db_available(result, "\ucc2843-2")
 
 
 def _check_opponent_signal_violation(result: dict[str, Any]) -> None:
@@ -205,6 +205,14 @@ def _assert_common_contract(result: dict[str, Any]) -> None:
     assert evidence_coverage.get("coverage_level") in {"high", "medium", "low"}, evidence_coverage
     assert "scenario_relevant_count" in evidence_coverage, evidence_coverage
     assert "evidence_family_counts" in evidence_coverage, evidence_coverage
+
+
+def _assert_knia_chart_when_db_available(result: dict[str, Any], expected_chart_no: str) -> None:
+    primary_match = result.get("knia_primary_match")
+    if os.getenv("DATABASE_URL", "").strip():
+        assert (primary_match or {}).get("chart_no") == expected_chart_no, primary_match
+        return
+    assert primary_match is None or (primary_match or {}).get("chart_no") == expected_chart_no, primary_match
 
 
 def _print_result(status: str, name: str, result: dict[str, Any]) -> None:

@@ -12,10 +12,10 @@ import redis
 from app.providers.embedding import get_embedding_provider, vector_literal
 
 
-def _db_url() -> str:
+def _db_url() -> str | None:
     url = os.getenv("DATABASE_URL", "")
     if not url:
-        raise RuntimeError("DATABASE_URL missing")
+        return None
     return url
 
 
@@ -35,7 +35,10 @@ def _redis() -> redis.Redis | None:
 
 
 def get_knia_json_version() -> str:
-    with psycopg.connect(_db_url()) as conn, conn.cursor() as cur:
+    db_url = _db_url()
+    if not db_url:
+        return "dev"
+    with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute("SELECT source_file_hash FROM knia_json_import_runs WHERE status='success' ORDER BY finished_at DESC NULLS LAST, started_at DESC LIMIT 1")
         row = cur.fetchone()
         return row[0][:16] if row and row[0] else "dev"
@@ -43,11 +46,17 @@ def get_knia_json_version() -> str:
 
 def invalidate_scope(scope: str = "knia_json") -> dict[str, Any]:
     deleted_redis = 0
+    db_url = _db_url()
+    if not db_url:
+        return {"scope": scope, "redis_deleted": deleted_redis, "semantic_cache_deleted": 0, "disabled_reason": "DATABASE_URL missing"}
     r = _redis()
     if r and scope == "knia_json":
-        for key in r.scan_iter("knia_json:exact:v1:*"):
-            deleted_redis += r.delete(key)
-    with psycopg.connect(_db_url()) as conn, conn.cursor() as cur:
+        try:
+            for key in r.scan_iter("knia_json:exact:v1:*"):
+                deleted_redis += r.delete(key)
+        except Exception:
+            deleted_redis = 0
+    with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM semantic_query_cache WHERE source_scope=%s", (scope,))
         deleted_pg = cur.rowcount
         conn.commit()
@@ -57,10 +66,13 @@ def invalidate_scope(scope: str = "knia_json") -> dict[str, Any]:
 def _public_items_from_refs(refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not refs:
         return []
+    db_url = _db_url()
+    if not db_url:
+        return []
     ids = [x.get("chunk_id") for x in refs if x.get("chunk_id")]
     if not ids:
         return []
-    with psycopg.connect(_db_url()) as conn, conn.cursor() as cur:
+    with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
             """
             SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
@@ -96,16 +108,22 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
     version = get_knia_json_version()
     party = accident_party_type or "unknown"
     key = f"knia_json:exact:v1:{version}:{party}:{qh}"
+    db_url = _db_url()
+    if not db_url:
+        return {"items": [], "cache": {"exact_hit": False, "semantic_hit": False, "key": key, "disabled_reason": "DATABASE_URL missing"}}
     r = _redis()
     if r:
-        cached = r.get(key)
-        if cached:
-            refs = json.loads(cached)
-            return {"items": _public_items_from_refs(refs), "cache": {"exact_hit": True, "semantic_hit": False, "key": key}}
+        try:
+            cached = r.get(key)
+            if cached:
+                refs = json.loads(cached)
+                return {"items": _public_items_from_refs(refs), "cache": {"exact_hit": True, "semantic_hit": False, "key": key}}
+        except Exception:
+            r = None
 
     provider = get_embedding_provider()
     vec_literal = vector_literal(provider.embed(normalized[:4000]))
-    with psycopg.connect(_db_url()) as conn, conn.cursor() as cur:
+    with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
             """
             SELECT result_refs
@@ -124,7 +142,10 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
             cur.execute("UPDATE semantic_query_cache SET hit_count=hit_count+1, updated_at=now() WHERE query_hash=%s AND source_scope='knia_json'", (qh,))
             conn.commit()
             if r:
-                r.setex(key, 3600, json.dumps(refs, ensure_ascii=False))
+                try:
+                    r.setex(key, 3600, json.dumps(refs, ensure_ascii=False))
+                except Exception:
+                    pass
             return {"items": _public_items_from_refs(refs), "cache": {"exact_hit": False, "semantic_hit": True, "key": key}}
 
         params: list[Any] = [normalized, vec_literal]
@@ -174,6 +195,9 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
         )
         conn.commit()
         if r:
-            r.setex(key, 3600, json.dumps(refs, ensure_ascii=False))
+            try:
+                r.setex(key, 3600, json.dumps(refs, ensure_ascii=False))
+            except Exception:
+                pass
         return {"items": items, "cache": {"exact_hit": False, "semantic_hit": False, "key": key}}
 

@@ -5,8 +5,20 @@ import time
 from pathlib import Path
 from typing import Any
 
-import psycopg
-from tenacity import retry, stop_after_attempt, wait_exponential_jitter
+try:
+    from tenacity import retry, stop_after_attempt, wait_exponential_jitter
+except ModuleNotFoundError:
+    def retry(*_args: Any, **_kwargs: Any):
+        def decorator(fn: Any) -> Any:
+            return fn
+
+        return decorator
+
+    def stop_after_attempt(_attempts: int) -> None:
+        return None
+
+    def wait_exponential_jitter(*_args: Any, **_kwargs: Any) -> None:
+        return None
 
 from worker.frame_analysis import analyze_frames_with_openai
 from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION, extract_event_frames, probe_video
@@ -36,6 +48,8 @@ def requests_post_json(url: str, payload: dict, headers: dict[str, str] | None =
 
 @retry(stop=stop_after_attempt(5), wait=wait_exponential_jitter(initial=1, max=30))
 def process_job(job_id: str, job_type: str, redis_client: Any) -> None:
+    import psycopg
+
     with psycopg.connect(DB_URL) as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE jobs SET status='running', attempts=attempts+1, attempt=attempts+1, started_at=now() WHERE id=%s", (job_id,))
@@ -123,16 +137,7 @@ def _enqueue_video_analyze_job(cur: Any, row: tuple[Any, ...], payload: dict[str
         (row[1],),
     )
     case_inputs = cur.fetchone()
-    analyze_payload = {
-        "case_id": str(row[1]),
-        "upload_id": str(row[2]),
-        "ai_profile": payload.get("ai_profile", "default_vehicle_collision"),
-        "specialist_roles": payload.get("specialist_roles", []),
-        "routing_reason": "auto_after_local_preprocess",
-        "structured_facts": (case_inputs[0] if case_inputs else {}) or {},
-        "selected_keywords": list(case_inputs[1] if case_inputs and case_inputs[1] else []),
-        "analysis_mode": (case_inputs[2] if case_inputs else None) or "quick_summary",
-    }
+    analyze_payload = build_video_analyze_payload(row, payload, case_inputs)
     cur.execute(
         """
         INSERT INTO jobs(case_id, upload_id, owner_user_id, type, status, payload)
@@ -146,29 +151,46 @@ def _enqueue_video_analyze_job(cur: Any, row: tuple[Any, ...], payload: dict[str
 
 
 def _process_video_analyze(cur: Any, row: tuple[Any, ...], payload: dict[str, Any], job_id: str) -> None:
-    ai_profile = payload.get("ai_profile", "default_vehicle_collision")
-    specialist_roles = payload.get("specialist_roles", [])
-    structured_facts = payload.get("structured_facts") or {}
-    selected_keywords = payload.get("selected_keywords") or []
-    analysis_mode = payload.get("analysis_mode") or "quick_summary"
-    routing_reason = payload.get("routing_reason")
-
     cur.execute("SELECT title, description_text FROM cases WHERE id=%s", (row[1],))
     case_row = cur.fetchone()
-    case_text = f"{case_row[0] or ''} {case_row[1] or ''}".strip() if case_row else ""
 
     cur.execute("SELECT metadata, file_name, status FROM uploads WHERE id=%s", (row[2],))
-    up = cur.fetchone()
-    metadata = up[0] if up and isinstance(up[0], dict) else {}
+    upload_row = cur.fetchone()
+    agent_payload = build_agent_video_request(row, payload, case_row, upload_row)
+    response = requests_post_json(
+        f"{INTERNAL_AGENT_URL}/internal/v1/analyze/video",
+        agent_payload,
+    )
+    _insert_analysis_result(cur, row, response)
+    cur.execute("UPDATE jobs SET status='succeeded', finished_at=now() WHERE id=%s", (job_id,))
+
+
+def build_video_analyze_payload(row: tuple[Any, ...], payload: dict[str, Any], case_inputs: tuple[Any, ...] | None) -> dict[str, Any]:
+    return {
+        "case_id": str(row[1]),
+        "upload_id": str(row[2]),
+        "ai_profile": payload.get("ai_profile", "default_vehicle_collision"),
+        "specialist_roles": payload.get("specialist_roles", []),
+        "routing_reason": "auto_after_local_preprocess",
+        "structured_facts": (case_inputs[0] if case_inputs else {}) or {},
+        "selected_keywords": list(case_inputs[1] if case_inputs and case_inputs[1] else []),
+        "analysis_mode": (case_inputs[2] if case_inputs else None) or "quick_summary",
+    }
+
+
+def build_agent_video_request(
+    row: tuple[Any, ...],
+    payload: dict[str, Any],
+    case_row: tuple[Any, ...] | None,
+    upload_row: tuple[Any, ...] | None,
+) -> dict[str, Any]:
+    structured_facts = payload.get("structured_facts") or {}
+    selected_keywords = payload.get("selected_keywords") or []
+    routing_reason = payload.get("routing_reason")
+    case_text = f"{case_row[0] or ''} {case_row[1] or ''}".strip() if case_row else ""
+    metadata = upload_row[0] if upload_row and isinstance(upload_row[0], dict) else {}
     payload_video_metadata = payload.get("video_metadata") if isinstance(payload.get("video_metadata"), dict) else {}
     preprocessed_summary = metadata.get("preprocess_summary") or "Local video metadata is available for analysis."
-    video_metadata = {
-        "preprocess_contract_version": VIDEO_PREPROCESS_CONTRACT_VERSION,
-        "upload_status": up[2] if up else None,
-        "file_name": up[1] if up else None,
-        "metadata": metadata,
-        "preprocess_payload": payload_video_metadata,
-    }
     merged_summary = " ".join(
         x
         for x in [
@@ -180,28 +202,56 @@ def _process_video_analyze(cur: Any, row: tuple[Any, ...], payload: dict[str, An
         ]
         if x
     )
-    response = requests_post_json(
-        f"{INTERNAL_AGENT_URL}/internal/v1/analyze/video",
-        {
-            "case_id": str(row[1]),
-            "user_id": str(row[3]),
-            "upload_id": str(row[2]),
-            "preprocessed_summary": merged_summary,
-            "ai_profile": ai_profile,
-            "specialist_roles": specialist_roles,
-            "video_metadata": video_metadata,
-            "structured_facts": structured_facts,
-            "selected_keywords": selected_keywords,
-            "analysis_mode": analysis_mode,
+    return {
+        "case_id": str(row[1]),
+        "user_id": str(row[3]),
+        "upload_id": str(row[2]),
+        "preprocessed_summary": merged_summary,
+        "ai_profile": payload.get("ai_profile", "default_vehicle_collision"),
+        "specialist_roles": payload.get("specialist_roles", []),
+        "video_metadata": {
+            "preprocess_contract_version": VIDEO_PREPROCESS_CONTRACT_VERSION,
+            "upload_status": upload_row[2] if upload_row else None,
+            "file_name": upload_row[1] if upload_row else None,
+            "metadata": metadata,
+            "preprocess_payload": payload_video_metadata,
         },
-    )
-    _insert_analysis_result(cur, row, response)
-    cur.execute("UPDATE jobs SET status='succeeded', finished_at=now() WHERE id=%s", (job_id,))
+        "structured_facts": structured_facts,
+        "selected_keywords": selected_keywords,
+        "analysis_mode": payload.get("analysis_mode") or "quick_summary",
+    }
+
+
+def build_analysis_result_values(row: tuple[Any, ...], response: dict[str, Any], version: int) -> dict[str, Any]:
+    evidence = response.get("evidence", [])
+    legal_liability = response.get("legal_liability", {}) or {}
+    legal_analysis = response.get("legal_analysis", {}) or {}
+    return {
+        "case_id": row[1],
+        "owner_user_id": row[3],
+        "version": version,
+        "result": response,
+        "evidence": evidence,
+        "uncertainty": response.get("uncertainty", {}),
+        "model_info": response.get("model_info", {}),
+        "structured_facts": response.get("structured_facts", {}),
+        "recommended_keywords": response.get("recommended_keywords", []),
+        "suggested_next_inputs": response.get("suggested_next_inputs", []),
+        "report_payload": {},
+        "elderly_friendly_report": response.get("elderly_friendly_report", {}),
+        "legal_analysis": legal_analysis,
+        "scenario_type": response.get("scenario_type"),
+        "used_evidence_ids": [x.get("chunk_id") for x in evidence if x.get("chunk_id")],
+        "legal_risk_flags": legal_liability.get("risk_flags", []) or legal_analysis.get("risk_flags", []),
+        "persona_outputs": {"analysts": response.get("recommended_specialists", [])},
+        "evidence_audit": response.get("evidence_audit", {}),
+    }
 
 
 def _insert_analysis_result(cur: Any, row: tuple[Any, ...], response: dict[str, Any]) -> None:
     cur.execute("SELECT COALESCE(MAX(version),0)+1 FROM analysis_results WHERE case_id=%s", (row[1],))
     version = cur.fetchone()[0]
+    values = build_analysis_result_values(row, response, version)
     cur.execute(
         """
         INSERT INTO analysis_results(
@@ -213,24 +263,24 @@ def _insert_analysis_result(cur: Any, row: tuple[Any, ...], response: dict[str, 
         RETURNING id
         """,
         (
-            row[1],
-            row[3],
-            version,
-            json.dumps(response),
-            json.dumps(response.get("evidence", [])),
-            json.dumps(response.get("uncertainty", {})),
-            json.dumps(response.get("model_info", {})),
-            json.dumps(response.get("structured_facts", {})),
-            json.dumps(response.get("recommended_keywords", [])),
-            json.dumps(response.get("suggested_next_inputs", [])),
-            json.dumps({}),
-            json.dumps(response.get("elderly_friendly_report", {})),
-            json.dumps(response.get("legal_analysis", {})),
-            response.get("scenario_type"),
-            json.dumps([x.get("chunk_id") for x in response.get("evidence", []) if x.get("chunk_id")]),
-            json.dumps((response.get("legal_liability", {}) or {}).get("risk_flags", []) or (response.get("legal_analysis", {}) or {}).get("risk_flags", [])),
-            json.dumps({"analysts": response.get("recommended_specialists", [])}),
-            json.dumps(response.get("evidence_audit", {})),
+            values["case_id"],
+            values["owner_user_id"],
+            values["version"],
+            json.dumps(values["result"]),
+            json.dumps(values["evidence"]),
+            json.dumps(values["uncertainty"]),
+            json.dumps(values["model_info"]),
+            json.dumps(values["structured_facts"]),
+            json.dumps(values["recommended_keywords"]),
+            json.dumps(values["suggested_next_inputs"]),
+            json.dumps(values["report_payload"]),
+            json.dumps(values["elderly_friendly_report"]),
+            json.dumps(values["legal_analysis"]),
+            values["scenario_type"],
+            json.dumps(values["used_evidence_ids"]),
+            json.dumps(values["legal_risk_flags"]),
+            json.dumps(values["persona_outputs"]),
+            json.dumps(values["evidence_audit"]),
         ),
     )
     result_id = cur.fetchone()[0]
@@ -239,6 +289,8 @@ def _insert_analysis_result(cur: Any, row: tuple[Any, ...], response: dict[str, 
 
 def mark_failed(job_id: str, err: Exception) -> None:
     try:
+        import psycopg
+
         with psycopg.connect(DB_URL) as conn:
             with conn.cursor() as cur:
                 cur.execute(
