@@ -18,6 +18,7 @@ import { env, cookieSecure } from "./config/env.js";
 import { routeKey, requireUser, requireAdmin as requireAdminGuard } from "./lib/request-guards.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerChatRoutes } from "./routes/chat.js";
+import { registerCaseRoutes } from "./routes/cases.js";
 import { registerAgentDiagnosticsRoutes } from "./routes/agent-diagnostics.js";
 import { LocalStorageProvider } from "./storage/provider.js";
 
@@ -147,86 +148,10 @@ registerAgentDiagnosticsRoutes(app, {
   errorPayload
 });
 
-app.post(`${env.apiPrefix}/cases`, {
-  schema: {
-    body: {
-      type: "object",
-      required: ["title"],
-      properties: {
-        title: { type: "string", minLength: 1, maxLength: 140 },
-        description_text: { type: "string", maxLength: 10000 },
-        happened_at: { type: "string", format: "date-time" },
-        location_text: { type: "string", maxLength: 240 },
-        structured_facts: { type: "object", additionalProperties: true },
-        selected_keywords: { type: "array", items: { type: "string", maxLength: 80 }, maxItems: 30 },
-        analysis_mode: { type: "string", maxLength: 40 }
-      }
-    }
-  }
-}, async (req, reply) => {
-  if (!requireUser(req as any, reply)) return;
-  const traceId = req.headers["x-correlation-id"] as string;
-  const body = req.body as any;
-  const result = await db.query(
-    `INSERT INTO cases(owner_user_id, title, description_text, happened_at, location_text, status, structured_facts, selected_keywords, analysis_mode)
-     VALUES($1,$2,$3,$4,$5,'ready',$6,$7,$8) RETURNING *`,
-    [
-      (req as any).user.id,
-      body.title,
-      body.description_text ?? null,
-      body.happened_at ?? null,
-      body.location_text ?? null,
-      JSON.stringify(body.structured_facts ?? {}),
-      body.selected_keywords ?? [],
-      body.analysis_mode ?? "quick_summary"
-    ]
-  );
-  return { case: result.rows[0], trace_id: traceId };
-});
-
-app.get(`${env.apiPrefix}/cases`, async (req, reply) => {
-  if (!requireUser(req as any, reply)) return;
-  const traceId = req.headers["x-correlation-id"] as string;
-  const rows = await db.query(`SELECT * FROM cases WHERE owner_user_id=$1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50`, [(req as any).user.id]);
-  return { items: rows.rows, trace_id: traceId };
-});
-
-app.get(`${env.apiPrefix}/cases/:caseId`, async (req, reply) => {
-  if (!requireUser(req as any, reply)) return;
-  const traceId = req.headers["x-correlation-id"] as string;
-  const { caseId } = req.params as any;
-  const row = await db.query(`SELECT * FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`, [caseId, (req as any).user.id]);
-  if (!row.rowCount) return reply.code(404).send(errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
-  return { case: row.rows[0], trace_id: traceId };
-});
-
-app.patch(`${env.apiPrefix}/cases/:caseId`, async (req, reply) => {
-  if (!requireUser(req as any, reply)) return;
-  const traceId = req.headers["x-correlation-id"] as string;
-  const { caseId } = req.params as any;
-  const body = req.body as any;
-  const updated = await db.query(
-    `UPDATE cases
-     SET title=COALESCE($3,title),
-         description_text=COALESCE($4,description_text),
-         location_text=COALESCE($5,location_text),
-         structured_facts=COALESCE($6::jsonb,structured_facts),
-         selected_keywords=COALESCE($7,selected_keywords),
-         analysis_mode=COALESCE($8,analysis_mode)
-     WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL RETURNING *`,
-    [
-      caseId,
-      (req as any).user.id,
-      body.title ?? null,
-      body.description_text ?? null,
-      body.location_text ?? null,
-      body.structured_facts ? JSON.stringify(body.structured_facts) : null,
-      body.selected_keywords ?? null,
-      body.analysis_mode ?? null
-    ]
-  );
-  if (!updated.rowCount) return reply.code(404).send(errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
-  return { case: updated.rows[0], trace_id: traceId };
+registerCaseRoutes(app, {
+  apiPrefix: env.apiPrefix,
+  db,
+  errorPayload
 });
 
 app.post(`${env.apiPrefix}/uploads/init`, {
