@@ -890,7 +890,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | Priority | Area | Current State | Needed Work |
 | --- | --- | --- | --- |
 | P0 | Agent regression automation | `apps/agent/scripts/test_agent_regression_scenarios.py` covers core text and video/user-conflict scenarios, but it is manually run. | Add a repeatable Docker/CI command and fail builds when judgment mapping regresses. |
-| P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. | Provide a structured trace view/API so developers can inspect each stage and packet-like data flow. |
+| P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. A safe admin diagnostic API now exposes stage and packet summaries without raw user text. | Add local-only developer UI if needed, but keep public user screens sanitized. |
 | P0 | Reflection/reverification loop | `reflection_loop` now performs one bounded evidence requery when requeryable evidence requirements are missing, then records whether to request input, present reference-only, or finalize. | Continue improving requery terms and add UI/API visibility for the loop state. |
 | P0 | Agent SRP | `orchestrator.py` still sequences many responsibilities. | Move stage-specific logic into dedicated modules and keep orchestration as sequencing. |
 | P1 | Gateway SRP | `gateway/src/main.ts` remains a large composition root, but auth/session routes now live in `apps/gateway/src/routes/auth.ts`. | Split cases/uploads, analysis/report, KNIA/admin, legal/admin routes. |
@@ -987,3 +987,17 @@ Primary command:
 `powershell -ExecutionPolicy Bypass -File scripts/verify_core.ps1`
 
 Use this before committing trust-critical changes so rear-end, lane-change, signal-violation, bicycle/pedestrian, and video/user-conflict scenarios remain covered by the Agent regression script.
+
+## 2026-05-22 Admin Agent Trace Diagnostic API
+
+This update adds an administrator-only diagnostic API for Agent pipeline observability. It keeps the existing public report sanitization intact and exposes only safe metadata summaries for developers or operators.
+
+| Path | Change |
+| --- | --- |
+| `apps/gateway/src/lib/agent-diagnostics.ts` | Adds `agent-trace-diagnostic-v1`, which summarizes Agent trace steps, packet metadata, judgment contract, reflection state, video input contract counts, fact arbitration counts, evidence coverage, and presentation policy while filtering raw user text, secrets, tokens, emails, and raw evidence ids. |
+| `apps/gateway/src/routes/agent-diagnostics.ts` | Registers `GET /api/v1/admin/cases/:caseId/agent-trace`, guarded by login plus admin role or `x-admin-token`. The route returns the latest result or a specified `version`. |
+| `apps/gateway/src/main.ts` | Wires the diagnostics route module without adding the route body directly to the composition root. |
+| `apps/gateway/test/agent-diagnostics.test.ts` | Verifies that packet summaries remain useful while raw text, email, token, and chunk id-like values are filtered. |
+| `docs/api/openapi.yaml`, `docs/OPERATIONS.md` | Documents the admin trace diagnostic endpoint and its safety constraints. |
+
+The endpoint is intended for internal project inspection, not normal user UI. It does not change DB schema, Redis keys, storage paths, environment variables, external API contracts, or public easy-report behavior.

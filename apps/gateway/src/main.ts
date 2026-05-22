@@ -18,6 +18,7 @@ import { env, cookieSecure } from "./config/env.js";
 import { routeKey, requireUser, requireAdmin as requireAdminGuard } from "./lib/request-guards.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerChatRoutes } from "./routes/chat.js";
+import { registerAgentDiagnosticsRoutes } from "./routes/agent-diagnostics.js";
 import { LocalStorageProvider } from "./storage/provider.js";
 
 const app = Fastify({ logger: { level: "info" } });
@@ -136,6 +137,13 @@ registerAuthRoutes(app, {
   cookieSecure,
   jwtAccessTtlSec: env.jwtAccessTtlSec,
   jwtRefreshTtlSec: env.jwtRefreshTtlSec,
+  errorPayload
+});
+
+registerAgentDiagnosticsRoutes(app, {
+  apiPrefix: env.apiPrefix,
+  db,
+  requireAdmin,
   errorPayload
 });
 

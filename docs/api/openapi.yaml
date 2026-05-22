@@ -201,6 +201,29 @@ paths:
       summary: 근거 목록
       security: [{ bearerAuth: [] }]
       responses: { '200': { description: ok } }
+  /admin/cases/{caseId}/agent-trace:
+    get:
+      summary: 관리자용 Agent 실행 trace 진단
+      description: 최신 또는 지정 version의 Agent trace를 raw 사용자 입력 없이 안전한 메타데이터로 요약한다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: version
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - in: header
+          name: x-admin-token
+          required: false
+          schema: { type: string }
+          description: INTERNAL_ADMIN_TOKEN이 설정된 환경에서 관리자 보조 인증으로 사용 가능
+      responses:
+        '200': { description: ok }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /evidence/{chunkId}:
     get:
       summary: 근거 단일 chunk

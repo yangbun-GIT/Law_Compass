@@ -101,6 +101,16 @@ python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeo
 
 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이면 프레임은 추출되지만 GPT 프레임 관찰값(`observations`)은 0개일 수 있습니다. 이 상태에서도 영상 전처리와 Agent 입력 계약 연결은 확인할 수 있습니다.
 
+## 3-3) 관리자용 Agent trace 진단
+일반 결과 화면에는 raw `agent_trace`와 `reflection_loop`를 노출하지 않습니다. 내부 점검이 필요할 때는 관리자 계정 또는 `x-admin-token`이 있는 로그인 세션으로 아래 API를 호출해 안전한 메타데이터 요약만 확인합니다.
+
+```bash
+GET /api/v1/admin/cases/{caseId}/agent-trace
+GET /api/v1/admin/cases/{caseId}/agent-trace?version=2
+```
+
+응답에는 단계별 status, packet 요약, 영상 입력 계약 카운트, 사실 중재 카운트, 근거 충족도, 판단 계약, reflection 상태가 포함됩니다. 사용자 원문, 비밀번호, 토큰, API 키, raw evidence chunk id는 포함하지 않습니다.
+
 ## 4) 프론트에서 기능 확인
 1. 회원가입
 2. 로그인
