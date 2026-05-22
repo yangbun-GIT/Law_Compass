@@ -6,17 +6,17 @@ import multipart from "@fastify/multipart";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { Redis } from "ioredis";
-import { callInternalAgent } from "./lib/internal-client.js";
 import { sha256 } from "./lib/security.js";
 import { errorPayload, requestErrorPayload, validationErrorPayload } from "./lib/errors.js";
 import { env, cookieSecure } from "./config/env.js";
-import { routeKey, requireUser, requireAdmin as requireAdminGuard } from "./lib/request-guards.js";
+import { routeKey, requireAdmin as requireAdminGuard } from "./lib/request-guards.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { registerCaseRoutes } from "./routes/cases.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
 import { registerAnalysisRoutes } from "./routes/analysis.js";
 import { registerKniaRoutes } from "./routes/knia.js";
+import { registerLegalAdminRoutes } from "./routes/legal-admin.js";
 import { registerAgentDiagnosticsRoutes } from "./routes/agent-diagnostics.js";
 import { LocalStorageProvider } from "./storage/provider.js";
 
@@ -52,18 +52,6 @@ app.addHook("onRequest", async (req, reply) => {
 
 function requireAdmin(req: any, reply: any) {
   return requireAdminGuard(req, reply, env.adminToken);
-}
-
-async function callInternalAgentGet(path: string, traceId: string) {
-  const res = await fetch(`${env.agentUrl}${path}`, {
-    method: "GET",
-    headers: {
-      "x-internal-token": env.internalToken,
-      "x-correlation-id": traceId
-    }
-  });
-  if (!res.ok) throw new Error(`internal_agent_get_error_${res.status}:${(await res.text()).slice(0, 300)}`);
-  return await res.json();
 }
 
 async function rateLimit(req: any, reply: any) {
@@ -173,42 +161,12 @@ registerKniaRoutes(app, {
   errorPayload
 });
 
-
-app.post(`${env.apiPrefix}/admin/legal/ingest`, async (req, reply) => {
-  if (!requireUser(req as any, reply)) return;
-  if (!requireAdmin(req as any, reply)) return;
-  const traceId = req.headers["x-correlation-id"] as string;
-  try {
-    const result = await callInternalAgent("/internal/v1/legal/ingest", {}, traceId, { baseUrl: env.agentUrl, internalToken: env.internalToken, timeoutMs: 120000, retryCount: 0 });
-    return { result, trace_id: traceId };
-  } catch {
-    return reply.code(502).send(errorPayload("LEGAL_INGEST_FAILED", "법률정보 적재에 실패했습니다.", traceId));
-  }
-});
-
-app.post(`${env.apiPrefix}/admin/legal/rebuild-embeddings`, async (req, reply) => {
-  if (!requireUser(req as any, reply)) return;
-  if (!requireAdmin(req as any, reply)) return;
-  const traceId = req.headers["x-correlation-id"] as string;
-  try {
-    const result = await callInternalAgent("/internal/v1/legal/rebuild-embeddings", {}, traceId, { baseUrl: env.agentUrl, internalToken: env.internalToken, timeoutMs: 120000, retryCount: 0 });
-    return { result, trace_id: traceId };
-  } catch {
-    return reply.code(502).send(errorPayload("LEGAL_EMBEDDING_REBUILD_FAILED", "법률 임베딩 재생성에 실패했습니다.", traceId));
-  }
-});
-
-app.get(`${env.apiPrefix}/admin/legal/retrieval-test`, async (req, reply) => {
-  if (!requireUser(req as any, reply)) return;
-  if (!requireAdmin(req as any, reply)) return;
-  const traceId = req.headers["x-correlation-id"] as string;
-  const q = encodeURIComponent(String((req.query as any)?.q ?? "후미추돌 안전거리 과실비율"));
-  try {
-    const result = await callInternalAgentGet(`/internal/v1/legal/retrieval-test?q=${q}`, traceId);
-    return { result, trace_id: traceId };
-  } catch {
-    return reply.code(502).send(errorPayload("LEGAL_RETRIEVAL_TEST_FAILED", "법률 RAG 테스트에 실패했습니다.", traceId));
-  }
+registerLegalAdminRoutes(app, {
+  apiPrefix: env.apiPrefix,
+  agentUrl: env.agentUrl,
+  internalToken: env.internalToken,
+  requireAdmin,
+  errorPayload
 });
 
 app.addHook("onResponse", async (req, reply) => {

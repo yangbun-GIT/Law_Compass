@@ -858,11 +858,12 @@ This section records the first SRP cleanup pass so future changes can compare mo
 | `apps/gateway/src/routes/uploads.ts` | Owns local upload routes, upload completion verification, local video content delivery, and video preprocess job enqueueing. |
 | `apps/gateway/src/routes/analysis.ts` | Owns case analysis and report routes: text analysis, video analysis job enqueueing, result/report/easy-report lookup, reanalysis, job listing, and evidence lookup. |
 | `apps/gateway/src/routes/knia.ts` | Owns KNIA public lookup/search routes, KNIA Agent proxy routes, KNIA admin collection/embedding routes, and KNIA cache invalidation. |
+| `apps/gateway/src/routes/legal-admin.ts` | Owns legal/admin routes: legal KB ingest, legal embedding rebuild, and legal retrieval smoke test proxy. |
 | `apps/frontend/tsconfig.json` | Sets `noEmit` so TypeScript source remains the only frontend source of truth under `apps/frontend/src`. |
 
 Remaining SRP debt to handle in later iterations:
 
-- `apps/gateway/src/main.ts` is still a composition root with shared hooks and legal/admin routes. Auth/session, basic case CRUD, upload, analysis/report, and KNIA routes are now split; split legal/admin next.
+- `apps/gateway/src/main.ts` is now a Gateway composition root with shared hooks, health checks, route-module registration, audit logging, and centralized error handling. Keep new API behavior inside route modules unless it changes shared Gateway lifecycle hooks.
 - `apps/agent/app/services/orchestrator.py` should continue moving stage-specific logic into normalizer, classifier, retriever, auditor, judgment, and report modules.
 - `apps/agent/app/routers/internal.py` should stay thin; request validation and service calls should be delegated.
 - `apps/frontend/src/views/CaseDetailView.vue` should be reduced into composables/components for upload, preprocessing status, analysis execution, and report navigation.
@@ -897,7 +898,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. A safe admin diagnostic API now exposes stage and packet summaries without raw user text. | Add local-only developer UI if needed, but keep public user screens sanitized. |
 | P0 | Reflection/reverification loop | `reflection_loop` now performs one bounded evidence requery when requeryable evidence requirements are missing, then records whether to request input, present reference-only, or finalize. | Continue improving requery terms and add UI/API visibility for the loop state. |
 | P0 | Agent SRP | `orchestrator.py` now delegates input context, evidence collection, analyst execution, and reflection requery to dedicated stage modules. | Continue extracting final output enrichment if new KNIA/report metadata grows further. |
-| P1 | Gateway SRP | `gateway/src/main.ts` remains the composition root, but auth/session, basic case CRUD, upload, analysis/report, and KNIA routes now live under `apps/gateway/src/routes/`. | Split legal/admin routes next. |
+| P1 | Gateway SRP | `gateway/src/main.ts` remains the composition root, but auth/session, basic case CRUD, upload, analysis/report, KNIA, and legal/admin routes now live under `apps/gateway/src/routes/`. | Keep new API behavior in route modules; split large route modules only when they grow further. |
 | P1 | Frontend source hygiene | `tsconfig.json` uses `noEmit`, but `.js` source duplicates still exist under `apps/frontend/src`. | Remove tracked generated JS duplicates or confirm they are intentionally maintained. |
 
 ### Defer Until Core Trust Is Stable
@@ -1013,11 +1014,11 @@ Gateway KNIA routes were moved out of `apps/gateway/src/main.ts` into `apps/gate
 | Path | Responsibility |
 | --- | --- |
 | `apps/gateway/src/routes/knia.ts` | Registers KNIA ranking, chart detail, adjustment/reference, match, fault estimate, myaccident menu/tree, JSON search, media search, admin KNIA collection, admin KNIA embedding rebuild, JSON import, JSON embedding rebuild, and KNIA cache invalidation routes. |
-| `apps/gateway/src/main.ts` | Keeps shared Fastify plugin setup, trace/auth/rate-limit/idempotency/audit/error hooks, health checks, route-module registration, and the remaining legal/admin routes. |
+| `apps/gateway/src/routes/legal-admin.ts` | Registers legal/admin ingest, legal embedding rebuild, and legal retrieval-test routes. It preserves the existing Agent internal endpoints and admin guard behavior. |
+| `apps/gateway/src/main.ts` | Keeps shared Fastify plugin setup, trace/auth/rate-limit/idempotency/audit/error hooks, health checks, and route-module registration. |
 
 Remaining Gateway SRP debt after this pass:
 
-- Move legal/admin routes from `apps/gateway/src/main.ts` to a dedicated route module.
 - Consider splitting `routes/knia.ts` into public KNIA lookup and admin KNIA operations only if additional KNIA behavior makes the module harder to maintain.
 
 ## 2026-05-22 Agent Orchestrator SRP Stage Split
