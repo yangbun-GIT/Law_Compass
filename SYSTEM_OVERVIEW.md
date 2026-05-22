@@ -947,3 +947,14 @@ This update makes video-derived fact arbitration visible to users in safe Korean
 | `apps/gateway/test/report-composer.test.ts` | Verifies that the card is generated and raw arbitration/source/reason/value keys are not exposed. |
 
 No DB schema, Redis key, storage path, environment variable, or external API contract changed. Public easy-report responses may now include `video_fact_explanation_card`.
+
+## 2026-05-22 Video Conflict Follow-Up Questions
+
+This update connects video/user fact conflicts to the existing follow-up and reanalysis loop. When `fact_arbitration.conflicts` contains a safe input field such as `lane_change_actor`, Gateway now adds a Korean single-choice question to `missing_info.questions`. The frontend already submits those answers through `MissingInfoCard` and `/api/v1/cases/:caseId/reanalyze`, so no new API route or DB schema was required.
+
+| Path | Change |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | Adds `composeVideoConflictQuestions()` and merges safe video conflict questions into `missing_info.questions` while avoiding duplicates. |
+| `apps/gateway/test/report-composer.test.ts` | Verifies that a video/user conflict generates a usable follow-up question with the canonical field preserved and safe Korean options. |
+
+The question field is preserved only for known safe follow-up fields so the existing reanalysis normalizer can update structured facts. Raw video contracts and internal arbitration metadata remain hidden from public report rendering.

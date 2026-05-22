@@ -19,6 +19,9 @@ const TECHNICAL_KEYS = new Set([
 const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi];
 const SAFE_INPUT_FIELDS = new Set(["accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "pedestrian_signal", "bicycle_location", "bicycle_direction"]);
 function asArray(value: any): any[] { return Array.isArray(value) ? value : []; }
+function unique(values: any[]) {
+  return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
+}
 function cleanText(value: any, fallback = "확인이 필요합니다.") {
   if (value === null || value === undefined) return fallback;
   if (typeof value === "boolean") return value ? "예" : "아니오";
@@ -421,6 +424,54 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   };
 }
 
+function composeVideoConflictQuestions(result: AnyRecord = {}) {
+  const arbitration = result.fact_arbitration ?? result.model_info?.fact_arbitration ?? {};
+  const questions: AnyRecord[] = [];
+  for (const item of asArray(arbitration.conflicts)) {
+    const field = String(item?.field ?? "");
+    if (!SAFE_INPUT_FIELDS.has(field)) continue;
+    const winner = String(item?.winner ?? item?.selected_source ?? "");
+    const selectedValue = winner === "video" ? item.video_value : item.user_value;
+    const alternateValue = winner === "video" ? item.user_value : item.video_value;
+    const selectedLabel = videoFactValueLabel(field, selectedValue);
+    const alternateLabel = videoFactValueLabel(field, alternateValue);
+    const label = videoFactLabel(field);
+    const options = unique([selectedLabel, alternateLabel, "확인 필요"]).filter((value: string) => value !== "확인 필요" || selectedLabel !== "확인 필요");
+    questions.push({
+      field,
+      label,
+      question: `${label}은(는) ${selectedLabel}로 보입니다. 실제와 맞나요?`,
+      input_type: "single_choice",
+      options: options.length ? options : ["맞음", "아님", "확인 필요"],
+    });
+  }
+  return questions.slice(0, 4);
+}
+
+function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []) {
+  if (!questions.length) return report;
+  const missing = report.missing_info && typeof report.missing_info === "object" ? report.missing_info : {};
+  const existingQuestions = asArray(missing.questions);
+  const existingFields = new Set(existingQuestions.map((item: AnyRecord) => String(item?.field ?? "")).filter(Boolean));
+  const nextQuestions = [
+    ...existingQuestions,
+    ...questions.filter((item) => !existingFields.has(String(item.field))),
+  ].slice(0, 8);
+  const nextItems = unique([
+    ...asArray(missing.items).map((item) => cleanText(item, "")),
+    ...questions.map((item) => cleanText(item.question, "")),
+  ]).filter(Boolean).slice(0, 8);
+  return {
+    ...report,
+    missing_info: {
+      ...missing,
+      title: cleanText(missing.title, "더 정확한 분석을 위해 확인할 정보"),
+      items: nextItems,
+      questions: nextQuestions,
+    },
+  };
+}
+
 function videoFactLabel(field: string) {
   const labels: AnyRecord = {
     stopped: "정차 여부",
@@ -476,8 +527,10 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
   const card = composeEvidenceReliabilityCard(result);
   const processCard = composeAgentProcessCard(result);
   const videoFactCard = composeVideoFactExplanationCard(result);
+  const videoQuestions = composeVideoConflictQuestions(result);
+  const mergedReport = mergeVideoQuestions(report, videoQuestions);
   return {
-    ...report,
+    ...mergedReport,
     ...(card ? { evidence_reliability_card: card } : {}),
     ...(processCard ? { agent_process_card: processCard } : {}),
     ...(videoFactCard ? { video_fact_explanation_card: videoFactCard } : {}),

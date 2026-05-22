@@ -123,6 +123,10 @@ describe("report composer", () => {
     expect(card.applied_items[0].confidence).toBe("91%");
     expect(card.review_items[0].selected_source).toBe("영상");
     expect(card.uncertain_items[0].label).toBe("방향지시등 사용");
+    const videoQuestion = (enriched as any).missing_info.questions[0];
+    expect(videoQuestion.field).toBe("lane_change_actor");
+    expect(videoQuestion.question).toContain(card.applied_items[0].label);
+    expect(videoQuestion.options).toContain(card.applied_items[0].value);
     expect(text).not.toContain("video_input_contract");
     expect(text).not.toContain("fact_arbitration");
     expect(text).not.toContain("frame_analysis:openai");
