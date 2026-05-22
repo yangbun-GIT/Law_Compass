@@ -13,16 +13,19 @@ OPENAI_VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL",
 OPENAI_TIMEOUT_SEC = float(os.getenv("OPENAI_TIMEOUT_SEC", "18"))
 OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, int(os.getenv("OPENAI_FRAME_ANALYSIS_MAX_FRAMES", "8")))
 OPENAI_FRAME_ANALYSIS_DETAIL = os.getenv("OPENAI_FRAME_ANALYSIS_DETAIL", "low")
+FRAME_ANALYSIS_FIXTURE_MODE = os.getenv("FRAME_ANALYSIS_FIXTURE_MODE", "").strip().lower()
 
 
 def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dict[str, Any]) -> dict[str, Any]:
     if not ENABLE_OPENAI_FRAME_ANALYSIS:
         return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "ENABLE_OPENAI_FRAME_ANALYSIS is not 1"}
-    if not OPENAI_API_KEY:
-        return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "OPENAI_API_KEY is empty"}
     selected_frames = _select_openai_frames(frame_details, OPENAI_FRAME_ANALYSIS_MAX_FRAMES)
     if not selected_frames:
         return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "no frames extracted"}
+    if FRAME_ANALYSIS_FIXTURE_MODE:
+        return _fixture_frame_analysis(selected_frames, context, FRAME_ANALYSIS_FIXTURE_MODE)
+    if not OPENAI_API_KEY:
+        return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "OPENAI_API_KEY is empty"}
     content: list[dict[str, Any]] = [{
         "type": "input_text",
         "text": (
@@ -105,6 +108,65 @@ def _select_openai_frames(frame_details: list[dict[str, Any]], max_frames: int) 
     if max_frames == 1:
         return [frames[len(frames) // 2]]
     return [frames[round(idx * (len(frames) - 1) / (max_frames - 1))] for idx in range(max_frames)]
+
+
+def _fixture_frame_analysis(selected_frames: list[dict[str, Any]], context: dict[str, Any], mode: str) -> dict[str, Any]:
+    frame_refs = [Path(str(frame.get("path", ""))).name for frame in selected_frames if frame.get("path")]
+    primary_ref = frame_refs[:2] or ["fixture-frame.jpg"]
+    observations = _fixture_observations(mode, primary_ref)
+    return {
+        "version": FRAME_ANALYSIS_CONTRACT_VERSION,
+        "enabled": True,
+        "provider": "fixture",
+        "model": f"fixture:{mode}",
+        "detail": "fixture",
+        "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
+        "summary": _fixture_summary(mode, context),
+        "observations": observations,
+        "uncertainties": [],
+        "created_at": _now_iso(),
+    }
+
+
+def _fixture_observations(mode: str, frame_refs: list[str]) -> list[dict[str, Any]]:
+    if mode == "rear_end":
+        return [
+            {
+                "field": "stopped",
+                "value": True,
+                "confidence": 0.91,
+                "source": "frame_analysis:fixture",
+                "detector": "fixture:rear_end",
+                "frame_refs": frame_refs,
+                "reason": "Fixture validates that stationary front-vehicle facts can pass the video contract.",
+            },
+            {
+                "field": "impact_direction",
+                "value": "rear",
+                "confidence": 0.9,
+                "source": "frame_analysis:fixture",
+                "detector": "fixture:rear_end",
+                "frame_refs": frame_refs,
+                "reason": "Fixture validates rear-impact mapping to opponent rear collision behavior.",
+            },
+        ]
+    if mode == "lane_change":
+        return [
+            {
+                "field": "lane_change_actor",
+                "value": "opponent",
+                "confidence": 0.88,
+                "source": "frame_analysis:fixture",
+                "detector": "fixture:lane_change",
+                "frame_refs": frame_refs,
+                "reason": "Fixture validates lane-change actor observations.",
+            }
+        ]
+    return []
+
+
+def _fixture_summary(mode: str, context: dict[str, Any]) -> str:
+    return f"Local frame-analysis fixture '{mode}' generated observations for upload {context.get('upload_id') or 'unknown'}."
 
 
 def _image_data_url(path: Path) -> str:

@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-22 P1 영상 관찰값 계약 검증 보강
+
+P1의 `Video observation validation`을 실제 OpenAI 비용 없이도 반복 검증할 수 있도록 worker 프레임 분석 fixture 모드를 추가했다. 이 모드는 실제 사고 판단 모델이 아니라, 프레임 관찰값이 worker metadata, Agent `video_input_contract`, `fact_arbitration`, easy-report 안전 카드까지 전달되는 계약 흐름을 검증하는 용도다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/worker/worker/frame_analysis.py` | `FRAME_ANALYSIS_FIXTURE_MODE`를 추가했다. `ENABLE_OPENAI_FRAME_ANALYSIS=1`이고 fixture mode가 `rear_end` 또는 `lane_change`이면 `OPENAI_API_KEY` 없이도 deterministic 관찰값을 생성한다. 실제 OpenAI 호출 경로는 fixture mode가 비어 있을 때만 사용된다. |
+| `compose.yaml` | worker 환경변수에 `FRAME_ANALYSIS_FIXTURE_MODE`를 전달한다. 기본값은 빈 값이라 운영 동작은 기존과 동일하다. |
+| `apps/worker/tests/test_frame_analysis_contract.py` | fixture mode가 API key 없이 contract 관찰값을 반환하는지, fixture가 없고 key도 없으면 안전하게 disabled reason을 반환하는지 검증한다. |
+| `docs/OPERATIONS.md` | fixture 기반 실제 영상 E2E 실행 방법과 기본 모드로 되돌리는 절차를 기록했다. |
+
+실제 OpenAI 모델 검증은 여전히 `FRAME_ANALYSIS_FIXTURE_MODE`를 비운 뒤 `ENABLE_OPENAI_FRAME_ANALYSIS=1`, 유효한 `OPENAI_API_KEY` 상태에서 `scripts/video_agent_e2e.py --require-frame-observations --require-agent-video-facts`를 실행해야 한다. 이 변경은 DB schema, Redis key, storage path, 외부 API 계약을 바꾸지 않는다.
+
 ## 2026-05-22 P1 근거 검색 품질 보강
 
 P1의 `Evidence/search quality` 첫 단계를 진행했다. DB/외부 API 수집 상태가 부족해도 대표 사고 유형의 법률·KNIA 근거 품질 게이트가 최소한의 직접 관련 근거를 확보할 수 있도록 Agent 내부 검색어 확장과 정적 보조 근거 fixture를 보강했다.
@@ -1110,7 +1123,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | P1 | Worker SRP | `main.py` now only consumes Redis Stream messages and delegates DB job processing to `job_processor.py`; ffprobe/ffmpeg preprocessing and OpenAI frame analysis live in dedicated modules. Local Worker contract tests now cover video analyze payload, Agent video request payload, and analysis result value shaping. | Add DB/Redis integration tests only when expanding queue persistence or video provider behavior. |
 | P1 | Frontend source hygiene | `apps/frontend/src` is now TypeScript-only for source files; tracked generated `.js` duplicates were removed and `.gitignore` blocks them from returning. | Keep new frontend source in `.ts`/`.vue` files and avoid committing emitted JavaScript beside source. |
 | P1 | Evidence/search quality | Structured fact 기반 검색어 확장과 차선변경/보행자/스쿨존 정적 과실비율 fixture를 추가했다. P0 guard는 unsupported result가 final로 보이지 않게 유지한다. | 실제 KNIA/법률 DB 수집량이 늘어난 뒤 매칭 품질 회귀를 추가하고, 필요한 시나리오에 한해 query term을 더 튜닝한다. |
-| P1 | Video observation validation | Upload/preprocess/video_analyze/easy-report smoke passes with OpenAI frame analysis disabled by default. | When API cost/key policy is ready, run `video_agent_e2e.py` with `--require-frame-observations --require-agent-video-facts` and tune observation mapping. |
+| P1 | Video observation validation | Worker fixture mode can now generate deterministic frame observations without OpenAI cost, and the required-observation E2E can validate worker metadata, Agent video contract, fact arbitration, and public report safety. | 실제 OpenAI 모델 품질 검증은 API 비용/키 사용 정책이 확정된 뒤 fixture mode를 끄고 별도 실행한다. |
 
 ### Defer Until Core Trust Is Stable
 
