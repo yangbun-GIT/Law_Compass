@@ -256,6 +256,24 @@ def assert_missing_info_priority(report: dict):
 
 
 def choose_quality_followup_question(report: dict) -> dict | None:
+    video_followup_fields = {
+        "stopped",
+        "sudden_brake",
+        "opponent_behavior",
+        "lane_change_actor",
+        "turn_signal",
+        "user_signal",
+        "opponent_signal",
+        "opponent_signal_violation",
+        "crosswalk_nearby",
+        "school_zone",
+        "damage_level",
+    }
+    for question in missing_questions(report):
+        field = str(question.get("field") or "")
+        encoded = json.dumps(question, ensure_ascii=False).lower()
+        if field in video_followup_fields and "front" not in encoded:
+            return question
     for question in missing_questions(report):
         text = f"{question.get('question') or ''} {question.get('label') or ''}"
         if any(marker in text for marker in ("품질 기준", "바로 반영하지 않았습니다", "충분히 확인하지 못했습니다")):

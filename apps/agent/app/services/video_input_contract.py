@@ -140,7 +140,13 @@ def normalize_video_input_contract(
             continue
         value = _normalize_fact_value(field, observation.get("value"), raw)
         if value is None:
-            uncertain.append({**observation, "reason": "value_not_actionable", "quality_gate": gate})
+            uncertain.append({
+                **observation,
+                "raw_value": observation.get("value"),
+                "value": None,
+                "reason": "value_not_actionable",
+                "quality_gate": gate,
+            })
             continue
         fact_patch[field] = value
         accepted.append({**observation, "value": value, "quality_gate": gate})
@@ -412,13 +418,15 @@ def _confirmation_groups(
 def _normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
     if field == "opponent_behavior":
         text = " ".join(str(item).lower() for item in (value, raw.get("raw_field"), raw.get("label")) if item is not None)
+        if str(value).lower() in {"rear_collision", "lane_change", "signal_violation"}:
+            return str(value).lower()
         if any(token in text for token in ("rear", "back", "behind", "rear_end")):
             return "rear_collision"
         if any(token in text for token in ("lane_change", "cut_in")):
             return "lane_change"
         if any(token in text for token in ("signal", "red_light")):
             return "signal_violation"
-        return value if isinstance(value, str) and value.strip() else None
+        return None
     if field == "lane_change_actor":
         text = str(value).lower()
         if text in {"opponent", "other", "target", "other_vehicle"}:

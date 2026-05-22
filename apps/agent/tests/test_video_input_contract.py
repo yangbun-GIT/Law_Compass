@@ -69,6 +69,31 @@ def test_frame_observation_without_frame_reference_is_not_fact_patch():
     assert contract["observation_quality_summary"]["uncertain_reasons"]["missing_frame_reference"] == 1
 
 
+def test_collision_direction_front_is_not_treated_as_opponent_behavior():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "collision_direction",
+                        "value": "front",
+                        "confidence": 0.95,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_8.jpg", "frame_10.jpg"],
+                    }
+                ]
+            }
+        }
+    )
+
+    assert "opponent_behavior" not in contract["fact_patch"]
+    assert contract["uncertain_observations"][0]["field"] == "opponent_behavior"
+    assert contract["uncertain_observations"][0]["raw_value"] == "front"
+    assert contract["uncertain_observations"][0]["value"] is None
+    assert contract["uncertain_observations"][0]["reason"] == "value_not_actionable"
+    assert contract["confirmation_candidates"] == []
+
+
 def test_signal_violation_uses_stricter_field_threshold():
     contract = normalize_video_input_contract(
         {

@@ -97,6 +97,46 @@ describe("report composer", () => {
     expect((enriched as any).missing_info.items).toEqual(["사고 당시 블랙박스 원본을 보관해 주세요."]);
   });
 
+  it("replaces raw stored questions when a safer video question exists for the same field", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({
+      headline: "report",
+      missing_info: {
+        questions: [
+          {
+            field: "opponent_behavior",
+            label: "raw",
+            question: "raw?",
+            input_type: "single_choice",
+            options: ["front"],
+          },
+        ],
+      },
+    }), {
+      video_input_contract: {
+        uncertain_observations: [
+          {
+            field: "opponent_behavior",
+            value: "rear_collision",
+            confidence: 0.8,
+            frame_refs: ["frame_10.jpg", "frame_12.jpg"],
+          },
+        ],
+        observation_quality_summary: {
+          accepted_count: 0,
+          uncertain_count: 1,
+          ignored_count: 0,
+          uncertain_reasons: { confidence_below_field_threshold: 1 },
+        },
+      },
+    });
+
+    const question = (enriched as any).missing_info.questions.find((item: any) => item.field === "opponent_behavior");
+    expect(question.question).not.toBe("raw?");
+    expect(question.options).not.toContain("front");
+    expect(question.options.length).toBeGreaterThan(1);
+    expect(JSON.stringify((enriched as any).missing_info)).not.toContain("front");
+  });
+
   it("adds a user-safe agent process card without raw trace packets", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
       agent_trace: {

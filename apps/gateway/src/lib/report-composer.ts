@@ -696,9 +696,14 @@ function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []
   if (!questions.length) return prioritizeMissingInfo(report);
   const missing = report.missing_info && typeof report.missing_info === "object" ? report.missing_info : {};
   const existingQuestions = asArray(missing.questions);
-  const existingFields = new Set(existingQuestions.map((item: AnyRecord) => String(item?.field ?? "")).filter(Boolean));
+  const videoFields = new Set(questions.map((item: AnyRecord) => String(item?.field ?? "")).filter(Boolean));
+  const existingFields = new Set(
+    existingQuestions
+      .map((item: AnyRecord) => String(item?.field ?? ""))
+      .filter((field: string) => field && !videoFields.has(field))
+  );
   const nextQuestions = [
-    ...existingQuestions,
+    ...existingQuestions.filter((item: AnyRecord) => !videoFields.has(String(item?.field ?? ""))),
     ...questions.filter((item) => !existingFields.has(String(item.field))),
   ].slice(0, 8);
   const questionTexts = nextQuestions.map((item) => item?.question);

@@ -81,6 +81,20 @@
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. 실제 OpenAI 호출 없이 계약 테스트와 Agent 입력 계약 스모크로 확인했으며, 운영 기본값은 계속 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이다.
 
+### 영상 관찰값 방향/행동 혼동 방지 보강
+
+실제 OpenAI 프레임 분석 재검증 중 `collision_direction: front`처럼 충돌 방향을 나타내는 값이 `opponent_behavior: front`로 확정될 수 있는 위험을 확인했다. 충돌 방향은 상대 차량 행동과 동일하지 않으므로 Agent 입력 계약에서 `rear_collision`, `lane_change`, `signal_violation`처럼 해석 가능한 행동값만 `opponent_behavior`로 승격하고, `front` 같은 방향값은 `value_not_actionable`로 보류하되 확인 후보에는 올리지 않도록 보강했다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/video_input_contract.py` | `opponent_behavior` 값 정규화를 엄격히 제한했다. `collision_direction=front`는 더 이상 `fact_patch`나 `confirmation_candidates`에 들어가지 않는다. |
+| `apps/agent/tests/test_video_input_contract.py` | `collision_direction=front`가 상대 행동 사실로 승격되지 않고 `value_not_actionable`으로 남는 회귀 테스트를 추가했다. |
+| `apps/gateway/src/lib/report-composer.ts` | 영상 관찰값에서 안전한 보완 질문이 생성되면 같은 field의 기존 저장 질문을 대체한다. 이로써 `front` 같은 raw 옵션이 사용자 선택지로 남지 않게 했다. |
+| `apps/gateway/test/report-composer.test.ts` | 기존 질문에 raw `front` 옵션이 있어도 영상 기반 안전 질문으로 교체되는지 검증한다. |
+| `scripts/video_agent_e2e.py` | 보류 관찰값 보완 질문 탐색이 깨진 한글 문자열에만 의존하지 않고 안전 field 기준으로 동작하도록 보강했다. |
+
+실제 사고 영상 `car_accident_1.mp4`로 OpenAI 프레임 분석을 다시 실행한 결과, OpenAI 호출은 완료됐지만 보강된 프롬프트 기준에서 관찰값 0개를 반환했다. 따라서 이번 실제 E2E의 의미는 “모델이 애매한 프레임을 확정 사실로 만들지 않음”으로 해석하며, Worker는 검증 후 다시 `ENABLE_OPENAI_FRAME_ANALYSIS=0` 상태로 복구했다. 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
+
 ## 2026-05-23 easy-report 사용자 흐름 및 payload 표시 정합성 보정
 
 Agent 결과 payload가 사용자 화면에서 카드별로 중복되거나 과도한 경고처럼 보이지 않도록 easy-report 표시 계약을 정리했다. 보완 질문은 `missing_info.questions`의 선택형 입력으로만 강조하고, 동일 문장은 `missing_info.items` 체크리스트에서 제거해 한 화면 안에서 같은 질문이 반복되지 않도록 했다. 근거 연결, 영상 관찰, Agent 처리 과정, 재분석 비교 카드의 안내 문구는 최종 판정 경고를 반복하지 않고 각 카드가 보여주는 상태 설명으로 낮췄다.
