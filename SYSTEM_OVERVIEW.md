@@ -1,5 +1,16 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-22 P1 근거 검색 품질 회귀 검증
+
+P1의 `Evidence/search quality`를 운영 데이터 수집 여부와 분리해 반복 검증할 수 있도록 Agent 근거 검색 품질 회귀 스크립트를 추가했다. 이 스크립트는 대표 사고 유형별로 검색어 확장, 실제 DB 검색 또는 정적 보조 근거 fallback, 근거 품질 게이트를 함께 통과해야 성공한다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/scripts/test_evidence_search_quality.py` | 후미추돌, 상대 차선변경, 교차로 신호위반, 횡단보도 보행자, 어린이보호구역, 자전거 사고에 대해 `retrieve_for_scenario()`를 실행한다. 각 시나리오는 필수 검색어가 query expansion에 포함되고, 법률/KNIA 근거군이 모두 존재하며, 사고 유형 직접 관련 근거가 2개 이상이고, coverage가 `medium` 이상이어야 통과한다. |
+| `scripts/verify_agent_regression.ps1` | 기존 Agent 컴파일, 내부 라우트, 대표 사고 판단 회귀 뒤에 근거 검색 품질 회귀 스크립트를 추가 실행한다. |
+
+현재 일부 시나리오는 로컬 DB 수집량이 부족해 정적 fallback 근거 2~3개로 `medium` 수준을 만족한다. 따라서 이 검증은 “최소 신뢰선이 낮음으로 떨어지는지”를 막는 구조 보강이며, 실제 KNIA/법률 DB 수집량이 늘어난 뒤에는 `total_evidence`와 `coverage=high` 기준을 점진적으로 올릴 수 있다. DB schema, Redis key, storage path, API route는 변경하지 않는다.
+
 ## 2026-05-22 P1 영상 관찰값 충돌 품질 게이트
 
 실제 OpenAI 프레임 분석 검증 결과처럼 모델이 사용자 입력과 다른 물리 사실 후보를 만들 수 있으므로, Agent 사실 중재 단계에 충돌 품질 게이트를 추가했다. 영상 관찰값은 사용자가 입력하지 않은 물리 사실을 보강하는 데 계속 사용하지만, 사용자 입력과 충돌하는 경우에는 `verified`/수동 검토이거나 `confidence >= 0.92` 및 대표 프레임 2장 이상 조건을 만족해야만 영상값이 사용자 입력을 덮어쓴다. 조건을 통과하지 못하면 사용자 입력을 유지하고 `requires_confirmation`에 남겨 보완 질문과 재분석 흐름으로 넘긴다.
@@ -1150,7 +1161,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | P1 | Gateway SRP | `gateway/src/main.ts` remains the composition root. Auth/session, case CRUD, upload, analysis/report, public KNIA, KNIA admin, and legal/admin routes live under `apps/gateway/src/routes/`. | Keep new API behavior in route modules; split large route modules only when they grow further. |
 | P1 | Worker SRP | `main.py` now only consumes Redis Stream messages and delegates DB job processing to `job_processor.py`; ffprobe/ffmpeg preprocessing and OpenAI frame analysis live in dedicated modules. Local Worker contract tests now cover video analyze payload, Agent video request payload, and analysis result value shaping. | Add DB/Redis integration tests only when expanding queue persistence or video provider behavior. |
 | P1 | Frontend source hygiene | `apps/frontend/src` is now TypeScript-only for source files; tracked generated `.js` duplicates were removed and `.gitignore` blocks them from returning. | Keep new frontend source in `.ts`/`.vue` files and avoid committing emitted JavaScript beside source. |
-| P1 | Evidence/search quality | Structured fact 기반 검색어 확장과 차선변경/보행자/스쿨존 정적 과실비율 fixture를 추가했다. P0 guard는 unsupported result가 final로 보이지 않게 유지한다. | 실제 KNIA/법률 DB 수집량이 늘어난 뒤 매칭 품질 회귀를 추가하고, 필요한 시나리오에 한해 query term을 더 튜닝한다. |
+| P1 | Evidence/search quality | Structured fact 기반 검색어 확장, 정적 과실비율 fixture, 대표 사고 유형별 `test_evidence_search_quality.py` 회귀 검증을 추가했다. 이 검증은 실제 DB 또는 fallback 근거를 통해 필수 검색어, 법률/KNIA 근거군, 직접 관련 근거 수, 최소 coverage를 확인한다. | 완료. 실제 KNIA/법률 DB 수집량이 늘어난 뒤 `total_evidence`와 `coverage=high` 기준으로 점진 상향한다. |
 | P1 | Video observation validation | 실제 OpenAI 프레임 분석 E2E를 `gpt-4.1-mini`, `detail=low`, 6프레임, 900 출력 토큰 상한으로 통과했고, Agent 사실 중재에는 충돌 품질 게이트를 추가했다. 영상값은 미입력 사실 보강에 쓰이며, 사용자 입력과 충돌하면 강한 품질 조건 또는 검증 표시가 있을 때만 덮어쓴다. | 완료. 남은 작업은 실제 품질 데이터가 쌓인 뒤 필드별 임계값을 조정하는 운영 튜닝이다. |
 
 ### Defer Until Core Trust Is Stable

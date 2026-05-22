@@ -27,6 +27,10 @@ try {
   docker compose exec -T agent python scripts/test_agent_regression_scenarios.py
 
   Write-Host ""
+  Write-Host "==> Agent evidence search quality"
+  docker compose exec -T agent python scripts/test_evidence_search_quality.py
+
+  Write-Host ""
   Write-Host "verify_agent_regression=passed"
 } finally {
   Pop-Location
