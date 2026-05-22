@@ -39,6 +39,8 @@ def infer_user_vehicle_role(text: str, facts: dict[str, Any] | None = None, scen
 
     haystack = _haystack(text, facts)
     if _is_rear_end_context(scenario_type, haystack):
+        if _facts_indicate_front_vehicle_rear_end(facts):
+            return FRONT_VEHICLE
         if _has_front_vehicle_phrase(haystack):
             return FRONT_VEHICLE
         if _has_following_vehicle_phrase(haystack):
@@ -169,6 +171,19 @@ def _is_rear_end_context(scenario_type: str | None, text: str) -> bool:
     return scenario_type == "rear_end_collision" or any(
         word in text for word in ["후미", "뒷차", "뒤에서", "추돌", "받힘", "받혔"]
     )
+
+
+def _facts_indicate_front_vehicle_rear_end(facts: dict[str, Any]) -> bool:
+    if facts.get("stopped") is not True:
+        return False
+    if facts.get("sudden_brake") is True:
+        return False
+    return str(facts.get("opponent_behavior") or "").strip().lower() in {
+        "rear_collision",
+        "rear_end",
+        "rear_impact",
+        "hit_from_behind",
+    }
 
 
 def _has_front_vehicle_phrase(text: str) -> bool:

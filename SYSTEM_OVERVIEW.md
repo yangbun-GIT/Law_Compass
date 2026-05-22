@@ -837,3 +837,20 @@ Remaining SRP debt to handle in later iterations:
 - `apps/agent/app/routers/internal.py` should stay thin; request validation and service calls should be delegated.
 - `apps/frontend/src/views/CaseDetailView.vue` should be reduced into composables/components for upload, preprocessing status, analysis execution, and report navigation.
 - KNIA parser/repository files are functionally cohesive but large; split only when adding new KNIA collection or persistence behavior.
+
+## 2026-05-22 Agent Regression Guard Update
+
+This update strengthens the Agent fault judgment regression guard around user perspective and video-derived facts.
+
+| Path | Change |
+| --- | --- |
+| `apps/agent/app/services/accident_perspective.py` | Rear-end role inference now treats strong structured facts (`stopped=True`, `opponent_behavior=rear_collision`, and no sudden brake) as higher priority than conflicting natural-language role phrases. This prevents a stopped rear-end victim from being mapped as the following/striking vehicle when video-derived facts indicate otherwise. |
+| `apps/agent/scripts/test_agent_regression_scenarios.py` | Added `video_rear_end_overrides_conflicting_user_fact`, which runs `analyze_video_case()` with high-confidence frame observations and conflicting user text. It verifies video fact arbitration, conflict recording, front-vehicle role mapping, and final 0:100 user-perspective fault mapping. |
+
+Verification command:
+
+`docker compose exec -T agent python scripts/test_agent_regression_scenarios.py`
+
+Additional syntax verification:
+
+`docker compose exec -T agent python -m compileall app scripts`
