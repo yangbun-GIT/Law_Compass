@@ -39,4 +39,18 @@ describe("followup normalizer", () => {
     expect(result.patch._followup_answered_fields).toEqual(["stopped"]);
     expect(result.patch._followup_unresolved_fields).toEqual(["injury", "turn_signal"]);
   });
+
+  it("normalizes video quality followup answers into canonical facts", () => {
+    const result = normalizeFollowupAnswers(
+      {
+        opponent_behavior: "뒤에서 추돌",
+        opponent_signal_violation: "예",
+      },
+      {}
+    );
+
+    expect(result.patch.opponent_behavior).toBe("rear_collision");
+    expect(result.patch.opponent_signal_violation).toBe(true);
+    expect(result.patch._followup_answered_fields).toEqual(["opponent_behavior", "opponent_signal_violation"]);
+  });
 });

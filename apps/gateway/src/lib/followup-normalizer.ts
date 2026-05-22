@@ -109,6 +109,14 @@ function applyAnswer(patch: AnyRecord, field: string, value: string) {
     }
     return;
   }
+  if (field === "opponent_behavior") {
+    patch.opponent_behavior = normalizeOpponentBehavior(value);
+    return;
+  }
+  if (field === "opponent_signal_violation") {
+    patch.opponent_signal_violation = includesAny(value, ["예", "맞음", "위반"]);
+    return;
+  }
   if (field === "accident_type") {
     patch.accident_type = mapAccidentType(value);
     return;
@@ -133,6 +141,13 @@ function mapAccidentType(value: string) {
   if (includesAny(value, ["자전거"])) return "bicycle_collision";
   if (includesAny(value, ["시설물"])) return "object_collision";
   if (includesAny(value, ["단독"])) return "single_vehicle_accident";
+  return value;
+}
+
+function normalizeOpponentBehavior(value: string) {
+  if (includesAny(value, ["뒤에서 추돌", "후미", "후방", "추돌"])) return "rear_collision";
+  if (includesAny(value, ["차선 변경", "차선변경", "끼어들기"])) return "lane_change";
+  if (includesAny(value, ["신호 위반", "신호위반"])) return "signal_violation";
   return value;
 }
 

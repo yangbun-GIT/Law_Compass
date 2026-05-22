@@ -542,6 +542,60 @@ function composeVideoConflictQuestions(result: AnyRecord = {}) {
   return questions.slice(0, 4);
 }
 
+function composeVideoQualityQuestions(result: AnyRecord = {}) {
+  const contract = result.video_input_contract ?? result.model_info?.video_input_contract ?? {};
+  const questions: AnyRecord[] = [];
+  for (const item of asArray(contract.uncertain_observations)) {
+    const field = String(item?.field ?? "");
+    if (!SAFE_INPUT_FIELDS.has(field)) continue;
+    const label = videoFactLabel(field);
+    const observedLabel = videoFactValueLabel(field, item?.value);
+    const question = observedLabel && observedLabel !== "확인 필요"
+      ? `영상에서는 ${label}이(가) ${observedLabel}로 보이지만 품질 기준을 통과하지 못했습니다. 실제와 맞나요?`
+      : `영상만으로는 ${label}을(를) 품질 기준에 맞게 확정하기 어렵습니다. 실제 상황을 알려주세요.`;
+    questions.push({
+      field,
+      label,
+      question,
+      input_type: "single_choice",
+      options: videoFactQuestionOptions(field, item?.value),
+    });
+  }
+  return questions.slice(0, 4);
+}
+
+function combineVideoQuestions(...groups: AnyRecord[][]) {
+  const combined: AnyRecord[] = [];
+  const seen = new Set<string>();
+  for (const question of groups.flat()) {
+    const field = String(question?.field ?? "");
+    if (!field || seen.has(field)) continue;
+    seen.add(field);
+    combined.push(question);
+  }
+  return combined.slice(0, 6);
+}
+
+function videoFactQuestionOptions(field: string, observedValue: any) {
+  const observedLabel = videoFactValueLabel(field, observedValue);
+  const optionMap: AnyRecord = {
+    stopped: ["정차 중", "주행 중", "확인 필요"],
+    sudden_brake: ["급정거함", "급정거 아님", "확인 필요"],
+    opponent_behavior: ["뒤에서 추돌", "차선 변경", "신호 위반", "확인 필요"],
+    lane_change_actor: ["내 차량", "상대 차량", "양측", "확인 필요"],
+    turn_signal: ["켰음", "켜지 않음", "확인 필요"],
+    user_signal: ["녹색", "황색", "적색", "신호 없음", "확인 필요"],
+    opponent_signal: ["녹색", "황색", "적색", "신호 없음", "확인 필요"],
+    opponent_signal_violation: ["예", "아니오", "확인 필요"],
+    crosswalk_nearby: ["횡단보도 주변", "횡단보도 아님", "확인 필요"],
+    school_zone: ["어린이보호구역 맞음", "어린이보호구역 아님", "확인 필요"],
+    injury: ["다친 사람 있음", "다친 사람 없음", "확인 필요"],
+    damage_level: ["경미", "보통", "심함", "확인 필요"],
+  };
+  const defaults = optionMap[field] ?? [observedLabel, "아님", "확인 필요"];
+  return unique([observedLabel, ...defaults]).filter(Boolean).slice(0, 5);
+}
+
 function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []) {
   if (!questions.length) return report;
   const missing = report.missing_info && typeof report.missing_info === "object" ? report.missing_info : {};
@@ -621,7 +675,10 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
   const card = composeEvidenceReliabilityCard(result);
   const processCard = composeAgentProcessCard(result);
   const videoFactCard = composeVideoFactExplanationCard(result);
-  const videoQuestions = composeVideoConflictQuestions(result);
+  const videoQuestions = combineVideoQuestions(
+    composeVideoConflictQuestions(result),
+    composeVideoQualityQuestions(result),
+  );
   const mergedReport = mergeVideoQuestions(report, videoQuestions);
   return {
     ...mergedReport,

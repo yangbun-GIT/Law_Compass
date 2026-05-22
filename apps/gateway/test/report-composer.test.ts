@@ -168,6 +168,9 @@ describe("report composer", () => {
     expect(videoQuestion.field).toBe("lane_change_actor");
     expect(videoQuestion.question).toContain(card.applied_items[0].label);
     expect(videoQuestion.options).toContain(card.applied_items[0].value);
+    const qualityQuestion = (enriched as any).missing_info.questions.find((item: any) => item.field === "turn_signal");
+    expect(qualityQuestion.question).toContain("품질 기준");
+    expect(qualityQuestion.options).toContain("켰음");
     expect(text).not.toContain("video_input_contract");
     expect(text).not.toContain("fact_arbitration");
     expect(text).not.toContain("frame_analysis:openai");

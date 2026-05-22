@@ -1393,3 +1393,15 @@ Worker와 Agent가 생성하는 영상 관찰값 품질 요약을 일반 결과 
 | `apps/gateway/test/report-composer.test.ts`, `apps/gateway/test/agent-diagnostics.test.ts` | 사용자 안전 카드와 관리자 진단 품질 요약이 생성되고 raw 내부 키가 노출되지 않는지 검증한다. |
 
 이 변경은 DB schema, Redis key, storage path, 외부 API 계약을 변경하지 않는다. 공개 easy-report payload의 표시용 카드 구조만 확장한다.
+
+## 2026-05-22 영상 품질 보류 관찰값 보완 질문 연결
+
+영상 프레임 분석에서 관찰값은 생성됐지만 품질 기준을 통과하지 못한 항목을 결과 화면의 보완 질문으로 연결했다. 목적은 영상값을 확정 사실처럼 쓰지 않으면서도, 사용자가 확인 가능한 항목은 기존 재분석 흐름으로 보강할 수 있게 하는 것이다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | `uncertain_observations` 중 사용자 확인이 가능한 필드를 `missing_info.questions`로 변환한다. 기존 영상/사용자 충돌 질문과 중복되지 않게 field 기준으로 합친다. |
+| `apps/gateway/src/lib/followup-normalizer.ts` | 영상 품질 보류 질문 답변 중 `opponent_behavior`, `opponent_signal_violation`을 Agent canonical fact로 정규화한다. |
+| `apps/gateway/test/report-composer.test.ts`, `apps/gateway/test/followup-normalizer.test.ts` | 품질 보류 관찰값이 보완 질문으로 생성되고, 답변이 재분석 입력 fact로 변환되는지 검증한다. |
+
+이 변경은 기존 `/api/v1/cases/:caseId/reanalyze` 흐름을 그대로 사용하며 DB schema, Redis key, storage path, 외부 API 계약을 변경하지 않는다.
