@@ -209,6 +209,75 @@ def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool
     }
 
 
+def missing_questions(report: dict) -> list[dict]:
+    missing = report.get("missing_info") if isinstance(report.get("missing_info"), dict) else {}
+    questions = missing.get("questions") if isinstance(missing.get("questions"), list) else []
+    return [item for item in questions if isinstance(item, dict) and item.get("field")]
+
+
+def choose_quality_followup_question(report: dict) -> dict | None:
+    for question in missing_questions(report):
+        text = f"{question.get('question') or ''} {question.get('label') or ''}"
+        if "품질 기준" in text:
+            return question
+    return None
+
+
+def answer_for_question(question: dict) -> str:
+    field = str(question.get("field") or "")
+    preferred = {
+        "stopped": "정차 중",
+        "sudden_brake": "급정거 아님",
+        "opponent_behavior": "뒤에서 추돌",
+        "lane_change_actor": "상대 차량",
+        "turn_signal": "켜지 않음",
+        "user_signal": "적색",
+        "opponent_signal": "적색",
+        "opponent_signal_violation": "예",
+        "crosswalk_nearby": "횡단보도 아님",
+        "school_zone": "어린이보호구역 아님",
+        "injury": "다친 사람 없음",
+        "damage_level": "경미",
+    }
+    options = [str(item) for item in (question.get("options") or []) if str(item).strip()]
+    if field in preferred and (not options or preferred[field] in options):
+        return preferred[field]
+    for option in options:
+        if "확인" not in option:
+            return option
+    if options:
+        return options[0]
+    return preferred.get(field, "확인 필요")
+
+
+def run_held_observation_followup(base_url: str, case_id: str, token: str, report: dict):
+    question = choose_quality_followup_question(report)
+    if not question:
+        raise E2EError("easy-report has no held video-observation quality followup question")
+    answer = answer_for_question(question)
+    payload = {
+        "followup_answers": {
+            str(question["field"]): answer,
+        }
+    }
+    reanalyzed = http_json("POST", base_url, f"/api/v1/cases/{case_id}/reanalyze", payload, token=token)
+    next_report = reanalyzed.get("report") if isinstance(reanalyzed.get("report"), dict) else reanalyzed.get("result", {})
+    if not isinstance(next_report, dict):
+        raise E2EError("reanalyze response did not include a report")
+    if not isinstance(next_report.get("analysis_change_card"), dict):
+        raise E2EError("reanalyze response is missing analysis_change_card")
+    latest_report = http_json("GET", base_url, f"/api/v1/cases/{case_id}/easy-report", token=token)
+    latest_questions = missing_questions(latest_report)
+    return {
+        "field": question.get("field"),
+        "question": question.get("question"),
+        "answer": answer,
+        "next_version": reanalyzed.get("version"),
+        "change_summary": next_report.get("analysis_change_card", {}).get("summary"),
+        "remaining_question_count": len(latest_questions),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run a local video upload -> preprocess -> Agent report E2E check.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
@@ -223,6 +292,11 @@ def main():
         "--require-agent-video-facts",
         action="store_true",
         help="Fail if Agent video input contract/fact arbitration did not accept and apply video-derived facts.",
+    )
+    parser.add_argument(
+        "--exercise-held-observation-followup",
+        action="store_true",
+        help="Submit one held video-observation quality followup answer and fail unless reanalysis records a change card.",
     )
     args = parser.parse_args()
 
@@ -257,6 +331,11 @@ def main():
     upload = next((item for item in uploads if item.get("id") == upload_id), {})
     frame_summary = frame_analysis_summary(upload, args.require_frame_observations)
     agent_video_summary = agent_video_fact_summary(debug_report, args.require_agent_video_facts)
+    followup_summary = (
+        run_held_observation_followup(args.base_url, case_id, token, report)
+        if args.exercise_held_observation_followup
+        else None
+    )
 
     output = {
         "video_agent_e2e": "passed",
@@ -272,6 +351,8 @@ def main():
         "agent_process_stats": card.get("stats", []),
         "agent_process_steps": [step.get("label") for step in card.get("steps", [])],
     }
+    if followup_summary:
+        output["held_observation_followup"] = followup_summary
     print(json.dumps(output, ensure_ascii=False, indent=2))
 
 

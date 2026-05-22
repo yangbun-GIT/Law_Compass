@@ -1405,3 +1405,16 @@ Worker와 Agent가 생성하는 영상 관찰값 품질 요약을 일반 결과 
 | `apps/gateway/test/report-composer.test.ts`, `apps/gateway/test/followup-normalizer.test.ts` | 품질 보류 관찰값이 보완 질문으로 생성되고, 답변이 재분석 입력 fact로 변환되는지 검증한다. |
 
 이 변경은 기존 `/api/v1/cases/:caseId/reanalyze` 흐름을 그대로 사용하며 DB schema, Redis key, storage path, 외부 API 계약을 변경하지 않는다.
+
+## 2026-05-23 영상 보류 관찰값 재분석 E2E 옵션
+
+실제 영상 E2E 스크립트에 품질 보류 관찰값의 보완 질문과 재분석 반영까지 확인하는 선택 검증 경로를 추가했다. 기본 smoke 경로는 그대로 유지하고, `--exercise-held-observation-followup` 옵션을 켰을 때만 품질 보류 질문을 찾아 답변 제출과 재분석 결과를 검증한다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `scripts/video_agent_e2e.py` | `--exercise-held-observation-followup` 옵션을 추가했다. `missing_info.questions`에서 품질 기준 보류 질문을 찾고, 안전한 테스트 답변을 제출한 뒤 `/api/v1/cases/:caseId/reanalyze` 응답의 `analysis_change_card` 생성 여부를 확인한다. |
+| `apps/worker/worker/frame_analysis.py` | `FRAME_ANALYSIS_FIXTURE_MODE=held_quality`를 추가했다. 낮은 confidence의 `turn_signal` 관찰값을 생성해 Agent에서 보류되고 Gateway 보완 질문으로 이어지는 경로를 비용 없이 검증한다. |
+| `apps/worker/tests/test_frame_analysis_contract.py` | `held_quality` fixture가 저신뢰 관찰값과 품질 요약을 반환하는지 검증한다. |
+| `docs/OPERATIONS.md` | 품질 보류 관찰값 보완 질문 E2E 실행 명령과 검증 항목을 문서화했다. |
+
+이 변경은 DB schema, Redis key, storage path, 외부 API 계약을 변경하지 않는다. 품질 보류 질문이 없는 결과에서 해당 옵션을 사용하면 의도적으로 실패한다.

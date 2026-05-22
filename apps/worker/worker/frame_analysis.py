@@ -212,6 +212,18 @@ def _fixture_observations(mode: str, frame_refs: list[str]) -> list[dict[str, An
                 "reason": "Fixture validates lane-change actor observations.",
             }
         ]
+    if mode == "held_quality":
+        return [
+            {
+                "field": "turn_signal",
+                "value": True,
+                "confidence": 0.42,
+                "source": "frame_analysis:fixture",
+                "detector": "fixture:held_quality",
+                "frame_refs": frame_refs,
+                "reason": "Fixture validates that low-confidence frame observations become user followup questions.",
+            }
+        ]
     return []
 
 

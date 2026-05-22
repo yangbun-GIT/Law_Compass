@@ -144,6 +144,15 @@ docker compose up -d --force-recreate worker
 python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeout-sec 240 --require-frame-observations --require-agent-video-facts
 ```
 
+품질 보류 관찰값이 보완 질문과 재분석으로 이어지는 흐름은 `held_quality` fixture로 비용 없이 확인할 수 있습니다.
+
+```powershell
+$env:ENABLE_OPENAI_FRAME_ANALYSIS="1"
+$env:FRAME_ANALYSIS_FIXTURE_MODE="held_quality"
+docker compose up -d --force-recreate worker
+python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeout-sec 240 --require-frame-observations --exercise-held-observation-followup
+```
+
 fixture 점검 후 기본 모드로 되돌리려면 아래처럼 worker를 재기동합니다.
 
 ```powershell
@@ -165,6 +174,12 @@ OpenAI 프레임 분석까지 실제 모델로 필수 검증하려면 `FRAME_ANA
 python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeout-sec 240 --require-frame-observations --require-agent-video-facts
 ```
 
+영상 관찰값이 품질 기준 때문에 보류된 경우, 그 보류 항목이 보완 질문으로 생성되고 재분석에 반영되는지까지 검증하려면 아래 옵션을 추가합니다. 이 옵션은 `missing_info.questions` 안에 품질 보류 질문이 없으면 실패합니다.
+
+```bash
+python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeout-sec 240 --exercise-held-observation-followup
+```
+
 검증 항목:
 - `/uploads/local` 로컬 영상 업로드
 - `/uploads/complete` 후 `video_preprocess` job 성공
@@ -173,6 +188,7 @@ python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeo
 - `agent_process_card`에 raw `agent_trace`, `reflection_loop`, `packet`, 내부 step id가 노출되지 않음
 - `--require-frame-observations` 사용 시 OpenAI 프레임 분석이 켜져 있고, 오류 없이 1개 이상의 관찰값을 반환함
 - `--require-agent-video-facts` 사용 시 Agent의 `video_input_contract`가 프레임 관찰값을 수용하고 `fact_arbitration`이 영상 기반 사실을 실제 적용함
+- `--exercise-held-observation-followup` 사용 시 품질 보류 영상 관찰값 질문에 답변을 제출하고, `/reanalyze` 응답에 `analysis_change_card`가 생성됨
 - E2E 출력의 `frame_analysis.observation_quality_summary`와 `agent_video_input.observation_quality_summary`에서 프레임 근거 누락, 단일 프레임 관찰값, Agent 승격/보류 수를 확인함
 
 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이면 프레임은 추출되지만 GPT 프레임 관찰값(`observations`)은 0개일 수 있습니다. 이 상태에서도 영상 전처리와 Agent 입력 계약 연결은 확인할 수 있습니다.

@@ -61,6 +61,25 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertFalse(result["enabled"])
         self.assertEqual(result["reason"], "OPENAI_API_KEY is empty")
 
+    def test_held_quality_fixture_returns_low_confidence_observation(self):
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = "held_quality"
+        frame_analysis.OPENAI_API_KEY = ""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frame_path = Path(tmp) / "frame_001.jpg"
+            frame_path.write_bytes(b"exists")
+            result = frame_analysis.analyze_frames_with_openai(
+                [{"path": str(frame_path), "time_sec": 0.5, "role": "early"}],
+                {"upload_id": "upload-held"},
+            )
+
+        self.assertTrue(result["enabled"])
+        self.assertEqual(result["model"], "fixture:held_quality")
+        self.assertEqual(result["observations"][0]["field"], "turn_signal")
+        self.assertEqual(result["observations"][0]["observation_quality"]["level"], "none")
+        self.assertEqual(result["observation_quality_summary"]["quality_counts"]["none"], 1)
+
     def test_gpt5_payload_uses_cost_controls_without_temperature(self):
         captured = {}
 
