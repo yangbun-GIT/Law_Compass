@@ -21,9 +21,14 @@
           <p class="eyebrow">검색순위 분류</p>
           <h3>원본 ranking 탭</h3>
         </div>
-        <button class="btn collect-btn" :disabled="collecting" @click="collectRanking">
-          {{ collecting ? '수집 중...' : '검색순위 수집/새로고침' }}
-        </button>
+        <div class="collect-actions">
+          <button class="btn collect-btn" :disabled="collecting" @click="collectRanking">
+            {{ collecting ? '수집 중...' : '검색순위 수집/새로고침' }}
+          </button>
+          <button v-if="canCollectDetails" class="btn secondary collect-btn" :disabled="collectingDetails" @click="collectRankingDetails">
+            {{ collectingDetails ? '상세 수집 중...' : '표시된 항목 상세 수집' }}
+          </button>
+        </div>
       </div>
 
       <AccidentPartyTypeTabs v-model="selectedParty" />
@@ -36,6 +41,7 @@
 
       <p v-if="message" class="notice success">{{ message }}</p>
       <p v-if="error" class="notice error">{{ error }}</p>
+      <p v-if="detailStatusText" class="kv detail-status">{{ detailStatusText }}</p>
     </article>
 
     <article class="card ranking-list-card">
@@ -69,6 +75,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { api, formatApiError } from '../api/client';
 import AccidentPartyTypeTabs from '../components/knia/AccidentPartyTypeTabs.vue';
 import KniaRankingCard from '../components/knia/KniaRankingCard.vue';
+import { useSessionStore } from '../stores/session';
 
 const tabs = [
   { value: 'all', label: '전체' },
@@ -78,15 +85,30 @@ const tabs = [
 ];
 
 const items = ref<any[]>([]);
+const detailSummary = ref<any>(null);
 const selectedParty = ref('all');
 const searchQuery = ref('');
 const loading = ref(false);
 const collecting = ref(false);
+const collectingDetails = ref(false);
 const error = ref('');
 const message = ref('');
+const session = useSessionStore();
 
 const selectedLabel = computed(() => tabs.find((x) => x.value === selectedParty.value)?.label ?? '전체');
 const isFiltered = computed(() => Boolean(searchQuery.value.trim()) || selectedParty.value !== 'all');
+const isAdmin = computed(() => session.user?.role === 'admin');
+const hasMissingDetails = computed(() => Number(detailSummary.value?.detail_missing_count || 0) > 0);
+const canCollectDetails = computed(() => isAdmin.value && items.value.length > 0 && hasMissingDetails.value);
+const detailStatusText = computed(() => {
+  if (!items.value.length || !detailSummary.value) return '';
+  const ready = Number(detailSummary.value.detail_ready_count || 0);
+  const total = Number(detailSummary.value.displayed_count || items.value.length);
+  const missing = Number(detailSummary.value.detail_missing_count || 0);
+  return missing
+    ? `표시된 ${total}건 중 상세 기준 ${ready}건 수집 완료, ${missing}건은 상세 본문 수집이 필요합니다.`
+    : `표시된 ${total}건의 상세 기준이 모두 준비되어 있습니다.`;
+});
 const emptyTitle = computed(() => isFiltered.value ? '검색 조건에 맞는 기준이 없습니다.' : '아직 수집된 검색순위가 없습니다.');
 const emptyDescription = computed(() =>
   isFiltered.value
@@ -104,6 +126,18 @@ function describeCollectResult(result: any) {
     : '수집은 완료되었지만 저장된 검색순위가 없습니다. 잠시 후 다시 시도해 주세요.';
 }
 
+function describeDetailCollectResult(result: any) {
+  const detail = result?.result ?? result;
+  const collected = Number(detail?.collected_count ?? 0);
+  const target = Number(detail?.target_count ?? 0);
+  const failed = Array.isArray(detail?.failed) ? detail.failed.length : 0;
+  if (collected > 0) {
+    return `상세 기준 ${collected}건을 수집했습니다${target ? ` (대상 ${target}건)` : ''}${failed ? `, 실패 ${failed}건` : ''}.`;
+  }
+  if (target === 0) return '현재 표시 범위에서 추가로 수집할 상세 기준이 없습니다.';
+  return failed ? `상세 기준 수집에 실패한 항목이 ${failed}건 있습니다.` : '상세 기준 수집 결과가 없습니다.';
+}
+
 async function load(options: { preserveMessage?: boolean } = {}) {
   loading.value = true;
   error.value = '';
@@ -111,6 +145,7 @@ async function load(options: { preserveMessage?: boolean } = {}) {
   try {
     const data = await api.getKniaRanking(20, selectedParty.value, searchQuery.value.trim());
     items.value = data.items || [];
+    detailSummary.value = data.detail_summary || null;
   } catch (err: any) {
     error.value = formatApiError(err, '검색순위를 불러오지 못했습니다.');
   } finally {
@@ -133,6 +168,22 @@ async function collectRanking() {
     error.value = formatApiError(err, '검색순위 수집에 실패했습니다.');
   } finally {
     collecting.value = false;
+  }
+}
+
+async function collectRankingDetails() {
+  if (!items.value.length) return;
+  collectingDetails.value = true;
+  error.value = '';
+  message.value = '';
+  try {
+    const result = await api.adminCollectKniaRankingDetails({ limit: Math.min(items.value.length, 20), force: false });
+    message.value = describeDetailCollectResult(result);
+    await load({ preserveMessage: true });
+  } catch (err: any) {
+    error.value = formatApiError(err, '상세 기준 수집에 실패했습니다.');
+  } finally {
+    collectingDetails.value = false;
   }
 }
 
@@ -160,9 +211,11 @@ onMounted(load);
 .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
 .section-heading h3 { margin: 0; font-size: 1.35rem; }
 .section-heading.compact { margin-bottom: 12px; }
+.collect-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
 .ranking-search-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; }
 .ranking-search-row input { min-height: 46px; }
 .collect-btn { min-width: 190px; }
+.detail-status { margin: 0; }
 .notice { padding: 12px 14px; border-radius: 16px; font-weight: 700; }
 .notice.success { background: rgba(53, 211, 154, 0.13); border: 1px solid rgba(53, 211, 154, 0.35); color: #9ff5d4; }
 .notice.error { background: rgba(255, 112, 132, 0.13); border: 1px solid rgba(255, 112, 132, 0.35); color: #ffb7c3; white-space: pre-line; }
@@ -173,6 +226,7 @@ onMounted(load);
 .loading-text, .attribution { margin-top: 12px; }
 @media (max-width: 720px) {
   .ranking-hero, .section-heading { display: grid; }
+  .collect-actions { justify-content: stretch; }
   .ranking-search-row { grid-template-columns: 1fr; }
   .source-link, .collect-btn { width: 100%; justify-content: center; }
   .ranking-table-head { display: none; }

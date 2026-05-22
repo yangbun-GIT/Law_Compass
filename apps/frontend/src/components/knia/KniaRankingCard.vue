@@ -5,6 +5,9 @@
     <div class="title-col">
       <RouterLink class="ranking-title" :to="localUrl">{{ text(item.title) }}</RouterLink>
       <span class="source-category">{{ text(item.source_category || '전체') }} 검색순위</span>
+      <span class="detail-chip" :class="{ ready: item.has_detail }">
+        {{ item.has_detail ? '상세 수집 완료' : '상세 수집 필요' }}
+      </span>
     </div>
     <div class="count-col">
       <span class="meta-label">검색건수</span>
@@ -82,6 +85,20 @@ function formatPercent(value: unknown) {
 .ranking-title { color: #f3f7ff; font-weight: 850; text-decoration: none; line-height: 1.35; }
 .ranking-title:hover, .chart-badge:hover { color: #ffffff; }
 .source-category, .meta-label { color: #8fa3bd; font-size: 0.78rem; }
+.detail-chip {
+  align-self: start;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 999px;
+  color: #fde68a;
+  font-size: 0.76rem;
+  font-weight: 900;
+  justify-self: start;
+  padding: 4px 8px;
+}
+.detail-chip.ready {
+  border-color: rgba(53, 211, 154, 0.35);
+  color: #9ff5d4;
+}
 .count-col, .percent-col { display: grid; gap: 3px; }
 .count-col strong, .percent-col strong { color: #f3f7ff; white-space: nowrap; }
 .actions-col { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }

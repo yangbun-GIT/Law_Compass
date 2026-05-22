@@ -15,6 +15,19 @@ function cleanKniaPublicText(value: any, fallback: string) {
   return text;
 }
 
+function summarizeRankingDetailStatus(rows: any[]) {
+  const total = rows.length;
+  const detailReady = rows.filter((row: any) => !!row.has_detail).length;
+  const missing = Math.max(total - detailReady, 0);
+  return {
+    displayed_count: total,
+    detail_ready_count: detailReady,
+    detail_missing_count: missing,
+    detail_ready_ratio: total ? Math.round((detailReady / total) * 100) : 0,
+    needs_detail_collection: missing > 0,
+  };
+}
+
 export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions) {
   const { env, db, errorPayload } = opts;
 
@@ -74,8 +87,7 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
        LIMIT $${params.length}`,
       params,
     );
-    return reply.send({
-      items: rows.rows.map((row: any) => ({
+    const items = rows.rows.map((row: any) => ({
         rank: Number(row.rank),
         rank_no: Number(row.rank),
         chart_no: row.chart_no,
@@ -96,8 +108,11 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
         adjustment_factor_count: Number(row.adjustment_factor_count ?? 0),
         reference_section_count: Number(row.reference_section_count ?? 0),
         collected_at: row.collected_at,
-      })),
+      }));
+    return reply.send({
+      items,
       categories,
+      detail_summary: summarizeRankingDetailStatus(rows.rows),
       trace_id: traceId,
       empty_message: rows.rowCount === 0 ? "\uC544\uC9C1 \uC218\uC9D1\uB41C \uAC80\uC0C9\uC21C\uC704\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uAD00\uB9AC\uC790 \uC218\uC9D1\uC744 \uBA3C\uC800 \uC2E4\uD589\uD558\uC138\uC694." : undefined,
     });
