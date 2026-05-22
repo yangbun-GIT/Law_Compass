@@ -107,6 +107,23 @@
 
 비용 없는 실제 영상 E2E 기준 `car_accident_1.mp4`는 `duration=11.167s`, 대표 프레임 12장, `frame_observations=0`, `video_fact_card.status_label=확정 사실 없음`으로 통과했다. 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
 
+### OpenAI 프레임 분석 표시 상태 회귀 보강
+
+실제 OpenAI 프레임 분석이 켜졌을 때 결과 화면의 영상 카드가 관찰값 상태에 따라 일관되게 동작하는지 샘플별 회귀 테스트를 넓혔다. 실제 API를 매번 호출하지 않고 `frame_analysis:openai` 형태의 대표 payload를 고정해, 비용 없이 네 상태를 반복 검증한다.
+
+| 상태 | 표시 기대값 |
+| --- | --- |
+| 관찰값 0개 | 대표 프레임은 표시하고 품질 상태는 `확정 사실 없음`으로 표시한다. |
+| 보류 | 영상 관찰 후보는 표시하되 판단 반영은 0개이며, 보완 질문 field가 생성된다. |
+| 충돌 | 사용자 입력과 영상 관찰의 차이를 `입력 충돌 검토`로 표시하고, 최종 반영 대신 확인 질문으로 연결한다. |
+| 반영 | 품질 기준을 통과한 영상 관찰값을 `판단 반영`으로 표시한다. |
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/test/report-composer.test.ts` | `frame_analysis:openai` source를 가진 0개/보류/충돌/반영 샘플을 하나의 회귀 테스트로 고정했다. 각 샘플은 `영상 관찰 후보`, `판단 반영`, `입력 충돌 검토`, `확인 필요`, `품질 상태` 통계를 검증하고, 사용자 카드에 `frame_analysis:openai`, `video_input_contract`, `fact_arbitration`, `frame_refs`, raw value가 노출되지 않는지 확인한다. |
+
+이 변경은 테스트 coverage 확장만 수행하며 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
+
 ## 2026-05-23 easy-report 사용자 흐름 및 payload 표시 정합성 보정
 
 Agent 결과 payload가 사용자 화면에서 카드별로 중복되거나 과도한 경고처럼 보이지 않도록 easy-report 표시 계약을 정리했다. 보완 질문은 `missing_info.questions`의 선택형 입력으로만 강조하고, 동일 문장은 `missing_info.items` 체크리스트에서 제거해 한 화면 안에서 같은 질문이 반복되지 않도록 했다. 근거 연결, 영상 관찰, Agent 처리 과정, 재분석 비교 카드의 안내 문구는 최종 판정 경고를 반복하지 않고 각 카드가 보여주는 상태 설명으로 낮췄다.

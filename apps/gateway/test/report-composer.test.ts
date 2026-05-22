@@ -383,6 +383,153 @@ describe("report composer", () => {
     expect((enriched as any).video_fact_explanation_card.quality_summary.status_label).toBe("확인 필요");
   });
 
+  it("keeps OpenAI frame-analysis display states consistent across zero, held, conflict, and applied samples", () => {
+    const samples = [
+      {
+        name: "zero",
+        result: {
+          video_input_contract: {
+            version: "agent-video-input-contract-v1",
+            technical_metadata: { representative_frame_count: 12 },
+            accepted_observations: [],
+            uncertain_observations: [],
+            ignored_observations: [],
+            observation_quality_summary: { accepted_count: 0, uncertain_count: 0, ignored_count: 0, uncertain_reasons: {} },
+          },
+        },
+        expected: { status: "확정 사실 없음", observed: "0개", applied: "0개", conflicts: "0개", held: "0개" },
+      },
+      {
+        name: "held",
+        result: {
+          video_input_contract: {
+            version: "agent-video-input-contract-v1",
+            technical_metadata: { representative_frame_count: 6 },
+            accepted_observations: [],
+            uncertain_observations: [
+              {
+                field: "stopped",
+                value: false,
+                confidence: 0.81,
+                source: "frame_analysis:openai",
+                frame_refs: ["frame_001.jpg", "frame_003.jpg", "frame_005.jpg"],
+                reason: "confidence_below_field_threshold",
+              },
+            ],
+            ignored_observations: [],
+            observation_quality_summary: {
+              accepted_count: 0,
+              uncertain_count: 1,
+              ignored_count: 0,
+              uncertain_reasons: { confidence_below_field_threshold: 1 },
+            },
+          },
+        },
+        expected: { status: "확인 필요", observed: "1개", applied: "0개", conflicts: "0개", held: "1개" },
+        questionField: "stopped",
+      },
+      {
+        name: "conflict",
+        result: {
+          video_input_contract: {
+            version: "agent-video-input-contract-v1",
+            technical_metadata: { representative_frame_count: 6 },
+            accepted_observations: [
+              {
+                field: "stopped",
+                value: false,
+                confidence: 0.93,
+                source: "frame_analysis:openai",
+                frame_refs: ["frame_001.jpg", "frame_003.jpg", "frame_005.jpg"],
+              },
+            ],
+            uncertain_observations: [],
+            ignored_observations: [],
+            fact_patch: { stopped: false },
+            observation_quality_summary: {
+              accepted_count: 1,
+              uncertain_count: 0,
+              ignored_count: 0,
+              uncertain_reasons: {},
+              accepted_multi_frame_count: 1,
+            },
+          },
+          fact_arbitration: {
+            applied_video_fields: [],
+            conflicts: [
+              {
+                field: "stopped",
+                user_value: true,
+                video_value: false,
+                winner: "user",
+                video_confidence: 0.93,
+                frame_refs: ["frame_001.jpg", "frame_003.jpg", "frame_005.jpg"],
+              },
+            ],
+          },
+        },
+        expected: { status: "반영 가능", observed: "1개", applied: "0개", conflicts: "1개", held: "0개" },
+        questionField: "stopped",
+      },
+      {
+        name: "applied",
+        result: {
+          video_input_contract: {
+            version: "agent-video-input-contract-v1",
+            technical_metadata: { representative_frame_count: 6 },
+            accepted_observations: [
+              {
+                field: "lane_change_actor",
+                value: "opponent",
+                confidence: 0.91,
+                source: "frame_analysis:openai",
+                frame_refs: ["frame_002.jpg", "frame_004.jpg"],
+              },
+            ],
+            uncertain_observations: [],
+            ignored_observations: [],
+            fact_patch: { lane_change_actor: "opponent" },
+            observation_quality_summary: {
+              accepted_count: 1,
+              uncertain_count: 0,
+              ignored_count: 0,
+              uncertain_reasons: {},
+              accepted_multi_frame_count: 1,
+            },
+          },
+          fact_arbitration: {
+            applied_video_fields: ["lane_change_actor"],
+            conflicts: [],
+          },
+        },
+        expected: { status: "반영 가능", observed: "1개", applied: "1개", conflicts: "0개", held: "0개" },
+      },
+    ];
+
+    for (const sample of samples) {
+      const enriched = enrichEasyReport(sanitizeEasyReport({ headline: sample.name }), sample.result);
+      const card = (enriched as any).video_fact_explanation_card;
+      const statMap = Object.fromEntries((card.stats || []).map((item: any) => [item.label, item.value]));
+      expect(card.title).toBe("영상 기반 사실 반영");
+      expect(card.quality_summary.status_label).toBe(sample.expected.status);
+      expect(statMap["영상 관찰 후보"]).toBe(sample.expected.observed);
+      expect(statMap["판단 반영"]).toBe(sample.expected.applied);
+      expect(statMap["입력 충돌 검토"]).toBe(sample.expected.conflicts);
+      expect(statMap["확인 필요"]).toBe(sample.expected.held);
+      expect(statMap["품질 상태"]).toBe(sample.expected.status);
+      if (sample.questionField) {
+        expect((enriched as any).missing_info.questions.some((item: any) => item.field === sample.questionField)).toBe(true);
+      }
+      const text = JSON.stringify(card);
+      expect(text).not.toContain("frame_analysis:openai");
+      expect(text).not.toContain("video_input_contract");
+      expect(text).not.toContain("fact_arbitration");
+      expect(text).not.toContain("frame_refs");
+      expect(text).not.toContain("user_value");
+      expect(text).not.toContain("video_value");
+    }
+  });
+
   it("summarizes reanalysis changes without exposing judgment internals", () => {
     const card = composeReanalysisChangeCard(
       {
