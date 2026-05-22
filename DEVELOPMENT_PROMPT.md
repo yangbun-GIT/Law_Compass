@@ -295,6 +295,7 @@
 - [ ] 변경 후 실행할 검증 명령을 정했다.
 - [ ] 구조/API/DB/환경변수/외부 연동이 바뀌면 `SYSTEM_OVERVIEW.md` 업데이트가 필요한지 판단했다.
 - [ ] 개발 원칙이나 작업 방식이 바뀌면 `DEVELOPMENT_PROMPT.md` 업데이트가 필요한지 판단했다.
+- [ ] Agent 판단, 도구 호출, 영상 관찰값, LLM 사용, 근거 검색을 바꾸는 작업이면 아래 Agentic Design 적용 기준을 확인했다.
 - [ ] 작업 종료 시 커밋/푸시가 가능한 상태인지 확인했다.
 
 ## 현재 프로젝트에서 특히 주의할 점
@@ -364,3 +365,41 @@ The lecture reference on AI Agent architecture highlights production Agent quali
 - When an observation or evidence check fails, treat the error or insufficiency as an explicit observation for recovery instead of silently continuing to a final-looking answer.
 - Reflection/reverification should be bounded: retry or request missing input only within a small, documented loop and then mark the result as reference-only when still unresolved.
 - Multi-agent expansion is deferred until the current specialist modules have clear input/output contracts, trace visibility, and regression coverage.
+
+## 2026-05-22 Updated Agentic Design Application Rule
+
+The updated Agentic Design Pattern lecture reinforces that the project should preserve the strengths already implemented in LawCompass while adding missing production controls before broad Agent feature work.
+
+### Preserve In Future Development
+
+- Keep LawCompass as a controlled domain-specific Agent pipeline unless the user explicitly asks for a broader autonomous runtime. Traffic accident liability, KNIA matching, legal evidence, and user-facing conclusions should remain evidence-bound and deterministic-first.
+- Preserve the current service boundary: Frontend displays and collects state, Gateway owns public API/session/report shaping, Agent owns judgment/RAG/reflection, Worker owns video preprocessing and frame observations, DB migrations own schema changes.
+- Preserve Agent stage separation. `orchestrator.py` should remain stage sequencing; normalization, fact arbitration, evidence retrieval, analyst execution, reflection, judgment contract, output enrichment, and display sanitization should stay individually testable.
+- Preserve the existing safe trace approach. Raw user text, prompt content, evidence snippets, secrets, tokens, and internal packet ids should not be exposed in public reports.
+- Preserve bounded recovery. If evidence, required facts, KNIA basis, or claim support is insufficient, the system should request missing input, retry within a bounded loop, or mark the result as reference-only instead of presenting a final-looking judgment.
+- Preserve LLM authority limits. LLM calls may summarize or explain verified material, but fault ratio numbers, KNIA chart matching, legal evidence existence, and finality status must come from deterministic logic and retrieved evidence.
+- Preserve the video/user fact arbitration policy. Video observations may strengthen missing physical facts, but conflicts with user input require quality gates, confirmation, or manual review.
+- Preserve local-only developer diagnostic pages unless the user explicitly approves publishing them.
+
+### Apply Before Broad Agent Feature Work
+
+When a task touches Agent judgment, evidence retrieval, video facts, LLM/tool use, or internal Agent diagnostics, handle or explicitly account for these items before moving to broad feature work:
+
+- Agent evaluation report: keep or add a repeatable report that summarizes representative scenario pass/fail, evidence coverage, judgment finality/reference-only status, OpenAI usage, and latency. It does not need a UI dashboard initially.
+- Failure-as-observation: OpenAI/API/JSON parsing/tool/retrieval failures should be recorded as safe metadata in trace, reflection, or diagnostic output rather than silently disappearing into fallback behavior.
+- Minimum cost metadata: LLM or vision calls should record safe metadata such as model name, enabled/disabled state, frame count, output cap, token usage when available, estimated-cost readiness, and cap/fallback reason. Do not record API keys or raw prompts.
+- Agent packet contract: new Agent stages should fit a clear packet shape such as input/context packet, video observation packet, evidence packet, judgment packet, reflection packet, and presentation packet.
+- Prompt-injection and unsafe-input regression: add or preserve tests proving that user text cannot override system policy, tool authority, finality rules, internal tokens, evidence requirements, or display sanitization.
+- Tool input validation: new internal tools should use explicit input schemas, preferably Pydantic or equivalent validation, and validation errors should become safe observations.
+
+### Defer Until Needed
+
+These items are useful but should not block current MVP development unless the user asks for them or the existing controlled pipeline becomes insufficient:
+
+- Full ReAct execution engine with open-ended `LLM -> tool_call -> observation -> LLM` loops.
+- Explicit Plan-and-Solve plan objects for every request. Use them when accident workflows become dynamic enough that fixed stage sequencing is insufficient.
+- Standard MCP Host/Client/Server adoption. The current internal registry is acceptable until tool count, cross-host reuse, or isolation requirements justify standard MCP.
+- Human-in-the-loop approval workflow for final reports. Keep reference-only and follow-up question flows first; add approval when the product needs reviewed final analyses.
+- Streaming or realtime Agent status UI. Add when analysis latency or user experience requires visible progress.
+- Full token/cost dashboard. Keep minimal call metadata first; build dashboards when OpenAI usage is routinely enabled or billed per user.
+- LLM-as-Judge evaluation. Prefer deterministic, evidence-based regression first; use LLM-as-Judge only as a secondary qualitative signal.
