@@ -215,6 +215,29 @@ def missing_questions(report: dict) -> list[dict]:
     return [item for item in questions if isinstance(item, dict) and item.get("field")]
 
 
+def assert_missing_info_priority(report: dict):
+    questions = missing_questions(report)
+    if not questions:
+        return None
+    missing = report.get("missing_info") if isinstance(report.get("missing_info"), dict) else {}
+    priority_items = missing.get("priority_items") if isinstance(missing.get("priority_items"), list) else []
+    if not priority_items:
+        raise E2EError("missing_info has questions but no priority_items")
+    top = priority_items[0] if isinstance(priority_items[0], dict) else {}
+    if not top.get("label") and not top.get("question"):
+        raise E2EError("missing_info priority item has no user-safe label or question")
+    text = json.dumps(priority_items, ensure_ascii=False)
+    for question in questions:
+        raw_field = str(question.get("field") or "")
+        if raw_field and raw_field in text:
+            raise E2EError("missing_info priority item exposed raw field names")
+    return {
+        "top_label": top.get("label"),
+        "top_priority": top.get("priority_label"),
+        "priority_count": len(priority_items),
+    }
+
+
 def choose_quality_followup_question(report: dict) -> dict | None:
     for question in missing_questions(report):
         text = f"{question.get('question') or ''} {question.get('label') or ''}"
@@ -341,6 +364,7 @@ def main():
     jobs = wait_for_video_pipeline(args.base_url, case_id, token, args.timeout_sec)
     report = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/easy-report", token=token)
     card = assert_agent_process_card(report)
+    priority_summary = assert_missing_info_priority(report)
     debug_report = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/report?debug=1", token=token).get("debug", {})
     uploads = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/uploads", token=token).get("items", [])
     upload = next((item for item in uploads if item.get("id") == upload_id), {})
@@ -368,6 +392,8 @@ def main():
     }
     if followup_summary:
         output["held_observation_followup"] = followup_summary
+    if priority_summary:
+        output["missing_info_priority"] = priority_summary
     print(json.dumps(output, ensure_ascii=False, indent=2))
 
 

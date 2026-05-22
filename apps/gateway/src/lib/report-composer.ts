@@ -665,7 +665,7 @@ function videoFactQuestionOptions(field: string, observedValue: any) {
 }
 
 function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []) {
-  if (!questions.length) return report;
+  if (!questions.length) return prioritizeMissingInfo(report);
   const missing = report.missing_info && typeof report.missing_info === "object" ? report.missing_info : {};
   const existingQuestions = asArray(missing.questions);
   const existingFields = new Set(existingQuestions.map((item: AnyRecord) => String(item?.field ?? "")).filter(Boolean));
@@ -677,7 +677,7 @@ function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []
     ...asArray(missing.items).map((item) => cleanText(item, "")),
     ...questions.map((item) => cleanText(item.question, "")),
   ]).filter(Boolean).slice(0, 8);
-  return {
+  return prioritizeMissingInfo({
     ...report,
     missing_info: {
       ...missing,
@@ -685,7 +685,107 @@ function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []
       items: nextItems,
       questions: nextQuestions,
     },
+  });
+}
+
+function prioritizeMissingInfo(report: AnyRecord = {}) {
+  const missing = report.missing_info && typeof report.missing_info === "object" ? report.missing_info : undefined;
+  if (!missing) return report;
+  const questions = asArray(missing.questions)
+    .map((item, index) => annotateMissingInfoQuestion(item, index))
+    .filter(Boolean)
+    .sort((a: AnyRecord, b: AnyRecord) => toNumber(a.priority_order, 999) - toNumber(b.priority_order, 999))
+    .slice(0, 8)
+    .map(({ priority_order: _priorityOrder, ...item }) => item);
+  if (!questions.length) return report;
+  const priorityItems = questions.slice(0, 3).map((item: AnyRecord) => ({
+    label: item.label,
+    question: item.question,
+    priority_label: item.priority_label,
+    reason: item.priority_reason,
+  }));
+  const top = priorityItems[0];
+  return {
+    ...report,
+    missing_info: {
+      ...missing,
+      questions,
+      priority_items: priorityItems,
+      next_focus: top,
+      guidance: top
+        ? `${top.label}부터 확인하면 다음 재분석에서 판단 근거를 가장 먼저 보강할 수 있습니다.`
+        : cleanText(missing.guidance, ""),
+    },
   };
+}
+
+function annotateMissingInfoQuestion(value: any, index = 0) {
+  if (!value || typeof value !== "object") return undefined;
+  const field = String(value.field ?? "");
+  if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
+  const label = cleanText(value.label ?? videoFactLabel(field) ?? field, "");
+  const question = cleanText(value.question ?? label, "");
+  if (!question) return undefined;
+  const priority = missingInfoQuestionPriority(field);
+  return {
+    ...value,
+    field,
+    label,
+    question,
+    priority_label: missingInfoPriorityLabel(priority),
+    priority_reason: missingInfoPriorityReason(field),
+    priority_order: priority * 100 + index,
+  };
+}
+
+function missingInfoQuestionPriority(field: string) {
+  const order: AnyRecord = {
+    accident_type: 1,
+    stopped: 2,
+    opponent_behavior: 3,
+    lane_change_actor: 4,
+    opponent_signal_violation: 5,
+    user_signal: 6,
+    opponent_signal: 7,
+    signal_state: 8,
+    crosswalk_nearby: 9,
+    school_zone: 10,
+    injury: 11,
+    damage_level: 12,
+    sudden_brake: 13,
+    turn_signal: 14,
+    pedestrian_signal: 15,
+    victim_is_child: 16,
+    bicycle_location: 17,
+    bicycle_direction: 18,
+  };
+  return toNumber(order[field], 99);
+}
+
+function missingInfoPriorityLabel(priority: number) {
+  if (priority <= 5) return "우선 확인";
+  if (priority <= 12) return "중요";
+  return "추가 확인";
+}
+
+function missingInfoPriorityReason(field: string) {
+  const labels: AnyRecord = {
+    accident_type: "사고 유형이 정해져야 적용할 KNIA 기준과 법률 근거를 좁힐 수 있습니다.",
+    stopped: "정차 여부는 후방 추돌과 급정거 쟁점의 출발점입니다.",
+    opponent_behavior: "상대 차량 행동은 과실비율 후보를 고르는 핵심 사실입니다.",
+    lane_change_actor: "차선변경 주체는 차선변경 사고의 책임 방향을 가릅니다.",
+    opponent_signal_violation: "신호위반은 과실과 형사 리스크 판단에 직접 영향을 줍니다.",
+    user_signal: "내 차량 신호는 신호위반 여부와 책임 판단의 기준입니다.",
+    opponent_signal: "상대 차량 신호는 신호위반 여부를 확인하는 기준입니다.",
+    signal_state: "신호 상태는 교차로 사고 판단의 기본 조건입니다.",
+    crosswalk_nearby: "횡단보도 주변 여부는 보행자 보호 의무 판단에 필요합니다.",
+    school_zone: "어린이보호구역 여부는 법적 위험과 처리 절차에 영향을 줍니다.",
+    injury: "인명피해 여부는 신고, 보험 처리, 법적 리스크 판단에 필요합니다.",
+    damage_level: "파손 정도는 보험 처리와 후속 자료 준비에 영향을 줍니다.",
+    sudden_brake: "급정거 여부는 정차/후방 추돌 사고에서 예외 사유가 될 수 있습니다.",
+    turn_signal: "방향지시등 사용 여부는 차선변경 사고의 보조 판단 요소입니다.",
+  };
+  return labels[field] ?? "답변하면 재분석에서 불확실한 입력을 줄일 수 있습니다.";
 }
 
 function videoFactLabel(field: string) {
@@ -753,7 +853,7 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
     composeVideoConflictQuestions(result),
     composeVideoQualityQuestions(result),
   );
-  const mergedReport = mergeVideoQuestions(report, videoQuestions);
+  const mergedReport = prioritizeMissingInfo(mergeVideoQuestions(report, videoQuestions));
   return {
     ...mergedReport,
     ...(card ? { evidence_reliability_card: card } : {}),
@@ -921,6 +1021,15 @@ function sanitizeValue(value: any): any {
         out[key] = nested.map(sanitizeInputQuestion).filter(Boolean);
         continue;
       }
+      if (key === "priority_items" && Array.isArray(nested)) {
+        out[key] = nested.map(sanitizePriorityItem).filter(Boolean).slice(0, 3);
+        continue;
+      }
+      if (key === "next_focus" && nested && typeof nested === "object") {
+        const safe = sanitizePriorityItem(nested);
+        if (safe) out[key] = safe;
+        continue;
+      }
       const safe = sanitizeValue(nested);
       if (safe !== undefined) out[key] = safe;
     }
@@ -939,6 +1048,20 @@ function sanitizeInputQuestion(value: any) {
     question,
     input_type: String(value.input_type ?? "text"),
     options: asArray(value.options).map((option) => cleanText(option, "")).filter(Boolean).slice(0, 8),
+    priority_label: cleanText(value.priority_label, ""),
+    priority_reason: cleanText(value.priority_reason, ""),
+  };
+}
+function sanitizePriorityItem(value: any) {
+  if (!value || typeof value !== "object") return undefined;
+  const label = cleanText(value.label, "");
+  const question = cleanText(value.question, "");
+  if (!label && !question) return undefined;
+  return {
+    label,
+    question,
+    priority_label: cleanText(value.priority_label, ""),
+    reason: cleanText(value.reason ?? value.priority_reason, ""),
   };
 }
 export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord = {}) {

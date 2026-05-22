@@ -52,6 +52,28 @@ describe("report composer", () => {
     expect(JSON.stringify(report)).not.toContain("blocking_fields");
   });
 
+  it("prioritizes remaining missing-info questions for the next user action", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({
+      headline: "report",
+      missing_info: {
+        title: "더 정확한 분석을 위해 필요한 정보",
+        questions: [
+          { field: "turn_signal", label: "방향지시등 사용", question: "방향지시등을 켰나요?", options: ["켰음", "켜지 않음"] },
+          { field: "stopped", label: "정차 여부", question: "정차 중이었나요?", options: ["정차 중", "주행 중"] },
+          { field: "unknown_internal_field", label: "internal", question: "raw?" },
+          { field: "injury", label: "인명피해 여부", question: "다친 사람이 있나요?", options: ["없음", "있음"] },
+        ],
+      },
+    }), {});
+
+    const questions = (enriched as any).missing_info.questions;
+    expect(questions.map((item: any) => item.field)).toEqual(["stopped", "injury", "turn_signal"]);
+    expect(questions[0].priority_label).toBe("우선 확인");
+    expect((enriched as any).missing_info.next_focus.label).toBe("정차 여부");
+    expect((enriched as any).missing_info.priority_items[0].reason).toContain("후방 추돌");
+    expect(JSON.stringify(enriched)).not.toContain("unknown_internal_field");
+  });
+
   it("adds a user-safe agent process card without raw trace packets", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
       agent_trace: {
@@ -202,6 +224,8 @@ describe("report composer", () => {
 
     const fields = (enriched as any).missing_info.questions.map((item: any) => item.field);
     expect(fields.slice(0, 3)).toEqual(["stopped", "lane_change_actor", "turn_signal"]);
+    expect((enriched as any).missing_info.priority_items[0].label).toBe("정차 여부");
+    expect((enriched as any).missing_info.priority_items[0].priority_label).toBe("우선 확인");
     expect((enriched as any).video_fact_explanation_card.quality_summary.status_label).toBe("확인 필요");
   });
 

@@ -42,6 +42,19 @@
 
 이 변경은 공개 easy-report payload의 표시용 필드를 추가하지만 DB schema, Redis key, storage path, API route, 외부 API 계약은 변경하지 않는다.
 
+## 2026-05-23 남은 보완 질문 우선순위 표시
+
+재분석 후에도 질문이 남아 있을 때 사용자가 무엇을 먼저 확인해야 하는지 알 수 있도록 `missing_info` 표시 계약을 보강했다. 질문은 사고 유형, 정차 여부, 상대 행동, 차선변경 주체, 신호위반처럼 과실 판단에 직접 영향을 주는 항목을 우선하고, 각 질문에는 사용자용 우선순위 라벨과 이유를 붙인다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | `missing_info.questions`를 사용자 흐름 기준으로 정렬하고 `priority_label`, `priority_reason`, `priority_items`, `next_focus`, `guidance`를 생성한다. 지원하지 않는 raw field는 우선순위 목록에서 제외한다. |
+| `apps/frontend/src/components/easy/MissingInfoCard.vue` | 보완 질문 카드 상단에 “먼저 확인할 항목”과 상위 질문 1~3개의 우선순위 사유를 표시한다. 각 질문 아래에도 우선순위 사유를 함께 보여준다. |
+| `apps/gateway/test/report-composer.test.ts` | 일반 보완 질문과 영상 보류 관찰값 질문이 우선순위대로 정렬되고 내부 field가 노출되지 않는지 검증한다. |
+| `scripts/video_agent_e2e.py` | E2E에서 보완 질문이 있는 easy-report에 `priority_items`가 존재하고 raw field명이 노출되지 않는지 확인한다. |
+
+이 변경은 공개 easy-report payload의 표시용 필드를 추가하지만 DB schema, Redis key, storage path, API route, 외부 API 계약은 변경하지 않는다.
+
 ## 2026-05-22 영상 프레임 관찰값 품질 보정
 
 실제 사고 영상 기반 프레임 분석의 다음 안정화 단계로, OpenAI/fixture 관찰값이 Agent 사실로 승격되기 전 품질 기준을 명확히 했다. 짧은 사고 영상은 유효 프레임 수가 제한적이므로 단일 프레임 관찰값도 보강 입력으로 사용할 수 있지만, 프레임 참조가 없는 관찰값이나 신호위반/스쿨존/횡단보도처럼 오판 위험이 큰 필드는 더 엄격하게 보류한다.
