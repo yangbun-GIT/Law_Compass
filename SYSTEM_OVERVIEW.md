@@ -816,3 +816,24 @@ Agent의 `input_requirements` 계약을 실제 사용자 흐름에 연결하기 
 | `apps/gateway/test/report-composer.test.ts` | sanitize 후에도 사용자용 질문 field가 유지되고 내부 입력 계약 원문은 노출되지 않는지 검증한다. |
 
 현재 보완 답변은 결과 화면에서 새 분석을 생성하는 흐름까지 연결되어 있다. 다음 단계에서는 재분석 후 `agent_judgment`와 근거 coverage가 실제로 개선됐는지 사용자에게 전후 비교로 보여주는 UX를 추가할 수 있다.
+
+## 2026-05-22 SRP Refactor Baseline
+
+This section records the first SRP cleanup pass so future changes can compare module boundaries against this baseline.
+
+| Path | Responsibility after this pass |
+| --- | --- |
+| `apps/worker/worker/main.py` | Redis Stream job orchestration, upload row loading, DB status/result updates, and Agent submission coordination. Video probing/frame extraction and OpenAI frame observation logic were moved out. |
+| `apps/worker/worker/video_preprocess.py` | Owns `worker-video-preprocess-v1`, ffprobe video metadata probing, event frame time selection, ffmpeg frame extraction, and extracted frame descriptors. |
+| `apps/worker/worker/frame_analysis.py` | Owns optional OpenAI image/frame observation calls, frame selection for cost control, response JSON parsing, and observation normalization. |
+| `apps/gateway/src/config/env.ts` | Owns Gateway runtime environment defaults and cookie secure mode. |
+| `apps/gateway/src/lib/request-guards.ts` | Owns route key generation plus user/admin request guard behavior. |
+| `apps/frontend/tsconfig.json` | Sets `noEmit` so TypeScript source remains the only frontend source of truth under `apps/frontend/src`. |
+
+Remaining SRP debt to handle in later iterations:
+
+- `apps/gateway/src/main.ts` is still a large composition root with many API routes and DB queries. Split routes by domain next: auth/session, cases/uploads, analysis/report, KNIA/admin, legal/admin.
+- `apps/agent/app/services/orchestrator.py` should continue moving stage-specific logic into normalizer, classifier, retriever, auditor, judgment, and report modules.
+- `apps/agent/app/routers/internal.py` should stay thin; request validation and service calls should be delegated.
+- `apps/frontend/src/views/CaseDetailView.vue` should be reduced into composables/components for upload, preprocessing status, analysis execution, and report navigation.
+- KNIA parser/repository files are functionally cohesive but large; split only when adding new KNIA collection or persistence behavior.

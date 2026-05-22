@@ -15,29 +15,10 @@ import { normalizeFollowupAnswers } from "./lib/followup-normalizer.js";
 import { maskSensitive, sha256 } from "./lib/security.js";
 import { errorPayload, requestErrorPayload, validationErrorPayload } from "./lib/errors.js";
 import { selectVideoAiRoute } from "./lib/ai-router.js";
+import { env, cookieSecure } from "./config/env.js";
+import { routeKey, requireUser, requireAdmin as requireAdminGuard } from "./lib/request-guards.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { LocalStorageProvider } from "./storage/provider.js";
-
-const env = {
-  port: Number(process.env.PORT ?? 3000),
-  apiPrefix: process.env.API_PREFIX ?? "/api/v1",
-  dbUrl: process.env.DATABASE_URL ?? "",
-  redisUrl: process.env.REDIS_URL ?? "",
-  jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? "access",
-  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET ?? "refresh",
-  jwtAccessTtlSec: Number(process.env.JWT_ACCESS_TTL_SEC ?? 900),
-  jwtRefreshTtlSec: Number(process.env.JWT_REFRESH_TTL_SEC ?? 1209600),
-  agentUrl: process.env.INTERNAL_AGENT_URL ?? "http://agent:8000",
-  internalToken: process.env.INTERNAL_SERVICE_TOKEN ?? "token",
-  adminToken: process.env.INTERNAL_ADMIN_TOKEN ?? "",
-  timeoutMs: Number(process.env.REQUEST_TIMEOUT_MS ?? 4000),
-  analyzeTimeoutMs: Number(process.env.ANALYZE_TIMEOUT_MS ?? 25000),
-  retryCount: Number(process.env.RETRY_COUNT ?? 2),
-  localViewExpires: Number(process.env.LOCAL_VIEW_URL_EXPIRES_SEC ?? 120),
-  localDownloadExpires: Number(process.env.LOCAL_DOWNLOAD_URL_EXPIRES_SEC ?? 60),
-  storageRoot: process.env.LOCAL_STORAGE_ROOT ?? "/app/storage"
-};
-const cookieSecure = (process.env.NODE_ENV ?? "development") === "production";
 
 const app = Fastify({ logger: { level: "info" } });
 const db = new Pool({ connectionString: env.dbUrl, max: 10 });
@@ -69,26 +50,8 @@ app.addHook("onRequest", async (req, reply) => {
   }
 });
 
-function routeKey(req: any) {
-  return req.routeOptions?.url ?? req.url;
-}
-
-function requireUser(req: any, reply: any) {
-  const traceId = req.headers["x-correlation-id"] as string;
-  if (!req.user?.id) {
-    reply.code(401).send(errorPayload("UNAUTHORIZED", "로그인이 필요합니다.", traceId));
-    return false;
-  }
-  return true;
-}
-
 function requireAdmin(req: any, reply: any) {
-  const traceId = req.headers["x-correlation-id"] as string;
-  const token = req.headers["x-admin-token"] as string | undefined;
-  if (env.adminToken && token === env.adminToken) return true;
-  if (req.user?.role === "admin") return true;
-  reply.code(403).send(errorPayload("ADMIN_REQUIRED", "관리자 권한이 필요합니다.", traceId));
-  return false;
+  return requireAdminGuard(req, reply, env.adminToken);
 }
 
 function cleanKniaPublicText(value: any, fallback: string) {

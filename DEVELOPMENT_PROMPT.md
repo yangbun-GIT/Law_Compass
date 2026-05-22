@@ -303,3 +303,17 @@
 | 문서 | 구조 변경 후 `SYSTEM_OVERVIEW.md`가 오래된 정보가 되지 않는지 확인한다 |
 | 프롬프트 | 개발 원칙, 검증 방식, 문서 동기화 규칙이 바뀐 경우에만 `DEVELOPMENT_PROMPT.md`를 업데이트한다 |
 | 최신성 | 외부 도구, 모듈, 모델, 분석 API를 새로 도입하거나 교체할 때는 2026-05-20 이후의 최신 공식 근거, 유지보수 상태, 비용, 라이선스, 프로젝트 적합성을 확인한다 |
+
+## 2026-05-22 SRP / Module Boundary Rule
+
+Development must preserve Single Responsibility Principle boundaries before adding new behavior.
+
+- Entrypoints such as `apps/gateway/src/main.ts`, `apps/agent/app/routers/internal.py`, `apps/worker/worker/main.py`, and Vue route views should primarily wire dependencies, routes, and page flow. Business rules, external API adapters, DTO shaping, persistence, and presentation formatting belong in dedicated modules.
+- If one file mixes two or more durable responsibilities such as routing plus DB persistence, ffmpeg preprocessing plus vision analysis, orchestration plus evidence scoring, or page rendering plus API workflow state, split or introduce a small module before extending that behavior.
+- As a soft trigger, files approaching 250-300 lines or files whose tests require unrelated setup should be reviewed for extraction into routes, services, repositories, providers, composables, or presentational components.
+- Gateway code should separate runtime configuration, auth/session guards, request safety policies, route registration, DB queries, and agent client calls.
+- Worker code should separate Redis job consumption, video probing/frame extraction, vision provider analysis, DB persistence, and internal Agent submission.
+- Agent code should keep orchestration as stage sequencing only; normalization, scenario classification, evidence retrieval, evidence audit, fault judgment, and report composition must remain individually testable.
+- Frontend route views should coordinate page state only. Reusable form state, upload/analyze workflows, result rendering, and API transformations should move to composables, components, or API helpers.
+- Do not keep generated JavaScript beside TypeScript source under `apps/frontend/src`; TypeScript source is the single source of truth.
+- When SRP-related boundaries change, update `SYSTEM_OVERVIEW.md` in the same task.
