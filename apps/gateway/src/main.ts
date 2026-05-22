@@ -738,7 +738,7 @@ app.post(`${env.apiPrefix}/cases/:caseId/reanalyze`, async (req, reply) => {
     sanitizeEasyReport(agentResp.elderly_friendly_report ?? composeEasyFallback(agentResp, { case: { ...currentCase, structured_facts: structuredFacts } })),
     agentResp
   );
-  const reanalysisChangeCard = composeReanalysisChangeCard(previousResult, agentResp);
+  const reanalysisChangeCard = composeReanalysisChangeCard(previousResult, agentResp, normalizedFollowup);
   const easyReport = reanalysisChangeCard ? { ...baseEasyReport, analysis_change_card: reanalysisChangeCard } : baseEasyReport;
   const ver = await db.query(`SELECT COALESCE(MAX(version),0)+1 AS v FROM analysis_results WHERE case_id=$1`, [caseId]);
   const nextVersion = Number(ver.rows[0].v);

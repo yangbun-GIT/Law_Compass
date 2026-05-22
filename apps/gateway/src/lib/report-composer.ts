@@ -248,7 +248,10 @@ function pushChange(changes: AnyRecord[], label: string, beforeValue: any, after
   if (!beforeText || !afterText || beforeText === afterText) return;
   changes.push({ label, before: beforeText, after: afterText });
 }
-export function composeReanalysisChangeCard(previous: AnyRecord | undefined, next: AnyRecord = {}) {
+function followupFieldLabels(values: any) {
+  return unique(asArray(values).map((field) => videoFactLabel(String(field))).filter(Boolean)).slice(0, 8);
+}
+export function composeReanalysisChangeCard(previous: AnyRecord | undefined, next: AnyRecord = {}, followupContext: AnyRecord = {}) {
   if (!previous || !Object.keys(previous).length) return undefined;
   const beforeFault = faultPair(previous);
   const afterFault = faultPair(next);
@@ -260,6 +263,12 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   const adjustmentChanges = adjustmentDiff(previous, next);
   const beforeQuestionCount = questionCountOf(previous);
   const afterQuestionCount = questionCountOf(next);
+  const answeredLabels = followupFieldLabels(followupContext.answered_fields);
+  const unresolvedLabels = followupFieldLabels(followupContext.unresolved_fields);
+  const ignoredLabels = followupFieldLabels(followupContext.ignored_fields);
+  const beforeJudgment = judgmentLabel(previous.agent_judgment?.overall_status);
+  const afterJudgment = judgmentLabel(next.agent_judgment?.overall_status);
+  const reflection = next.reflection_loop ?? next.model_info?.reflection_loop ?? {};
   const changes: AnyRecord[] = [];
 
   pushChange(changes, "사고 유형", scenarioLabel(previous.scenario_type), scenarioLabel(next.scenario_type));
@@ -274,7 +283,7 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   if (beforeAdjustments.appliedCount !== afterAdjustments.appliedCount) {
     changes.push({ label: "적용된 가감요소", before: `${beforeAdjustments.appliedCount}개`, after: `${afterAdjustments.appliedCount}개` });
   }
-  pushChange(changes, "판단 상태", judgmentLabel(previous.agent_judgment?.overall_status), judgmentLabel(next.agent_judgment?.overall_status));
+  pushChange(changes, "판단 상태", beforeJudgment, afterJudgment);
   if (beforeEvidence.missingRequirements !== afterEvidence.missingRequirements) {
     changes.push({ label: "부족한 근거 조건", before: `${beforeEvidence.missingRequirements}개`, after: `${afterEvidence.missingRequirements}개` });
   }
@@ -293,6 +302,23 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
       ? `아직 충족되지 않은 근거 조건이 ${afterEvidence.missingRequirements}개 남아 있습니다.`
       : "필수 근거 조건은 현재 비교 기준에서 충족된 상태입니다.",
   ];
+  const decisionNotes = [
+    answeredLabels.length
+      ? `이번 재분석에 반영된 보완 답변: ${answeredLabels.join(", ")}`
+      : "이번 재분석에서 새로 반영된 보완 답변은 확인되지 않았습니다.",
+    unresolvedLabels.length
+      ? `아직 확정하지 못한 답변 항목: ${unresolvedLabels.join(", ")}`
+      : "보완 답변 중 미해결로 남은 항목은 없습니다.",
+    ignoredLabels.length
+      ? `분석 입력으로 쓰이지 않은 답변 항목: ${ignoredLabels.join(", ")}`
+      : "",
+    beforeJudgment !== afterJudgment
+      ? `판단 상태가 ${beforeJudgment}에서 ${afterJudgment}(으)로 바뀌었습니다.`
+      : `판단 상태는 ${afterJudgment}로 유지되었습니다.`,
+    reflection.requery_attempted
+      ? `부족한 근거를 한 번 더 검색했고 관련 근거 ${toNumber(reflection.requery_added_evidence_count, 0)}개를 추가 확인했습니다.`
+      : "추가 근거 재검색 없이 기존 근거와 보완 입력으로 재판단했습니다.",
+  ].filter(Boolean);
 
   return {
     title: "보완 입력 반영 결과",
@@ -305,9 +331,11 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
       { label: "현재 상대 책임", value: afterFault.other !== undefined ? `${afterFault.other}%` : "확인 필요" },
       { label: "근거 충족도", value: coverageLevelOf(next) },
       { label: "남은 질문", value: `${afterQuestionCount}개` },
+      { label: "반영 답변", value: `${answeredLabels.length}개` },
       { label: "대표 KNIA", value: kniaStandardLabel(next) },
       { label: "관련 근거", value: `${afterEvidence.relevant}개` },
     ],
+    decision_notes: decisionNotes,
     evidence_notes: evidenceNotes,
     evidence_changes: evidenceChanges,
     knia_adjustment_changes: adjustmentChanges,

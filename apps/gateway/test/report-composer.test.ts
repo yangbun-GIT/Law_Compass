@@ -182,6 +182,11 @@ describe("report composer", () => {
         },
         agent_judgment: { overall_status: "evidence_supported" },
         required_input_questions: [],
+      },
+      {
+        answered_fields: ["injury", "lane_change_actor"],
+        unresolved_fields: ["turn_signal"],
+        ignored_fields: ["unknown_internal_field"],
       }
     );
 
@@ -196,6 +201,10 @@ describe("report composer", () => {
     expect(card?.knia_adjustment_changes.added.map((item: any) => item.label)).toContain("상대 차량의 현저한 과실");
     expect(card?.evidence_changes.added.map((item: any) => item.title)).toContain("KNIA 관련 법규");
     expect(card?.evidence_changes.added.map((item: any) => item.family_label)).toContain("KNIA 기준");
+    expect(card?.stats.find((item: any) => item.label === "반영 답변")?.value).toBe("2개");
+    expect(card?.decision_notes.join(" ")).toContain("인명피해 여부");
+    expect(card?.decision_notes.join(" ")).toContain("차선변경 주체");
+    expect(card?.decision_notes.join(" ")).toContain("방향지시등 사용");
     expect(JSON.stringify(card)).not.toContain("agent_judgment");
     expect(JSON.stringify(card)).not.toContain("evidence_supported");
     expect(JSON.stringify(card)).not.toContain("source_type");

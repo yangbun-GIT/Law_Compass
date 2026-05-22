@@ -20,6 +20,12 @@
       </div>
     </div>
     <p v-else class="kv">핵심 판단 항목은 이전 분석과 크게 달라지지 않았습니다.</p>
+    <section v-if="card.decision_notes?.length" class="change-note-section">
+      <h3>판단 변화 요약</h3>
+      <ul class="check-list">
+        <li v-for="note in card.decision_notes" :key="note">{{ text(note) }}</li>
+      </ul>
+    </section>
     <ul v-if="card.evidence_notes?.length" class="check-list">
       <li v-for="note in card.evidence_notes" :key="note">{{ text(note) }}</li>
     </ul>
@@ -104,6 +110,15 @@ function text(value: unknown) {
 .change-list {
   display: grid;
   gap: 10px;
+}
+
+.change-note-section {
+  display: grid;
+  gap: 8px;
+}
+
+.change-note-section h3 {
+  margin: 0;
 }
 
 .change-row strong {

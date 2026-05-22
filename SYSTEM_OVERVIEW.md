@@ -958,3 +958,16 @@ This update connects video/user fact conflicts to the existing follow-up and rea
 | `apps/gateway/test/report-composer.test.ts` | Verifies that a video/user conflict generates a usable follow-up question with the canonical field preserved and safe Korean options. |
 
 The question field is preserved only for known safe follow-up fields so the existing reanalysis normalizer can update structured facts. Raw video contracts and internal arbitration metadata remain hidden from public report rendering.
+
+## 2026-05-22 Reanalysis Judgment Delta Card
+
+This update strengthens the existing reanalysis comparison card so users can understand what changed after follow-up answers are submitted. The Gateway now passes the normalized follow-up answer summary into `composeReanalysisChangeCard()`, and the card includes safe decision notes for answered fields, unresolved fields, ignored fields, judgment status transition, and whether the bounded evidence requery ran.
+
+| Path | Change |
+| --- | --- |
+| `apps/gateway/src/main.ts` | Passes `normalizedFollowup` into `composeReanalysisChangeCard()` after `/api/v1/cases/:caseId/reanalyze`. |
+| `apps/gateway/src/lib/report-composer.ts` | Adds safe `decision_notes` and a reflected-answer count to `analysis_change_card`. |
+| `apps/frontend/src/components/easy/AnalysisChangeCard.vue` | Renders `decision_notes` under a judgment-change summary section. |
+| `apps/gateway/test/report-composer.test.ts` | Verifies reflected answer counts and safe Korean field labels in the reanalysis comparison card. |
+
+No new API route, DB schema, Redis key, storage path, environment variable, or external integration was added. The existing reanalysis response payload now carries richer user-safe comparison metadata.
