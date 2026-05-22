@@ -15,6 +15,32 @@
       </div>
     </div>
 
+    <section v-if="card.quality_summary" class="video-fact-section quality-section">
+      <div class="quality-head">
+        <div>
+          <span class="item-label">관찰값 품질</span>
+          <strong>{{ text(card.quality_summary.status_label) }}</strong>
+        </div>
+        <div class="chips compact">
+          <span class="chip selected">반영 {{ card.quality_summary.accepted_count || 0 }}개</span>
+          <span class="chip">보류 {{ (card.quality_summary.uncertain_count || 0) + (card.quality_summary.ignored_count || 0) }}개</span>
+          <span class="chip">복수 프레임 {{ card.quality_summary.multi_frame_count || 0 }}개</span>
+        </div>
+      </div>
+      <ul v-if="card.quality_summary.notes?.length" class="check-list">
+        <li v-for="note in card.quality_summary.notes" :key="note">{{ text(note) }}</li>
+      </ul>
+      <div v-if="card.quality_summary.hold_items?.length" class="reason-grid">
+        <span
+          v-for="reason in card.quality_summary.hold_items"
+          :key="`${reason.label}-${reason.count}`"
+          class="chip"
+        >
+          {{ text(reason.label) }} {{ reason.count }}개
+        </span>
+      </div>
+    </section>
+
     <section v-if="card.applied_items?.length" class="video-fact-section">
       <h3>판단에 반영된 영상 사실</h3>
       <div class="video-fact-list">
@@ -82,7 +108,7 @@ function text(value: unknown) {
 .video-fact-stats {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
 }
 
 .video-fact-stat,
@@ -125,6 +151,32 @@ function text(value: unknown) {
   margin: 10px 0 0;
 }
 
+.quality-section {
+  background: rgba(76, 213, 226, 0.08);
+  border: 1px solid rgba(76, 213, 226, 0.22);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.quality-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.quality-head strong {
+  color: #f1f7ff;
+  display: block;
+  margin-top: 6px;
+}
+
+.reason-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .compact {
   margin-top: 12px;
 }
@@ -133,6 +185,10 @@ function text(value: unknown) {
   .video-fact-stats,
   .video-fact-list {
     grid-template-columns: 1fr;
+  }
+
+  .quality-head {
+    display: grid;
   }
 }
 </style>

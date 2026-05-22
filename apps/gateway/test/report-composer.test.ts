@@ -128,6 +128,14 @@ describe("report composer", () => {
           { field: "turn_signal", value: "unknown", confidence: 0.42, reason: "not visible" },
         ],
         fact_patch: { lane_change_actor: "opponent" },
+        observation_quality_summary: {
+          accepted_count: 1,
+          uncertain_count: 1,
+          ignored_count: 0,
+          uncertain_reasons: { missing_frame_reference: 1 },
+          accepted_single_frame_count: 0,
+          accepted_multi_frame_count: 1,
+        },
       },
       fact_arbitration: {
         applied_video_fields: ["lane_change_actor"],
@@ -153,6 +161,9 @@ describe("report composer", () => {
     expect(card.applied_items[0].confidence).toBe("91%");
     expect(card.review_items[0].selected_source).toBe("영상");
     expect(card.uncertain_items[0].label).toBe("방향지시등 사용");
+    expect(card.quality_summary.status_label).toBe("일부 반영");
+    expect(card.quality_summary.multi_frame_count).toBe(1);
+    expect(card.quality_summary.hold_items[0].label).toBe("프레임 근거 없음");
     const videoQuestion = (enriched as any).missing_info.questions[0];
     expect(videoQuestion.field).toBe("lane_change_actor");
     expect(videoQuestion.question).toContain(card.applied_items[0].label);
@@ -160,6 +171,9 @@ describe("report composer", () => {
     expect(text).not.toContain("video_input_contract");
     expect(text).not.toContain("fact_arbitration");
     expect(text).not.toContain("frame_analysis:openai");
+    expect(text).not.toContain("observation_quality_summary");
+    expect(text).not.toContain("quality_gate");
+    expect(text).not.toContain("frame_refs");
     expect(text).not.toContain("user_value");
     expect(text).not.toContain("video_value");
     expect(text).not.toContain("reason");

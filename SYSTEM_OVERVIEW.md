@@ -1379,3 +1379,17 @@ Verification focus:
 
 - `docker compose exec -T agent python -m compileall app scripts`
 - `docker compose exec -T agent python scripts/test_agent_regression_scenarios.py`
+
+## 2026-05-22 영상 관찰값 품질 표시 연결
+
+Worker와 Agent가 생성하는 영상 관찰값 품질 요약을 일반 결과 화면과 관리자 진단에서 확인할 수 있도록 Gateway 표시 계층에 연결했다. 일반 사용자 화면에는 raw `video_input_contract`, `quality_gate`, `frame_refs`, `observation_quality_summary`를 직접 노출하지 않고, Gateway가 만든 `video_fact_explanation_card.quality_summary`만 표시한다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | Agent `video_input_contract.observation_quality_summary`를 사용자 안전 라벨과 카운트로 변환한다. `품질 상태`, 반영/보류 수, 단일/복수 프레임 관찰값, 보류 사유를 `video_fact_explanation_card.quality_summary`에 담는다. |
+| `apps/frontend/src/components/easy/VideoFactExplanationCard.vue` | 결과 화면의 영상 기반 사실 반영 카드 안에 관찰값 품질 섹션을 추가한다. 품질 상태, 반영/보류 수, 복수 프레임 수, 보류 사유를 사람이 읽을 수 있는 형태로 표시한다. |
+| `apps/frontend/src/utils/displaySanitizer.ts` | `observation_quality`, `observation_quality_summary`, `quality_gate`, `frame_refs`를 기술 필드로 추가해 일반 화면에 원시 내부 계약이 섞이지 않게 했다. |
+| `apps/gateway/src/lib/agent-diagnostics.ts` | 관리자 진단 응답의 `video_input.observation_quality`에 반영/보류 수와 단일/복수 프레임 카운트를 추가한다. |
+| `apps/gateway/test/report-composer.test.ts`, `apps/gateway/test/agent-diagnostics.test.ts` | 사용자 안전 카드와 관리자 진단 품질 요약이 생성되고 raw 내부 키가 노출되지 않는지 검증한다. |
+
+이 변경은 DB schema, Redis key, storage path, 외부 API 계약을 변경하지 않는다. 공개 easy-report payload의 표시용 카드 구조만 확장한다.

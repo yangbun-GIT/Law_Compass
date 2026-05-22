@@ -140,6 +140,7 @@ export function composeAgentTraceDiagnostic(row: AnyRecord = {}) {
       uncertain_observation_count: asArray(videoContract.uncertain_observations).length,
       ignored_observation_count: asArray(videoContract.ignored_observations).length,
       promoted_fields: safeFieldList(Object.keys(asRecord(videoContract.fact_patch))),
+      observation_quality: safeVideoObservationQuality(videoContract),
     },
     fact_arbitration: {
       contract_version: arbitration.version ?? "unknown",
@@ -161,5 +162,18 @@ export function composeAgentTraceDiagnostic(row: AnyRecord = {}) {
       user_reference_allowed: presentation.user_reference_allowed ?? null,
       restricted_section_count: asArray(presentation.restricted_sections).length,
     },
+  };
+}
+
+function safeVideoObservationQuality(videoContract: AnyRecord = {}) {
+  const summary = asRecord(videoContract.observation_quality_summary);
+  const uncertainReasons = asRecord(summary.uncertain_reasons);
+  return {
+    accepted_count: toNumber(summary.accepted_count, asArray(videoContract.accepted_observations).length),
+    uncertain_count: toNumber(summary.uncertain_count, asArray(videoContract.uncertain_observations).length),
+    ignored_count: toNumber(summary.ignored_count, asArray(videoContract.ignored_observations).length),
+    accepted_single_frame_count: toNumber(summary.accepted_single_frame_count),
+    accepted_multi_frame_count: toNumber(summary.accepted_multi_frame_count),
+    uncertain_reason_counts: safePacket(uncertainReasons),
   };
 }

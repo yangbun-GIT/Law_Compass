@@ -11,6 +11,7 @@ const TECHNICAL_KEYS = new Set([
   "presentation_policy", "presentation_status", "restricted_sections", "finality",
   "input_requirements", "followup_loop", "required_input_questions", "blocking_fields", "optional_fields",
   "video_input_contract", "_video_input_contract", "accepted_observations", "uncertain_observations", "ignored_observations", "fact_patch",
+  "observation_quality", "observation_quality_summary", "quality_gate", "frame_refs",
   "fact_arbitration", "_fact_arbitration", "fact_sources", "_fact_sources", "video_primary_fields", "user_primary_fields",
   "applied_video_fields", "kept_user_fields", "confirmed_fields", "conflicts", "requires_confirmation",
   "agent_trace", "reflection_loop", "trace_policy", "packet", "step_count", "requery_attempted",
@@ -386,6 +387,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   const reviewItems = asArray(arbitration.conflicts);
   const hasVideoFacts = accepted.length || uncertain.length || appliedFields.length || reviewItems.length;
   if (!hasVideoFacts) return undefined;
+  const qualitySummary = videoObservationQualitySummary(contract);
 
   const appliedItems = appliedFields
     .map((field) => {
@@ -444,12 +446,76 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
       { label: "판단 반영", value: `${appliedItems.length}개` },
       { label: "입력 충돌 검토", value: `${conflictItems.length}개` },
       { label: "보류 관찰값", value: `${uncertainItems.length}개` },
+      { label: "품질 상태", value: qualitySummary.status_label },
     ],
+    quality_summary: qualitySummary,
     applied_items: appliedItems,
     review_items: conflictItems,
     uncertain_items: uncertainItems,
     notice: "영상 분석값도 최종 판정이 아니라 프레임에서 확인된 사실 후보입니다. 신뢰도 기준을 넘은 물리적 사실만 Agent 입력에 반영합니다.",
   };
+}
+
+function videoObservationQualitySummary(contract: AnyRecord = {}) {
+  const summary = contract.observation_quality_summary && typeof contract.observation_quality_summary === "object"
+    ? contract.observation_quality_summary
+    : {};
+  const acceptedCount = toNumber(summary.accepted_count, asArray(contract.accepted_observations).length);
+  const uncertainCount = toNumber(summary.uncertain_count, asArray(contract.uncertain_observations).length);
+  const ignoredCount = toNumber(summary.ignored_count, asArray(contract.ignored_observations).length);
+  const singleFrameCount = toNumber(summary.accepted_single_frame_count, 0);
+  const multiFrameCount = toNumber(summary.accepted_multi_frame_count, 0);
+  const reasonEntries = Object.entries(summary.uncertain_reasons ?? {})
+    .map(([reason, count]) => ({
+      label: videoObservationReasonLabel(reason),
+      count: toNumber(count),
+    }))
+    .filter((item) => item.label && item.count > 0)
+    .slice(0, 5);
+  const notes = [
+    acceptedCount
+      ? `Agent 입력에 반영된 영상 관찰값 ${acceptedCount}개를 품질 기준으로 확인했습니다.`
+      : "Agent 입력에 바로 반영할 수 있는 영상 관찰값은 아직 없습니다.",
+    singleFrameCount
+      ? `단일 프레임에서만 보인 관찰값 ${singleFrameCount}개는 보강 정보로만 신중하게 사용합니다.`
+      : "",
+    multiFrameCount
+      ? `복수 프레임에서 반복 확인된 관찰값 ${multiFrameCount}개가 있습니다.`
+      : "",
+    uncertainCount || ignoredCount
+      ? `품질 기준을 통과하지 못한 관찰값 ${uncertainCount + ignoredCount}개는 확정 사실로 반영하지 않았습니다.`
+      : "",
+  ].filter(Boolean);
+  return {
+    status_label: videoObservationQualityStatus(acceptedCount, uncertainCount, ignoredCount),
+    accepted_count: acceptedCount,
+    uncertain_count: uncertainCount,
+    ignored_count: ignoredCount,
+    single_frame_count: singleFrameCount,
+    multi_frame_count: multiFrameCount,
+    hold_items: reasonEntries,
+    notes,
+  };
+}
+
+function videoObservationQualityStatus(acceptedCount: number, uncertainCount: number, ignoredCount: number) {
+  if (acceptedCount > 0 && uncertainCount + ignoredCount === 0) return "반영 가능";
+  if (acceptedCount > 0) return "일부 반영";
+  if (uncertainCount + ignoredCount > 0) return "검토 필요";
+  return "확인 필요";
+}
+
+function videoObservationReasonLabel(value: string) {
+  const labels: AnyRecord = {
+    confidence_below_field_threshold: "신뢰도 기준 미달",
+    missing_frame_reference: "프레임 근거 없음",
+    missing_field_or_value: "관찰 항목 불명확",
+    unsupported_field: "지원하지 않는 관찰 항목",
+    unsupported_source: "지원하지 않는 관찰 출처",
+    invalid_source: "관찰 출처 확인 필요",
+    unknown: "확인 필요",
+  };
+  return labels[value] ?? cleanText(value, "");
 }
 
 function composeVideoConflictQuestions(result: AnyRecord = {}) {
