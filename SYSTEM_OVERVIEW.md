@@ -65,6 +65,16 @@ Agent 결과를 사용자가 행동 가능한 순서로 읽을 수 있도록 eas
 
 이 변경은 Frontend 표시 순서만 조정하며 DB schema, Redis key, storage path, API route, 외부 API 계약은 변경하지 않는다.
 
+## 2026-05-23 결과 화면 행동/근거 흐름 분리
+
+결과 화면에서 사용자가 바로 해야 할 일과 검증용 근거 정보를 분리해 읽을 수 있도록 easy-report 카드 흐름을 한 번 더 정리했다. 보완 질문 다음에는 즉시 행동 카드, 보험 처리, 법률상 확인할 점을 먼저 보여주고, 과실비율/영상 사실/근거 신뢰도/법률 근거/Agent 처리 과정은 그 뒤에 배치한다. 행동 카드에 표시할 항목이 없으면 빈 카드를 렌더링하지 않는다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/frontend/src/components/easy/EasyReportView.vue` | `top_actions`, 보험 처리, 법률 확인 카드를 판단/근거 카드보다 앞에 배치하고, `top_actions`가 없으면 `ElderlyActionCard`를 숨긴다. `AgentProcessCard`는 상세 검증 성격에 맞춰 근거 카드 뒤쪽으로 이동했다. |
+
+이 변경은 Frontend 표시 순서만 조정하며 DB schema, Redis key, storage path, API route, 외부 API 계약은 변경하지 않는다.
+
 ## 2026-05-22 영상 프레임 관찰값 품질 보정
 
 실제 사고 영상 기반 프레임 분석의 다음 안정화 단계로, OpenAI/fixture 관찰값이 Agent 사실로 승격되기 전 품질 기준을 명확히 했다. 짧은 사고 영상은 유효 프레임 수가 제한적이므로 단일 프레임 관찰값도 보강 입력으로 사용할 수 있지만, 프레임 참조가 없는 관찰값이나 신호위반/스쿨존/횡단보도처럼 오판 위험이 큰 필드는 더 엄격하게 보류한다.

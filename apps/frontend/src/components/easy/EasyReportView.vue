@@ -10,11 +10,7 @@
       :error="followupError"
       @submit="(answers) => emit('submitFollowup', answers)"
     />
-    <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
-    <VideoFactExplanationCard v-if="safeReport.video_fact_explanation_card" :card="safeReport.video_fact_explanation_card" />
-    <EvidenceReliabilityCard v-if="safeReport.evidence_reliability_card" :card="safeReport.evidence_reliability_card" />
-    <AgentProcessCard v-if="safeReport.agent_process_card" :card="safeReport.agent_process_card" />
-    <ElderlyActionCard :actions="safeReport.top_actions || []" />
+    <ElderlyActionCard v-if="actionItems.length" :actions="actionItems" />
     <article class="card easy-card">
       <h2>{{ text(safeReport.insurance_explanation?.title || "보험 처리 안내") }}</h2>
       <p class="big-text">{{ text(safeReport.insurance_explanation?.simple_summary) }}</p>
@@ -30,6 +26,9 @@
       <ul class="check-list"><li v-for="item in safeReport.legal_explanation?.checklist || []" :key="item">{{ text(item) }}</li></ul>
       <p class="soft-warning">{{ text(safeReport.legal_explanation?.caution) }}</p>
     </article>
+    <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
+    <VideoFactExplanationCard v-if="safeReport.video_fact_explanation_card" :card="safeReport.video_fact_explanation_card" />
+    <EvidenceReliabilityCard v-if="safeReport.evidence_reliability_card" :card="safeReport.evidence_reliability_card" />
     <article class="card easy-card wide-card">
       <h2>법률 근거 쉽게 보기</h2>
       <p class="easy-summary">법 이름보다 “이 사고와 어떤 관련이 있는지”를 먼저 보시면 됩니다.</p>
@@ -81,6 +80,7 @@
         </div>
       </div>
     </article>
+    <AgentProcessCard v-if="safeReport.agent_process_card" :card="safeReport.agent_process_card" />
     <DetailToggleSection :details="safeReport.detail_sections || {}" />
   </section>
 </template>
@@ -106,6 +106,7 @@ const showAllBasis = ref(false);
 const safeReport = computed(() => removeTechnicalFields(props.report || {}));
 const basisCards = computed(() => safeReport.value?.legal_basis_cards || []);
 const visibleBasisCards = computed(() => (showAllBasis.value ? basisCards.value : basisCards.value.slice(0, 3)));
+const actionItems = computed(() => Array.isArray(safeReport.value?.top_actions) ? safeReport.value.top_actions : []);
 const displayMissingInfo = computed(() => safeReport.value?.missing_info || {});
 const hasMissingInfo = computed(() => {
   const missing = displayMissingInfo.value || {};
