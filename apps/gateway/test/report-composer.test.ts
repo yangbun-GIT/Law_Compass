@@ -164,12 +164,13 @@ describe("report composer", () => {
     expect(card.quality_summary.status_label).toBe("일부 반영");
     expect(card.quality_summary.multi_frame_count).toBe(1);
     expect(card.quality_summary.hold_items[0].label).toBe("프레임 근거 없음");
+    expect(card.stats[0]).toEqual({ label: "영상 관찰 후보", value: "2개" });
     const videoQuestion = (enriched as any).missing_info.questions[0];
     expect(videoQuestion.field).toBe("lane_change_actor");
     expect(videoQuestion.question).toContain(card.applied_items[0].label);
     expect(videoQuestion.options).toContain(card.applied_items[0].value);
     const qualityQuestion = (enriched as any).missing_info.questions.find((item: any) => item.field === "turn_signal");
-    expect(qualityQuestion.question).toContain("품질 기준");
+    expect(qualityQuestion.question).toContain("충분히 확인하지 못했습니다");
     expect(qualityQuestion.options).toContain("켰음");
     expect(text).not.toContain("video_input_contract");
     expect(text).not.toContain("fact_arbitration");
@@ -180,6 +181,28 @@ describe("report composer", () => {
     expect(text).not.toContain("user_value");
     expect(text).not.toContain("video_value");
     expect(text).not.toContain("reason");
+  });
+
+  it("orders uncertain video questions by accident-flow priority", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      video_input_contract: {
+        uncertain_observations: [
+          { field: "turn_signal", value: "no", confidence: 0.9, frame_refs: ["frame_7.jpg", "frame_8.jpg"] },
+          { field: "stopped", value: false, confidence: 0.6, frame_refs: ["frame_1.jpg"] },
+          { field: "lane_change_actor", value: "opponent", confidence: 0.7, frame_refs: ["frame_5.jpg"] },
+        ],
+        observation_quality_summary: {
+          accepted_count: 0,
+          uncertain_count: 3,
+          ignored_count: 0,
+          uncertain_reasons: { confidence_below_field_threshold: 3 },
+        },
+      },
+    });
+
+    const fields = (enriched as any).missing_info.questions.map((item: any) => item.field);
+    expect(fields.slice(0, 3)).toEqual(["stopped", "lane_change_actor", "turn_signal"]);
+    expect((enriched as any).video_fact_explanation_card.quality_summary.status_label).toBe("확인 필요");
   });
 
   it("summarizes reanalysis changes without exposing judgment internals", () => {

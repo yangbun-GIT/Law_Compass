@@ -218,7 +218,7 @@ def missing_questions(report: dict) -> list[dict]:
 def choose_quality_followup_question(report: dict) -> dict | None:
     for question in missing_questions(report):
         text = f"{question.get('question') or ''} {question.get('label') or ''}"
-        if "품질 기준" in text:
+        if any(marker in text for marker in ("품질 기준", "바로 반영하지 않았습니다", "충분히 확인하지 못했습니다")):
             return question
     return None
 

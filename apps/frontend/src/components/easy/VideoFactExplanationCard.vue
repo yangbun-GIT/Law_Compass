@@ -18,12 +18,12 @@
     <section v-if="card.quality_summary" class="video-fact-section quality-section">
       <div class="quality-head">
         <div>
-          <span class="item-label">관찰값 품질</span>
+          <span class="item-label">영상 관찰값 상태</span>
           <strong>{{ text(card.quality_summary.status_label) }}</strong>
         </div>
         <div class="chips compact">
-          <span class="chip selected">반영 {{ card.quality_summary.accepted_count || 0 }}개</span>
-          <span class="chip">보류 {{ (card.quality_summary.uncertain_count || 0) + (card.quality_summary.ignored_count || 0) }}개</span>
+          <span class="chip selected">분석 반영 {{ card.quality_summary.accepted_count || 0 }}개</span>
+          <span class="chip">확인 필요 {{ (card.quality_summary.uncertain_count || 0) + (card.quality_summary.ignored_count || 0) }}개</span>
           <span class="chip">복수 프레임 {{ card.quality_summary.multi_frame_count || 0 }}개</span>
         </div>
       </div>
@@ -68,7 +68,7 @@
     </section>
 
     <section v-if="card.uncertain_items?.length" class="video-fact-section">
-      <h3>보류된 영상 관찰값</h3>
+      <h3>확인이 필요한 영상 관찰값</h3>
       <ul class="check-list">
         <li v-for="item in card.uncertain_items" :key="item.label">
           {{ text(item.label) }} · 신뢰도 {{ text(item.confidence) }} · {{ text(item.explanation) }}

@@ -383,6 +383,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   const arbitration = result.fact_arbitration ?? result.model_info?.fact_arbitration ?? {};
   const accepted = asArray(contract.accepted_observations);
   const uncertain = asArray(contract.uncertain_observations);
+  const observedCount = accepted.length + uncertain.length + asArray(contract.ignored_observations).length;
   const appliedFields = asArray(arbitration.applied_video_fields).map((field) => String(field));
   const reviewItems = asArray(arbitration.conflicts);
   const hasVideoFacts = accepted.length || uncertain.length || appliedFields.length || reviewItems.length;
@@ -398,7 +399,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
         value: videoFactValueLabel(field, value),
         confidence: confidenceLabel(observation.confidence),
         frame_label: frameCountLabel(observation.frame_refs),
-        explanation: "영상 프레임에서 직접 확인 가능한 물리적 사실로 보아 Agent 입력에 반영했습니다.",
+        explanation: "영상 프레임에서 직접 확인 가능한 물리적 사실로 보아 분석 입력에 반영했습니다.",
       };
     })
     .filter((item) => item.label && item.value)
@@ -427,32 +428,32 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
     .map((item: AnyRecord) => ({
       label: videoFactLabel(String(item?.field ?? "")),
       confidence: confidenceLabel(item?.confidence),
-      explanation: "신뢰도 기준에 미치지 않아 판단 사실로 바로 반영하지 않았습니다.",
+      explanation: "신뢰도나 프레임 근거가 충분하지 않아 바로 반영하지 않고 확인 질문으로 넘겼습니다.",
     }))
     .filter((item) => item.label)
     .slice(0, 5);
 
   const summary = appliedItems.length
-    ? "영상에서 확인된 물리적 사실을 Agent 판단 입력에 우선 반영했습니다."
+    ? "영상에서 확인된 물리적 사실을 판단 입력에 우선 반영했습니다."
     : uncertainItems.length
-      ? "일부 영상 관찰값은 신뢰도 기준에 미치지 않아 참고로만 보관했습니다."
+      ? "영상에서 사고 사실 후보를 찾았지만 바로 반영하지 않고 사용자 확인 질문으로 넘겼습니다."
       : "영상 관찰값은 확인됐지만 기존 입력과 충돌하지 않았습니다.";
 
   return {
     title: "영상 기반 사실 반영",
     summary,
     stats: [
-      { label: "확인된 영상 사실", value: `${accepted.length}개` },
+      { label: "영상 관찰 후보", value: `${observedCount}개` },
       { label: "판단 반영", value: `${appliedItems.length}개` },
       { label: "입력 충돌 검토", value: `${conflictItems.length}개` },
-      { label: "보류 관찰값", value: `${uncertainItems.length}개` },
+      { label: "확인 필요", value: `${uncertainItems.length}개` },
       { label: "품질 상태", value: qualitySummary.status_label },
     ],
     quality_summary: qualitySummary,
     applied_items: appliedItems,
     review_items: conflictItems,
     uncertain_items: uncertainItems,
-    notice: "영상 분석값도 최종 판정이 아니라 프레임에서 확인된 사실 후보입니다. 신뢰도 기준을 넘은 물리적 사실만 Agent 입력에 반영합니다.",
+    notice: "영상 분석값은 최종 판정이 아니라 프레임에서 보이는 사실 후보입니다. 신뢰도와 프레임 근거가 충분한 물리 사실만 판단 입력에 반영합니다.",
   };
 }
 
@@ -474,8 +475,8 @@ function videoObservationQualitySummary(contract: AnyRecord = {}) {
     .slice(0, 5);
   const notes = [
     acceptedCount
-      ? `Agent 입력에 반영된 영상 관찰값 ${acceptedCount}개를 품질 기준으로 확인했습니다.`
-      : "Agent 입력에 바로 반영할 수 있는 영상 관찰값은 아직 없습니다.",
+      ? `판단 입력에 반영한 영상 관찰값 ${acceptedCount}개를 확인했습니다.`
+      : "바로 반영할 수 있는 영상 관찰값은 아직 없습니다.",
     singleFrameCount
       ? `단일 프레임에서만 보인 관찰값 ${singleFrameCount}개는 보강 정보로만 신중하게 사용합니다.`
       : "",
@@ -483,7 +484,7 @@ function videoObservationQualitySummary(contract: AnyRecord = {}) {
       ? `복수 프레임에서 반복 확인된 관찰값 ${multiFrameCount}개가 있습니다.`
       : "",
     uncertainCount || ignoredCount
-      ? `품질 기준을 통과하지 못한 관찰값 ${uncertainCount + ignoredCount}개는 확정 사실로 반영하지 않았습니다.`
+      ? `추가 확인이 필요한 관찰값 ${uncertainCount + ignoredCount}개는 확정 사실로 반영하지 않았습니다.`
       : "",
   ].filter(Boolean);
   return {
@@ -501,7 +502,7 @@ function videoObservationQualitySummary(contract: AnyRecord = {}) {
 function videoObservationQualityStatus(acceptedCount: number, uncertainCount: number, ignoredCount: number) {
   if (acceptedCount > 0 && uncertainCount + ignoredCount === 0) return "반영 가능";
   if (acceptedCount > 0) return "일부 반영";
-  if (uncertainCount + ignoredCount > 0) return "검토 필요";
+  if (uncertainCount + ignoredCount > 0) return "확인 필요";
   return "확인 필요";
 }
 
@@ -545,14 +546,15 @@ function composeVideoConflictQuestions(result: AnyRecord = {}) {
 function composeVideoQualityQuestions(result: AnyRecord = {}) {
   const contract = result.video_input_contract ?? result.model_info?.video_input_contract ?? {};
   const questions: AnyRecord[] = [];
-  for (const item of asArray(contract.uncertain_observations)) {
+  const observations = asArray(contract.uncertain_observations).sort(compareVideoObservationPriority);
+  for (const item of observations) {
     const field = String(item?.field ?? "");
     if (!SAFE_INPUT_FIELDS.has(field)) continue;
     const label = videoFactLabel(field);
     const observedLabel = videoFactValueLabel(field, item?.value);
     const question = observedLabel && observedLabel !== "확인 필요"
-      ? `영상에서는 ${label}이(가) ${observedLabel}로 보이지만 품질 기준을 통과하지 못했습니다. 실제와 맞나요?`
-      : `영상만으로는 ${label}을(를) 품질 기준에 맞게 확정하기 어렵습니다. 실제 상황을 알려주세요.`;
+      ? `영상에서 ${label}이(가) ${observedLabel}처럼 보였지만, 신뢰도가 충분하지 않아 바로 반영하지 않았습니다. 실제 상황은 어느 쪽에 가깝나요?`
+      : `영상만으로는 ${label}을(를) 충분히 확인하지 못했습니다. 실제 상황을 선택해 주세요.`;
     questions.push({
       field,
       label,
@@ -562,6 +564,38 @@ function composeVideoQualityQuestions(result: AnyRecord = {}) {
     });
   }
   return questions.slice(0, 4);
+}
+
+function compareVideoObservationPriority(left: AnyRecord, right: AnyRecord) {
+  const leftField = String(left?.field ?? "");
+  const rightField = String(right?.field ?? "");
+  const fieldDelta = videoQuestionPriority(leftField) - videoQuestionPriority(rightField);
+  if (fieldDelta !== 0) return fieldDelta;
+  const frameDelta = frameRefCount(right?.frame_refs) - frameRefCount(left?.frame_refs);
+  if (frameDelta !== 0) return frameDelta;
+  return toNumber(right?.confidence, 0) - toNumber(left?.confidence, 0);
+}
+
+function videoQuestionPriority(field: string) {
+  const order: AnyRecord = {
+    stopped: 10,
+    opponent_behavior: 20,
+    lane_change_actor: 30,
+    opponent_signal_violation: 40,
+    user_signal: 50,
+    opponent_signal: 60,
+    sudden_brake: 70,
+    turn_signal: 80,
+    crosswalk_nearby: 90,
+    school_zone: 100,
+    injury: 110,
+    damage_level: 120,
+  };
+  return toNumber(order[field], 999);
+}
+
+function frameRefCount(value: any) {
+  return asArray(value).filter((item) => String(item ?? "").trim()).length;
 }
 
 function combineVideoQuestions(...groups: AnyRecord[][]) {

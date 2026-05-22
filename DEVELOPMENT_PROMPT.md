@@ -153,6 +153,13 @@
       문서에는 실제 secret 값을 기록하지 말고 환경변수 이름과 역할만 기록하십시오.
     </guideline>
 
+    <guideline name="documentation_language">
+      DEVELOPMENT_PROMPT.md, SYSTEM_OVERVIEW.md, 운영 문서의 설명 문장은 한국어를 기준으로 작성하십시오.
+      단, 코드 식별자, 파일 경로, API route, DTO/contract 이름, 환경변수, 패키지명, 모델명, 명령어, 로그 이벤트명, XML/JSON key는 원문 영어를 유지하십시오.
+      제목과 표의 설명은 한국어를 우선하고, 영어가 필요한 경우 괄호 병기 또는 인라인 코드 표기로 제한하십시오.
+      한 문단 안에서 설명 언어가 불필요하게 한국어와 영어로 번갈아 나오지 않도록 하고, 인코딩 깨짐처럼 보이는 출력은 파일 내용 문제인지 터미널 표시 문제인지 구분하십시오.
+    </guideline>
+
     <guideline name="prompt_maintenance">
       DEVELOPMENT_PROMPT.md는 매 기능마다 자동으로 수정하지 않습니다.
       다만 개발 방식, 서비스 경계, 보안 원칙, 검증 정책, 문서 동기화 규칙, 주요 기술 스택, 운영 기준이 바뀌면 이 프롬프트도 함께 업데이트하십시오.
