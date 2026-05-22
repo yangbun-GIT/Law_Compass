@@ -317,3 +317,32 @@ Development must preserve Single Responsibility Principle boundaries before addi
 - Frontend route views should coordinate page state only. Reusable form state, upload/analyze workflows, result rendering, and API transformations should move to composables, components, or API helpers.
 - Do not keep generated JavaScript beside TypeScript source under `apps/frontend/src`; TypeScript source is the single source of truth.
 - When SRP-related boundaries change, update `SYSTEM_OVERVIEW.md` in the same task.
+
+## 2026-05-22 Completion Priority Rule
+
+Before starting new feature work, classify the request against the project completion priorities below.
+
+### Must Reinforce Before Broad Feature Work
+
+These items protect product trust and should be handled before broad new feature work when the request touches Agent judgment, evidence, video facts, or service boundaries.
+
+- Agent regression automation: keep deterministic regression scenarios runnable from Docker and move them toward CI. A judgment change must pass rear-end, lane-change, signal-violation, bicycle/pedestrian, and video/user-conflict scenarios.
+- Agent execution trace: expose or preserve a structured trace for input normalization, video input contract, fact arbitration, scenario classification, evidence retrieval, evidence audit, judgment contract, and presentation policy.
+- Reflection/reverification loop: when evidence coverage, claim support, KNIA basis, or required input fields are insufficient, the Agent should not present final judgment. It should request missing input, retry retrieval, or mark the result as reference-only.
+- Agent orchestration SRP: avoid adding logic directly to `apps/agent/app/services/orchestrator.py`; move stage-specific logic into normalizer, classifier, retriever, auditor, judgment, or report modules.
+- Gateway route SRP: avoid adding more route bodies to `apps/gateway/src/main.ts`; split routes by domain before expanding APIs.
+- Source hygiene: TypeScript is the source of truth in `apps/frontend/src`; remove or avoid generated `.js` duplicates when touching frontend source.
+
+### Later / Deferred Enhancements
+
+- UI polish, copy, and layout refinements that do not affect judgment correctness.
+- Developer page improvements; keep them local-only unless explicitly approved.
+- Full independent multi-agent process orchestration.
+- Standard MCP server/client adoption beyond the current internal tool registry.
+- Cost dashboard, token billing UI, and advanced monitoring.
+- S3/direct upload migration unless local storage blocks the task.
+- Full specialized traffic-accident video model replacement for OpenAI frame analysis.
+
+### Application Rule
+
+If a new request conflicts with a Must Reinforce item, complete or explicitly account for the reinforcement first. If the request is unrelated to judgment trust or service boundaries, keep the scope narrow and do not block on deferred enhancements.

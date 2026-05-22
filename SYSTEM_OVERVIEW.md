@@ -854,3 +854,30 @@ Verification command:
 Additional syntax verification:
 
 `docker compose exec -T agent python -m compileall app scripts`
+
+## 2026-05-22 Completion Priority Backlog
+
+This backlog separates trust-critical reinforcement from deferred enhancements. Use it to decide future development order before adding new features.
+
+### Reinforce Now
+
+| Priority | Area | Current State | Needed Work |
+| --- | --- | --- | --- |
+| P0 | Agent regression automation | `apps/agent/scripts/test_agent_regression_scenarios.py` covers core text and video/user-conflict scenarios, but it is manually run. | Add a repeatable Docker/CI command and fail builds when judgment mapping regresses. |
+| P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. | Provide a structured trace view/API so developers can inspect each stage and packet-like data flow. |
+| P0 | Reflection/reverification loop | Evidence audit and judgment contract can mark `needs_review`; retrieval does not yet automatically retry or branch. | Add a bounded retry/requery/review loop when required evidence or input is missing. |
+| P0 | Agent SRP | `orchestrator.py` still sequences many responsibilities. | Move stage-specific logic into dedicated modules and keep orchestration as sequencing. |
+| P1 | Gateway SRP | `gateway/src/main.ts` remains a large composition root. | Split auth/session, cases/uploads, analysis/report, KNIA/admin, legal/admin routes. |
+| P1 | Frontend source hygiene | `tsconfig.json` uses `noEmit`, but `.js` source duplicates still exist under `apps/frontend/src`. | Remove tracked generated JS duplicates or confirm they are intentionally maintained. |
+
+### Defer Until Core Trust Is Stable
+
+| Area | Why Deferred |
+| --- | --- |
+| UI polish/layout | Useful, but less important than judgment correctness and evidence traceability. |
+| Developer page expansion | Local-only diagnostic aid; should not block service logic. |
+| Full multi-agent process orchestration | Current analyst modules can support MVP; process-level agents add complexity. |
+| Standard MCP adoption | Current internal registry is enough for MVP; standard MCP needs stronger security/tool isolation design. |
+| Token/cost dashboard | LLM use is already gated; detailed billing UI can come after core loops. |
+| S3/direct upload migration | Local storage works for current MVP and collaboration constraints. |
+| Specialized traffic-accident video model | Desired later; current frame extraction plus optional OpenAI observation path is enough for next stabilization. |
