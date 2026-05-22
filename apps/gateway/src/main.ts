@@ -16,6 +16,7 @@ import { registerCaseRoutes } from "./routes/cases.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
 import { registerAnalysisRoutes } from "./routes/analysis.js";
 import { registerKniaRoutes } from "./routes/knia.js";
+import { registerKniaAdminRoutes } from "./routes/knia-admin.js";
 import { registerLegalAdminRoutes } from "./routes/legal-admin.js";
 import { registerAgentDiagnosticsRoutes } from "./routes/agent-diagnostics.js";
 import { LocalStorageProvider } from "./storage/provider.js";
@@ -155,6 +156,13 @@ registerAnalysisRoutes(app, {
 });
 
 registerKniaRoutes(app, {
+  env,
+  db,
+  requireAdmin,
+  errorPayload
+});
+
+registerKniaAdminRoutes(app, {
   env,
   db,
   requireAdmin,

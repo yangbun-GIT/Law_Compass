@@ -45,8 +45,8 @@ Agent P1에서 생성한 `agent_trace`와 `reflection_loop`를 일반 결과 화
 
 | Path | 변경 내용 |
 | --- | --- |
-| `apps/worker/worker/main.py` | `frame_times_for_duration()`과 `extract_event_frames()`를 추가했다. 5초 이하는 0.5초 간격, 10초 이하는 0.75초 간격, 그 이상은 길이에 맞춰 시간순 프레임을 추출하고 최대 장수로 균등 선별한다. 추출 프레임은 `representative_frame_details`에 time_sec/role/path와 함께 저장한다. |
-| `apps/worker/worker/main.py` | `analyze_frames_with_openai()`를 추가했다. `ENABLE_OPENAI_FRAME_ANALYSIS=1`이고 `OPENAI_API_KEY`가 있을 때만 OpenAI Responses API에 프레임 이미지를 base64 data URL로 전달한다. 결과는 `openai_frame_analysis`와 `observations`에 저장하며 worker 로그에도 모델명, 프레임 수, 관측값 요약을 한 번 출력한다. |
+| `apps/worker/worker/video_preprocess.py` | `frame_times_for_duration()`과 `extract_event_frames()`를 추가했다. 5초 이하는 0.5초 간격, 10초 이하는 0.75초 간격, 그 이상은 길이에 맞춰 시간순 프레임을 추출하고 최대 장수로 균등 선별한다. 추출 프레임은 `representative_frame_details`에 time_sec/role/path와 함께 저장한다. |
+| `apps/worker/worker/frame_analysis.py` | `analyze_frames_with_openai()`를 추가했다. `ENABLE_OPENAI_FRAME_ANALYSIS=1`이고 `OPENAI_API_KEY`가 있을 때만 OpenAI Responses API에 프레임 이미지를 base64 data URL로 전달한다. 결과는 `openai_frame_analysis`와 `observations`에 저장하며 worker 로그에도 모델명, 프레임 수, 관측값 요약을 한 번 출력한다. |
 | `apps/agent/app/services/video_input_contract.py` | OpenAI 프레임 분석 결과의 `frame_refs`와 `reason`을 Agent 영상 입력 계약에 보존한다. `source=frame_analysis:openai`는 기존 `frame_analysis` 계열 source로 처리되어 confidence 기준을 통과해야만 facts로 승격된다. |
 | `compose.yaml` | worker에 `ENABLE_OPENAI_FRAME_ANALYSIS`, `OPENAI_API_KEY`, `OPENAI_VISION_MODEL`, `OPENAI_FRAME_ANALYSIS_MAX_FRAMES`, `OPENAI_FRAME_ANALYSIS_DETAIL`, `OPENAI_TIMEOUT_SEC` 환경변수 전달을 추가했다. 기본값은 비용 방지를 위해 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이다. |
 
@@ -417,7 +417,11 @@ Agent 주요 DTO:
 | `apps/agent/app/services/analyst_output_contracts.py` | Analyst output contract schema | 분석가별 출력 모델을 Pydantic으로 정의하고 LLM/fallback 결과의 타입을 정규화한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/services/analyst_output_guard.py` | Analyst output guard service | 분석가별 LLM/fallback 출력을 근거 충분성 기준으로 보강하고 직접 근거 부족 시 caveat와 confidence 상한을 적용한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/services/legal_api_clients.py` | External legal/public API client | 국가법령정보센터와 공공데이터포털 교통 API 검색 결과를 내부 근거 형식으로 변환한다 | 저장소 내 명시 없음 |
-| `apps/worker/worker/main.py` | Redis Streams worker | 영상 전처리, 프레임 추출, 영상 분석 job 실행, DB 상태 갱신을 수행한다 | 저장소 내 명시 없음 |
+| `apps/gateway/src/routes/knia-admin.ts` | Fastify KNIA admin router | KNIA 수집, 상세 수집, 임베딩 재생성, JSON import, cache invalidation 관리자 API를 등록한다 | 저장소 내 명시 없음 |
+| `apps/worker/worker/main.py` | Redis Streams worker entrypoint | Redis consumer group을 유지하고 job 실행 성공/실패 상태 캐시를 갱신한다 | 저장소 내 명시 없음 |
+| `apps/worker/worker/job_processor.py` | Worker job processor | `video_preprocess`, `video_analyze` job의 DB 상태 전이, Agent 호출, 분석 결과 저장을 수행한다 | 저장소 내 명시 없음 |
+| `apps/worker/worker/video_preprocess.py` | Video preprocessing service | ffprobe 영상 metadata 확인, 이벤트 프레임 시간 선택, ffmpeg 프레임 추출을 수행한다 | 저장소 내 명시 없음 |
+| `apps/worker/worker/frame_analysis.py` | Optional frame analysis provider | OpenAI 이미지 입력을 이용해 프레임에서 관측 가능한 사고 사실 후보를 추출한다 | 저장소 내 명시 없음 |
 | `AGENTS.md` | Agent entry instruction document | 에이전트가 작업 전 `DEVELOPMENT_PROMPT.md`와 `SYSTEM_OVERVIEW.md`를 먼저 읽도록 안내한다 | 저장소 내 명시 없음 |
 | `DEVELOPMENT_PROMPT.md` | Development guidance document | 개발 전 참조하는 LawCompass 전담 Principal Software Architect 역할, 작업 순서, 검증, 보안, 문서 동기화 기준을 정의한다 | 저장소 내 명시 없음 |
 | `SYSTEM_OVERVIEW.md` | Project handoff/spec document | 프로젝트 구조와 현재 구현 상태를 추적하는 기준 문서다 | 저장소 내 명시 없음 |
@@ -471,11 +475,14 @@ Agent 주요 DTO:
 | `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | `make_headline`, `make_summary`, `make_fault_explanation`, `make_legal_explanation`, `make_insurance_explanation` | final analysis dict | elderly-friendly report sections | `judgment_status` 또는 `evidence_support_level`이 약하면 사용자 문장을 "확정"이 아닌 "추가 확인 필요" 표현으로 완화 |
 | `apps/agent/app/services/legal_api_clients.py` | `fetch_law_search` | query, limit | evidence-like rows | 국가법령정보센터 `lawSearch.do`에서 법령/판례 검색 |
 | `apps/agent/app/services/legal_api_clients.py` | `fetch_data_go_traffic` | query, limit | evidence-like rows | 공공데이터포털 교통사고 API 응답을 내부 근거 형식으로 변환 |
-| `apps/worker/worker/main.py` | `init_group` | 없음 | 없음 | Redis Stream consumer group 생성 |
-| `apps/worker/worker/main.py` | `probe_video` | storage_path | video metadata dict | `ffprobe`로 codec, duration, resolution, fps, size 추출 |
-| `apps/worker/worker/main.py` | `extract_frames` | storage_path, caseId, uploadId, duration | frame path list | `ffmpeg`로 4개 시점 프레임 추출 |
-| `apps/worker/worker/main.py` | `process_job` | job_id, job_type | DB/Redis side effect | `video_preprocess`와 `video_analyze`를 분기 처리 |
-| `apps/worker/worker/main.py` | `mark_failed`, `main_loop` | job/error 또는 없음 | 없음 | 실패 상태 갱신 및 Redis Stream 무한 소비 루프 |
+| `apps/worker/worker/main.py` | `init_group`, `main_loop` | 없음 | 없음 | Redis Stream consumer group 생성, job 메시지 소비, 성공/실패 status cache 갱신 |
+| `apps/worker/worker/job_processor.py` | `process_job` | job_id, job_type, redis client | DB/Redis side effect | `video_preprocess`와 `video_analyze` job을 분기하고 DB transaction을 관리 |
+| `apps/worker/worker/job_processor.py` | `_process_video_preprocess`, `_enqueue_video_analyze_job` | job row, payload | uploads/jobs 갱신 | 영상 metadata/프레임/관측값을 저장하고 후속 `video_analyze` job을 큐에 등록 |
+| `apps/worker/worker/job_processor.py` | `_process_video_analyze`, `_insert_analysis_result` | job row, payload | analysis result row | Agent `/internal/v1/analyze/video` 호출 후 `analysis_results`와 case latest result를 갱신 |
+| `apps/worker/worker/job_processor.py` | `mark_failed` | job_id, error | DB side effect | 실패 job 상태, error_info, 재시도 시간을 저장 |
+| `apps/worker/worker/video_preprocess.py` | `probe_video` | storage_path | video metadata dict | `ffprobe`로 codec, duration, resolution, fps, size 추출 |
+| `apps/worker/worker/video_preprocess.py` | `frame_times_for_duration`, `extract_event_frames`, `extract_frames` | storage path, case/upload ids, duration | frame descriptors/list | 짧은 사고 영상에 맞춰 시간순 대표 프레임을 추출 |
+| `apps/worker/worker/frame_analysis.py` | `analyze_frames_with_openai` | frame details, context | observation result dict | OpenAI Responses API 이미지 입력을 선택적으로 호출하고 관측값 JSON을 정규화 |
 
 #### 파일별 호출 관계 및 리소스
 
@@ -503,7 +510,10 @@ Agent 주요 DTO:
 | `apps/agent/app/services/analyst_output_contracts.py` | `analyst_output_guard.py`, tests | Pydantic | 없음 | 없음 | Agent DTO guard layer |
 | `apps/agent/app/services/analyst_output_guard.py` | Agent analyst modules | 없음 | 없음 | 입력 evidence list만 사용 | Agent domain guard |
 | `apps/agent/app/services/legal_api_clients.py` | legal ingestion/retrieval 계열 service/script | `httpx` | `LAW_API_OC`, `LAW_API_BASE`, `LAW_API_TARGETS`, `DATA_GO_*` | `law.go.kr`, `apis.data.go.kr` 외부 HTTP | Agent egress |
-| `apps/worker/worker/main.py` | Worker container process | Redis, psycopg, ffmpeg/ffprobe, urllib | `REDIS_URL`, `REDIS_STREAM_KEY`, `REDIS_STREAM_GROUP`, `DATABASE_URL`, `INTERNAL_AGENT_URL`, `INTERNAL_SERVICE_TOKEN`, `LOCAL_STORAGE_ROOT` | `jobs`, `uploads`, `cases`, `analysis_results`, Redis stream/status key, local frames | `worker` service, no public port |
+| `apps/worker/worker/main.py` | Worker container process | Redis, `job_processor` | `REDIS_URL`, `REDIS_STREAM_KEY`, `REDIS_STREAM_GROUP` | Redis stream/status key | `worker` service, no public port |
+| `apps/worker/worker/job_processor.py` | `main.py` | psycopg, `video_preprocess`, `frame_analysis`, Agent HTTP helper | `DATABASE_URL`, `INTERNAL_AGENT_URL`, `INTERNAL_SERVICE_TOKEN`, `LOCAL_STORAGE_ROOT`, `REDIS_STREAM_KEY` | `jobs`, `uploads`, `cases`, `analysis_results`, Redis Stream follow-up enqueue, local frames | Worker domain service |
+| `apps/worker/worker/video_preprocess.py` | `job_processor.py`, tests/scripts | ffprobe/ffmpeg subprocess | 없음 | local original video, `storage/frames/{caseId}/{uploadId}` | Worker video service |
+| `apps/worker/worker/frame_analysis.py` | `job_processor.py` | OpenAI Responses API via `urllib` | `ENABLE_OPENAI_FRAME_ANALYSIS`, `OPENAI_API_KEY`, `OPENAI_VISION_MODEL`, `OPENAI_TIMEOUT_SEC`, `OPENAI_FRAME_ANALYSIS_MAX_FRAMES`, `OPENAI_FRAME_ANALYSIS_DETAIL` | OpenAI external HTTP, local frame images | Worker optional vision provider |
 
 #### 데이터 모델 및 DTO 매핑
 
@@ -533,7 +543,7 @@ Agent 주요 DTO:
 | `apps/frontend/src/api/client.ts`, `apps/frontend/src/components/easy/*`, `apps/frontend/src/composables/useCaseWorkspace.ts` | 구현 완료 | `apps/frontend/scripts/test-display.mjs`, `apps/frontend/scripts/test-chat.mjs`에서 간접 검증 | 네트워크/JSON/API 오류를 사용자 문구로 정규화하고 Gateway validation detail을 로그인, 회원가입, 케이스 생성, 케이스 상세 주요 액션에서 필드별 안내로 표시한다. 결과/근거 화면은 로딩, 결과 없음, 오류 상태를 구분하고 일반 사용자 화면에서는 내부 근거 식별자와 원문 덤프를 숨긴다. 쉬운 리포트는 `evidence_reliability_card`로 Agent 판단의 근거 연결 상태를 표시한다. 인증 폼은 데모 기본값 없이 email 형식과 8자 이상 비밀번호를 선제 검증한다. 케이스 상세 화면의 입력/업로드/분석/job polling 로직은 `useCaseWorkspace` composable로 분리했다. |
 | `apps/frontend/src/router/index.ts` | 구현 완료 | 전용 단위 테스트 없음 | 인증 bootstrap가 route guard마다 실행되므로 초기 진입 지연 가능성은 관찰 대상 |
 | `apps/frontend/src/stores/session.ts` | 구현 완료 | 전용 단위 테스트 없음 | localStorage 사용자 정보와 cookie 세션 불일치 시 refresh 흐름에 의존 |
-| `apps/gateway/src/main.ts` | 구현 완료, 라우트 규모 큼 | `apps/gateway/test/error-format.test.ts`, `npm test` | validation 오류는 400 `VALIDATION_ERROR`로 정규화된다. 한 파일에 인증/케이스/업로드/분석/KNIA/admin 라우트가 집중되어 유지보수 비용이 높다 |
+| `apps/gateway/src/main.ts` | 구현 완료, Gateway composition root | `apps/gateway/test/error-format.test.ts`, `npm test`, `npm run build` | validation 오류는 400 `VALIDATION_ERROR`로 정규화된다. 신규 API 동작은 route module에 추가해야 한다 |
 | `apps/gateway/src/lib/report-composer.ts` | 구현 완료, 리포트 안전화 로직 | `apps/gateway/test/report-composer.test.ts`, `npm test` | raw Agent 결과를 일반 사용자 화면용 리포트로 변환하므로 내부 식별자/점수/claim 세부 구조가 노출되지 않도록 테스트 유지 필요 |
 | `apps/gateway/src/routes/chat.ts` | 구현 완료 | Gateway test에서 직접 매핑 확인 필요 | 일부 route는 `requireUser`를 명시적으로 강제하지 않고 익명 세션도 허용하는 구조다 |
 | `apps/gateway/src/services/chatService.ts` | 구현 완료 | 전용 단위 테스트 없음 | Agent 장애 시 Gateway route에서 502로 변환된다 |
@@ -547,7 +557,7 @@ Agent 주요 DTO:
 | `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | 구현 완료, 근거 상태 기반 문장 완화 | `apps/agent/tests/test_elderly_report_support_language.py`, `apps/agent/tests/test_orchestrator.py` | 쉬운 리포트 문장은 내부 코드가 아니라 사용자 표시 문구만 포함해야 하며, 근거 부족 시 확정 표현을 피해야 함 |
 | `apps/agent/app/services/claim_evidence_validator.py` | 구현 완료, Agent 신뢰도 보강 로직 | `apps/agent/tests/test_claim_evidence_validator.py`, `apps/agent/tests/test_orchestrator.py` | 주요 판단별 근거 연결 상태를 산출하고 analyst의 `used_evidence_ids`가 있으면 claim별 evidence ref 선정에 우선 사용한다. 향후 Analyst별 claim 형식이 바뀌면 함께 갱신 필요 |
 | `apps/agent/app/services/legal_api_clients.py` | 구현 완료, 외부 권한 의존 | `apps/agent/scripts/check_external_apis.py` | 국가법령정보센터 IP/도메인 검증, 공공데이터포털 활용신청 권한 상태에 따라 실패 가능 |
-| `apps/worker/worker/main.py` | 구현 완료 | `apps/worker/tests/test_keys.py`, E2E smoke에서 간접 검증 | ffmpeg/ffprobe 설치와 로컬 파일 경로 접근 권한에 의존 |
+| `apps/worker/worker/main.py`, `apps/worker/worker/job_processor.py`, `apps/worker/worker/video_preprocess.py`, `apps/worker/worker/frame_analysis.py` | 구현 완료, Worker 책임 분리 적용 | `python -m compileall worker`, `apps/worker/tests/test_keys.py`, E2E smoke에서 간접 검증 | ffmpeg/ffprobe 설치와 로컬 파일 경로 접근 권한에 의존. OpenAI 프레임 분석은 기본 비활성이고 환경변수로 켜야 한다 |
 | `infra/postgres/migrations/*.sql` | 초기/증분 migration 구현 | Compose init, `db-migrate` profile, E2E smoke | `db-migrate` 명령은 일부 migration glob을 명시 적용하므로 신규 migration 추가 시 compose 명령 확인 필요 |
 
 ## 3. 의존성
@@ -871,7 +881,8 @@ This section records the first SRP cleanup pass so future changes can compare mo
 
 | Path | Responsibility after this pass |
 | --- | --- |
-| `apps/worker/worker/main.py` | Redis Stream job orchestration, upload row loading, DB status/result updates, and Agent submission coordination. Video probing/frame extraction and OpenAI frame observation logic were moved out. |
+| `apps/worker/worker/main.py` | Redis Stream consumer group setup, stream polling, ack, and short-lived job status cache updates. |
+| `apps/worker/worker/job_processor.py` | Worker DB job orchestration, upload row loading, DB status/result updates, follow-up job enqueueing, and Agent submission coordination. |
 | `apps/worker/worker/video_preprocess.py` | Owns `worker-video-preprocess-v1`, ffprobe video metadata probing, event frame time selection, ffmpeg frame extraction, and extracted frame descriptors. |
 | `apps/worker/worker/frame_analysis.py` | Owns optional OpenAI image/frame observation calls, frame selection for cost control, response JSON parsing, and observation normalization. |
 | `apps/gateway/src/config/env.ts` | Owns Gateway runtime environment defaults and cookie secure mode. |
@@ -880,7 +891,8 @@ This section records the first SRP cleanup pass so future changes can compare mo
 | `apps/gateway/src/routes/cases.ts` | Owns basic case CRUD routes: create case, list cases, read case detail, and patch editable case fields. |
 | `apps/gateway/src/routes/uploads.ts` | Owns local upload routes, upload completion verification, local video content delivery, and video preprocess job enqueueing. |
 | `apps/gateway/src/routes/analysis.ts` | Owns case analysis and report routes: text analysis, video analysis job enqueueing, result/report/easy-report lookup, reanalysis, job listing, and evidence lookup. |
-| `apps/gateway/src/routes/knia.ts` | Owns KNIA public lookup/search routes, KNIA Agent proxy routes, KNIA admin collection/embedding routes, and KNIA cache invalidation. |
+| `apps/gateway/src/routes/knia.ts` | Owns KNIA public lookup/search routes and public KNIA Agent proxy routes. |
+| `apps/gateway/src/routes/knia-admin.ts` | Owns KNIA admin collection/detail collection, embedding rebuild, JSON import, and cache invalidation routes. |
 | `apps/gateway/src/routes/legal-admin.ts` | Owns legal/admin routes: legal KB ingest, legal embedding rebuild, and legal retrieval smoke test proxy. |
 | `apps/agent/app/routers/internal.py` | Owns only `/internal/v1` router composition and includes domain-specific internal route modules. |
 | `apps/agent/app/routers/internal_auth.py` | Owns the shared internal service token check for Agent internal routes. |
@@ -901,6 +913,7 @@ Remaining SRP debt to handle in later iterations:
 - `apps/gateway/src/main.ts` is now a Gateway composition root with shared hooks, health checks, route-module registration, audit logging, and centralized error handling. Keep new API behavior inside route modules unless it changes shared Gateway lifecycle hooks.
 - `apps/agent/app/services/orchestrator.py` now delegates context, evidence, analysis, reflection, and output enrichment to stage modules. Keep future stage-specific logic out of the orchestrator unless it only changes stage ordering.
 - `apps/agent/app/routers/internal.py` is now thin; keep new internal endpoint behavior inside `apps/agent/app/routers/internal_routes/*`.
+- `apps/worker/worker/main.py` is now a Redis consumer entrypoint; keep video preprocessing, vision analysis, DB persistence, and Agent submission in Worker service modules.
 - `apps/frontend/src/views/CaseDetailView.vue` now delegates workspace state/actions to `useCaseWorkspace`; split visual subsections into components only if template complexity grows further.
 - KNIA parser/repository files are functionally cohesive but large; split only when adding new KNIA collection or persistence behavior.
 
@@ -918,6 +931,23 @@ Verification:
 - `npm run build` in `apps/frontend`
 - `npm run test:display` in `apps/frontend`
 - `npm run test:chat` in `apps/frontend`
+
+## 2026-05-22 Worker Job Processor SRP Split
+
+Worker runtime responsibilities were separated so `apps/worker/worker/main.py` only owns Redis Stream consumption and status cache updates. Job-specific DB transitions, video preprocessing orchestration, Agent submission, and analysis result persistence now live in `apps/worker/worker/job_processor.py`. Existing video preprocessing and optional OpenAI frame analysis remain in `video_preprocess.py` and `frame_analysis.py`.
+
+This change is behavior-preserving and does not alter API routes, DB schema, Redis key names, storage paths, environment variables, or external API contracts.
+
+| Path | Responsibility |
+| --- | --- |
+| `apps/worker/worker/main.py` | Redis consumer group setup, stream polling, ack, and `job:v1:{jobId}:status` cache updates. |
+| `apps/worker/worker/job_processor.py` | `video_preprocess`/`video_analyze` job processing, DB state changes, follow-up job enqueueing, Agent video analysis call, and `analysis_results` insertion. |
+| `apps/worker/worker/video_preprocess.py` | ffprobe metadata probing and ffmpeg event-frame extraction. |
+| `apps/worker/worker/frame_analysis.py` | Optional OpenAI frame observation provider and observation normalization. |
+
+Verification:
+
+- `docker compose exec -T worker python -m compileall worker`
 
 ## 2026-05-22 Frontend TypeScript Source Hygiene
 
@@ -990,7 +1020,8 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. A safe admin diagnostic API now exposes stage and packet summaries without raw user text. | Add local-only developer UI if needed, but keep public user screens sanitized. |
 | P0 | Reflection/reverification loop | `reflection_loop` now performs one bounded evidence requery when requeryable evidence requirements are missing, then records whether to request input, present reference-only, or finalize. | Continue improving requery terms and add UI/API visibility for the loop state. |
 | P0 | Agent SRP | `orchestrator.py` now delegates input context, evidence collection, analyst execution, reflection requery, and final output enrichment to dedicated stage modules. | Keep future Agent additions inside the owning stage module and add tests before widening the orchestrator again. |
-| P1 | Gateway SRP | `gateway/src/main.ts` remains the composition root, but auth/session, basic case CRUD, upload, analysis/report, KNIA, and legal/admin routes now live under `apps/gateway/src/routes/`. | Keep new API behavior in route modules; split large route modules only when they grow further. |
+| P1 | Gateway SRP | `gateway/src/main.ts` remains the composition root. Auth/session, case CRUD, upload, analysis/report, public KNIA, KNIA admin, and legal/admin routes live under `apps/gateway/src/routes/`. | Keep new API behavior in route modules; split large route modules only when they grow further. |
+| P1 | Worker SRP | `main.py` now only consumes Redis Stream messages and delegates DB job processing to `job_processor.py`; ffprobe/ffmpeg preprocessing and OpenAI frame analysis live in dedicated modules. | Add focused tests for job payload/result shaping before expanding video provider behavior. |
 | P1 | Frontend source hygiene | `apps/frontend/src` is now TypeScript-only for source files; tracked generated `.js` duplicates were removed and `.gitignore` blocks them from returning. | Keep new frontend source in `.ts`/`.vue` files and avoid committing emitted JavaScript beside source. |
 
 ### Defer Until Core Trust Is Stable
@@ -1103,17 +1134,18 @@ The endpoint is intended for internal project inspection, not normal user UI. It
 
 ## 2026-05-22 Gateway KNIA Route Split
 
-Gateway KNIA routes were moved out of `apps/gateway/src/main.ts` into `apps/gateway/src/routes/knia.ts` as part of the SRP cleanup. This change does not alter API paths, DB schema, Redis keys, storage paths, or external Agent endpoints.
+Gateway KNIA routes were moved out of `apps/gateway/src/main.ts` into route modules as part of the SRP cleanup. Public KNIA lookup/search routes stay in `apps/gateway/src/routes/knia.ts`; administrator collection, embedding, JSON import, and cache invalidation routes now live in `apps/gateway/src/routes/knia-admin.ts`. This change does not alter API paths, DB schema, Redis keys, storage paths, or external Agent endpoints.
 
 | Path | Responsibility |
 | --- | --- |
-| `apps/gateway/src/routes/knia.ts` | Registers KNIA ranking, chart detail, adjustment/reference, match, fault estimate, myaccident menu/tree, JSON search, media search, admin KNIA collection, admin KNIA embedding rebuild, JSON import, JSON embedding rebuild, and KNIA cache invalidation routes. |
+| `apps/gateway/src/routes/knia.ts` | Registers KNIA ranking, chart detail, adjustment/reference, match, fault estimate, myaccident menu/tree, JSON search, and media search routes. |
+| `apps/gateway/src/routes/knia-admin.ts` | Registers admin KNIA collection, ranking detail collection, embedding rebuild, JSON import, JSON embedding rebuild, and cache invalidation routes. |
 | `apps/gateway/src/routes/legal-admin.ts` | Registers legal/admin ingest, legal embedding rebuild, and legal retrieval-test routes. It preserves the existing Agent internal endpoints and admin guard behavior. |
 | `apps/gateway/src/main.ts` | Keeps shared Fastify plugin setup, trace/auth/rate-limit/idempotency/audit/error hooks, health checks, and route-module registration. |
 
-Remaining Gateway SRP debt after this pass:
+Verification:
 
-- Consider splitting `routes/knia.ts` into public KNIA lookup and admin KNIA operations only if additional KNIA behavior makes the module harder to maintain.
+- `npm run build` in `apps/gateway`
 
 ## 2026-05-22 Agent Orchestrator SRP Stage Split
 
