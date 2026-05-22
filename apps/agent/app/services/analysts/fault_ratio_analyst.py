@@ -13,7 +13,7 @@ from app.services.accident_perspective import (
     infer_user_vehicle_role,
 )
 from app.services.llm_client import generate_fault_ratio_analysis
-from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage
+from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage, mark_llm_output_unavailable
 
 
 def analyze_fault_ratio(
@@ -27,6 +27,8 @@ def analyze_fault_ratio(
     llm = generate_fault_ratio_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence) if llm_usage["allowed"] else None
     if llm:
         return attach_llm_usage(guard_fault_ratio_output(_normalize(llm, evidence), evidence), llm_usage, used=True)
+    if llm_usage["allowed"]:
+        llm_usage = mark_llm_output_unavailable(llm_usage, stage="fault_ratio_analysis")
 
     knia = next((ev for ev in evidence if ev.get("source_type") == "knia_fault_standard"), None)
     user_vehicle_role = infer_user_vehicle_role(text, facts, scenario_type)

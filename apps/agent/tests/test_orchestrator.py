@@ -14,6 +14,7 @@ def test_analyze_case_minimum_fields():
         "evidence",
         "claim_evidence",
         "agent_trace",
+        "agent_quality_packet",
         "reflection_loop",
         "uncertainty",
         "disclaimers",
@@ -33,6 +34,10 @@ def test_analyze_case_minimum_fields():
     assert result["agent_trace"]["version"] == "agent-execution-trace-v1"
     assert result["agent_trace"]["trace_policy"] == "safe_metadata_only_no_raw_user_text"
     assert result["agent_trace"]["step_count"] == len(result["agent_trace"]["steps"])
+    assert result["agent_quality_packet"]["version"] == "agent-quality-packet-v1"
+    assert result["agent_quality_packet"]["packet_contract"]["required_packets_present"] is True
+    assert result["agent_quality_packet"]["guardrail_checks"]["safe_metadata_only"] is True
+    assert result["model_info"]["agent_quality_packet_version"] == "agent-quality-packet-v1"
     assert result["reflection_loop"]["version"] == "agent-reflection-loop-v1"
     assert result["reflection_loop"]["next_action"] in {
         "finalize",

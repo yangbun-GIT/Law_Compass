@@ -4,7 +4,7 @@ from typing import Any
 
 from app.services.analyst_output_guard import guard_traffic_law_output
 from app.services.llm_client import generate_traffic_law_analysis
-from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage
+from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage, mark_llm_output_unavailable
 
 
 def analyze_traffic_law(
@@ -18,6 +18,8 @@ def analyze_traffic_law(
     llm = generate_traffic_law_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence) if llm_usage["allowed"] else None
     if llm:
         return attach_llm_usage(guard_traffic_law_output(llm, evidence), llm_usage, used=True)
+    if llm_usage["allowed"]:
+        llm_usage = mark_llm_output_unavailable(llm_usage, stage="traffic_law_analysis")
     evidence_ids = [ev.get("chunk_id") for ev in evidence[:6] if ev.get("chunk_id")]
     flags: list[str] = []
     applicable: list[str] = []

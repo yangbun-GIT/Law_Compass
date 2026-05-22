@@ -6,7 +6,7 @@
 
 | 범위 | 상태 | 완료 근거 |
 | --- | --- | --- |
-| P0 Agent 신뢰 골격 | 완료 | 사고 사실 표준화, 근거 기반 후보 선택, 과실 산정, 판정 추적, 반성/품질 게이트가 Agent 서비스 경계 안에 분리되어 있다. |
+| P0 Agent 신뢰 골격 | 완료 | 사고 사실 표준화, 근거 기반 후보 선택, 과실 산정, 판정 추적, 반성/품질 게이트, 품질 패킷이 Agent 서비스 경계 안에 분리되어 있다. |
 | P1 영상 관찰값 연결 | 완료 | Worker의 ffmpeg 프레임 추출 결과와 OpenAI 프레임 관찰값을 Agent 입력 계약으로 연결했고, fixture 기반 재현 검증과 실제 OpenAI E2E 검증 경로를 분리했다. |
 | P1 영상/사용자 사실 충돌 처리 | 완료 | 영상 관찰값과 사용자 서술이 충돌할 때 `quality_gate`가 후속 추론을 차단하고 보완 입력을 요구한다. |
 | P1 근거 검색 품질 | 완료 | 후방 추돌/정차 시나리오가 근거 검색에서 우선 검색되는지 회귀 테스트로 고정했고, 통합 회귀 스크립트에 포함했다. |
@@ -15,6 +15,22 @@
 따라서 현재 남은 항목은 구조 보강의 필수 차단 이슈가 아니라 운영 안정화, 정확도 고도화, 배포 준비, UI 마감 성격의 후속 작업으로 분류한다. 이후 개발에서는 이 문서를 기준으로 P0/P1 구조 보강을 반복하지 않고, 실제 서비스 완성도를 높이는 작업으로 넘어간다.
 
 남아 있는 대표 후속 작업은 KNIA 원문/DB 수집 안정화, 실제 사고 영상 기반 프레임 분석 보정, OpenAI 비용 모니터링, S3 직접 업로드 전환, 관리자/사용자 UI 마감, 장기적으로 교통사고 특화 비전 모델 검토다.
+
+## 2026-05-22 Agent 품질 패킷 및 LLM 실패 관측 보강
+
+수업자료의 Agentic Design 기준 중 “단계별 packet, 관측 가능성, 실패 복구, 비용 인식”을 실제 Agent 출력 계약에 반영했다. `agent_trace`는 실행 순서를 설명하고, 새 `agent_quality_packet`은 결과가 필요한 packet을 모두 갖췄는지, LLM 보조 호출이 사용/차단/실패했는지, 영상 프레임 수와 판단 상태가 어떤지 안전한 메타데이터로 요약한다. 원문 사용자 입력, 내부 토큰, raw prompt는 포함하지 않는다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/agent_quality_packet.py` | `agent-quality-packet-v1` 생성기. 입력/근거/주장검증/판정계약/reflection/trace packet 존재 여부, 판단 준비 상태, 비용 관측 메타데이터, 실패 관측값을 안전 메타데이터로 만든다. |
+| `apps/agent/app/services/orchestration_output.py` | `claim_evidence`, KNIA/검색 메타데이터를 먼저 붙인 뒤 `agent_trace`와 `agent_quality_packet`을 생성하도록 순서를 정리했다. `model_info.agent_quality_packet_version`도 기록한다. |
+| `apps/agent/app/services/llm_policy.py` | 허용된 LLM 호출이 응답 없음, JSON 파싱 실패, guard 거부 등으로 실제 사용되지 못한 경우 `llm_output_unavailable` 실패 관측값과 비용 메타데이터를 남긴다. |
+| `apps/agent/app/services/analysts/*`, `apps/agent/app/services/report_composer.py` | LLM이 허용됐지만 결과를 만들지 못하면 결정론 fallback을 계속 사용하되, `llm_usage.failure_observation`으로 복구 가능한 실패를 기록한다. |
+| `apps/agent/app/schemas.py` | `AnalysisOutput.agent_quality_packet` 필드를 추가했다. |
+| `apps/agent/scripts/test_agent_quality_report.py` | 텍스트, 영상, prompt-injection 문구 포함 입력에 대해 품질 패킷 계약, safe metadata trace, 영상 프레임 수 전파, 내부 문자열 비노출을 검증한다. |
+| `scripts/verify_agent_regression.ps1` | Agent 컴파일, 내부 라우트, 대표 사고 회귀, 근거 검색 품질 검사 뒤 품질 패킷 검사를 추가 실행한다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. 공개 사용자 화면은 기존 sanitizer 정책에 따라 raw `agent_trace`, `agent_quality_packet`, `llm_policy`를 직접 노출하지 않는 구조를 유지해야 한다.
 
 ## 2026-05-22 P1 근거 검색 품질 회귀 검증
 

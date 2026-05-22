@@ -123,10 +123,25 @@ def attach_llm_usage(output: dict[str, Any], usage: dict[str, Any], *, used: boo
     return updated
 
 
+def mark_llm_output_unavailable(usage: dict[str, Any], *, stage: str) -> dict[str, Any]:
+    return {
+        **usage,
+        "reason": "llm_output_unavailable",
+        "failure_observation": {
+            "type": "llm_output_unavailable",
+            "stage": stage,
+            "recoverable": True,
+            "safe_message": "LLM output was unavailable or rejected, so deterministic fallback was used.",
+        },
+    }
+
+
 def summarize_case_llm_policy(section_outputs: dict[str, dict[str, Any]]) -> dict[str, Any]:
     sections: dict[str, Any] = {}
     used_sections: list[str] = []
     blocked_sections: list[str] = []
+    failed_sections: list[str] = []
+    failure_observations: list[dict[str, Any]] = []
     for section, output in section_outputs.items():
         usage = output.get("llm_usage") if isinstance(output, dict) else None
         if not isinstance(usage, dict):
@@ -138,15 +153,29 @@ def summarize_case_llm_policy(section_outputs: dict[str, dict[str, Any]]) -> dic
             "mode": usage.get("mode"),
             "required_evidence_family": usage.get("required_evidence_family"),
         }
+        if isinstance(usage.get("failure_observation"), dict):
+            sections[section]["failure_observation"] = usage["failure_observation"]
+            failure_observations.append({"section": section, **usage["failure_observation"]})
         if usage.get("used"):
             used_sections.append(section)
         elif not usage.get("allowed"):
             blocked_sections.append(section)
+        elif usage.get("reason") != "allowed":
+            failed_sections.append(section)
     return {
         "version": "llm-policy-v1",
         "provider_enabled": _provider_enabled(),
         "used_sections": used_sections,
         "blocked_sections": blocked_sections,
+        "failed_sections": failed_sections,
+        "failure_observations": failure_observations,
+        "cost_metadata": {
+            "used_section_count": len(used_sections),
+            "blocked_section_count": len(blocked_sections),
+            "failed_section_count": len(failed_sections),
+            "token_usage_available": False,
+            "token_usage_reason": "OpenAI token usage is not persisted by the current guarded analyst client.",
+        },
         "sections": sections,
         "principle": "LLM은 설명과 요약을 보조하고, 과실 수치·KNIA 매칭·법률 근거 존재 여부는 결정론적 로직과 RAG 근거가 우선합니다.",
     }

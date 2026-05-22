@@ -4,7 +4,7 @@ from typing import Any
 
 from app.services.analyst_output_guard import guard_insurance_output
 from app.services.llm_client import generate_insurance_analysis
-from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage
+from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage, mark_llm_output_unavailable
 
 
 def analyze_insurance(
@@ -18,6 +18,8 @@ def analyze_insurance(
     llm = generate_insurance_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence) if llm_usage["allowed"] else None
     if llm:
         return attach_llm_usage(guard_insurance_output(llm, evidence), llm_usage, used=True)
+    if llm_usage["allowed"]:
+        llm_usage = mark_llm_output_unavailable(llm_usage, stage="insurance_guidance")
     claim_type = ["대물"]
     if facts.get("injury"):
         claim_type.append("대인")

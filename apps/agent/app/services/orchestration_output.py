@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.agent_quality_packet import (
+    VERSION as AGENT_QUALITY_PACKET_VERSION,
+    build_agent_quality_packet,
+)
 from app.services.agent_execution_trace import (
     VERSION as AGENT_TRACE_VERSION,
     build_agent_execution_trace,
@@ -26,9 +30,6 @@ def enrich_analysis_output(
     output = apply_judgment_contract_to_output(output, judgment_contract)
     output["reflection_loop"] = reflection_loop
     output["model_info"]["reflection_loop_version"] = REFLECTION_LOOP_VERSION
-    output["agent_trace"] = build_agent_execution_trace(output)
-    output["model_info"]["agent_trace_version"] = AGENT_TRACE_VERSION
-    output["elderly_friendly_report"] = build_elderly_friendly_report(output)
     output["claim_evidence"] = analysis_bundle.claim_evidence
     output["knia_json_evidence"] = evidence_bundle.knia_json_evidence
     _attach_knia_fault_estimate(output, evidence_bundle, analysis_bundle)
@@ -37,6 +38,11 @@ def enrich_analysis_output(
     ]
     output["model_info"]["retrieval"] = _build_retrieval_model_info(evidence_bundle)
     output["model_info"]["scenario_classifier"] = context.scenario
+    output["agent_trace"] = build_agent_execution_trace(output)
+    output["model_info"]["agent_trace_version"] = AGENT_TRACE_VERSION
+    output["agent_quality_packet"] = build_agent_quality_packet(output)
+    output["model_info"]["agent_quality_packet_version"] = AGENT_QUALITY_PACKET_VERSION
+    output["elderly_friendly_report"] = build_elderly_friendly_report(output)
     return output
 
 

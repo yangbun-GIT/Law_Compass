@@ -73,3 +73,28 @@ def test_case_llm_policy_summary_counts_used_and_blocked_sections(monkeypatch):
     assert summary["provider_enabled"] is False
     assert "traffic_law_analysis" in summary["blocked_sections"]
     assert "fault_ratio_analysis" in summary["blocked_sections"]
+
+
+def test_allowed_llm_failure_is_recorded_as_observable_fallback(monkeypatch):
+    monkeypatch.setenv("ENABLE_OPENAI_ANALYSTS", "1")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(
+        "app.services.analysts.traffic_law_analyst.generate_traffic_law_analysis",
+        lambda **_: None,
+    )
+
+    legal = analyze_traffic_law(
+        scenario_type="rear_end_collision",
+        facts={},
+        evidence=[{"chunk_id": "law-1", "law_name": "도로교통법"}],
+        text="정차 중 뒤에서 추돌당했습니다.",
+    )
+    summary = summarize_case_llm_policy({"traffic_law_analysis": legal})
+
+    assert legal["analysis_source"] == "deterministic_fallback"
+    assert legal["llm_usage"]["allowed"] is True
+    assert legal["llm_usage"]["used"] is False
+    assert legal["llm_usage"]["reason"] == "llm_output_unavailable"
+    assert legal["llm_usage"]["failure_observation"]["recoverable"] is True
+    assert "traffic_law_analysis" in summary["failed_sections"]
+    assert summary["cost_metadata"]["failed_section_count"] == 1

@@ -65,6 +65,7 @@ class AnalysisOutput(BaseModel):
     claim_evidence: dict[str, Any] = Field(default_factory=dict)
     agent_judgment: dict[str, Any] = Field(default_factory=dict)
     agent_trace: dict[str, Any] = Field(default_factory=dict)
+    agent_quality_packet: dict[str, Any] = Field(default_factory=dict)
     reflection_loop: dict[str, Any] = Field(default_factory=dict)
     input_requirements: dict[str, Any] = Field(default_factory=dict)
     followup_loop: dict[str, Any] = Field(default_factory=dict)

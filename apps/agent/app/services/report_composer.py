@@ -3,7 +3,7 @@ from typing import Any
 from app.services.elderly_friendly.report_simplifier import build_elderly_friendly_report
 from app.services.elderly_friendly.ui_text_mapper import scenario_label
 from app.services.llm_client import generate_final_report
-from app.services.llm_policy import evaluate_llm_usage, summarize_case_llm_policy
+from app.services.llm_policy import evaluate_llm_usage, mark_llm_output_unavailable, summarize_case_llm_policy
 
 
 def compose_analysis_output(
@@ -34,6 +34,8 @@ def compose_analysis_output(
     final_report_usage = evaluate_llm_usage(section="final_report", evidence=evidence, facts=normalized_input.get("structured_facts") or {})
     final = generate_final_report(normalized_input=normalized_input, scenario=scenario, evidence=evidence, legal_analysis=legal_analysis, fault_ratio=fault_ratio, legal_liability=legal_liability, insurance_guide=insurance_guide, action_plan=action_plan) if final_report_usage["allowed"] else None
     summary = final.get("accident_summary") if isinstance(final, dict) else None
+    if final_report_usage["allowed"] and not summary:
+        final_report_usage = mark_llm_output_unavailable(final_report_usage, stage="final_report")
     final_report_usage = {**final_report_usage, "used": bool(summary)}
     if not summary:
         summary = _fallback_summary(normalized_input, scenario, legal_analysis)

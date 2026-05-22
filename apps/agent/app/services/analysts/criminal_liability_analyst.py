@@ -4,7 +4,7 @@ from typing import Any
 
 from app.services.analyst_output_guard import guard_criminal_liability_output
 from app.services.llm_client import generate_criminal_liability_analysis
-from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage
+from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage, mark_llm_output_unavailable
 
 
 def analyze_criminal_liability(
@@ -19,6 +19,8 @@ def analyze_criminal_liability(
     llm = generate_criminal_liability_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence, legal_analysis=legal_analysis) if llm_usage["allowed"] else None
     if llm:
         return attach_llm_usage(guard_criminal_liability_output(llm, evidence), llm_usage, used=True)
+    if llm_usage["allowed"]:
+        llm_usage = mark_llm_output_unavailable(llm_usage, stage="criminal_liability_analysis")
 
     risk_flags = set(legal_analysis.get("risk_flags", []))
     if facts.get("injury"):
