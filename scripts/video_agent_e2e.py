@@ -179,6 +179,8 @@ def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool
     fact_patch = video_contract.get("fact_patch") if isinstance(video_contract.get("fact_patch"), dict) else {}
     accepted = video_contract.get("accepted_observations") if isinstance(video_contract.get("accepted_observations"), list) else []
     uncertain = video_contract.get("uncertain_observations") if isinstance(video_contract.get("uncertain_observations"), list) else []
+    confirmation_candidates = video_contract.get("confirmation_candidates") if isinstance(video_contract.get("confirmation_candidates"), list) else []
+    confirmation_groups = video_contract.get("confirmation_groups") if isinstance(video_contract.get("confirmation_groups"), list) else []
     applied_video_fields = arbitration.get("applied_video_fields") if isinstance(arbitration.get("applied_video_fields"), list) else []
     conflicts = arbitration.get("conflicts") if isinstance(arbitration.get("conflicts"), list) else []
     if require_agent_video_facts:
@@ -192,6 +194,16 @@ def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool
         "video_contract_version": video_contract.get("version"),
         "accepted_observation_count": len(accepted),
         "uncertain_observation_count": len(uncertain),
+        "confirmation_candidate_count": len(confirmation_candidates),
+        "confirmation_groups": [
+            {
+                "type": item.get("type"),
+                "status": item.get("status"),
+                "fields": item.get("fields"),
+            }
+            for item in confirmation_groups[:5]
+            if isinstance(item, dict)
+        ],
         "observation_quality_summary": video_contract.get("observation_quality_summary"),
         "fact_patch": fact_patch,
         "applied_video_fields": applied_video_fields,

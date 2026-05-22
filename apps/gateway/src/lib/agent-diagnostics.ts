@@ -139,6 +139,8 @@ export function composeAgentTraceDiagnostic(row: AnyRecord = {}) {
       accepted_observation_count: asArray(videoContract.accepted_observations).length,
       uncertain_observation_count: asArray(videoContract.uncertain_observations).length,
       ignored_observation_count: asArray(videoContract.ignored_observations).length,
+      confirmation_candidate_count: asArray(videoContract.confirmation_candidates).length,
+      confirmation_group_count: asArray(videoContract.confirmation_groups).length,
       promoted_fields: safeFieldList(Object.keys(asRecord(videoContract.fact_patch))),
       observation_quality: safeVideoObservationQuality(videoContract),
     },
@@ -174,6 +176,8 @@ function safeVideoObservationQuality(videoContract: AnyRecord = {}) {
     ignored_count: toNumber(summary.ignored_count, asArray(videoContract.ignored_observations).length),
     accepted_single_frame_count: toNumber(summary.accepted_single_frame_count),
     accepted_multi_frame_count: toNumber(summary.accepted_multi_frame_count),
+    confirmation_candidate_count: toNumber(summary.confirmation_candidate_count, asArray(videoContract.confirmation_candidates).length),
+    confirmation_group_count: toNumber(summary.confirmation_group_count, asArray(videoContract.confirmation_groups).length),
     uncertain_reason_counts: safePacket(uncertainReasons),
   };
 }

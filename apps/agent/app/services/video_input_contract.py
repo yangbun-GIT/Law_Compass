@@ -13,6 +13,20 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "crosswalk_nearby": 0.85,
     "school_zone": 0.85,
 }
+CONFIRMATION_FIELD_PRIORITIES = {
+    "stopped": 10,
+    "opponent_behavior": 20,
+    "lane_change_actor": 30,
+    "opponent_signal_violation": 40,
+    "user_signal": 50,
+    "opponent_signal": 60,
+    "sudden_brake": 70,
+    "turn_signal": 80,
+    "crosswalk_nearby": 90,
+    "school_zone": 100,
+    "injury": 110,
+    "damage_level": 120,
+}
 
 FRAME_REF_REQUIRED_FACT_FIELDS = {
     "stopped",
@@ -118,11 +132,11 @@ def normalize_video_input_contract(
             ignored.append({**observation, "reason": "field_not_in_agent_fact_contract"})
             continue
         if not _has_observation_source(source):
-            uncertain.append({**observation, "reason": "missing_observation_source"})
+            uncertain.append({**_candidate_observation(observation, raw), "reason": "missing_observation_source"})
             continue
         passed, gate_reason, gate = _passes_fact_quality(observation)
         if not passed:
-            uncertain.append({**observation, "reason": gate_reason, "quality_gate": gate})
+            uncertain.append({**_candidate_observation(observation, raw), "reason": gate_reason, "quality_gate": gate})
             continue
         value = _normalize_fact_value(field, observation.get("value"), raw)
         if value is None:
@@ -131,6 +145,8 @@ def normalize_video_input_contract(
         fact_patch[field] = value
         accepted.append({**observation, "value": value, "quality_gate": gate})
 
+    confirmation_candidates = _confirmation_candidates(uncertain)
+    confirmation_groups = _confirmation_groups(accepted, confirmation_candidates)
     warnings: list[str] = []
     if technical and not accepted:
         warnings.append("technical_video_metadata_not_treated_as_accident_fact")
@@ -145,7 +161,9 @@ def normalize_video_input_contract(
         "accepted_observations": accepted,
         "uncertain_observations": uncertain,
         "ignored_observations": ignored,
-        "observation_quality_summary": _quality_summary(accepted, uncertain, ignored),
+        "confirmation_candidates": confirmation_candidates,
+        "confirmation_groups": confirmation_groups,
+        "observation_quality_summary": _quality_summary(accepted, uncertain, ignored, confirmation_candidates, confirmation_groups),
         "warnings": warnings,
         "fact_confidence_threshold": MIN_FACT_CONFIDENCE,
         "field_confidence_thresholds": FIELD_CONFIDENCE_THRESHOLDS,
@@ -227,6 +245,16 @@ def _normalize_observation(raw: Any) -> dict[str, Any] | None:
     }
 
 
+def _candidate_observation(observation: dict[str, Any], raw: dict[str, Any]) -> dict[str, Any]:
+    field = str(observation.get("field") or "")
+    normalized_value = _normalize_fact_value(field, observation.get("value"), raw)
+    if normalized_value is None:
+        return observation
+    if normalized_value == observation.get("value"):
+        return observation
+    return {**observation, "raw_value": observation.get("value"), "value": normalized_value}
+
+
 def _has_observation_source(source: str) -> bool:
     base_source = source.split(":", 1)[0]
     return base_source in {
@@ -280,6 +308,8 @@ def _quality_summary(
     accepted: list[dict[str, Any]],
     uncertain: list[dict[str, Any]],
     ignored: list[dict[str, Any]],
+    confirmation_candidates: list[dict[str, Any]] | None = None,
+    confirmation_groups: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     reasons: dict[str, int] = {}
     for item in [*uncertain, *ignored]:
@@ -290,6 +320,8 @@ def _quality_summary(
         for item in accepted
         if isinstance(item.get("quality_gate"), dict)
     ]
+    candidates = confirmation_candidates or []
+    groups = confirmation_groups or []
     return {
         "accepted_count": len(accepted),
         "uncertain_count": len(uncertain),
@@ -297,7 +329,84 @@ def _quality_summary(
         "uncertain_reasons": reasons,
         "accepted_single_frame_count": sum(1 for count in accepted_frame_ref_counts if count == 1),
         "accepted_multi_frame_count": sum(1 for count in accepted_frame_ref_counts if count >= 2),
+        "confirmation_candidate_count": len(candidates),
+        "confirmation_group_count": len(groups),
+        "high_priority_uncertain_fields": [str(item.get("field")) for item in candidates[:5] if item.get("field")],
     }
+
+
+def _confirmation_candidates(uncertain: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for item in uncertain:
+        field = str(item.get("field") or "")
+        if field not in CONFIRMATION_FIELD_PRIORITIES:
+            continue
+        if item.get("value") in (None, "", [], {}):
+            continue
+        gate = item.get("quality_gate") if isinstance(item.get("quality_gate"), dict) else {}
+        candidates.append({
+            "field": field,
+            "value": item.get("value"),
+            "confidence": item.get("confidence"),
+            "reason": item.get("reason") or "confirmation_needed",
+            "frame_ref_count": _frame_ref_count(item),
+            "min_confidence": gate.get("min_confidence"),
+            "priority": CONFIRMATION_FIELD_PRIORITIES[field],
+            "action": "ask_user_confirmation",
+        })
+    return sorted(
+        candidates,
+        key=lambda item: (
+            int(item.get("priority") or 999),
+            -int(item.get("frame_ref_count") or 0),
+            -float(item.get("confidence") or 0),
+        ),
+    )
+
+
+def _confirmation_groups(
+    accepted: list[dict[str, Any]],
+    candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    values: dict[str, Any] = {}
+    sources: dict[str, str] = {}
+    for item in accepted:
+        field = str(item.get("field") or "")
+        if not field:
+            continue
+        values[field] = item.get("value")
+        sources[field] = "accepted"
+    for item in candidates:
+        field = str(item.get("field") or "")
+        if not field or field in values:
+            continue
+        values[field] = item.get("value")
+        sources[field] = "confirmation_candidate"
+
+    groups: list[dict[str, Any]] = []
+    if values.get("stopped") is True and values.get("opponent_behavior") == "rear_collision":
+        fields = ["stopped", "opponent_behavior"]
+        groups.append({
+            "type": "rear_end_candidate",
+            "fields": fields,
+            "status": "needs_user_confirmation" if any(sources.get(field) == "confirmation_candidate" for field in fields) else "accepted",
+            "reason": "stopped_vehicle_and_rear_collision_observed",
+        })
+    if values.get("lane_change_actor") in {"user", "opponent"}:
+        groups.append({
+            "type": "lane_change_candidate",
+            "fields": ["lane_change_actor"],
+            "status": "needs_user_confirmation" if sources.get("lane_change_actor") == "confirmation_candidate" else "accepted",
+            "reason": "lane_change_actor_observed",
+        })
+    if values.get("opponent_signal_violation") is True:
+        groups.append({
+            "type": "signal_violation_candidate",
+            "fields": ["opponent_signal_violation"],
+            "status": "needs_user_confirmation" if sources.get("opponent_signal_violation") == "confirmation_candidate" else "accepted",
+            "reason": "opponent_signal_violation_observed",
+        })
+    return groups
 
 
 def _normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:

@@ -29,6 +29,20 @@
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. 실제 OpenAI 실행 후 worker는 기본 비용 안전 상태인 `ENABLE_OPENAI_FRAME_ANALYSIS=0`으로 되돌려야 한다.
 
+## 2026-05-23 영상 관찰값 확인 후보 계약 보강
+
+실제 사고 영상에서 OpenAI 프레임 분석이 낮은 confidence의 관찰값을 반환하는 경우, Agent가 해당 값을 사실로 승격하지 않으면서도 후속 확인 질문과 관리자 진단에서 우선 확인할 수 있게 `video_input_contract`를 보강했다. `stopped`, `opponent_behavior`, `lane_change_actor`, `opponent_signal_violation`처럼 과실 판단에 큰 영향을 주는 보류 관찰값은 `confirmation_candidates`로 정렬하고, 정차 중 후방 추돌처럼 함께 해석해야 하는 후보는 `confirmation_groups`로 묶는다. 이 계약은 자동 판정 근거가 아니라 사용자 확인 또는 운영 진단을 위한 안전 메타데이터다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/video_input_contract.py` | 보류 관찰값의 canonical value를 정리하고, 확인 후보/후보 그룹/품질 요약 카운트를 생성한다. 낮은 confidence 값은 계속 `fact_patch`에 들어가지 않는다. |
+| `apps/agent/tests/test_video_input_contract.py` | 낮은 confidence 신호위반 후보와 실제 영상에서 자주 발생할 수 있는 정차+후방추돌 후보 그룹을 회귀 테스트로 고정했다. |
+| `apps/gateway/src/lib/agent-diagnostics.ts` | 관리자 진단에 확인 후보 수와 후보 그룹 수를 표시한다. |
+| `scripts/video_agent_e2e.py` | 실제 영상 E2E 출력에 `confirmation_candidate_count`와 `confirmation_groups`를 포함한다. |
+| `apps/gateway/src/lib/report-composer.ts`, `apps/frontend/src/utils/displaySanitizer.ts` | 새 내부 계약 키가 일반 사용자 화면에 raw debug 값으로 노출되지 않도록 기술 필드 목록에 추가했다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. 공개 결과 화면은 기존 보완 질문 흐름을 유지하며, 새 후보 계약은 Agent/관리자 진단/실제 영상 E2E에서 입력 품질을 해석하는 데 사용한다.
+
 ## 2026-05-23 easy-report 사용자 흐름 및 payload 표시 정합성 보정
 
 Agent 결과 payload가 사용자 화면에서 카드별로 중복되거나 과도한 경고처럼 보이지 않도록 easy-report 표시 계약을 정리했다. 보완 질문은 `missing_info.questions`의 선택형 입력으로만 강조하고, 동일 문장은 `missing_info.items` 체크리스트에서 제거해 한 화면 안에서 같은 질문이 반복되지 않도록 했다. 근거 연결, 영상 관찰, Agent 처리 과정, 재분석 비교 카드의 안내 문구는 최종 판정 경고를 반복하지 않고 각 카드가 보여주는 상태 설명으로 낮췄다.

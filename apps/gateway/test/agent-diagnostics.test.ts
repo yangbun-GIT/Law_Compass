@@ -49,6 +49,8 @@ describe("agent diagnostics", () => {
           accepted_observations: [{ field: "stopped" }],
           uncertain_observations: [{ field: "turn_signal" }],
           ignored_observations: [],
+          confirmation_candidates: [{ field: "turn_signal" }],
+          confirmation_groups: [],
           fact_patch: { stopped: true },
           observation_quality_summary: {
             accepted_count: 1,
@@ -56,6 +58,8 @@ describe("agent diagnostics", () => {
             ignored_count: 0,
             accepted_single_frame_count: 1,
             accepted_multi_frame_count: 0,
+            confirmation_candidate_count: 1,
+            confirmation_group_count: 0,
             uncertain_reasons: { missing_frame_reference: 1 },
           },
         },
@@ -94,7 +98,9 @@ describe("agent diagnostics", () => {
     expect(diagnostic.pipeline.steps[0].packet_summary.raw_text).toBeUndefined();
     expect(diagnostic.reflection.next_action).toBe("present_reference_only");
     expect(diagnostic.video_input.accepted_observation_count).toBe(1);
+    expect(diagnostic.video_input.confirmation_candidate_count).toBe(1);
     expect(diagnostic.video_input.observation_quality.accepted_single_frame_count).toBe(1);
+    expect(diagnostic.video_input.observation_quality.confirmation_candidate_count).toBe(1);
     expect(diagnostic.video_input.observation_quality.uncertain_reason_counts.missing_frame_reference).toBe(1);
     expect(diagnostic.fact_arbitration.conflict_count).toBe(1);
     expect(diagnostic.evidence.family_counts).toEqual({ legal: 2, knia: 0, general: 1 });

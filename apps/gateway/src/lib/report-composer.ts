@@ -11,7 +11,7 @@ const TECHNICAL_KEYS = new Set([
   "presentation_policy", "presentation_status", "restricted_sections", "finality",
   "input_requirements", "followup_loop", "required_input_questions", "blocking_fields", "optional_fields",
   "video_input_contract", "_video_input_contract", "accepted_observations", "uncertain_observations", "ignored_observations", "fact_patch",
-  "observation_quality", "observation_quality_summary", "quality_gate", "frame_refs",
+  "confirmation_candidates", "confirmation_groups", "observation_quality", "observation_quality_summary", "quality_gate", "frame_refs",
   "fact_arbitration", "_fact_arbitration", "fact_sources", "_fact_sources", "video_primary_fields", "user_primary_fields",
   "applied_video_fields", "kept_user_fields", "confirmed_fields", "conflicts", "requires_confirmation",
   "agent_trace", "reflection_loop", "trace_policy", "packet", "step_count", "requery_attempted",

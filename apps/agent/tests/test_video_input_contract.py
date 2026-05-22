@@ -49,6 +49,8 @@ def test_low_confidence_video_observation_is_not_fact_patch():
 
     assert "opponent_signal_violation" not in contract["fact_patch"]
     assert contract["uncertain_observations"][0]["reason"] == "confidence_below_field_threshold"
+    assert contract["confirmation_candidates"][0]["field"] == "opponent_signal_violation"
+    assert contract["observation_quality_summary"]["confirmation_candidate_count"] == 1
 
 
 def test_frame_observation_without_frame_reference_is_not_fact_patch():
@@ -87,6 +89,39 @@ def test_signal_violation_uses_stricter_field_threshold():
     assert "opponent_signal_violation" not in contract["fact_patch"]
     assert contract["uncertain_observations"][0]["reason"] == "confidence_below_field_threshold"
     assert contract["uncertain_observations"][0]["quality_gate"]["min_confidence"] == 0.88
+
+
+def test_uncertain_rear_end_observations_are_grouped_for_confirmation():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "representative_frames": ["frame_1.jpg", "frame_2.jpg"],
+                "observations": [
+                    {
+                        "field": "stopped",
+                        "value": True,
+                        "confidence": 0.79,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_1.jpg"],
+                    },
+                    {
+                        "field": "impact_direction",
+                        "value": "rear",
+                        "confidence": 0.8,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
+                    },
+                ],
+            }
+        }
+    )
+
+    assert contract["fact_patch"] == {}
+    assert [item["field"] for item in contract["confirmation_candidates"]] == ["stopped", "opponent_behavior"]
+    assert contract["confirmation_candidates"][1]["value"] == "rear_collision"
+    assert contract["confirmation_groups"][0]["type"] == "rear_end_candidate"
+    assert contract["confirmation_groups"][0]["status"] == "needs_user_confirmation"
+    assert contract["observation_quality_summary"]["high_priority_uncertain_fields"] == ["stopped", "opponent_behavior"]
 
 
 def test_technical_preprocess_metadata_does_not_create_accident_facts():
