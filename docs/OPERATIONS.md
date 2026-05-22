@@ -58,11 +58,27 @@ docker compose logs worker --tail=100
 
 worker 로그의 `openai_frame_analysis` 항목에서 분석 모델, 프레임 수, `observations`를 확인할 수 있습니다. 이 출력에는 API 키를 포함하지 않습니다.
 
+## 3-2) 실제 영상 기반 Agent E2E 점검
+로컬에 있는 사고 영상을 저장소에 복사하지 않고 경로로만 넘겨 업로드, 전처리, 영상 분석 job, 결과 리포트의 Agent 검증 카드까지 확인합니다.
+
+```bash
+python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeout-sec 240
+```
+
+검증 항목:
+- `/uploads/local` 로컬 영상 업로드
+- `/uploads/complete` 후 `video_preprocess` job 성공
+- worker가 자동 등록한 `video_analyze` job 성공
+- `/cases/{caseId}/easy-report`에 `agent_process_card` 존재
+- `agent_process_card`에 raw `agent_trace`, `reflection_loop`, `packet`, 내부 step id가 노출되지 않음
+
+`ENABLE_OPENAI_FRAME_ANALYSIS=0`이면 프레임은 추출되지만 GPT 프레임 관찰값(`observations`)은 0개일 수 있습니다. 이 상태에서도 영상 전처리와 Agent 입력 계약 연결은 확인할 수 있습니다.
+
 ## 4) 프론트에서 기능 확인
 1. 회원가입
 2. 로그인
 3. 케이스 생성
-4. 영상 업로드(init -> S3 direct upload -> complete)
+4. 영상 업로드(local upload -> complete)
 5. 텍스트 분석
 6. 영상 분석 큐 등록 후 작업 상태 자동 갱신
 7. 결과 리포트/근거 펼쳐보기

@@ -1,5 +1,16 @@
 # LawCompass 시스템 구성 명세서
 
+## 2026-05-22 실제 영상 기반 Agent E2E 점검 스크립트
+
+실제 사고 영상을 저장소에 넣지 않고 로컬 경로로만 전달해 영상 업로드, ffmpeg 전처리, 자동 `video_analyze` job, Agent 결과, `agent_process_card` 노출 안전성까지 확인하는 E2E 스크립트를 추가했다. 사용자가 제공한 사고 영상은 테스트 실행에만 사용하고 Git에는 포함하지 않는다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `scripts/video_agent_e2e.py` | 임시 로컬 계정을 생성하고 케이스 생성, `/uploads/local` 업로드, `/uploads/complete`, job polling, `/cases/{caseId}/easy-report` 검증을 수행한다. `agent_process_card`가 존재하고 raw `agent_trace`, `reflection_loop`, `packet`, 내부 step id, `next_action`이 노출되지 않는지 검사한다. |
+| `docs/OPERATIONS.md` | 실제 영상 기반 E2E 실행 방법과 `ENABLE_OPENAI_FRAME_ANALYSIS=0`일 때 프레임은 추출되지만 GPT 관찰값은 0개일 수 있다는 주의 사항을 추가했다. |
+
+실행 예시는 `python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeout-sec 240`이다. 이 스크립트는 DB schema, Redis key, storage path, 환경 변수, 외부 API 계약을 변경하지 않는다.
+
 ## 2026-05-22 Agent 판단 검증 상태 화면 연결
 
 Agent P1에서 생성한 `agent_trace`와 `reflection_loop`를 일반 결과 화면에서 직접 JSON으로 노출하지 않고, Gateway가 사용자 안전 요약 카드인 `agent_process_card`로 변환해 내려주도록 보강했다. 목적은 Agent가 입력 정리, 사실 중재, 근거 검색, 주장-근거 검증, 판단 계약, 근거 보강 루프를 어떤 상태로 통과했는지 확인 가능하게 하되, raw packet, evidence id, 내부 stage id, 모델 메타데이터, 사용자 원문 입력은 일반 화면에 섞이지 않게 하는 것이다.
