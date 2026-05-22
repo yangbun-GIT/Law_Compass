@@ -72,12 +72,8 @@ try {
       }
     }
 
-    Invoke-Step "Agent compile check" {
-      docker compose exec -T agent python -m compileall app scripts
-    }
-
-    Invoke-Step "Agent regression scenarios" {
-      docker compose exec -T agent python scripts/test_agent_regression_scenarios.py
+    Invoke-Step "Agent regression guard" {
+      powershell -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "scripts\verify_agent_regression.ps1") -SkipDockerBuild
     }
 
     Invoke-Step "Gateway health through edge" {

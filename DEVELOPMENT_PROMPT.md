@@ -217,6 +217,7 @@
 
     <agent>
       Python 테스트 스크립트 또는 관련 apps/agent/scripts/test_*.py 실행
+      Agent 내부 라우터, 판단 계약, 대표 사고 회귀 검증 변경은 `powershell -ExecutionPolicy Bypass -File scripts/verify_agent_regression.ps1` 실행
       /internal/v1/health 확인
     </agent>
 
@@ -231,6 +232,7 @@
 
     <core_regression>
       프로젝트 골격, Agent 판단, Gateway report composition, Frontend 결과 표시, 영상/보완입력 흐름에 영향을 주는 변경은 가능하면 `powershell -ExecutionPolicy Bypass -File scripts/verify_core.ps1`로 핵심 회귀 검증을 일괄 실행하십시오.
+      Agent만 변경한 경우에는 `powershell -ExecutionPolicy Bypass -File scripts/verify_agent_regression.ps1`로 compile, internal route contract, representative regression scenarios를 먼저 확인할 수 있습니다.
       Docker 재빌드가 불필요한 경우 `-SkipDockerBuild`를 사용할 수 있고, Docker Desktop을 사용할 수 없는 환경에서는 `-SkipDockerChecks`로 Node/Vite 계층만 먼저 확인할 수 있습니다.
     </core_regression>
 

@@ -317,7 +317,15 @@ Gateway 주요 로직:
 | 파일 | 역할 |
 | --- | --- |
 | `apps/agent/app/main.py` | FastAPI 앱 엔트리포인트 |
-| `apps/agent/app/routers/internal.py` | 내부 전용 `/internal/v1/*` API 라우터 |
+| `apps/agent/app/routers/internal.py` | 내부 전용 `/internal/v1/*` API composition router |
+| `apps/agent/app/routers/internal_auth.py` | 내부 API `INTERNAL_SERVICE_TOKEN` guard |
+| `apps/agent/app/routers/internal_routes/analysis.py` | `/analyze/*` text/video/scenario analysis routes |
+| `apps/agent/app/routers/internal_routes/jobs.py` | `/jobs/process` worker job route |
+| `apps/agent/app/routers/internal_routes/legal.py` | `/legal/*` legal KB ingest/rebuild/retrieval test routes |
+| `apps/agent/app/routers/internal_routes/chat.py` | `/chat/message` accident consultation route |
+| `apps/agent/app/routers/internal_routes/knia.py` | `/knia/*` collection, matching, fault estimate, JSON/search routes |
+| `apps/agent/app/routers/internal_routes/cache.py` | `/cache/invalidate` semantic cache invalidation route |
+| `apps/agent/app/routers/internal_routes/health.py` | unauthenticated `/health` route |
 | `apps/agent/app/schemas.py` | Pydantic 요청/응답 모델 |
 | `apps/agent/app/services/orchestrator.py` | 사고 분석 파이프라인 총괄 |
 | `apps/agent/app/services/analyst_output_contracts.py` | 법률/과실/형사/보험 분석가 출력의 Pydantic 계약 모델 |
@@ -398,7 +406,9 @@ Agent 주요 DTO:
 | `apps/gateway/src/lib/errors.ts` | Gateway error formatter | `error.code/message/trace_id` 표준 응답을 만들고 Fastify validation 오류를 400 응답으로 정규화한다 | 저장소 내 명시 없음 |
 | `apps/gateway/src/storage/provider.ts` | Storage abstraction | 로컬 영상 업로드 저장을 구현하고 S3 provider 인터페이스를 남겨둔다 | 저장소 내 명시 없음 |
 | `apps/agent/app/main.py` | FastAPI app entrypoint | Agent 앱을 생성하고 internal router를 등록한다 | 저장소 내 명시 없음 |
-| `apps/agent/app/routers/internal.py` | FastAPI internal router/controller | Gateway/Worker 전용 분석, 법률, KNIA, 채팅, 캐시 내부 API를 제공한다 | 저장소 내 명시 없음 |
+| `apps/agent/app/routers/internal.py` | FastAPI internal router composition root | `/internal/v1` prefix를 가진 domain router들을 조립한다 | 저장소 내 명시 없음 |
+| `apps/agent/app/routers/internal_auth.py` | FastAPI internal auth helper | 내부 token guard를 라우터별로 공유한다 | 저장소 내 명시 없음 |
+| `apps/agent/app/routers/internal_routes/*.py` | FastAPI domain route modules | 분석, job, 법률, KNIA, 채팅, 캐시, health 내부 API를 책임별 파일로 제공한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/schemas.py` | Pydantic DTO schema | 분석 요청/응답과 근거 item 모델을 정의한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/services/orchestrator.py` | Analysis orchestration service | 사고 분석 전체 파이프라인을 조립하고 최종 `AnalysisOutput` payload를 만든다 | 저장소 내 명시 없음 |
 | `apps/agent/app/services/analyst_output_contracts.py` | Analyst output contract schema | 분석가별 출력 모델을 Pydantic으로 정의하고 LLM/fallback 결과의 타입을 정규화한다 | 저장소 내 명시 없음 |
@@ -436,10 +446,10 @@ Agent 주요 DTO:
 | `apps/gateway/src/lib/internal-client.ts` | `callInternalAgent` | internal path, payload, traceId, options | Agent JSON | timeout과 retry를 적용해 Agent POST API 호출 |
 | `apps/gateway/src/storage/provider.ts` | `LocalStorageProvider.putUpload` | caseId, uploadId, fileName, contentType, stream | `StoredObject` | video MIME 검사 후 로컬 `storage/uploads`에 파일 저장 |
 | `apps/gateway/src/storage/provider.ts` | `S3StorageProvider.putUpload` | upload input | error | 현재 `S3_STORAGE_NOT_ENABLED` 오류를 발생시키는 미구현 provider |
-| `apps/agent/app/routers/internal.py` | `_check_internal_token` | `x_internal_token` | 없음 또는 401 | `INTERNAL_SERVICE_TOKEN`과 요청 헤더 비교 |
-| `apps/agent/app/routers/internal.py` | `analyze_text`, `analyze_video`, `analyze_scenario_endpoint` | Pydantic/dict payload | `AnalysisOutput` | orchestrator 분석 함수를 호출해 표준 분석 응답 반환 |
-| `apps/agent/app/routers/internal.py` | `legal_ingest`, `legal_rebuild_embeddings`, `legal_retrieval_test` | token/query | ingest/rebuild/search 결과 | 법률 KB 적재, 벡터 생성, 검색 테스트 수행 |
-| `apps/agent/app/routers/internal.py` | `knia_*` endpoints | token, chart/query/import payload | KNIA 수집/검색/추정 결과 | KNIA collector, matcher, repository, vectorizer, JSON loader 호출 |
+| `apps/agent/app/routers/internal_auth.py` | `check_internal_token` | `x_internal_token` | 없음 또는 401 | `INTERNAL_SERVICE_TOKEN`과 요청 헤더 비교 |
+| `apps/agent/app/routers/internal_routes/analysis.py` | `analyze_text`, `analyze_video`, `analyze_scenario_endpoint` | Pydantic/dict payload | `AnalysisOutput` | orchestrator 분석 함수를 호출해 표준 분석 응답 반환 |
+| `apps/agent/app/routers/internal_routes/legal.py` | `legal_ingest`, `legal_rebuild_embeddings`, `legal_retrieval_test` | token/query | ingest/rebuild/search 결과 | 법률 KB 적재, 벡터 생성, 검색 테스트 수행 |
+| `apps/agent/app/routers/internal_routes/knia.py` | `knia_*` endpoints | token, chart/query/import payload | KNIA 수집/검색/추정 결과 | KNIA collector, matcher, repository, vectorizer, JSON loader 호출 |
 | `apps/agent/app/schemas.py` | `AnalyzeTextRequest` | 텍스트 분석 요청 JSON | Pydantic model | 케이스/사용자/설명/구조화 사실/키워드 유효성 정의 |
 | `apps/agent/app/schemas.py` | `AnalyzeVideoRequest` | 영상 분석 요청 JSON | Pydantic model | 업로드 ID, 전처리 요약, 영상 metadata 포함 요청 정의 |
 | `apps/agent/app/schemas.py` | `AnalysisOutput` | 분석 결과 dict | Pydantic response | 법률/과실/보험/형사/근거/KNIA/쉬운 리포트 응답 규격 정의 |
@@ -475,7 +485,8 @@ Agent 주요 DTO:
 | `apps/gateway/src/lib/internal-client.ts` | Gateway routes/services | Fetch API, `randomUUID` | call option으로 수신 | Agent internal HTTP | `gateway` -> `agent:8000` |
 | `apps/gateway/src/storage/provider.ts` | Upload routes in `main.ts` | Node fs/path/stream | `LOCAL_STORAGE_ROOT`는 생성자에서 전달 | `storage/uploads/{caseId}/{uploadId}/original.ext` | `gateway` container local/bind volume |
 | `apps/agent/app/main.py` | Uvicorn | FastAPI, internal router | 없음 | 없음 | `agent` 서비스 내부 `8000` |
-| `apps/agent/app/routers/internal.py` | Gateway, Worker | orchestrator, legal, KNIA, chat, cache services | `INTERNAL_SERVICE_TOKEN`, `DATABASE_URL` | KB/KNIA/semantic cache DB 테이블, Agent service 함수 | `agent` 내부 `/internal/v1/*` |
+| `apps/agent/app/routers/internal.py` | `apps/agent/app/main.py` | `internal_routes` package | 없음 | 없음 | `agent` 내부 `/internal/v1/*` composition |
+| `apps/agent/app/routers/internal_routes/*.py` | Gateway, Worker via `internal.py` | orchestrator, legal, KNIA, chat, cache services | `INTERNAL_SERVICE_TOKEN`, `DATABASE_URL` | KB/KNIA/semantic cache DB 테이블, Agent service 함수 | `agent` 내부 `/internal/v1/*` |
 | `apps/agent/app/schemas.py` | `internal.py`, tests | Pydantic | 없음 | 없음 | Agent DTO layer |
 | `apps/agent/app/services/orchestrator.py` | `internal.py`, tests | classifier, analysts, RAG, KNIA, report composer, OpenAI flag | `OPENAI_API_KEY` 존재 여부 | 법률 RAG, KNIA DB/Redis 검색은 하위 service에서 접근 | Agent domain service |
 | `apps/agent/app/services/analyst_output_contracts.py` | `analyst_output_guard.py`, tests | Pydantic | 없음 | 없음 | Agent DTO guard layer |
@@ -516,7 +527,7 @@ Agent 주요 DTO:
 | `apps/gateway/src/routes/chat.ts` | 구현 완료 | Gateway test에서 직접 매핑 확인 필요 | 일부 route는 `requireUser`를 명시적으로 강제하지 않고 익명 세션도 허용하는 구조다 |
 | `apps/gateway/src/services/chatService.ts` | 구현 완료 | 전용 단위 테스트 없음 | Agent 장애 시 Gateway route에서 502로 변환된다 |
 | `apps/gateway/src/storage/provider.ts` | 로컬 provider 구현, S3 provider 미구현 | 전용 단위 테스트 없음 | `S3StorageProvider`는 현재 의도적으로 비활성 상태 |
-| `apps/agent/app/routers/internal.py` | 구현 완료 | `apps/agent/scripts/test_*.py`에서 경로별 간접 검증 | 내부 token 누락/불일치 시 401 |
+| `apps/agent/app/routers/internal.py`, `apps/agent/app/routers/internal_routes/*` | 구현 완료 | `apps/agent/scripts/check_internal_routes.py`, `scripts/verify_agent_regression.ps1`, `apps/agent/scripts/test_*.py` | 내부 token 누락/불일치 시 401. Route split 후에도 기존 `/internal/v1/*` path contract를 유지해야 한다. |
 | `apps/agent/app/schemas.py` | 구현 완료 | `apps/agent/tests/test_orchestrator.py` 및 scripts에서 간접 검증 | 응답 모델이 크므로 프론트 표시 필드와 동기화 관리 필요 |
 | `apps/agent/app/services/orchestrator.py` | 구현 완료, 핵심 복합 로직 | `apps/agent/tests/test_orchestrator.py`, `apps/agent/scripts/test_legal_rag.py`, `test_knia_*`, `test_chat_*` 간접 검증 | KNIA/RAG/분석가 로직이 한 파이프라인에 결합되어 있어 입력 케이스별 회귀 테스트가 중요 |
 | `apps/agent/app/services/analyst_output_contracts.py` | 구현 완료, Analyst 출력 계약 | `apps/agent/tests/test_analyst_output_guard.py`, `apps/agent/tests/test_orchestrator.py` | LLM이 예외적인 JSON 타입을 반환해도 가능한 범위에서 정규화하되, 신규 analyst 추가 시 계약 모델을 함께 추가해야 함 |
@@ -859,13 +870,22 @@ This section records the first SRP cleanup pass so future changes can compare mo
 | `apps/gateway/src/routes/analysis.ts` | Owns case analysis and report routes: text analysis, video analysis job enqueueing, result/report/easy-report lookup, reanalysis, job listing, and evidence lookup. |
 | `apps/gateway/src/routes/knia.ts` | Owns KNIA public lookup/search routes, KNIA Agent proxy routes, KNIA admin collection/embedding routes, and KNIA cache invalidation. |
 | `apps/gateway/src/routes/legal-admin.ts` | Owns legal/admin routes: legal KB ingest, legal embedding rebuild, and legal retrieval smoke test proxy. |
+| `apps/agent/app/routers/internal.py` | Owns only `/internal/v1` router composition and includes domain-specific internal route modules. |
+| `apps/agent/app/routers/internal_auth.py` | Owns the shared internal service token check for Agent internal routes. |
+| `apps/agent/app/routers/internal_routes/analysis.py` | Owns text, video, and structured scenario analysis endpoint handlers. |
+| `apps/agent/app/routers/internal_routes/jobs.py` | Owns the internal worker job processing endpoint. |
+| `apps/agent/app/routers/internal_routes/legal.py` | Owns legal KB ingest, embedding rebuild, and retrieval-test internal endpoints. |
+| `apps/agent/app/routers/internal_routes/knia.py` | Owns KNIA collection, matching, fault estimate, JSON/search, media-search, and embedding internal endpoints. |
+| `apps/agent/app/routers/internal_routes/chat.py` | Owns the internal accident consultation chat endpoint. |
+| `apps/agent/app/routers/internal_routes/cache.py` | Owns Agent semantic cache invalidation endpoint behavior. |
+| `apps/agent/app/routers/internal_routes/health.py` | Owns the unauthenticated Agent health endpoint. |
 | `apps/frontend/tsconfig.json` | Sets `noEmit` so TypeScript source remains the only frontend source of truth under `apps/frontend/src`. |
 
 Remaining SRP debt to handle in later iterations:
 
 - `apps/gateway/src/main.ts` is now a Gateway composition root with shared hooks, health checks, route-module registration, audit logging, and centralized error handling. Keep new API behavior inside route modules unless it changes shared Gateway lifecycle hooks.
 - `apps/agent/app/services/orchestrator.py` should continue moving stage-specific logic into normalizer, classifier, retriever, auditor, judgment, and report modules.
-- `apps/agent/app/routers/internal.py` should stay thin; request validation and service calls should be delegated.
+- `apps/agent/app/routers/internal.py` is now thin; keep new internal endpoint behavior inside `apps/agent/app/routers/internal_routes/*`.
 - `apps/frontend/src/views/CaseDetailView.vue` should be reduced into composables/components for upload, preprocessing status, analysis execution, and report navigation.
 - KNIA parser/repository files are functionally cohesive but large; split only when adding new KNIA collection or persistence behavior.
 
@@ -886,6 +906,32 @@ Additional syntax verification:
 
 `docker compose exec -T agent python -m compileall app scripts`
 
+Route contract verification:
+
+`docker compose exec -T agent python scripts/check_internal_routes.py`
+
+Combined Agent verification command:
+
+`powershell -ExecutionPolicy Bypass -File scripts/verify_agent_regression.ps1`
+
+## 2026-05-22 Agent Internal Route SRP Split
+
+Agent internal API handlers were moved out of the large `apps/agent/app/routers/internal.py` file into responsibility-specific modules under `apps/agent/app/routers/internal_routes/`. This change preserves existing `/internal/v1/*` paths, request/response DTOs, DB schema, Redis keys, storage paths, environment variables, and external integrations.
+
+| Path | Responsibility |
+| --- | --- |
+| `apps/agent/app/routers/internal.py` | Keeps only the `/internal/v1` `APIRouter` and includes domain route modules. |
+| `apps/agent/app/routers/internal_auth.py` | Shares internal token verification across protected internal routes. |
+| `apps/agent/app/routers/internal_routes/analysis.py` | Text, video, and structured scenario analysis endpoints. |
+| `apps/agent/app/routers/internal_routes/jobs.py` | Worker job processing endpoint. |
+| `apps/agent/app/routers/internal_routes/legal.py` | Legal KB ingest, embedding rebuild, and retrieval smoke endpoint. |
+| `apps/agent/app/routers/internal_routes/knia.py` | KNIA collection, ranking/detail, matching, fault estimate, JSON/search, media-search, and embedding endpoints. |
+| `apps/agent/app/routers/internal_routes/chat.py` | Chat consultation endpoint. |
+| `apps/agent/app/routers/internal_routes/cache.py` | Cache invalidation endpoint. |
+| `apps/agent/app/routers/internal_routes/health.py` | Agent health endpoint. |
+| `apps/agent/scripts/check_internal_routes.py` | Verifies that the required internal route paths are still registered after router refactors. |
+| `scripts/verify_agent_regression.ps1` | Runs Docker-based Agent compile check, internal route contract check, and representative Agent regression scenarios. |
+
 ## 2026-05-22 Completion Priority Backlog
 
 This backlog separates trust-critical reinforcement from deferred enhancements. Use it to decide future development order before adding new features.
@@ -894,7 +940,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 
 | Priority | Area | Current State | Needed Work |
 | --- | --- | --- | --- |
-| P0 | Agent regression automation | `apps/agent/scripts/test_agent_regression_scenarios.py` covers core text and video/user-conflict scenarios, but it is manually run. | Add a repeatable Docker/CI command and fail builds when judgment mapping regresses. |
+| P0 | Agent regression automation | `scripts/verify_agent_regression.ps1` now runs compile, internal route contract, and representative judgment regression scenarios. `scripts/verify_core.ps1` calls this guard during Docker checks. | Wire the same command into hosted CI when the repository adds CI runners. |
 | P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. A safe admin diagnostic API now exposes stage and packet summaries without raw user text. | Add local-only developer UI if needed, but keep public user screens sanitized. |
 | P0 | Reflection/reverification loop | `reflection_loop` now performs one bounded evidence requery when requeryable evidence requirements are missing, then records whether to request input, present reference-only, or finalize. | Continue improving requery terms and add UI/API visibility for the loop state. |
 | P0 | Agent SRP | `orchestrator.py` now delegates input context, evidence collection, analyst execution, and reflection requery to dedicated stage modules. | Continue extracting final output enrichment if new KNIA/report metadata grows further. |
@@ -983,7 +1029,9 @@ This update converts the manually run project checks into a repeatable PowerShel
 
 | Path | Change |
 | --- | --- |
-| `scripts/verify_core.ps1` | Runs Gateway tests/build, Frontend build/display/chat checks, optional Docker compose build/start, Agent compile check, Agent representative regression scenarios, and Gateway `/health` through the edge service. |
+| `scripts/verify_core.ps1` | Runs Gateway tests/build, Frontend build/display/chat checks, optional Docker compose build/start, the Agent regression guard script, and Gateway `/health` through the edge service. |
+| `scripts/verify_agent_regression.ps1` | Runs Agent compile check, internal route contract verification, and representative Agent regression scenarios in Docker. |
+| `apps/agent/scripts/check_internal_routes.py` | Fails fast when required `/internal/v1/*` paths are not registered after Agent router refactors. |
 | `docs/OPERATIONS.md` | Documents the one-command verification flow plus `-SkipDockerBuild` and `-SkipDockerChecks` options. |
 | `DEVELOPMENT_PROMPT.md` | Adds the core regression command to the verification policy for changes that affect Agent judgment, Gateway report composition, Frontend result display, video facts, or follow-up/reanalysis flows. |
 
