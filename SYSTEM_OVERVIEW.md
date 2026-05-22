@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-22 P1 실제 OpenAI 프레임 분석 비용 정책
+
+실제 영상 프레임 관찰값 검증을 진행하기 전에 worker의 OpenAI 프레임 분석 기본 정책을 저비용·상한 고정 방식으로 조정했다. 기본 모델은 이미지 입력을 지원하는 비추론 모델 `gpt-4.1-mini`이며, 사고 법률 판단이 아니라 프레임에서 관찰 가능한 물리 사실 후보만 JSON으로 추출하는 역할이다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/worker/worker/frame_analysis.py` | 기본 `OPENAI_VISION_MODEL`을 `gpt-4.1-mini`로 조정했다. `OPENAI_FRAME_ANALYSIS_MAX_FRAMES`는 기본 6장/상한 8장, `OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS`는 기본 900/상한 1400으로 제한한다. GPT-5 계열 모델에는 `reasoning.effort=minimal`과 `text.verbosity=low`를 사용하고 `temperature`를 보내지 않는다. 비 GPT-5 모델은 기존처럼 `temperature=0`을 사용한다. Responses API 요청에는 `store=false`를 전달하며, 응답이 비어 있을 때 원인 추적용 response status를 metadata에 남긴다. |
+| `compose.yaml`, `.env.example` | worker의 영상 분석 기본 환경값을 `gpt-4.1-mini`, `low`, 6프레임, 900 출력 토큰으로 명시했다. GPT-5 계열 비교 실행을 위한 reasoning 환경값도 유지한다. |
+| `apps/worker/tests/test_frame_analysis_contract.py` | GPT-5 계열 payload가 비용 제어 필드와 파라미터 호환성을 지키는지, 비 GPT-5 모델은 기존 deterministic temperature 제어를 유지하는지 검증한다. |
+| `docs/OPERATIONS.md` | 실제 OpenAI 프레임 분석 검증 시 기본 비용 정책, 일시 품질 상향 기준, 기본값 복구 기준을 기록했다. |
+
+이 변경은 DB schema, Redis key, storage path, 외부 API route를 변경하지 않는다. 실제 API 키 값은 문서와 로그에 기록하지 않는다.
+
+검증 결과 `gpt-5-nano`는 관찰값을 반환하지 않았고, `gpt-5-mini`는 `max_output_tokens` 중단으로 관찰값을 만들지 못했다. 같은 조건에서 `gpt-4.1-mini`, `detail=low`, 6프레임, 출력 900토큰은 실제 사고 영상 E2E에서 관찰값 2개를 생성하고 Agent `video_input_contract`와 `fact_arbitration`까지 통과했다. 따라서 현재 기본값은 최신성보다 검증 가능성과 비용 예측성을 우선해 `gpt-4.1-mini`로 둔다.
+
 ## 2026-05-22 P1 영상 관찰값 계약 검증 보강
 
 P1의 `Video observation validation`을 실제 OpenAI 비용 없이도 반복 검증할 수 있도록 worker 프레임 분석 fixture 모드를 추가했다. 이 모드는 실제 사고 판단 모델이 아니라, 프레임 관찰값이 worker metadata, Agent `video_input_contract`, `fact_arbitration`, easy-report 안전 카드까지 전달되는 계약 흐름을 검증하는 용도다.

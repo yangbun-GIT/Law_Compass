@@ -6,13 +6,24 @@ from pathlib import Path
 from typing import Any
 
 
+def _int_env(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
 FRAME_ANALYSIS_CONTRACT_VERSION = "openai-frame-analysis-v1"
 ENABLE_OPENAI_FRAME_ANALYSIS = os.getenv("ENABLE_OPENAI_FRAME_ANALYSIS", "0") == "1"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
 OPENAI_TIMEOUT_SEC = float(os.getenv("OPENAI_TIMEOUT_SEC", "18"))
-OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, int(os.getenv("OPENAI_FRAME_ANALYSIS_MAX_FRAMES", "8")))
-OPENAI_FRAME_ANALYSIS_DETAIL = os.getenv("OPENAI_FRAME_ANALYSIS_DETAIL", "low")
+OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(8, _int_env("OPENAI_FRAME_ANALYSIS_MAX_FRAMES", 6)))
+OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS = max(300, min(1400, _int_env("OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS", 900)))
+OPENAI_FRAME_ANALYSIS_DETAIL = os.getenv("OPENAI_FRAME_ANALYSIS_DETAIL", "low").strip().lower()
+if OPENAI_FRAME_ANALYSIS_DETAIL not in {"low", "high", "auto"}:
+    OPENAI_FRAME_ANALYSIS_DETAIL = "low"
+OPENAI_FRAME_ANALYSIS_REASONING_EFFORT = os.getenv("OPENAI_FRAME_ANALYSIS_REASONING_EFFORT", "minimal").strip().lower()
 FRAME_ANALYSIS_FIXTURE_MODE = os.getenv("FRAME_ANALYSIS_FIXTURE_MODE", "").strip().lower()
 
 
@@ -53,11 +64,12 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
         })
     payload = {
         "model": OPENAI_VISION_MODEL,
-        "temperature": 0,
-        "max_output_tokens": 1400,
-        "text": {"format": {"type": "json_object"}},
+        "max_output_tokens": OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS,
+        "store": False,
+        "text": _text_options_for_model(OPENAI_VISION_MODEL),
         "input": [{"role": "user", "content": content}],
     }
+    payload.update(_generation_controls_for_model(OPENAI_VISION_MODEL))
     try:
         data = _post_json(
             "https://api.openai.com/v1/responses",
@@ -73,11 +85,14 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "provider": "openai",
             "model": OPENAI_VISION_MODEL,
             "detail": OPENAI_FRAME_ANALYSIS_DETAIL,
+            "max_output_tokens": OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS,
             "response_id": data.get("id"),
+            "response_status": data.get("status"),
+            "incomplete_details": data.get("incomplete_details"),
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "summary": parsed.get("summary") or parsed.get("scene_summary"),
             "observations": observations,
-            "uncertainties": parsed.get("uncertainties") or [],
+            "uncertainties": parsed.get("uncertainties") or _empty_output_uncertainty(data, observations),
             "created_at": _now_iso(),
         }
         print(json.dumps({
@@ -94,6 +109,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "enabled": True,
             "provider": "openai",
             "model": OPENAI_VISION_MODEL,
+            "detail": OPENAI_FRAME_ANALYSIS_DETAIL,
             "error": str(exc),
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "observations": [],
@@ -108,6 +124,32 @@ def _select_openai_frames(frame_details: list[dict[str, Any]], max_frames: int) 
     if max_frames == 1:
         return [frames[len(frames) // 2]]
     return [frames[round(idx * (len(frames) - 1) / (max_frames - 1))] for idx in range(max_frames)]
+
+
+def _text_options_for_model(model: str) -> dict[str, Any]:
+    options: dict[str, Any] = {"format": {"type": "json_object"}}
+    if _is_gpt5_family(model):
+        options["verbosity"] = "low"
+    return options
+
+
+def _generation_controls_for_model(model: str) -> dict[str, Any]:
+    if _is_gpt5_family(model):
+        return {"reasoning": {"effort": _normalized_reasoning_effort(model)}}
+    return {"temperature": 0}
+
+
+def _is_gpt5_family(model: str) -> bool:
+    return model.strip().lower().startswith("gpt-5")
+
+
+def _normalized_reasoning_effort(model: str) -> str:
+    requested = OPENAI_FRAME_ANALYSIS_REASONING_EFFORT
+    if model.strip().lower().startswith(("gpt-5.1", "gpt-5.2")):
+        allowed = {"none", "low", "medium", "high"}
+        return requested if requested in allowed else "none"
+    allowed = {"minimal", "low", "medium", "high"}
+    return requested if requested in allowed else "minimal"
 
 
 def _fixture_frame_analysis(selected_frames: list[dict[str, Any]], context: dict[str, Any], mode: str) -> dict[str, Any]:
@@ -197,6 +239,14 @@ def _openai_output_text(data: dict[str, Any]) -> str:
             if isinstance(content, dict) and content.get("type") == "output_text":
                 parts.append(str(content.get("text") or ""))
     return "\n".join(parts)
+
+
+def _empty_output_uncertainty(data: dict[str, Any], observations: list[dict[str, Any]]) -> list[str]:
+    if observations or _openai_output_text(data).strip():
+        return []
+    status = data.get("status") or "unknown"
+    incomplete = data.get("incomplete_details")
+    return [f"OpenAI response returned no output_text; status={status}; incomplete_details={incomplete}"]
 
 
 def _safe_json_loads(raw: str) -> dict[str, Any] | None:
