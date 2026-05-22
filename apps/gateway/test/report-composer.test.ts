@@ -264,6 +264,13 @@ describe("report composer", () => {
     expect(card?.changes.map((item: any) => item.label)).toContain("근거 구성");
     expect(card?.changes.map((item: any) => item.label)).toContain("KNIA 가감 후 과실");
     expect(card?.changes.map((item: any) => item.label)).toContain("적용된 가감요소");
+    expect(card?.status_label).toBe("답변 처리 완료");
+    expect(card?.answer_items.map((item: any) => item.label)).toContain("인명피해 여부");
+    expect(card?.answer_items.map((item: any) => item.label)).toContain("차선변경 주체");
+    expect(card?.answer_items.map((item: any) => item.label)).toContain("방향지시등 사용");
+    expect(card?.answer_items.map((item: any) => item.label)).toContain("반영 제외 답변");
+    expect(card?.answer_items.map((item: any) => item.status_label)).toContain("분석 반영");
+    expect(card?.answer_items.map((item: any) => item.status_label)).toContain("추가 확인 필요");
     expect(card?.stats.find((item: any) => item.label === "남은 질문")?.value).toBe("0개");
     expect(card?.stats.find((item: any) => item.label === "관련 근거")?.value).toBe("3개");
     expect(card?.evidence_notes.join(" ")).toContain("현재 대표 KNIA 기준");
@@ -275,10 +282,12 @@ describe("report composer", () => {
     expect(card?.decision_notes.join(" ")).toContain("인명피해 여부");
     expect(card?.decision_notes.join(" ")).toContain("차선변경 주체");
     expect(card?.decision_notes.join(" ")).toContain("방향지시등 사용");
+    expect(card?.decision_notes.join(" ")).toContain("분석 입력으로 쓰이지 않은 답변 1개");
     expect(JSON.stringify(card)).not.toContain("agent_judgment");
     expect(JSON.stringify(card)).not.toContain("evidence_supported");
     expect(JSON.stringify(card)).not.toContain("source_type");
     expect(JSON.stringify(card)).not.toContain("chunk_id");
     expect(JSON.stringify(card)).not.toContain("next-law-2");
+    expect(JSON.stringify(card)).not.toContain("unknown_internal_field");
   });
 });

@@ -250,7 +250,32 @@ function pushChange(changes: AnyRecord[], label: string, beforeValue: any, after
   changes.push({ label, before: beforeText, after: afterText });
 }
 function followupFieldLabels(values: any) {
-  return unique(asArray(values).map((field) => videoFactLabel(String(field))).filter(Boolean)).slice(0, 8);
+  return unique(asArray(values)
+    .map((field) => String(field))
+    .filter((field) => SAFE_INPUT_FIELDS.has(field))
+    .map((field) => videoFactLabel(field))
+    .filter(Boolean)
+  ).slice(0, 8);
+}
+function followupAnswerItems(answeredLabels: string[], unresolvedLabels: string[], ignoredCount: number) {
+  const answered = answeredLabels.map((label) => ({
+    label,
+    status_label: "분석 반영",
+    explanation: "선택한 답변을 케이스 입력값으로 반영해 다시 판단했습니다.",
+  }));
+  const unresolved = unresolvedLabels.map((label) => ({
+    label,
+    status_label: "추가 확인 필요",
+    explanation: "확인 필요로 남겨 확정 사실에는 반영하지 않았습니다.",
+  }));
+  const ignored = ignoredCount
+    ? [{
+        label: "반영 제외 답변",
+        status_label: `${ignoredCount}개 제외`,
+        explanation: "지원하지 않는 항목이거나 빈 답변이라 분석 입력에서 제외했습니다.",
+      }]
+    : [];
+  return [...answered, ...unresolved, ...ignored].slice(0, 10);
 }
 export function composeReanalysisChangeCard(previous: AnyRecord | undefined, next: AnyRecord = {}, followupContext: AnyRecord = {}) {
   if (!previous || !Object.keys(previous).length) return undefined;
@@ -266,7 +291,8 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   const afterQuestionCount = questionCountOf(next);
   const answeredLabels = followupFieldLabels(followupContext.answered_fields);
   const unresolvedLabels = followupFieldLabels(followupContext.unresolved_fields);
-  const ignoredLabels = followupFieldLabels(followupContext.ignored_fields);
+  const ignoredCount = asArray(followupContext.ignored_fields).length;
+  const answerItems = followupAnswerItems(answeredLabels, unresolvedLabels, ignoredCount);
   const beforeJudgment = judgmentLabel(previous.agent_judgment?.overall_status);
   const afterJudgment = judgmentLabel(next.agent_judgment?.overall_status);
   const reflection = next.reflection_loop ?? next.model_info?.reflection_loop ?? {};
@@ -310,8 +336,8 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
     unresolvedLabels.length
       ? `아직 확정하지 못한 답변 항목: ${unresolvedLabels.join(", ")}`
       : "보완 답변 중 미해결로 남은 항목은 없습니다.",
-    ignoredLabels.length
-      ? `분석 입력으로 쓰이지 않은 답변 항목: ${ignoredLabels.join(", ")}`
+    ignoredCount
+      ? `분석 입력으로 쓰이지 않은 답변 ${ignoredCount}개는 안전하게 제외했습니다.`
       : "",
     beforeJudgment !== afterJudgment
       ? `판단 상태가 ${beforeJudgment}에서 ${afterJudgment}(으)로 바뀌었습니다.`
@@ -324,9 +350,17 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   return {
     title: "보완 입력 반영 결과",
     summary: changes.length
-      ? "추가로 입력한 내용을 반영해 이전 분석과 달라진 판단 항목을 정리했습니다."
-      : "추가 입력을 반영했지만 핵심 판단 수치와 근거 상태는 크게 달라지지 않았습니다.",
+      ? "보완 답변을 반영해 이전 분석과 달라진 판단 항목을 정리했습니다."
+      : answeredLabels.length || unresolvedLabels.length
+        ? "보완 답변은 처리됐지만 핵심 판단 수치와 근거 상태는 크게 달라지지 않았습니다."
+        : "추가 입력을 반영했지만 핵심 판단 수치와 근거 상태는 크게 달라지지 않았습니다.",
+    status_label: afterQuestionCount
+      ? "추가 확인 필요"
+      : answeredLabels.length || unresolvedLabels.length
+        ? "답변 처리 완료"
+        : "핵심 변화 없음",
     changes,
+    answer_items: answerItems,
     stats: [
       { label: "현재 내 책임", value: afterFault.my !== undefined ? `${afterFault.my}%` : "확인 필요" },
       { label: "현재 상대 책임", value: afterFault.other !== undefined ? `${afterFault.other}%` : "확인 필요" },
@@ -656,6 +690,8 @@ function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []
 
 function videoFactLabel(field: string) {
   const labels: AnyRecord = {
+    accident_type: "사고 유형",
+    signal_state: "신호 상태",
     stopped: "정차 여부",
     sudden_brake: "급정거 여부",
     opponent_behavior: "상대 차량 행동",
@@ -666,6 +702,10 @@ function videoFactLabel(field: string) {
     opponent_signal_violation: "상대 신호위반",
     crosswalk_nearby: "횡단보도 주변",
     school_zone: "어린이보호구역",
+    victim_is_child: "어린이 피해 여부",
+    pedestrian_signal: "보행자 신호",
+    bicycle_location: "자전거 위치",
+    bicycle_direction: "자전거 진행 방향",
     injury: "인명피해 여부",
     damage_level: "파손 정도",
   };

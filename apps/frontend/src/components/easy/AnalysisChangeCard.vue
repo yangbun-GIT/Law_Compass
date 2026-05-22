@@ -7,6 +7,10 @@
       </div>
     </div>
     <p class="big-text">{{ text(card.summary) }}</p>
+    <div v-if="card.status_label" class="status-strip">
+      <span>재분석 상태</span>
+      <strong>{{ text(card.status_label) }}</strong>
+    </div>
     <div class="change-stats">
       <div v-for="item in card.stats || []" :key="`${item.label}-${item.value}`">
         <span>{{ text(item.value) }}</span>
@@ -20,6 +24,16 @@
       </div>
     </div>
     <p v-else class="kv">핵심 판단 항목은 이전 분석과 크게 달라지지 않았습니다.</p>
+    <section v-if="card.answer_items?.length" class="answer-result-section">
+      <h3>보완 답변 처리 결과</h3>
+      <div class="answer-result-grid">
+        <div v-for="item in card.answer_items" :key="`${item.label}-${item.status_label}`" class="answer-result-item">
+          <span>{{ text(item.status_label) }}</span>
+          <strong>{{ text(item.label) }}</strong>
+          <p>{{ text(item.explanation) }}</p>
+        </div>
+      </div>
+    </section>
     <section v-if="card.decision_notes?.length" class="change-note-section">
       <h3>판단 변화 요약</h3>
       <ul class="check-list">
@@ -85,8 +99,31 @@ function text(value: unknown) {
   gap: 10px;
 }
 
+.status-strip {
+  align-items: center;
+  background: rgba(103, 232, 249, 0.1);
+  border: 1px solid rgba(103, 232, 249, 0.28);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.status-strip span {
+  color: #b7c8d9;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.status-strip strong {
+  color: #f1f7ff;
+  overflow-wrap: anywhere;
+}
+
 .change-stats div,
-.change-row {
+.change-row,
+.answer-result-item {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   background: rgba(15, 23, 42, 0.32);
@@ -117,7 +154,40 @@ function text(value: unknown) {
   gap: 8px;
 }
 
-.change-note-section h3 {
+.answer-result-section {
+  display: grid;
+  gap: 10px;
+}
+
+.answer-result-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.answer-result-item {
+  display: grid;
+  gap: 6px;
+}
+
+.answer-result-item span {
+  color: #67e8f9;
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.answer-result-item strong,
+.answer-result-item p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.answer-result-item p {
+  color: #cbd5e1;
+}
+
+.change-note-section h3,
+.answer-result-section h3 {
   margin: 0;
 }
 

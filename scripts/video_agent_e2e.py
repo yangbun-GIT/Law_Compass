@@ -264,8 +264,15 @@ def run_held_observation_followup(base_url: str, case_id: str, token: str, repor
     next_report = reanalyzed.get("report") if isinstance(reanalyzed.get("report"), dict) else reanalyzed.get("result", {})
     if not isinstance(next_report, dict):
         raise E2EError("reanalyze response did not include a report")
-    if not isinstance(next_report.get("analysis_change_card"), dict):
+    change_card = next_report.get("analysis_change_card")
+    if not isinstance(change_card, dict):
         raise E2EError("reanalyze response is missing analysis_change_card")
+    answer_items = change_card.get("answer_items") if isinstance(change_card.get("answer_items"), list) else []
+    if not answer_items:
+        raise E2EError("analysis_change_card is missing followup answer_items")
+    answer_text = json.dumps(answer_items, ensure_ascii=False)
+    if str(question["field"]) in answer_text:
+        raise E2EError("analysis_change_card exposed raw followup field names")
     latest_report = http_json("GET", base_url, f"/api/v1/cases/{case_id}/easy-report", token=token)
     latest_questions = missing_questions(latest_report)
     return {
@@ -273,7 +280,15 @@ def run_held_observation_followup(base_url: str, case_id: str, token: str, repor
         "question": question.get("question"),
         "answer": answer,
         "next_version": reanalyzed.get("version"),
-        "change_summary": next_report.get("analysis_change_card", {}).get("summary"),
+        "change_summary": change_card.get("summary"),
+        "answer_statuses": [
+            {
+                "label": item.get("label"),
+                "status_label": item.get("status_label"),
+            }
+            for item in answer_items[:5]
+            if isinstance(item, dict)
+        ],
         "remaining_question_count": len(latest_questions),
     }
 

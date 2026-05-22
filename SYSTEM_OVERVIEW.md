@@ -29,6 +29,19 @@
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. 실제 OpenAI 실행 후 worker는 기본 비용 안전 상태인 `ENABLE_OPENAI_FRAME_ANALYSIS=0`으로 되돌려야 한다.
 
+## 2026-05-23 보완 답변 재분석 표시 개선
+
+보류된 영상 관찰값 또는 일반 보완 질문에 사용자가 답변한 뒤, 결과 화면에서 “답변이 실제 분석 입력으로 반영됐는지”, “확인 필요로 남았는지”, “지원하지 않아 제외됐는지”를 별도 섹션으로 확인할 수 있게 했다. 목적은 재분석 후 과실비율이 크게 바뀌지 않더라도 사용자가 자신의 답변 처리 결과를 이해할 수 있게 하는 것이다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | `analysis_change_card`에 `status_label`과 `answer_items`를 추가했다. `answer_items`는 보완 답변을 “분석 반영”, “추가 확인 필요”, “반영 제외”로 나누며, 지원하지 않는 raw field명은 사용자 화면에 노출하지 않는다. |
+| `apps/frontend/src/components/easy/AnalysisChangeCard.vue` | 재분석 비교 카드에 재분석 상태 바와 “보완 답변 처리 결과” 섹션을 추가했다. |
+| `apps/gateway/test/report-composer.test.ts` | 답변 처리 상태, 지원하지 않는 내부 필드 비노출, 재분석 카드 안전성을 검증한다. |
+| `scripts/video_agent_e2e.py` | 보류 관찰값 보완 답변 E2E에서 `analysis_change_card.answer_items`가 생성되고 raw field명이 노출되지 않는지 확인한다. |
+
+이 변경은 공개 easy-report payload의 표시용 필드를 추가하지만 DB schema, Redis key, storage path, API route, 외부 API 계약은 변경하지 않는다.
+
 ## 2026-05-22 영상 프레임 관찰값 품질 보정
 
 실제 사고 영상 기반 프레임 분석의 다음 안정화 단계로, OpenAI/fixture 관찰값이 Agent 사실로 승격되기 전 품질 기준을 명확히 했다. 짧은 사고 영상은 유효 프레임 수가 제한적이므로 단일 프레임 관찰값도 보강 입력으로 사용할 수 있지만, 프레임 참조가 없는 관찰값이나 신호위반/스쿨존/횡단보도처럼 오판 위험이 큰 필드는 더 엄격하게 보류한다.
