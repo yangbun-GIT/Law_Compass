@@ -21,6 +21,9 @@
         <span>{{ text(step.status_label) }}</span>
       </div>
     </div>
+    <ul v-if="card.decision_notes?.length" class="decision-notes">
+      <li v-for="note in card.decision_notes" :key="note">{{ text(note) }}</li>
+    </ul>
     <ul v-if="card.warnings?.length" class="check-list">
       <li v-for="warning in card.warnings" :key="warning">{{ text(warning) }}</li>
     </ul>
@@ -108,6 +111,23 @@ function text(value: unknown) {
 .process-step .step-phase {
   color: #6de3ef;
   font-weight: 800;
+}
+
+.decision-notes {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.decision-notes li {
+  background: rgba(84, 226, 243, 0.08);
+  border: 1px solid rgba(84, 226, 243, 0.18);
+  border-radius: 10px;
+  color: #d8e5f6;
+  line-height: 1.55;
+  padding: 10px 12px;
 }
 
 @media (max-width: 760px) {

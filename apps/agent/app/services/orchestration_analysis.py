@@ -118,6 +118,8 @@ def run_reflection_requery_stage(
     requery_plan = build_requery_plan(
         evidence_audit=analysis_bundle.evidence_audit,
         input_requirements=context.input_requirements,
+        scenario_type=context.scenario.get("scenario_type"),
+        description_text=context.normalized.get("description_text"),
     )
     if not requery_plan.get("should_requery"):
         return ReflectionStageResult(

@@ -67,6 +67,8 @@ describe("report composer", () => {
         requery_attempted: true,
         requery_added_evidence_count: 1,
         final_missing_requirements: [],
+        user_message: "부족한 근거를 재검색해 추가 근거 1개를 확인했고 판단 조건을 통과했습니다.",
+        recovery_suggestions: ["보강할 항목은 없습니다."],
       },
       agent_judgment: { overall_status: "evidence_supported", decision_blockers: [] },
     });
@@ -76,9 +78,37 @@ describe("report composer", () => {
     expect(processCard.stats.find((item: any) => item.label === "추가 근거")?.value).toBe("1개");
     expect(processCard.steps.map((item: any) => item.label)).toContain("입력 정리");
     expect(processCard.steps.map((item: any) => item.label)).toContain("근거 보강 검토");
+    expect(processCard.decision_notes.join(" ")).toContain("추가 근거 1개");
     expect(JSON.stringify(processCard)).not.toContain("packet");
     expect(JSON.stringify(processCard)).not.toContain("input_normalization");
     expect(JSON.stringify(processCard)).not.toContain("next_action");
+  });
+
+  it("summarizes reflection gaps with safe Korean labels", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      reflection_loop: {
+        status: "reference_only",
+        next_action: "present_reference_only",
+        requery_attempted: true,
+        requery_added_evidence_count: 0,
+        final_missing_requirements: ["family:knia", "scenario_relevant_evidence"],
+        blocking_fields: ["injury"],
+        user_message: "확정 판단에 필요한 근거 조건이 남아 참고용으로 표시합니다.",
+        recovery_suggestions: ["KNIA 과실비율 기준이 부족하면 사고 유형과 기준번호를 더 좁혀 확인해야 합니다."],
+        initial_query_terms: ["rear_end_collision_internal_key"],
+      },
+      agent_judgment: { overall_status: "blocked_for_final", decision_blockers: ["missing evidence"] },
+    });
+
+    const processCard = enriched.agent_process_card!;
+    const text = JSON.stringify(processCard);
+    expect(processCard.status_label).toBe("참고용");
+    expect(processCard.decision_notes.join(" ")).toContain("KNIA 과실 기준");
+    expect(processCard.decision_notes.join(" ")).toContain("사고 유형 직접 근거");
+    expect(processCard.decision_notes.join(" ")).toContain("인명피해 여부");
+    expect(text).not.toContain("family:knia");
+    expect(text).not.toContain("scenario_relevant_evidence");
+    expect(text).not.toContain("rear_end_collision_internal_key");
   });
 
   it("adds a user-safe video fact explanation card without raw arbitration contracts", () => {

@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-22 Agent Reflection Loop 근거 보강 표시 개선
+
+Agent의 bounded reflection/requery 단계가 사고 유형별 한국어 검색어와 사용자용 복구 문장을 생성하도록 보강했다. 후방추돌, 차선변경, 교차로 신호위반, 보행자/스쿨존/자전거 사고 등 대표 시나리오에서 근거 부족이 감지되면 일반 영문 키워드 대신 KNIA/도로교통법 기준에 맞춘 한국어 검색어를 추가한다. 재검색 후에도 확정 조건이 남으면 `reference_only` 상태와 함께 보완 입력 또는 근거 보강 방향을 명시한다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/reflection_loop.py` | `build_requery_plan()`이 `scenario_type`, `description_text`를 받아 사고 유형별 한국어 `query_terms`, `user_message`, `recovery_suggestions`를 만든다. `build_reflection_loop_result()`는 최종 상태에 맞는 사용자용 설명과 초기 재검색어를 보존한다. |
+| `apps/agent/app/services/orchestration_analysis.py` | reflection requery 단계에 현재 사고 유형과 입력 설명을 전달해 재검색어가 사고 맥락을 반영하도록 연결했다. |
+| `apps/gateway/src/lib/report-composer.ts` | `reflection_loop`의 내부 키를 그대로 노출하지 않고 `agent_process_card.decision_notes`로 보완 입력 항목, 부족한 근거 조건, 복구 제안을 한국어 라벨로 변환한다. |
+| `apps/frontend/src/components/easy/AgentProcessCard.vue` | Agent 판단 검증 카드에서 `decision_notes`를 별도 목록으로 표시한다. |
+| `apps/agent/tests/test_reflection_loop.py`, `apps/gateway/test/report-composer.test.ts` | 사고 유형별 재검색어 생성, 참고용 상태 설명, 사용자 안전 카드 변환을 검증한다. |
+
+이 변경은 DB schema, Redis key, storage path, 환경 변수, 외부 API 계약을 변경하지 않는다. 공개 easy-report payload에는 기존 `agent_process_card` 안에 `decision_notes`가 추가된다.
+
 ## 2026-05-22 실제 영상 기반 Agent E2E 점검 스크립트
 
 실제 사고 영상을 저장소에 넣지 않고 로컬 경로로만 전달해 영상 업로드, ffmpeg 전처리, 자동 `video_analyze` job, Agent 결과, `agent_process_card` 노출 안전성까지 확인하는 E2E 스크립트를 추가했다. 사용자가 제공한 사고 영상은 테스트 실행에만 사용하고 Git에는 포함하지 않는다.

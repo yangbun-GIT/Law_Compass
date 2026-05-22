@@ -14,7 +14,7 @@ const TECHNICAL_KEYS = new Set([
   "fact_arbitration", "_fact_arbitration", "fact_sources", "_fact_sources", "video_primary_fields", "user_primary_fields",
   "applied_video_fields", "kept_user_fields", "confirmed_fields", "conflicts", "requires_confirmation",
   "agent_trace", "reflection_loop", "trace_policy", "packet", "step_count", "requery_attempted",
-  "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "final_missing_requirements", "next_action"
+  "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "initial_query_terms", "final_missing_requirements", "next_action"
 ]);
 const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi];
 const SAFE_INPUT_FIELDS = new Set(["accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "pedestrian_signal", "bicycle_location", "bicycle_direction"]);
@@ -587,6 +587,14 @@ function composeAgentProcessCard(result: AnyRecord = {}) {
   const nextAction = String(reflection.next_action ?? "");
   const status = String(reflection.status ?? judgment.overall_status ?? trace.overall_status ?? "");
   const summary = processSummary({ requeryAttempted, requeryAdded, nextAction, missingCount, blockerCount });
+  const missingRequirementLabels = unique(asArray(reflection.final_missing_requirements).map((item) => missingRequirementLabel(String(item))).filter(Boolean)).slice(0, 5);
+  const blockingFieldLabels = unique(asArray(reflection.blocking_fields).map((item) => videoFactLabel(String(item))).filter(Boolean)).slice(0, 5);
+  const decisionNotes = [
+    cleanText(reflection.user_message, ""),
+    ...(blockingFieldLabels.length ? [`보완 입력이 필요한 항목: ${blockingFieldLabels.join(", ")}`] : []),
+    ...(missingRequirementLabels.length ? [`보강이 필요한 근거 조건: ${missingRequirementLabels.join(", ")}`] : []),
+    ...asArray(reflection.recovery_suggestions).map((item) => cleanText(item, "")).filter(Boolean).slice(0, 4),
+  ].filter(Boolean).slice(0, 6);
   const warnings = [
     ...(blockerCount ? [`판단을 확정하기 전에 확인할 항목이 ${blockerCount}개 남아 있습니다.`] : []),
     ...(missingCount ? [`근거 조건 중 ${missingCount}개는 아직 보강이 필요합니다.`] : []),
@@ -603,6 +611,7 @@ function composeAgentProcessCard(result: AnyRecord = {}) {
       { label: "검증 단계", value: `${toNumber(trace.step_count, traceSteps.length)}개` },
     ],
     steps: traceSteps,
+    decision_notes: decisionNotes,
     warnings,
     notice: "이 카드는 Agent 내부 원문 로그가 아니라 판단 가능 여부, 근거 보강 여부, 보완 입력 상태만 요약합니다.",
   };
@@ -655,6 +664,18 @@ function nextActionLabel(value: any) {
     requery_evidence: "근거 재검색",
   };
   return labels[String(value)] ?? "확인 필요";
+}
+
+function missingRequirementLabel(value: string) {
+  const labels: AnyRecord = {
+    total_evidence: "전체 근거 수",
+    scenario_relevant_evidence: "사고 유형 직접 근거",
+    average_score: "근거 관련성",
+    "family:legal": "법률 근거",
+    "family:knia": "KNIA 과실 기준",
+    required_input_fields: "필수 사고 사실",
+  };
+  return labels[value] ?? "";
 }
 
 function processStatusLabel(value: any) {
