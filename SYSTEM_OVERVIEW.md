@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-22 P1 근거 검색 품질 보강
+
+P1의 `Evidence/search quality` 첫 단계를 진행했다. DB/외부 API 수집 상태가 부족해도 대표 사고 유형의 법률·KNIA 근거 품질 게이트가 최소한의 직접 관련 근거를 확보할 수 있도록 Agent 내부 검색어 확장과 정적 보조 근거 fixture를 보강했다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/scenario_search_terms.py` | `structured_facts` 값 기반 검색어 확장을 추가했다. `opponent_behavior=rear_collision`, `lane_change_actor=user/opponent`, 상대 신호위반, 적색신호, 후방 범퍼 파손, 어린이 피해, 자전거 통행 위치 같은 사실을 검색어로 변환한다. |
+| `apps/agent/app/services/static_legal_fallback.py` | 차선변경, 보행자·횡단보도, 어린이보호구역 사고에 대한 과실비율 참고 기준 fixture를 추가했다. 이 fixture들은 외부 API 실패나 로컬 DB 수집 부족 시에도 `knia` family 보조 근거로 품질 게이트에 반영된다. |
+| `apps/agent/tests/test_scenario_search_terms.py` | 사고 사실값 기반 검색어 확장 테스트를 추가했다. |
+| `apps/agent/tests/test_static_scenario_support.py` | 차선변경, 보행자, 스쿨존 정적 보조 근거가 `family:knia` 부족을 해소하고 사고 유형 직접 근거로 잡히는지 검증한다. |
+
+이 변경은 DB schema, Redis key, storage path, 환경 변수, 외부 API 계약을 변경하지 않는다. 실제 KNIA 원문 상세 기준이 DB에 들어오면 기존 KNIA 매칭 결과가 우선 활용되고, 정적 fixture는 검색 실패 또는 보조 근거 역할로만 사용된다.
+
 ## 2026-05-22 Agent Reflection Loop 근거 보강 표시 개선
 
 Agent의 bounded reflection/requery 단계가 사고 유형별 한국어 검색어와 사용자용 복구 문장을 생성하도록 보강했다. 후방추돌, 차선변경, 교차로 신호위반, 보행자/스쿨존/자전거 사고 등 대표 시나리오에서 근거 부족이 감지되면 일반 영문 키워드 대신 KNIA/도로교통법 기준에 맞춘 한국어 검색어를 추가한다. 재검색 후에도 확정 조건이 남으면 `reference_only` 상태와 함께 보완 입력 또는 근거 보강 방향을 명시한다.
@@ -1096,7 +1109,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | P1 | Gateway SRP | `gateway/src/main.ts` remains the composition root. Auth/session, case CRUD, upload, analysis/report, public KNIA, KNIA admin, and legal/admin routes live under `apps/gateway/src/routes/`. | Keep new API behavior in route modules; split large route modules only when they grow further. |
 | P1 | Worker SRP | `main.py` now only consumes Redis Stream messages and delegates DB job processing to `job_processor.py`; ffprobe/ffmpeg preprocessing and OpenAI frame analysis live in dedicated modules. Local Worker contract tests now cover video analyze payload, Agent video request payload, and analysis result value shaping. | Add DB/Redis integration tests only when expanding queue persistence or video provider behavior. |
 | P1 | Frontend source hygiene | `apps/frontend/src` is now TypeScript-only for source files; tracked generated `.js` duplicates were removed and `.gitignore` blocks them from returning. | Keep new frontend source in `.ts`/`.vue` files and avoid committing emitted JavaScript beside source. |
-| P1 | Evidence/search quality | P0 now prevents unsupported results from appearing final. | Improve KNIA/legal matching quality, add more deterministic fixtures, and tune query terms only where regressions show gaps. |
+| P1 | Evidence/search quality | Structured fact 기반 검색어 확장과 차선변경/보행자/스쿨존 정적 과실비율 fixture를 추가했다. P0 guard는 unsupported result가 final로 보이지 않게 유지한다. | 실제 KNIA/법률 DB 수집량이 늘어난 뒤 매칭 품질 회귀를 추가하고, 필요한 시나리오에 한해 query term을 더 튜닝한다. |
 | P1 | Video observation validation | Upload/preprocess/video_analyze/easy-report smoke passes with OpenAI frame analysis disabled by default. | When API cost/key policy is ready, run `video_agent_e2e.py` with `--require-frame-observations --require-agent-video-facts` and tune observation mapping. |
 
 ### Defer Until Core Trust Is Stable

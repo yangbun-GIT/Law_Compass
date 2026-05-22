@@ -30,3 +30,41 @@ def test_bicycle_static_support_improves_scenario_relevance():
     assert coverage["coverage_level"] in {"medium", "high"}
     assert coverage["scenario_relevant_count"] >= 2
     assert "scenario_relevant_evidence" not in coverage["missing_requirements"]
+
+
+def test_lane_change_static_support_includes_fault_ratio_family():
+    items = retrieve_static_legal_chunks("상대 차량 차선변경 진로변경 방향지시등 없이 끼어들기", limit=5)
+    coverage = evaluate_evidence_quality(
+        scenario_type="lane_change_collision",
+        evidence=items,
+        missing_fields=[],
+    )
+
+    assert any(item["chunk_id"] == "static:fault-guide:lane-change" for item in items)
+    assert coverage["evidence_family_counts"]["legal"] >= 1
+    assert coverage["evidence_family_counts"]["knia"] >= 1
+    assert coverage["scenario_relevant_count"] >= 2
+    assert "family:knia" not in coverage["missing_requirements"]
+
+
+def test_pedestrian_and_school_zone_static_support_have_direct_fault_guides():
+    pedestrian = retrieve_static_legal_chunks("횡단보도 보행자 보호의무 보행자 신호 사고", limit=5)
+    school_zone = retrieve_static_legal_chunks("어린이보호구역 스쿨존 어린이 제한속도 사고", limit=5)
+
+    pedestrian_coverage = evaluate_evidence_quality(
+        scenario_type="pedestrian_crosswalk_accident",
+        evidence=pedestrian,
+        missing_fields=[],
+    )
+    school_coverage = evaluate_evidence_quality(
+        scenario_type="school_zone_child_accident",
+        evidence=school_zone,
+        missing_fields=[],
+    )
+
+    assert any(item["chunk_id"] == "static:fault-guide:pedestrian-crosswalk" for item in pedestrian)
+    assert any(item["chunk_id"] == "static:fault-guide:school-zone" for item in school_zone)
+    assert "family:knia" not in pedestrian_coverage["missing_requirements"]
+    assert "family:knia" not in school_coverage["missing_requirements"]
+    assert pedestrian_coverage["scenario_relevant_count"] >= 2
+    assert school_coverage["scenario_relevant_count"] >= 2

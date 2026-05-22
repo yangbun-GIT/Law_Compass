@@ -14,6 +14,40 @@ def test_bicycle_collision_expands_search_terms():
     assert "차대 자전거" in terms
 
 
+def test_fact_values_expand_retrieval_terms():
+    terms = scenario_search_terms(
+        scenario_type="rear_end_collision",
+        scenario_tags=["rear_end"],
+        facts={
+            "stopped": True,
+            "opponent_behavior": "rear_collision",
+            "damage_level": "minor_rear_bumper_damage",
+        },
+        selected_keywords=[],
+    )
+
+    assert "정차 차량 추돌" in terms
+    assert "후방 범퍼 파손" in terms
+
+
+def test_lane_change_actor_expands_directional_terms():
+    opponent_terms = scenario_search_terms(
+        scenario_type="lane_change_collision",
+        scenario_tags=["lane_change"],
+        facts={"lane_change_actor": "opponent"},
+        selected_keywords=[],
+    )
+    user_terms = scenario_search_terms(
+        scenario_type="lane_change_collision",
+        scenario_tags=["lane_change"],
+        facts={"lane_change_actor": "user"},
+        selected_keywords=[],
+    )
+
+    assert "상대 차량 차선변경" in opponent_terms
+    assert "내 차량 차선변경" in user_terms
+
+
 def test_query_expansion_preserves_original_text():
     expanded = expand_query_text(
         "교차로에서 사고가 났습니다",

@@ -76,6 +76,7 @@ def scenario_search_terms(
         _extend_unique(terms, ("횡단보도", "보행자 보호의무"))
     if facts.get("school_zone"):
         _extend_unique(terms, ("어린이보호구역", "제한속도"))
+    _extend_unique(terms, _fact_value_terms(facts))
 
     for keyword in selected_keywords or []:
         if isinstance(keyword, str) and keyword.strip():
@@ -144,6 +145,36 @@ def _extend_unique(target: list[str], values: tuple[str, ...]) -> None:
     for value in values:
         if value:
             target.append(value)
+
+
+def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
+    terms: list[str] = []
+    opponent_behavior = str(facts.get("opponent_behavior") or "")
+    lane_change_actor = str(facts.get("lane_change_actor") or "")
+    signal_state = str(facts.get("signal_state") or "")
+    opponent_signal = str(facts.get("opponent_signal") or "")
+    user_signal = str(facts.get("user_signal") or "")
+    damage_level = str(facts.get("damage_level") or "")
+
+    if opponent_behavior in {"rear_collision", "rear_vehicle_collision"}:
+        terms.extend(["뒤차 추돌", "후미추돌", "정차 차량 추돌"])
+    if opponent_behavior in {"lane_change", "opponent_lane_change"} or lane_change_actor == "opponent":
+        terms.extend(["상대 차량 차선변경", "상대 진로변경", "끼어들기 사고"])
+    if lane_change_actor == "user":
+        terms.extend(["내 차량 차선변경", "진로변경 차량", "차선변경 가해"])
+    if facts.get("opponent_signal_violation") or opponent_signal in {"red", "red_light", "signal_violation"}:
+        terms.extend(["상대 신호위반", "적색신호 위반", "교차로 신호위반"])
+    if signal_state in {"red", "red_light"}:
+        terms.extend(["적색신호", "신호대기", "교차로 신호"])
+    if user_signal in {"green", "blue", "green_light"} and facts.get("opponent_signal_violation"):
+        terms.extend(["정상 신호 직진", "신호 준수 차량"])
+    if "bumper" in damage_level or "rear" in damage_level or "후미" in damage_level:
+        terms.extend(["후방 범퍼 파손", "후미 추돌"])
+    if facts.get("victim_is_child"):
+        terms.extend(["어린이 피해", "어린이 보호의무"])
+    if facts.get("bicycle_location"):
+        terms.extend(["자전거 통행 위치", "자전거도로"])
+    return tuple(terms)
 
 
 def _dedupe(values: list[str]) -> list[str]:
