@@ -29,6 +29,18 @@
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. 실제 OpenAI 실행 후 worker는 기본 비용 안전 상태인 `ENABLE_OPENAI_FRAME_ANALYSIS=0`으로 되돌려야 한다.
 
+## 2026-05-23 easy-report 사용자 흐름 및 payload 표시 정합성 보정
+
+Agent 결과 payload가 사용자 화면에서 카드별로 중복되거나 과도한 경고처럼 보이지 않도록 easy-report 표시 계약을 정리했다. 보완 질문은 `missing_info.questions`의 선택형 입력으로만 강조하고, 동일 문장은 `missing_info.items` 체크리스트에서 제거해 한 화면 안에서 같은 질문이 반복되지 않도록 했다. 근거 연결, 영상 관찰, Agent 처리 과정, 재분석 비교 카드의 안내 문구는 최종 판정 경고를 반복하지 않고 각 카드가 보여주는 상태 설명으로 낮췄다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | `compactDisplayItems()`를 추가해 보완 질문과 체크리스트 문구를 분리했다. 근거 연결/영상 관찰/Agent 처리 카드의 notice 문구를 카드 역할 설명 중심으로 조정했다. |
+| `apps/frontend/src/components/easy/*.vue` | notice가 없는 경우 빈 경고 문단을 렌더링하지 않고, 근거/영상/Agent/재분석 카드의 반복 안내는 일반 보조 문구 스타일로 표시한다. |
+| `apps/gateway/test/report-composer.test.ts` | 보완 질문과 체크리스트가 분리되고, 근거 연결 카드 notice가 과도한 최종 판정 경고로 회귀하지 않는지 검증한다. |
+
+이 변경은 공개 easy-report payload의 기존 필드 의미를 유지하면서 표시용 문구와 중복 제거 로직만 보정한다. DB schema, Redis key, storage path, API route, 외부 API 계약은 변경하지 않는다.
+
 ## 2026-05-23 보완 답변 재분석 표시 개선
 
 보류된 영상 관찰값 또는 일반 보완 질문에 사용자가 답변한 뒤, 결과 화면에서 “답변이 실제 분석 입력으로 반영됐는지”, “확인 필요로 남았는지”, “지원하지 않아 제외됐는지”를 별도 섹션으로 확인할 수 있게 했다. 목적은 재분석 후 과실비율이 크게 바뀌지 않더라도 사용자가 자신의 답변 처리 결과를 이해할 수 있게 하는 것이다.

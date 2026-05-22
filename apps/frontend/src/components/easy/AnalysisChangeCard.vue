@@ -61,7 +61,7 @@
         </div>
       </section>
     </div>
-    <p class="soft-warning">{{ text(card.notice) }}</p>
+    <p v-if="card.notice" class="kv">{{ text(card.notice) }}</p>
   </article>
 </template>
 

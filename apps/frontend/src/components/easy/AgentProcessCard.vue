@@ -27,7 +27,7 @@
     <ul v-if="card.warnings?.length" class="check-list">
       <li v-for="warning in card.warnings" :key="warning">{{ text(warning) }}</li>
     </ul>
-    <p class="soft-warning">{{ text(card.notice) }}</p>
+    <p v-if="card.notice" class="kv">{{ text(card.notice) }}</p>
   </article>
 </template>
 

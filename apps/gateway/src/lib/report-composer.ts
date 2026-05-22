@@ -23,6 +23,19 @@ function asArray(value: any): any[] { return Array.isArray(value) ? value : []; 
 function unique(values: any[]) {
   return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
 }
+function compactDisplayItems(values: any[], questionTexts: any[] = [], limit = 8) {
+  const questionSet = new Set(questionTexts.map((value) => cleanText(value, "").replace(/\s+/g, " ").trim()).filter(Boolean));
+  const output: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const text = cleanText(value, "").replace(/\s+/g, " ").trim();
+    if (!text || seen.has(text) || questionSet.has(text)) continue;
+    seen.add(text);
+    output.push(text);
+    if (output.length >= limit) break;
+  }
+  return output;
+}
 function cleanText(value: any, fallback = "확인이 필요합니다.") {
   if (value === null || value === undefined) return fallback;
   if (typeof value === "boolean") return value ? "예" : "아니오";
@@ -407,8 +420,8 @@ function composeEvidenceReliabilityCard(result: AnyRecord = {}) {
     ],
     warnings,
     notice: level === "낮음"
-      ? "근거가 부족한 판단은 확정 표현보다 추가 확인이 필요한 참고 정보로 보셔야 합니다."
-      : "근거와 연결된 판단이라도 최종 판단은 보험사, 분쟁심의위, 수사기관, 법원의 확인이 필요합니다.",
+      ? "근거가 부족한 판단은 추가 확인이 필요한 참고 정보로 표시합니다."
+      : "이 카드는 판단 문장과 근거 문서가 얼마나 연결됐는지 보여줍니다.",
   };
 }
 
@@ -487,7 +500,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
     applied_items: appliedItems,
     review_items: conflictItems,
     uncertain_items: uncertainItems,
-    notice: "영상 분석값은 최종 판정이 아니라 프레임에서 보이는 사실 후보입니다. 신뢰도와 프레임 근거가 충분한 물리 사실만 판단 입력에 반영합니다.",
+    notice: "영상 관찰값은 프레임에서 보이는 사실 후보입니다. 신뢰도와 프레임 근거가 충분한 물리 사실만 판단 입력에 반영합니다.",
   };
 }
 
@@ -673,10 +686,11 @@ function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []
     ...existingQuestions,
     ...questions.filter((item) => !existingFields.has(String(item.field))),
   ].slice(0, 8);
-  const nextItems = unique([
+  const questionTexts = nextQuestions.map((item) => item?.question);
+  const nextItems = compactDisplayItems([
     ...asArray(missing.items).map((item) => cleanText(item, "")),
     ...questions.map((item) => cleanText(item.question, "")),
-  ]).filter(Boolean).slice(0, 8);
+  ], questionTexts, 8);
   return prioritizeMissingInfo({
     ...report,
     missing_info: {
@@ -698,6 +712,8 @@ function prioritizeMissingInfo(report: AnyRecord = {}) {
     .slice(0, 8)
     .map(({ priority_order: _priorityOrder, ...item }) => item);
   if (!questions.length) return report;
+  const questionTexts = questions.map((item: AnyRecord) => item.question);
+  const items = compactDisplayItems(asArray(missing.items), questionTexts, 8);
   const priorityItems = questions.slice(0, 3).map((item: AnyRecord) => ({
     label: item.label,
     question: item.question,
@@ -709,6 +725,7 @@ function prioritizeMissingInfo(report: AnyRecord = {}) {
     ...report,
     missing_info: {
       ...missing,
+      items,
       questions,
       priority_items: priorityItems,
       next_focus: top,
@@ -910,7 +927,7 @@ function composeAgentProcessCard(result: AnyRecord = {}) {
     steps: traceSteps,
     decision_notes: decisionNotes,
     warnings,
-    notice: "이 카드는 Agent 내부 원문 로그가 아니라 판단 가능 여부, 근거 보강 여부, 보완 입력 상태만 요약합니다.",
+    notice: "일반 화면에는 판단 가능 여부, 근거 보강 여부, 보완 입력 상태만 요약합니다.",
   };
 }
 
@@ -1084,7 +1101,7 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
       { order: 2, title: facts.injury ? "병원 진료 확인" : "사고 관련 자료 정리", description: facts.injury ? "통증이 있으면 병원 진료를 받고 진단서 또는 진료확인서를 받아두세요." : "차량 파손 사진, 사고 현장 사진, 수리 견적서를 모아두세요.", importance: "중요" },
       { order: 3, title: "보험사 사고 접수", description: "보험사에 사고를 접수하고 사고접수번호를 기록하세요.", importance: "중요" }
     ],
-    fault_explanation: { title: "과실비율 참고 추정", my_label: "내 책임", other_label: "상대방 책임", my_percent: my, other_percent: other, easy_explanation: scenario === "rear_end_collision" ? "정차 중 뒤에서 추돌당한 사고라면 일반적으로 뒤차의 책임이 더 크게 볼 수 있습니다." : "입력하신 사고 내용과 근거를 바탕으로 참고용 과실비율을 추정했습니다.", why: scenario === "rear_end_collision" ? ["내 차량이 정차 중이었다는 점", "상대 차량이 뒤에서 추돌했다는 점", "뒤차는 앞차와 안전거리를 유지해야 한다는 점"] : asArray(fault.key_factors).map((x) => cleanText(x)).slice(0, 4), caution: "급정거 여부나 사고 당시 도로 상황에 따라 달라질 수 있습니다." },
+    fault_explanation: { title: "과실비율 참고 추정", my_label: "내 책임", other_label: "상대방 책임", my_percent: my, other_percent: other, easy_explanation: scenario === "rear_end_collision" ? "정차 중 뒤에서 추돌당한 사고라면 일반적으로 뒤차의 책임이 더 크게 볼 수 있습니다." : "입력하신 사고 내용과 근거를 바탕으로 참고용 과실비율을 추정했습니다.", why: scenario === "rear_end_collision" ? ["내 차량이 정차 중이었다는 점", "상대 차량이 뒤에서 추돌했다는 점", "뒤차는 앞차와 안전거리를 유지해야 한다는 점"] : asArray(fault.key_factors).map((x) => cleanText(x)).slice(0, 4), caution: "급정거 여부, 충돌 직전 움직임, 도로 상황이 확인되면 비율이 조정될 수 있습니다." },
     insurance_explanation: { title: "보험 처리 안내", simple_summary: cleanText(insurance.summary, "대물 접수와 대인 접수 여부를 확인해야 합니다."), steps: asArray(insurance.steps).map((x) => cleanText(x)).slice(0, 6), documents: asArray(insurance.required_documents).map((x) => cleanText(x)).slice(0, 8) },
     legal_explanation: { title: "법률상 확인할 점", simple_summary: legal.reporting_required ? "신고나 형사 문제를 확인해 볼 필요가 있습니다." : "인명피해가 있거나 큰 위반이 의심되면 신고 여부를 확인해야 합니다.", risk_label: legal.criminal_risk_level === "high" ? "높음" : legal.criminal_risk_level === "low" ? "낮음" : "보통", checklist: asArray(legal.checklist).map((x) => cleanText(x)).slice(0, 7), caution: "형사책임 여부는 경찰이나 법원의 판단이 필요합니다." },
     legal_basis_cards: evidence.slice(0, 6).map((ev: AnyRecord) => ({ law_name: cleanText(ev.law_name ?? "교통사고 관련 기준"), easy_title: cleanText(ev.article_title ?? ev.chunk_summary ?? "교통사고 관련 확인 사항"), easy_explanation: cleanText(ev.plain_summary ?? ev.snippet, "이 사고에서 확인해야 할 법률상 기준입니다."), related_to_this_case: cleanText(ev.related_reason ?? ev.used_for, "입력하신 사고 사실과 연결해서 참고할 수 있는 근거입니다."), confidence_label: "관련성이 있는 근거입니다.", source_label: cleanText(ev.source ?? "교통사고 법률 설명 자료") })),

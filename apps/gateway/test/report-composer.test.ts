@@ -24,6 +24,7 @@ describe("report composer", () => {
     const reliabilityCard = enriched.evidence_reliability_card!;
     expect(reliabilityCard.level_label).toBe("높음");
     expect(reliabilityCard.summary).toContain("주요 판단 10개");
+    expect(reliabilityCard.notice).toBe("이 카드는 판단 문장과 근거 문서가 얼마나 연결됐는지 보여줍니다.");
     expect(text).not.toContain("claim_id");
     expect(text).not.toContain("evidence_refs");
     expect(text).not.toContain("support_level");
@@ -68,10 +69,32 @@ describe("report composer", () => {
 
     const questions = (enriched as any).missing_info.questions;
     expect(questions.map((item: any) => item.field)).toEqual(["stopped", "injury", "turn_signal"]);
+    expect((enriched as any).missing_info.items ?? []).not.toContain("정차 중이었나요?");
+    expect((enriched as any).missing_info.items ?? []).not.toContain("다친 사람이 있나요?");
     expect(questions[0].priority_label).toBe("우선 확인");
     expect((enriched as any).missing_info.next_focus.label).toBe("정차 여부");
     expect((enriched as any).missing_info.priority_items[0].reason).toContain("후방 추돌");
     expect(JSON.stringify(enriched)).not.toContain("unknown_internal_field");
+  });
+
+  it("keeps missing-info checklist separate from selectable questions", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({
+      headline: "report",
+      missing_info: {
+        title: "더 정확한 분석을 위해 필요한 정보",
+        items: [
+          "정차 중이었나요?",
+          "사고 당시 블랙박스 원본을 보관해 주세요.",
+          "정차 중이었나요?",
+        ],
+        questions: [
+          { field: "stopped", label: "정차 여부", question: "정차 중이었나요?", options: ["정차 중", "주행 중"] },
+        ],
+      },
+    }), {});
+
+    expect((enriched as any).missing_info.questions.map((item: any) => item.question)).toEqual(["정차 중이었나요?"]);
+    expect((enriched as any).missing_info.items).toEqual(["사고 당시 블랙박스 원본을 보관해 주세요."]);
   });
 
   it("adds a user-safe agent process card without raw trace packets", () => {

@@ -1,2 +1,22 @@
-﻿<template><article class="card hero-card easy-hero"><p class="eyebrow">한 줄 결론</p><h1>{{ text(report.headline) }}</h1><div class="chips"><span class="chip selected">{{ text(report.summary_for_user?.accident_type_label || "교통사고") }}</span><span class="chip">참고용 분석입니다</span></div><p class="easy-summary">{{ text(report.summary_for_user?.short_summary) }}</p><p class="soft-warning">{{ text(report.summary_for_user?.warning) }}</p></article></template>
-<script setup lang="ts">import { sanitizeDisplayText } from "../../utils/displaySanitizer"; defineProps<{ report: any }>(); function text(value: unknown) { return sanitizeDisplayText(value); }</script>
+<template>
+  <article class="card hero-card easy-hero">
+    <p class="eyebrow">한 줄 결론</p>
+    <h1>{{ text(report.headline) }}</h1>
+    <div class="chips">
+      <span class="chip selected">{{ text(report.summary_for_user?.accident_type_label || "교통사고") }}</span>
+      <span class="chip">참고용 분석입니다</span>
+    </div>
+    <p class="easy-summary">{{ text(report.summary_for_user?.short_summary) }}</p>
+    <p v-if="report.summary_for_user?.warning" class="soft-warning">{{ text(report.summary_for_user.warning) }}</p>
+  </article>
+</template>
+
+<script setup lang="ts">
+import { sanitizeDisplayText } from "../../utils/displaySanitizer";
+
+defineProps<{ report: any }>();
+
+function text(value: unknown) {
+  return sanitizeDisplayText(value);
+}
+</script>
