@@ -892,7 +892,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | P0 | Agent regression automation | `apps/agent/scripts/test_agent_regression_scenarios.py` covers core text and video/user-conflict scenarios, but it is manually run. | Add a repeatable Docker/CI command and fail builds when judgment mapping regresses. |
 | P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. A safe admin diagnostic API now exposes stage and packet summaries without raw user text. | Add local-only developer UI if needed, but keep public user screens sanitized. |
 | P0 | Reflection/reverification loop | `reflection_loop` now performs one bounded evidence requery when requeryable evidence requirements are missing, then records whether to request input, present reference-only, or finalize. | Continue improving requery terms and add UI/API visibility for the loop state. |
-| P0 | Agent SRP | `orchestrator.py` still sequences many responsibilities. | Move stage-specific logic into dedicated modules and keep orchestration as sequencing. |
+| P0 | Agent SRP | `orchestrator.py` now delegates input context, evidence collection, analyst execution, and reflection requery to dedicated stage modules. | Continue extracting final output enrichment if new KNIA/report metadata grows further. |
 | P1 | Gateway SRP | `gateway/src/main.ts` remains a large composition root, but auth/session routes now live in `apps/gateway/src/routes/auth.ts`. | Split cases/uploads, analysis/report, KNIA/admin, legal/admin routes. |
 | P1 | Frontend source hygiene | `tsconfig.json` uses `noEmit`, but `.js` source duplicates still exist under `apps/frontend/src`. | Remove tracked generated JS duplicates or confirm they are intentionally maintained. |
 
@@ -1001,3 +1001,17 @@ This update adds an administrator-only diagnostic API for Agent pipeline observa
 | `docs/api/openapi.yaml`, `docs/OPERATIONS.md` | Documents the admin trace diagnostic endpoint and its safety constraints. |
 
 The endpoint is intended for internal project inspection, not normal user UI. It does not change DB schema, Redis keys, storage paths, environment variables, external API contracts, or public easy-report behavior.
+
+## 2026-05-22 Agent Orchestrator SRP Stage Split
+
+This update reduces `apps/agent/app/services/orchestrator.py` to stage sequencing and output assembly. Input normalization, evidence collection, analyst execution, and bounded reflection requery are now delegated to dedicated modules. The change is behavior-preserving and does not alter public API DTOs, DB schema, Redis keys, storage paths, environment variables, or external integrations.
+
+| Path | Responsibility |
+| --- | --- |
+| `apps/agent/app/services/orchestration_context.py` | Builds `CaseContext`: video context, normalized input, scenario classification, user vehicle role inference, party action guide, input requirements, and follow-up loop state. |
+| `apps/agent/app/services/orchestration_evidence.py` | Builds `EvidenceBundle`: KNIA chart matching, KNIA JSON search, KNIA fault/reference evidence, legal retrieval, evidence normalization, and duplicate merging helpers. |
+| `apps/agent/app/services/orchestration_analysis.py` | Builds `AnalysisBundle` and `ReflectionStageResult`: analyst outputs, evidence audit, claim-evidence audit, KNIA fault application, and one bounded evidence requery. |
+| `apps/agent/app/services/orchestration_stages.py` | Lightweight export facade for the stage functions and dataclasses. |
+| `apps/agent/app/services/orchestrator.py` | Keeps request entry points and orchestrates stage order, judgment contract, reflection loop result, final report composition, trace generation, and final metadata assembly. |
+
+Verification focus remains the same: Agent compile check and representative regression scenarios must pass after future changes to these stage modules.
