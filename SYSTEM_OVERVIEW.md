@@ -16,6 +16,21 @@
 
 남아 있는 대표 후속 작업은 KNIA 원문/DB 수집 안정화, 실제 사고 영상 기반 프레임 분석 보정, OpenAI 비용 모니터링, S3 직접 업로드 전환, 관리자/사용자 UI 마감, 장기적으로 교통사고 특화 비전 모델 검토다.
 
+## 2026-05-22 영상 프레임 관찰값 품질 보정
+
+실제 사고 영상 기반 프레임 분석의 다음 안정화 단계로, OpenAI/fixture 관찰값이 Agent 사실로 승격되기 전 품질 기준을 명확히 했다. 짧은 사고 영상은 유효 프레임 수가 제한적이므로 단일 프레임 관찰값도 보강 입력으로 사용할 수 있지만, 프레임 참조가 없는 관찰값이나 신호위반/스쿨존/횡단보도처럼 오판 위험이 큰 필드는 더 엄격하게 보류한다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/worker/worker/frame_analysis.py` | 각 프레임 관찰값에 `observation_quality`를 추가한다. confidence, frame ref 개수, single-frame 여부, missing frame ref 여부를 기록하고, 응답 전체에 `observation_quality_summary`를 남긴다. |
+| `apps/agent/app/services/video_input_contract.py` | Agent 사실 승격 전에 필드별 confidence threshold와 frame reference 요건을 검사한다. `stopped`, `opponent_behavior`, `lane_change_actor`는 기본 0.82 이상, `opponent_signal_violation`은 0.88 이상, `crosswalk_nearby`/`school_zone`은 0.85 이상이어야 하며, 프레임 분석 계열 source는 최소 1개 frame ref가 필요하다. |
+| `apps/agent/app/services/agent_quality_packet.py` | 품질 패킷의 evaluation에 `video_observation_quality_summary`를 포함해 영상 관찰값 품질 분포를 추적할 수 있게 했다. |
+| `scripts/video_agent_e2e.py` | E2E 출력에 worker의 `observation_quality_summary`와 Agent `video_input_contract.observation_quality_summary`를 함께 표시한다. |
+| `apps/worker/tests/test_frame_analysis_contract.py`, `apps/agent/tests/test_video_input_contract.py` | 단일 프레임 관찰값 품질 표시, frame ref 누락 관찰값 보류, 신호위반 필드의 강화된 threshold, 품질 요약 생성을 검증한다. |
+| `apps/agent/scripts/test_agent_quality_report.py` | 영상 품질 패킷 fixture에 frame refs를 명시해 실제 승격 조건과 맞췄다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. OpenAI 모델 자체는 기존 기본값 `gpt-4.1-mini`, `detail=low`, 최대 6프레임 정책을 유지한다. 향후 실제 영상 샘플이 쌓이면 필드별 threshold와 conflict override gate를 운영 데이터 기반으로 조정한다.
+
 ## 2026-05-22 KNIA/법률 근거 소스 안정화
 
 실제 서비스 개발 단계의 첫 안정화 작업으로, 법률 RAG 또는 KNIA 상세 근거 소스가 비어 있거나 일시적으로 실패할 때 Agent가 조용히 빈 근거로 진행하지 않도록 보강했다. 법률 DB 검색 실패는 정적 사고 유형 근거로 복구하고, 복구 사실과 KNIA/법률 소스 상태를 `model_info.evidence_source_status` 및 `agent_quality_packet.evidence_source_status`에 안전 메타데이터로 남긴다.

@@ -43,6 +43,7 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
             "unsupported_claim_count": _safe_int(claim_evidence.get("unsupported_count")),
             "weak_claim_count": _safe_int(claim_evidence.get("weak_count")),
             "next_action": reflection.get("next_action"),
+            "video_observation_quality_summary": _dict(_dict(output.get("video_input_contract")).get("observation_quality_summary")),
         },
         "packet_contract": {
             "required_packets_present": not missing_packets,

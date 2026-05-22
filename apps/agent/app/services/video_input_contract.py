@@ -5,6 +5,33 @@ from typing import Any
 
 VERSION = "agent-video-input-contract-v1"
 MIN_FACT_CONFIDENCE = 0.75
+FIELD_CONFIDENCE_THRESHOLDS = {
+    "stopped": 0.82,
+    "opponent_behavior": 0.82,
+    "lane_change_actor": 0.82,
+    "opponent_signal_violation": 0.88,
+    "crosswalk_nearby": 0.85,
+    "school_zone": 0.85,
+}
+
+FRAME_REF_REQUIRED_FACT_FIELDS = {
+    "stopped",
+    "sudden_brake",
+    "opponent_behavior",
+    "lane_change_actor",
+    "opponent_signal_violation",
+    "crosswalk_nearby",
+    "school_zone",
+    "damage_level",
+}
+
+FRAME_REF_REQUIRED_SOURCES = {
+    "frame_analysis",
+    "vision_model",
+    "video_model",
+    "dashcam_analysis",
+    "blackbox_analysis",
+}
 
 _OBSERVATION_CONTAINERS = (
     "observations",
@@ -93,15 +120,16 @@ def normalize_video_input_contract(
         if not _has_observation_source(source):
             uncertain.append({**observation, "reason": "missing_observation_source"})
             continue
-        if not _is_high_confidence(confidence, observation.get("verified")):
-            uncertain.append({**observation, "reason": "confidence_below_fact_threshold"})
+        passed, gate_reason, gate = _passes_fact_quality(observation)
+        if not passed:
+            uncertain.append({**observation, "reason": gate_reason, "quality_gate": gate})
             continue
         value = _normalize_fact_value(field, observation.get("value"), raw)
         if value is None:
-            uncertain.append({**observation, "reason": "value_not_actionable"})
+            uncertain.append({**observation, "reason": "value_not_actionable", "quality_gate": gate})
             continue
         fact_patch[field] = value
-        accepted.append({**observation, "value": value})
+        accepted.append({**observation, "value": value, "quality_gate": gate})
 
     warnings: list[str] = []
     if technical and not accepted:
@@ -117,8 +145,10 @@ def normalize_video_input_contract(
         "accepted_observations": accepted,
         "uncertain_observations": uncertain,
         "ignored_observations": ignored,
+        "observation_quality_summary": _quality_summary(accepted, uncertain, ignored),
         "warnings": warnings,
         "fact_confidence_threshold": MIN_FACT_CONFIDENCE,
+        "field_confidence_thresholds": FIELD_CONFIDENCE_THRESHOLDS,
     }
 
 
@@ -210,10 +240,64 @@ def _has_observation_source(source: str) -> bool:
     }
 
 
-def _is_high_confidence(confidence: float | None, verified: Any) -> bool:
+def _passes_fact_quality(observation: dict[str, Any]) -> tuple[bool, str, dict[str, Any]]:
+    field = str(observation.get("field") or "")
+    confidence = observation.get("confidence")
+    verified = observation.get("verified")
+    source = str(observation.get("source") or "")
+    threshold = FIELD_CONFIDENCE_THRESHOLDS.get(field, MIN_FACT_CONFIDENCE)
+    frame_ref_count = _frame_ref_count(observation)
+    needs_frame_ref = _requires_frame_ref(field, source)
+    gate = {
+        "status": "accepted",
+        "min_confidence": threshold,
+        "confidence": confidence,
+        "frame_ref_count": frame_ref_count,
+        "min_frame_refs": 1 if needs_frame_ref else 0,
+    }
     if verified:
-        return True
-    return confidence is not None and confidence >= MIN_FACT_CONFIDENCE
+        gate["status"] = "accepted_verified"
+        return True, "accepted", gate
+    if confidence is None or confidence < threshold:
+        gate["status"] = "rejected"
+        return False, "confidence_below_field_threshold", gate
+    if needs_frame_ref and frame_ref_count < 1:
+        gate["status"] = "rejected"
+        return False, "missing_frame_reference", gate
+    return True, "accepted", gate
+
+
+def _requires_frame_ref(field: str, source: str) -> bool:
+    return field in FRAME_REF_REQUIRED_FACT_FIELDS and source.split(":", 1)[0] in FRAME_REF_REQUIRED_SOURCES
+
+
+def _frame_ref_count(observation: dict[str, Any]) -> int:
+    refs = observation.get("frame_refs")
+    return len(refs) if isinstance(refs, list) else 0
+
+
+def _quality_summary(
+    accepted: list[dict[str, Any]],
+    uncertain: list[dict[str, Any]],
+    ignored: list[dict[str, Any]],
+) -> dict[str, Any]:
+    reasons: dict[str, int] = {}
+    for item in [*uncertain, *ignored]:
+        reason = str(item.get("reason") or "unknown")
+        reasons[reason] = reasons.get(reason, 0) + 1
+    accepted_frame_ref_counts = [
+        int((item.get("quality_gate") or {}).get("frame_ref_count") or 0)
+        for item in accepted
+        if isinstance(item.get("quality_gate"), dict)
+    ]
+    return {
+        "accepted_count": len(accepted),
+        "uncertain_count": len(uncertain),
+        "ignored_count": len(ignored),
+        "uncertain_reasons": reasons,
+        "accepted_single_frame_count": sum(1 for count in accepted_frame_ref_counts if count == 1),
+        "accepted_multi_frame_count": sum(1 for count in accepted_frame_ref_counts if count >= 2),
+    }
 
 
 def _normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:

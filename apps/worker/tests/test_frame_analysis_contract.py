@@ -42,6 +42,8 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(len(result["observations"]), 2)
         self.assertEqual(result["observations"][0]["source"], "frame_analysis:fixture")
         self.assertEqual(result["observations"][0]["frame_refs"], ["frame_001.jpg"])
+        self.assertEqual(result["observations"][0]["observation_quality"]["frame_ref_count"], 1)
+        self.assertEqual(result["observation_quality_summary"]["single_frame_observation_count"], 2)
 
     def test_enabled_without_key_reports_disabled_reason_when_no_fixture(self):
         frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
@@ -97,6 +99,8 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(payload["text"]["verbosity"], "low")
         self.assertEqual(payload["reasoning"]["effort"], "minimal")
         self.assertNotIn("temperature", payload)
+        self.assertEqual(result["observation_quality_summary"]["observation_count"], 1)
+        self.assertEqual(result["observations"][0]["observation_quality"]["level"], "low")
 
     def test_non_gpt5_payload_uses_temperature_zero(self):
         self.assertEqual(frame_analysis._generation_controls_for_model("gpt-4.1-mini"), {"temperature": 0})

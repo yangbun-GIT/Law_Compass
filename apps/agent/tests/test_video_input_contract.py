@@ -9,8 +9,20 @@ def test_high_confidence_video_observation_becomes_fact_patch():
                 "duration_sec": 12.5,
                 "representative_frames": ["/frames/1.jpg", "/frames/2.jpg"],
                 "observations": [
-                    {"field": "stopped", "value": True, "confidence": 0.92, "source": "frame_analysis"},
-                    {"field": "impact_direction", "value": "rear", "confidence": 0.88, "source": "vision_model:v1"},
+                    {
+                        "field": "stopped",
+                        "value": True,
+                        "confidence": 0.92,
+                        "source": "frame_analysis",
+                        "frame_refs": ["frame_1.jpg"],
+                    },
+                    {
+                        "field": "impact_direction",
+                        "value": "rear",
+                        "confidence": 0.88,
+                        "source": "vision_model:v1",
+                        "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
+                    },
                 ],
             }
         }
@@ -21,6 +33,7 @@ def test_high_confidence_video_observation_becomes_fact_patch():
     assert contract["fact_patch"]["stopped"] is True
     assert contract["fact_patch"]["opponent_behavior"] == "rear_collision"
     assert len(contract["accepted_observations"]) == 2
+    assert contract["observation_quality_summary"]["accepted_count"] == 2
 
 
 def test_low_confidence_video_observation_is_not_fact_patch():
@@ -35,7 +48,45 @@ def test_low_confidence_video_observation_is_not_fact_patch():
     )
 
     assert "opponent_signal_violation" not in contract["fact_patch"]
-    assert contract["uncertain_observations"][0]["reason"] == "confidence_below_fact_threshold"
+    assert contract["uncertain_observations"][0]["reason"] == "confidence_below_field_threshold"
+
+
+def test_frame_observation_without_frame_reference_is_not_fact_patch():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {"field": "stopped", "value": True, "confidence": 0.96, "source": "frame_analysis:openai"}
+                ]
+            }
+        }
+    )
+
+    assert "stopped" not in contract["fact_patch"]
+    assert contract["uncertain_observations"][0]["reason"] == "missing_frame_reference"
+    assert contract["observation_quality_summary"]["uncertain_reasons"]["missing_frame_reference"] == 1
+
+
+def test_signal_violation_uses_stricter_field_threshold():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "opponent_signal_violation",
+                        "value": True,
+                        "confidence": 0.84,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_3.jpg"],
+                    }
+                ]
+            }
+        }
+    )
+
+    assert "opponent_signal_violation" not in contract["fact_patch"]
+    assert contract["uncertain_observations"][0]["reason"] == "confidence_below_field_threshold"
+    assert contract["uncertain_observations"][0]["quality_gate"]["min_confidence"] == 0.88
 
 
 def test_technical_preprocess_metadata_does_not_create_accident_facts():

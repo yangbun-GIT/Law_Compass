@@ -92,6 +92,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "summary": parsed.get("summary") or parsed.get("scene_summary"),
             "observations": observations,
+            "observation_quality_summary": _observation_quality_summary(observations),
             "uncertainties": parsed.get("uncertainties") or _empty_output_uncertainty(data, observations),
             "created_at": _now_iso(),
         }
@@ -113,6 +114,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "error": str(exc),
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "observations": [],
+            "observation_quality_summary": _observation_quality_summary([]),
             "created_at": _now_iso(),
         }
 
@@ -156,6 +158,11 @@ def _fixture_frame_analysis(selected_frames: list[dict[str, Any]], context: dict
     frame_refs = [Path(str(frame.get("path", ""))).name for frame in selected_frames if frame.get("path")]
     primary_ref = frame_refs[:2] or ["fixture-frame.jpg"]
     observations = _fixture_observations(mode, primary_ref)
+    for observation in observations:
+        observation.setdefault(
+            "observation_quality",
+            _observation_quality(str(observation.get("field") or ""), _as_float(observation.get("confidence"), 0.0), observation.get("frame_refs") or []),
+        )
     return {
         "version": FRAME_ANALYSIS_CONTRACT_VERSION,
         "enabled": True,
@@ -165,6 +172,7 @@ def _fixture_frame_analysis(selected_frames: list[dict[str, Any]], context: dict
         "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
         "summary": _fixture_summary(mode, context),
         "observations": observations,
+        "observation_quality_summary": _observation_quality_summary(observations),
         "uncertainties": [],
         "created_at": _now_iso(),
     }
@@ -272,16 +280,69 @@ def _normalize_openai_observations(raw_observations: Any, selected_frames: list[
         if _should_drop_openai_observation(field, value):
             continue
         frame_refs = [str(ref) for ref in item.get("frame_refs") or item.get("frames") or [] if str(ref) in allowed_frame_refs]
+        confidence = _as_float(item.get("confidence"), 0.0)
         observations.append({
             "field": field,
             "value": value,
-            "confidence": _as_float(item.get("confidence"), 0.0),
+            "confidence": confidence,
             "source": "frame_analysis:openai",
             "detector": OPENAI_VISION_MODEL,
             "frame_refs": frame_refs,
             "reason": str(item.get("reason") or item.get("evidence") or ""),
+            "observation_quality": _observation_quality(field, confidence, frame_refs),
         })
     return observations
+
+
+def _observation_quality_summary(observations: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = {"high": 0, "medium": 0, "low": 0, "none": 0}
+    no_frame_ref = 0
+    single_frame = 0
+    multi_frame = 0
+    for item in observations:
+        quality = item.get("observation_quality") if isinstance(item.get("observation_quality"), dict) else {}
+        level = str(quality.get("level") or "none")
+        counts[level if level in counts else "none"] += 1
+        frame_count = len(item.get("frame_refs") or []) if isinstance(item.get("frame_refs"), list) else 0
+        if frame_count == 0:
+            no_frame_ref += 1
+        elif frame_count == 1:
+            single_frame += 1
+        else:
+            multi_frame += 1
+    return {
+        "observation_count": len(observations),
+        "quality_counts": counts,
+        "no_frame_reference_count": no_frame_ref,
+        "single_frame_observation_count": single_frame,
+        "multi_frame_observation_count": multi_frame,
+    }
+
+
+def _observation_quality(field: str, confidence: float, frame_refs: list[str]) -> dict[str, Any]:
+    frame_count = len(frame_refs)
+    flags: list[str] = []
+    if frame_count == 0:
+        flags.append("missing_frame_reference")
+    elif frame_count == 1:
+        flags.append("single_frame_observation")
+    if confidence < 0.75:
+        flags.append("low_confidence")
+    if confidence >= 0.9 and frame_count >= 2:
+        level = "high"
+    elif confidence >= 0.82 and frame_count >= 1:
+        level = "medium"
+    elif confidence >= 0.75:
+        level = "low"
+    else:
+        level = "none"
+    return {
+        "level": level,
+        "frame_ref_count": frame_count,
+        "confidence": confidence,
+        "field": field,
+        "risk_flags": flags,
+    }
 
 
 def _should_drop_openai_observation(field: str, value: Any) -> bool:

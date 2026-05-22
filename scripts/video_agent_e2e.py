@@ -135,6 +135,7 @@ def frame_analysis_summary(upload: dict, require_observations: bool):
         "detail": frame_analysis.get("detail"),
         "analyzed_frame_count": len(frame_analysis.get("analyzed_frames") or []),
         "observation_count": len(observations),
+        "observation_quality_summary": frame_analysis.get("observation_quality_summary"),
         "summary": frame_analysis.get("summary"),
         "observations": [
             {
@@ -191,6 +192,7 @@ def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool
         "video_contract_version": video_contract.get("version"),
         "accepted_observation_count": len(accepted),
         "uncertain_observation_count": len(uncertain),
+        "observation_quality_summary": video_contract.get("observation_quality_summary"),
         "fact_patch": fact_patch,
         "applied_video_fields": applied_video_fields,
         "conflict_count": len(conflicts),

@@ -25,9 +25,27 @@ QUALITY_SCENARIOS: tuple[dict[str, Any], ...] = (
                 "duration_sec": 7.4,
                 "representative_frames": ["/frames/001.jpg", "/frames/002.jpg"],
                 "observations": [
-                    {"field": "stopped", "value": True, "confidence": 0.91, "source": "frame_analysis"},
-                    {"field": "impact_direction", "value": "rear", "confidence": 0.89, "source": "frame_analysis"},
-                    {"field": "lane_change", "value": False, "confidence": 0.78, "source": "frame_analysis"},
+                    {
+                        "field": "stopped",
+                        "value": True,
+                        "confidence": 0.91,
+                        "source": "frame_analysis",
+                        "frame_refs": ["frame_001.jpg"],
+                    },
+                    {
+                        "field": "impact_direction",
+                        "value": "rear",
+                        "confidence": 0.89,
+                        "source": "frame_analysis",
+                        "frame_refs": ["frame_001.jpg", "frame_002.jpg"],
+                    },
+                    {
+                        "field": "lane_change",
+                        "value": False,
+                        "confidence": 0.78,
+                        "source": "frame_analysis",
+                        "frame_refs": ["frame_002.jpg"],
+                    },
                 ],
             }
         },

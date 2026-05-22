@@ -127,6 +127,14 @@ docker compose logs worker --tail=100
 
 worker 로그의 `openai_frame_analysis` 항목에서 분석 모델, 프레임 수, `observations`를 확인할 수 있습니다. 이 출력에는 API 키를 포함하지 않습니다.
 
+프레임 분석 결과에는 `observation_quality_summary`가 함께 기록됩니다. 품질 확인 시 아래 값을 우선 봅니다.
+- `observation_count`: 모델/fixture가 반환한 관찰값 수
+- `no_frame_reference_count`: 프레임 근거가 없어 Agent 사실 승격에서 보류될 가능성이 큰 관찰값 수
+- `single_frame_observation_count`: 짧은 영상에서 보강 입력으로는 쓸 수 있지만, 사용자 입력과 충돌하면 우선권을 갖기 어려운 관찰값 수
+- `multi_frame_observation_count`: 여러 프레임에서 뒷받침된 관찰값 수
+
+Agent의 `video_input_contract.observation_quality_summary`도 함께 확인합니다. 프레임 분석 계열 source는 최소 1개 frame ref가 있어야 사실로 승격되며, 신호위반/횡단보도/스쿨존 같은 고위험 필드는 일반 물리 사실보다 높은 confidence 기준을 적용합니다.
+
 OpenAI 비용 없이 계약 흐름만 검증하려면 로컬 fixture 모드를 사용할 수 있습니다. 이 모드는 실제 모델 판단이 아니라, 프레임 관찰값이 worker metadata, Agent `video_input_contract`, `fact_arbitration`, easy-report 안전 카드까지 전달되는지 확인하는 용도입니다.
 
 ```powershell
@@ -165,6 +173,7 @@ python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeo
 - `agent_process_card`에 raw `agent_trace`, `reflection_loop`, `packet`, 내부 step id가 노출되지 않음
 - `--require-frame-observations` 사용 시 OpenAI 프레임 분석이 켜져 있고, 오류 없이 1개 이상의 관찰값을 반환함
 - `--require-agent-video-facts` 사용 시 Agent의 `video_input_contract`가 프레임 관찰값을 수용하고 `fact_arbitration`이 영상 기반 사실을 실제 적용함
+- E2E 출력의 `frame_analysis.observation_quality_summary`와 `agent_video_input.observation_quality_summary`에서 프레임 근거 누락, 단일 프레임 관찰값, Agent 승격/보류 수를 확인함
 
 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이면 프레임은 추출되지만 GPT 프레임 관찰값(`observations`)은 0개일 수 있습니다. 이 상태에서도 영상 전처리와 Agent 입력 계약 연결은 확인할 수 있습니다.
 
