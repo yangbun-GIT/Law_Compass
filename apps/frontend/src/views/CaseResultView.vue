@@ -7,7 +7,6 @@
         <p class="kv">분석이 완료되면 쉬운 리포트와 근거 요약을 확인할 수 있습니다.</p>
       </div>
       <div class="btn-row">
-        <RouterLink class="btn secondary" :to="`/cases/${caseId}/agents`">Agent 개별 테스트</RouterLink>
         <RouterLink class="btn secondary" :to="`/cases/${caseId}/wizard`">입력 화면으로 돌아가기</RouterLink>
         <button class="btn" :disabled="loading" @click="load">{{ loading ? "새로고침 중..." : "결과 새로고침" }}</button>
       </div>

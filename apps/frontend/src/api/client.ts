@@ -195,7 +195,6 @@ export const api = {
 
   getJobs: (caseId: string) => request<{ items: any[]; trace_id: string }>(`/api/v1/cases/${caseId}/jobs`),
   getResult: (caseId: string) => request<{ result: any; report: any; trace_id: string }>(`/api/v1/cases/${caseId}/result`),
-  getDebugResult: (caseId: string) => request<{ result: any; report: any; debug: any; trace_id: string }>(`/api/v1/cases/${caseId}/result?debug=1`),
   getReport: (caseId: string) => request<{ report: any; trace_id: string }>(`/api/v1/cases/${caseId}/report`),
   getEasyReport: (caseId: string) => request<any>(`/api/v1/cases/${caseId}/easy-report`),
   getEvidence: (caseId: string) => request<{ evidence: any[]; trace_id: string }>(`/api/v1/cases/${caseId}/evidence`),
