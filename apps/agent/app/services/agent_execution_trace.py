@@ -15,6 +15,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
     fact_arbitration = output.get("fact_arbitration") or {}
     input_requirements = output.get("input_requirements") or {}
     followup_loop = output.get("followup_loop") or {}
+    reflection_loop = output.get("reflection_loop") or {}
     video_contract = output.get("video_input_contract") or {}
     claim_evidence = output.get("claim_evidence") or {}
 
@@ -94,6 +95,17 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
                 "must_not_present_as_final": bool(judgment.get("must_not_present_as_final")),
                 "blocking_reason_count": len(judgment.get("blocking_reasons") or []),
                 "finality": (output.get("presentation_policy") or {}).get("finality"),
+            },
+        ),
+        _step(
+            "reflection_loop",
+            "recover",
+            reflection_loop.get("status") or "unknown",
+            {
+                "requery_attempted": bool(reflection_loop.get("requery_attempted")),
+                "requery_added_evidence_count": reflection_loop.get("requery_added_evidence_count", 0),
+                "iterations_used": reflection_loop.get("iterations_used", 0),
+                "next_action": reflection_loop.get("next_action"),
             },
         ),
         _step(

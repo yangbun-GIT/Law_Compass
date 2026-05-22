@@ -25,6 +25,7 @@ from app.services.knia.knia_report_adapter import build_knia_evidence
 from app.services.knia.knia_repository import KniaRepository
 from app.services.rag_client import retrieve_for_scenario
 from app.services.rag.two_stage_cache import search_knia_json_cached
+from app.services.reflection_loop import VERSION as REFLECTION_LOOP_VERSION, build_reflection_loop_result, build_requery_plan
 from app.services.report_composer import compose_analysis_output
 from app.services.scenario_classifier import classify_scenario
 from app.services.scenario_search_terms import evidence_query_payload
@@ -182,21 +183,12 @@ def _analyze_core(
     text = normalized["merged_text"]
     legal_analysis = analyze_traffic_law(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, text=text)
     fault_ratio = analyze_fault_ratio(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, text=text)
-    if knia_fault_estimate:
-        final_fault = knia_fault_estimate.get("final_fault") or {}
-        fault_ratio["knia_reference_fault"] = final_fault
-        fault_ratio["basis"] = "KNIA 원문 기본과실과 수집된 가감요소를 함께 반영한 참고 산정입니다."
-        if isinstance(final_fault.get("A"), int) and isinstance(final_fault.get("B"), int):
-            mapped_fault = map_fault_ratio_to_user(
-                scenario_type=scenario.get("scenario_type"),
-                fault=final_fault,
-                text=normalized["description_text"],
-                facts=normalized["structured_facts"],
-            )
-            fault_ratio["my"] = mapped_fault["my"]
-            fault_ratio["other"] = mapped_fault["other"]
-            fault_ratio["user_vehicle_role"] = mapped_fault.get("user_vehicle_role")
-            fault_ratio["user_vehicle_role_label"] = mapped_fault.get("user_vehicle_role_label")
+    _apply_knia_fault_estimate(
+        fault_ratio=fault_ratio,
+        knia_fault_estimate=knia_fault_estimate,
+        scenario=scenario,
+        normalized=normalized,
+    )
     legal_liability = analyze_criminal_liability(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, legal_analysis=legal_analysis, text=text)
     insurance_guide = analyze_insurance(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, text=text)
     action_plan = analyze_action_plan(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], legal_liability=legal_liability, insurance_guide=insurance_guide, evidence=evidence, text=text)
@@ -217,6 +209,57 @@ def _analyze_core(
         evidence=evidence,
     )
     evidence_audit = apply_claim_evidence_audit(evidence_audit, claim_evidence)
+    reflection_requery_plan = build_requery_plan(
+        evidence_audit=evidence_audit,
+        input_requirements=input_requirements,
+    )
+    reflection_requery_added_count = 0
+    if reflection_requery_plan.get("should_requery"):
+        retry_selected_keywords = list(dict.fromkeys([*normalized["selected_keywords"], *reflection_requery_plan.get("query_terms", [])]))
+        retry_retrieval = retrieve_for_scenario(
+            scenario_type=scenario["scenario_type"],
+            scenario_tags=scenario["scenario_tags"],
+            description_text=normalized["description_text"],
+            facts={**normalized["structured_facts"], "accident_party_type": scenario.get("accident_party_type")},
+            selected_keywords=retry_selected_keywords,
+            video_context=video_context,
+            limit=10,
+        )
+        before_count = len(legal_evidence)
+        legal_evidence = _merge_evidence_items([
+            *legal_evidence,
+            *_normalize_evidence_items(retry_retrieval["items"], default_source="법률 근거"),
+        ])
+        reflection_requery_added_count = max(0, len(legal_evidence) - before_count)
+        evidence = _merge_evidence_items([*knia_evidence, *legal_evidence])
+        legal_analysis = analyze_traffic_law(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, text=text)
+        fault_ratio = analyze_fault_ratio(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, text=text)
+        _apply_knia_fault_estimate(
+            fault_ratio=fault_ratio,
+            knia_fault_estimate=knia_fault_estimate,
+            scenario=scenario,
+            normalized=normalized,
+        )
+        legal_liability = analyze_criminal_liability(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, legal_analysis=legal_analysis, text=text)
+        insurance_guide = analyze_insurance(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], evidence=evidence, text=text)
+        action_plan = analyze_action_plan(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], legal_liability=legal_liability, insurance_guide=insurance_guide, evidence=evidence, text=text)
+        evidence_audit = audit_evidence(
+            scenario_type=scenario["scenario_type"],
+            evidence=evidence,
+            legal_analysis=legal_analysis,
+            fault_ratio=fault_ratio,
+            missing_fields=decision_blocking_missing_fields,
+            input_requirements=input_requirements,
+        )
+        claim_evidence = validate_claim_evidence(
+            legal_analysis=legal_analysis,
+            fault_ratio=fault_ratio,
+            legal_liability=legal_liability,
+            insurance_guide=insurance_guide,
+            action_plan=action_plan,
+            evidence=evidence,
+        )
+        evidence_audit = apply_claim_evidence_audit(evidence_audit, claim_evidence)
     judgment_contract = build_judgment_contract(
         scenario=scenario,
         evidence=evidence,
@@ -231,6 +274,15 @@ def _analyze_core(
         input_requirements=input_requirements,
         knia_matches=knia_matches,
         knia_fault_estimate=knia_fault_estimate,
+    )
+    reflection_loop = build_reflection_loop_result(
+        initial_plan=reflection_requery_plan,
+        final_evidence_audit=evidence_audit,
+        input_requirements=input_requirements,
+        followup_loop=followup_loop,
+        judgment_contract=judgment_contract,
+        requery_attempted=bool(reflection_requery_plan.get("should_requery")),
+        requery_added_count=reflection_requery_added_count,
     )
     recommended_keywords = recommend_keywords(scenario_type=scenario["scenario_type"], facts=normalized["structured_facts"], selected_keywords=normalized["selected_keywords"], evidence=evidence)
     suggested_next_inputs = suggest_next_inputs(
@@ -267,6 +319,8 @@ def _analyze_core(
         ai_profile=profile,
     )
     output = apply_judgment_contract_to_output(output, judgment_contract)
+    output["reflection_loop"] = reflection_loop
+    output["model_info"]["reflection_loop_version"] = REFLECTION_LOOP_VERSION
     output["agent_trace"] = build_agent_execution_trace(output)
     output["model_info"]["agent_trace_version"] = AGENT_TRACE_VERSION
     output["elderly_friendly_report"] = build_elderly_friendly_report(output)
@@ -343,6 +397,44 @@ def _normalize_evidence_items(items: list[dict[str, Any]], *, default_source: st
         source = item.get("source") or item.get("source_label") or default_source
         normalized.append({**item, "title": str(title), "source": str(source)})
     return normalized
+
+
+def _merge_evidence_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in items:
+        key = str(item.get("chunk_id") or item.get("source_url") or item.get("title") or "")
+        if key and key in seen:
+            continue
+        if key:
+            seen.add(key)
+        merged.append(item)
+    return merged
+
+
+def _apply_knia_fault_estimate(
+    *,
+    fault_ratio: dict[str, Any],
+    knia_fault_estimate: dict[str, Any] | None,
+    scenario: dict[str, Any],
+    normalized: dict[str, Any],
+) -> None:
+    if not knia_fault_estimate:
+        return
+    final_fault = knia_fault_estimate.get("final_fault") or {}
+    fault_ratio["knia_reference_fault"] = final_fault
+    fault_ratio["basis"] = "KNIA 원문 기본과실과 수집된 가감요소를 함께 반영한 참고 산정입니다."
+    if isinstance(final_fault.get("A"), int) and isinstance(final_fault.get("B"), int):
+        mapped_fault = map_fault_ratio_to_user(
+            scenario_type=scenario.get("scenario_type"),
+            fault=final_fault,
+            text=normalized["description_text"],
+            facts=normalized["structured_facts"],
+        )
+        fault_ratio["my"] = mapped_fault["my"]
+        fault_ratio["other"] = mapped_fault["other"]
+        fault_ratio["user_vehicle_role"] = mapped_fault.get("user_vehicle_role")
+        fault_ratio["user_vehicle_role_label"] = mapped_fault.get("user_vehicle_role_label")
 
 
 def _knia_refs_to_evidence(primary: dict[str, Any], refs: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:

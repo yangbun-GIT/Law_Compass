@@ -866,7 +866,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | --- | --- | --- | --- |
 | P0 | Agent regression automation | `apps/agent/scripts/test_agent_regression_scenarios.py` covers core text and video/user-conflict scenarios, but it is manually run. | Add a repeatable Docker/CI command and fail builds when judgment mapping regresses. |
 | P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. | Provide a structured trace view/API so developers can inspect each stage and packet-like data flow. |
-| P0 | Reflection/reverification loop | Evidence audit and judgment contract can mark `needs_review`; retrieval does not yet automatically retry or branch. | Add a bounded retry/requery/review loop when required evidence or input is missing. |
+| P0 | Reflection/reverification loop | `reflection_loop` now performs one bounded evidence requery when requeryable evidence requirements are missing, then records whether to request input, present reference-only, or finalize. | Continue improving requery terms and add UI/API visibility for the loop state. |
 | P0 | Agent SRP | `orchestrator.py` still sequences many responsibilities. | Move stage-specific logic into dedicated modules and keep orchestration as sequencing. |
 | P1 | Gateway SRP | `gateway/src/main.ts` remains a large composition root, but auth/session routes now live in `apps/gateway/src/routes/auth.ts`. | Split cases/uploads, analysis/report, KNIA/admin, legal/admin routes. |
 | P1 | Frontend source hygiene | `tsconfig.json` uses `noEmit`, but `.js` source duplicates still exist under `apps/frontend/src`. | Remove tracked generated JS duplicates or confirm they are intentionally maintained. |
@@ -895,3 +895,17 @@ This update addresses the lecture-derived gap around Agent pipeline observabilit
 | `apps/agent/tests/test_orchestrator.py` | Adds contract assertions for trace version, safe metadata policy, stage IDs, video contract presence, video observation counts, and raw-text exclusion. |
 
 The trace intentionally records counts, statuses, confidence-related state, and missing requirements rather than hidden chain-of-thought or raw user descriptions. This keeps the Agent debuggable while preserving privacy and output safety.
+
+## 2026-05-22 Agent Reflection Loop Update
+
+This update makes the Agent recovery path explicit when evidence coverage, KNIA/legal basis, or required inputs are insufficient.
+
+| Path | Change |
+| --- | --- |
+| `apps/agent/app/services/reflection_loop.py` | Adds `agent-reflection-loop-v1`, a bounded recovery contract. It decides whether one evidence requery should be attempted, records missing requirements and blocking input fields, and resolves the final next action as `finalize`, `request_missing_input`, `present_reference_only`, or `manual_review`. |
+| `apps/agent/app/services/orchestrator.py` | Runs one conservative legal evidence requery when requeryable evidence requirements are missing, merges newly found evidence, reruns analysts/audit/claim validation, then attaches `reflection_loop` to the final output. |
+| `apps/agent/app/services/agent_execution_trace.py` | Adds a `reflection_loop` trace stage with requery attempt status, added evidence count, iteration count, and next action. |
+| `apps/agent/app/schemas.py` | Adds `reflection_loop` to `AnalysisOutput`. |
+| `apps/agent/tests/test_orchestrator.py` | Adds assertions for reflection loop version, next action, trace stage, and video-case compatibility. |
+
+The loop is deliberately bounded to one requery attempt to avoid uncontrolled cost or latency. If evidence remains insufficient, the judgment contract and presentation policy keep the result as reference-only or request user-supplied missing facts.

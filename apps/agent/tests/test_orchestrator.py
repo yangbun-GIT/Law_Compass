@@ -14,6 +14,7 @@ def test_analyze_case_minimum_fields():
         "evidence",
         "claim_evidence",
         "agent_trace",
+        "reflection_loop",
         "uncertainty",
         "disclaimers",
         "followup_questions",
@@ -32,10 +33,18 @@ def test_analyze_case_minimum_fields():
     assert result["agent_trace"]["version"] == "agent-execution-trace-v1"
     assert result["agent_trace"]["trace_policy"] == "safe_metadata_only_no_raw_user_text"
     assert result["agent_trace"]["step_count"] == len(result["agent_trace"]["steps"])
+    assert result["reflection_loop"]["version"] == "agent-reflection-loop-v1"
+    assert result["reflection_loop"]["next_action"] in {
+        "finalize",
+        "request_missing_input",
+        "present_reference_only",
+        "manual_review",
+    }
     assert {step["id"] for step in result["agent_trace"]["steps"]} >= {
         "input_normalization",
         "scenario_classification",
         "evidence_retrieval",
+        "reflection_loop",
         "judgment_contract",
     }
     assert "신호대기 중 후방 차량 추돌" not in str(result["agent_trace"])
@@ -67,5 +76,6 @@ def test_analyze_video_case_applies_video_input_contract():
     trace_steps = {step["id"]: step for step in result["agent_trace"]["steps"]}
     assert trace_steps["input_normalization"]["packet"]["has_video_contract"] is True
     assert trace_steps["fact_arbitration"]["packet"]["video_observation_count"] == 2
+    assert "requery_attempted" in trace_steps["reflection_loop"]["packet"]
     AnalysisOutput(**result)
 
