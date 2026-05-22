@@ -8,10 +8,10 @@
 - Worker: Redis Streams Consumer Group
 - DB: PostgreSQL + pgvector
 - Cache/Queue: Redis
-- Storage: AWS S3(private + presigned)
+- Storage: Local volume (`storage/uploads`) first. S3 SDK dependency exists, but the S3 provider is not active in the current MVP.
 
 ## 빠른 시작
-1. `.env` 값 확인 (`OPENAI_API_KEY`, AWS/S3, DB/Redis)
+1. `env.example`을 참고해 `.env` 값을 준비 (`OPENAI_API_KEY`, DB/Redis, 로컬 저장소 기본값)
 2. `docker compose --env-file .env up --build`
 3. `docker compose exec agent python scripts/ingest_kb.py`
 4. 브라우저 `http://localhost` 접속

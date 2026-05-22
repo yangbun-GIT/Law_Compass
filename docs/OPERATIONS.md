@@ -2,7 +2,8 @@
 
 ## 0) 환경값 준비
 - 기본 실행 파일: `.env`
-- 개발용 참고: `.env.dev`
+- 공유용 템플릿: `env.example`
+- 개발용 로컬 참고 파일인 `.env.dev`는 Git에 올리지 않는다.
 - 아래 값 확인
   - `OPENAI_API_KEY` (실제 키)
   - `OPENAI_MODEL` (기본 `gpt-4.1-mini`)
@@ -12,9 +13,10 @@
   - `OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS` (기본 `900`, 코드 상한 `1400`)
   - `OPENAI_FRAME_ANALYSIS_DETAIL` (기본 `low`)
   - `OPENAI_FRAME_ANALYSIS_REASONING_EFFORT` (기본 `minimal`, GPT-5 계열 전용)
-  - `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
   - `LAW_API_OC`, `LAW_API_TARGETS`
   - `DATA_GO_SERVICE_KEY`, `DATA_GO_TRAFFIC_URL`
+
+현재 MVP의 업로드 저장소는 `STORAGE_PROVIDER=local`과 `LOCAL_STORAGE_ROOT` 기반 로컬 볼륨이다. `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`는 S3 전환 작업을 진행할 때만 설정한다.
 
 ## 1) 개발 기동
 ```bash
