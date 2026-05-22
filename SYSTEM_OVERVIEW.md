@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-22 P1 영상 관찰값 충돌 품질 게이트
+
+실제 OpenAI 프레임 분석 검증 결과처럼 모델이 사용자 입력과 다른 물리 사실 후보를 만들 수 있으므로, Agent 사실 중재 단계에 충돌 품질 게이트를 추가했다. 영상 관찰값은 사용자가 입력하지 않은 물리 사실을 보강하는 데 계속 사용하지만, 사용자 입력과 충돌하는 경우에는 `verified`/수동 검토이거나 `confidence >= 0.92` 및 대표 프레임 2장 이상 조건을 만족해야만 영상값이 사용자 입력을 덮어쓴다. 조건을 통과하지 못하면 사용자 입력을 유지하고 `requires_confirmation`에 남겨 보완 질문과 재분석 흐름으로 넘긴다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/fact_arbitration.py` | `CONFLICT_OVERRIDE_CONFIDENCE=0.92`, `CONFLICT_OVERRIDE_MIN_FRAME_REFS=2` 기반 충돌 품질 게이트를 추가했다. 영상 우선 필드라도 충돌 품질 조건을 통과하지 못하면 사용자 입력을 유지하고 conflict에 `quality_gate`, `needs_confirmation`을 기록한다. |
+| `apps/agent/tests/test_fact_arbitration.py`, `apps/agent/tests/test_video_input_contract.py` | 강한 영상 근거는 충돌을 덮어쓸 수 있고, OpenAI 관찰값이 품질 게이트를 통과하지 못하면 사용자 입력을 유지하는 케이스를 검증한다. |
+| `apps/agent/scripts/test_agent_regression_scenarios.py` | 영상이 사용자 입력과 충돌해도 강한 근거가 있을 때만 후방추돌 회귀 시나리오가 영상값을 우선하도록 fixture 관찰값을 명확히 보강했다. |
+| `apps/worker/worker/frame_analysis.py` | 테스트 fixture 관찰값의 confidence를 충돌 품질 게이트에 맞게 조정했다. 실제 OpenAI 관찰값에는 영향을 주지 않는다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. P1 영상 관찰값 구조는 실제 모델 호출, 비용 상한, Agent 입력 계약, 사실 중재, 보완 질문까지 연결된 상태이며, 남은 작업은 실제 모델 품질 데이터가 쌓인 뒤 필드별 임계값을 조정하는 운영 튜닝이다.
+
 ## 2026-05-22 P1 실제 OpenAI 프레임 분석 비용 정책
 
 실제 영상 프레임 관찰값 검증을 진행하기 전에 worker의 OpenAI 프레임 분석 기본 정책을 저비용·상한 고정 방식으로 조정했다. 기본 모델은 이미지 입력을 지원하는 비추론 모델 `gpt-4.1-mini`이며, 사고 법률 판단이 아니라 프레임에서 관찰 가능한 물리 사실 후보만 JSON으로 추출하는 역할이다.
@@ -1138,7 +1151,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | P1 | Worker SRP | `main.py` now only consumes Redis Stream messages and delegates DB job processing to `job_processor.py`; ffprobe/ffmpeg preprocessing and OpenAI frame analysis live in dedicated modules. Local Worker contract tests now cover video analyze payload, Agent video request payload, and analysis result value shaping. | Add DB/Redis integration tests only when expanding queue persistence or video provider behavior. |
 | P1 | Frontend source hygiene | `apps/frontend/src` is now TypeScript-only for source files; tracked generated `.js` duplicates were removed and `.gitignore` blocks them from returning. | Keep new frontend source in `.ts`/`.vue` files and avoid committing emitted JavaScript beside source. |
 | P1 | Evidence/search quality | Structured fact 기반 검색어 확장과 차선변경/보행자/스쿨존 정적 과실비율 fixture를 추가했다. P0 guard는 unsupported result가 final로 보이지 않게 유지한다. | 실제 KNIA/법률 DB 수집량이 늘어난 뒤 매칭 품질 회귀를 추가하고, 필요한 시나리오에 한해 query term을 더 튜닝한다. |
-| P1 | Video observation validation | Worker fixture mode can now generate deterministic frame observations without OpenAI cost, and the required-observation E2E can validate worker metadata, Agent video contract, fact arbitration, and public report safety. | 실제 OpenAI 모델 품질 검증은 API 비용/키 사용 정책이 확정된 뒤 fixture mode를 끄고 별도 실행한다. |
+| P1 | Video observation validation | 실제 OpenAI 프레임 분석 E2E를 `gpt-4.1-mini`, `detail=low`, 6프레임, 900 출력 토큰 상한으로 통과했고, Agent 사실 중재에는 충돌 품질 게이트를 추가했다. 영상값은 미입력 사실 보강에 쓰이며, 사용자 입력과 충돌하면 강한 품질 조건 또는 검증 표시가 있을 때만 덮어쓴다. | 완료. 남은 작업은 실제 품질 데이터가 쌓인 뒤 필드별 임계값을 조정하는 운영 튜닝이다. |
 
 ### Defer Until Core Trust Is Stable
 

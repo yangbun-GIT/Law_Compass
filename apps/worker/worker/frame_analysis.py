@@ -176,7 +176,7 @@ def _fixture_observations(mode: str, frame_refs: list[str]) -> list[dict[str, An
             {
                 "field": "stopped",
                 "value": True,
-                "confidence": 0.91,
+                "confidence": 0.96,
                 "source": "frame_analysis:fixture",
                 "detector": "fixture:rear_end",
                 "frame_refs": frame_refs,
@@ -185,7 +185,7 @@ def _fixture_observations(mode: str, frame_refs: list[str]) -> list[dict[str, An
             {
                 "field": "impact_direction",
                 "value": "rear",
-                "confidence": 0.9,
+                "confidence": 0.96,
                 "source": "frame_analysis:fixture",
                 "detector": "fixture:rear_end",
                 "frame_refs": frame_refs,
@@ -197,7 +197,7 @@ def _fixture_observations(mode: str, frame_refs: list[str]) -> list[dict[str, An
             {
                 "field": "lane_change_actor",
                 "value": "opponent",
-                "confidence": 0.88,
+                "confidence": 0.94,
                 "source": "frame_analysis:fixture",
                 "detector": "fixture:lane_change",
                 "frame_refs": frame_refs,

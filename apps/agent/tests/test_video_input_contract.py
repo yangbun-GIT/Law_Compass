@@ -56,8 +56,20 @@ def test_video_physical_fact_overrides_conflicting_user_fact():
         video_metadata={
             "metadata": {
                 "observations": [
-                    {"field": "stopped", "value": True, "confidence": 0.95, "source": "frame_analysis"},
-                    {"field": "impact_direction", "value": "rear", "confidence": 0.95, "source": "frame_analysis"},
+                    {
+                        "field": "stopped",
+                        "value": True,
+                        "confidence": 0.96,
+                        "source": "frame_analysis",
+                        "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
+                    },
+                    {
+                        "field": "impact_direction",
+                        "value": "rear",
+                        "confidence": 0.96,
+                        "source": "frame_analysis",
+                        "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
+                    },
                 ]
             }
         },

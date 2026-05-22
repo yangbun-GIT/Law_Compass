@@ -34,6 +34,8 @@ USER_PRIMARY_FIELDS = {
 }
 
 EMPTY_VALUES = {None, "", "unknown", "모름", "None", "null"}
+CONFLICT_OVERRIDE_CONFIDENCE = 0.92
+CONFLICT_OVERRIDE_MIN_FRAME_REFS = 2
 
 
 def arbitrate_facts(
@@ -76,11 +78,16 @@ def arbitrate_facts(
             confirmed_fields.append(field)
             continue
 
-        if authority == "video_primary":
+        gate_reason = ""
+        if authority == "video_primary" and _video_conflict_override_allowed(observation):
             facts[field] = video_value
             fact_sources[field] = _source_info("video", authority, observation)
             applied_video_fields.append(field)
             winner = "video"
+        elif authority == "video_primary":
+            kept_user_fields.append(field)
+            winner = "user"
+            gate_reason = _video_quality_gate_reason(observation)
         elif authority == "user_primary":
             kept_user_fields.append(field)
             winner = "user"
@@ -88,14 +95,15 @@ def arbitrate_facts(
             kept_user_fields.append(field)
             winner = "user"
 
-        conflicts.append(_conflict(field, user_value, video_value, winner, authority, observation))
+        conflicts.append(_conflict(field, user_value, video_value, winner, authority, observation, gate_reason))
 
     arbitration_contract = {
         "version": VERSION,
         "policy": {
-            "video_primary": "Physical facts visible in frames win over conflicting user text when the observation is accepted by the video input contract.",
+            "video_primary": "Physical facts visible in frames can fill missing values. When they conflict with user text, they win only after passing the conflict override quality gate.",
             "user_primary": "Accident type, injury, treatment, insurance, and role facts remain user-primary unless later confirmed by a dedicated source.",
             "unknown_field": "Unknown fields keep user input when present; video fills only missing values.",
+            "conflict_override_gate": f"Conflicting video-primary observations need verified/manual review or confidence >= {CONFLICT_OVERRIDE_CONFIDENCE} with at least {CONFLICT_OVERRIDE_MIN_FRAME_REFS} frame refs.",
         },
         "video_primary_fields": sorted(VIDEO_PRIMARY_FIELDS),
         "user_primary_fields": sorted(USER_PRIMARY_FIELDS),
@@ -104,7 +112,7 @@ def arbitrate_facts(
         "kept_user_fields": sorted(set(kept_user_fields)),
         "confirmed_fields": sorted(set(confirmed_fields)),
         "conflicts": conflicts,
-        "requires_confirmation": [item for item in conflicts if item.get("winner") == "video"],
+        "requires_confirmation": [item for item in conflicts if item.get("needs_confirmation")],
     }
     return {"facts": facts, "contract": arbitration_contract}
 
@@ -136,6 +144,41 @@ def _source_info(source: str, authority: str, observation: dict[str, Any]) -> di
     return info
 
 
+def _video_conflict_override_allowed(observation: dict[str, Any]) -> bool:
+    if not observation:
+        return False
+    if observation.get("verified") is True:
+        return True
+    source_base = str(observation.get("source") or "").split(":", 1)[0]
+    if source_base == "manual_video_review":
+        return True
+    confidence = _as_confidence(observation.get("confidence"))
+    return confidence >= CONFLICT_OVERRIDE_CONFIDENCE and _frame_ref_count(observation) >= CONFLICT_OVERRIDE_MIN_FRAME_REFS
+
+
+def _video_quality_gate_reason(observation: dict[str, Any]) -> str:
+    confidence = _as_confidence(observation.get("confidence")) if observation else 0.0
+    frame_count = _frame_ref_count(observation)
+    return (
+        "video_conflict_quality_gate_not_met:"
+        f" confidence={confidence:.2f}, frame_refs={frame_count},"
+        f" required_confidence={CONFLICT_OVERRIDE_CONFIDENCE:.2f},"
+        f" required_frame_refs={CONFLICT_OVERRIDE_MIN_FRAME_REFS}"
+    )
+
+
+def _as_confidence(value: Any) -> float:
+    try:
+        return max(0.0, min(1.0, float(value)))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _frame_ref_count(observation: dict[str, Any]) -> int:
+    frame_refs = observation.get("frame_refs") if isinstance(observation, dict) else []
+    return len(frame_refs) if isinstance(frame_refs, list) else 0
+
+
 def _conflict(
     field: str,
     user_value: Any,
@@ -143,6 +186,7 @@ def _conflict(
     winner: str,
     authority: str,
     observation: dict[str, Any],
+    gate_reason: str = "",
 ) -> dict[str, Any]:
     item = {
         "field": field,
@@ -151,7 +195,10 @@ def _conflict(
         "winner": winner,
         "authority": authority,
         "reason": _conflict_reason(field, winner, authority),
+        "needs_confirmation": True,
     }
+    if gate_reason:
+        item["quality_gate"] = gate_reason
     if observation:
         item["video_confidence"] = observation.get("confidence")
         item["video_source"] = observation.get("source")

@@ -94,22 +94,22 @@ def _run_video_rear_end_conflict() -> dict[str, Any]:
         video_metadata={
             "metadata": {
                 "duration_sec": 6.0,
-                "representative_frames": ["/frames/rear_end_1.jpg"],
+                "representative_frames": ["/frames/rear_end_1.jpg", "/frames/rear_end_2.jpg"],
                 "observations": [
                     {
                         "field": "stopped",
                         "value": True,
-                        "confidence": 0.92,
+                        "confidence": 0.96,
                         "source": "frame_analysis",
-                        "frame_refs": ["rear_end_1.jpg"],
+                        "frame_refs": ["rear_end_1.jpg", "rear_end_2.jpg"],
                         "reason": "Ego vehicle appears stationary before impact.",
                     },
                     {
                         "field": "impact_direction",
                         "value": "rear",
-                        "confidence": 0.91,
+                        "confidence": 0.96,
                         "source": "frame_analysis",
-                        "frame_refs": ["rear_end_1.jpg"],
+                        "frame_refs": ["rear_end_1.jpg", "rear_end_2.jpg"],
                         "reason": "Impact is observed from behind.",
                     },
                 ],
