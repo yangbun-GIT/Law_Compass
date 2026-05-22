@@ -413,6 +413,7 @@ Agent 주요 DTO:
 | `apps/agent/app/routers/internal_routes/*.py` | FastAPI domain route modules | 분석, job, 법률, KNIA, 채팅, 캐시, health 내부 API를 책임별 파일로 제공한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/schemas.py` | Pydantic DTO schema | 분석 요청/응답과 근거 item 모델을 정의한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/services/orchestrator.py` | Analysis orchestration service | 사고 분석 전체 파이프라인을 조립하고 최종 `AnalysisOutput` payload를 만든다 | 저장소 내 명시 없음 |
+| `apps/agent/app/services/orchestration_output.py` | Analysis output enrichment service | 판단 계약, 재검증 루프, 실행 trace, KNIA 계산 메타데이터, 사용자용 리포트를 최종 출력에 부착한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/services/analyst_output_contracts.py` | Analyst output contract schema | 분석가별 출력 모델을 Pydantic으로 정의하고 LLM/fallback 결과의 타입을 정규화한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/services/analyst_output_guard.py` | Analyst output guard service | 분석가별 LLM/fallback 출력을 근거 충분성 기준으로 보강하고 직접 근거 부족 시 caveat와 confidence 상한을 적용한다 | 저장소 내 명시 없음 |
 | `apps/agent/app/services/legal_api_clients.py` | External legal/public API client | 국가법령정보센터와 공공데이터포털 교통 API 검색 결과를 내부 근거 형식으로 변환한다 | 저장소 내 명시 없음 |
@@ -459,8 +460,12 @@ Agent 주요 DTO:
 | `apps/agent/app/schemas.py` | `AnalysisOutput` | 분석 결과 dict | Pydantic response | 법률/과실/보험/형사/근거/KNIA/쉬운 리포트 응답 규격 정의 |
 | `apps/agent/app/services/orchestrator.py` | `analyze_case` | description, facts, keywords, profile | analysis dict | 텍스트 입력을 `_analyze_core`로 전달 |
 | `apps/agent/app/services/orchestrator.py` | `analyze_video_case` | preprocessed summary, video metadata | analysis dict | 영상 요약과 metadata를 `_analyze_core`로 전달 |
-| `apps/agent/app/services/orchestrator.py` | `_analyze_core` | normalized accident inputs | final analysis dict | 입력 정규화, 시나리오 분류, KNIA/법률 근거 검색, 분석가 함수 실행, 리포트 조립 |
-| `apps/agent/app/services/orchestrator.py` | `_knia_estimate_to_evidence`, `_knia_refs_to_evidence` | KNIA 추정/참조 데이터 | evidence list | 과실 기본값, 가감요소, 관련 법규/사례를 evidence item으로 변환 |
+| `apps/agent/app/services/orchestrator.py` | `_analyze_core` | normalized accident inputs | final analysis dict | 입력 context, 근거 수집, 분석가 실행, 재검색, 출력 보강 단계를 순서대로 연결 |
+| `apps/agent/app/services/orchestration_context.py` | `build_case_context` | 사고 입력, 영상 metadata | `CaseContext` | 영상 계약, 입력 정규화, 시나리오 분류, 차량 역할 추론, 보완 질문 상태 생성 |
+| `apps/agent/app/services/orchestration_evidence.py` | `collect_evidence_stage` | `CaseContext`, 영상 metadata | `EvidenceBundle` | KNIA 매칭/JSON 검색/과실 산정 근거와 법률 RAG 근거를 수집 |
+| `apps/agent/app/services/orchestration_evidence.py` | `_knia_estimate_to_evidence`, `_knia_refs_to_evidence` | KNIA 추정/참조 데이터 | evidence list | 과실 기본값, 가감요소, 관련 법규/사례를 evidence item으로 변환 |
+| `apps/agent/app/services/orchestration_analysis.py` | `run_analysis_stage`, `run_reflection_requery_stage` | `CaseContext`, `EvidenceBundle` | `AnalysisBundle`/`ReflectionStageResult` | 분석가 실행, KNIA 과실 적용, 근거 감사, claim-evidence 검증, 1회 bounded requery 수행 |
+| `apps/agent/app/services/orchestration_output.py` | `enrich_analysis_output` | composed output, context, evidence/analysis bundles, judgment/reflection contract | final analysis dict | 판단 계약 적용 후 reflection loop, execution trace, 쉬운 리포트, KNIA 계산/검색 metadata를 최종 출력에 부착 |
 | `apps/agent/app/services/analyst_output_contracts.py` | `validate_*_output` | analyst result dict | normalized analyst result dict | 문자열/배열/숫자/불리언 필드를 Pydantic 계약에 맞춰 정규화하고 extra context는 보존 |
 | `apps/agent/app/services/analyst_output_guard.py` | `guard_*_output` | analyst result, evidence list | guarded analyst result | 법률/KNIA/일반 근거 family를 판별해 `evidence_support_level`, `judgment_status`, `used_evidence_ids`, `caveats`를 부여하고 과실비율 confidence를 직접 근거 수준에 맞게 제한 |
 | `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | `make_headline`, `make_summary`, `make_fault_explanation`, `make_legal_explanation`, `make_insurance_explanation` | final analysis dict | elderly-friendly report sections | `judgment_status` 또는 `evidence_support_level`이 약하면 사용자 문장을 "확정"이 아닌 "추가 확인 필요" 표현으로 완화 |
@@ -493,7 +498,8 @@ Agent 주요 DTO:
 | `apps/agent/app/routers/internal.py` | `apps/agent/app/main.py` | `internal_routes` package | 없음 | 없음 | `agent` 내부 `/internal/v1/*` composition |
 | `apps/agent/app/routers/internal_routes/*.py` | Gateway, Worker via `internal.py` | orchestrator, legal, KNIA, chat, cache services | `INTERNAL_SERVICE_TOKEN`, `DATABASE_URL` | KB/KNIA/semantic cache DB 테이블, Agent service 함수 | `agent` 내부 `/internal/v1/*` |
 | `apps/agent/app/schemas.py` | `internal.py`, tests | Pydantic | 없음 | 없음 | Agent DTO layer |
-| `apps/agent/app/services/orchestrator.py` | `internal.py`, tests | classifier, analysts, RAG, KNIA, report composer, OpenAI flag | `OPENAI_API_KEY` 존재 여부 | 법률 RAG, KNIA DB/Redis 검색은 하위 service에서 접근 | Agent domain service |
+| `apps/agent/app/services/orchestrator.py` | `internal.py`, tests | orchestration stage modules, judgment contract, report composer, OpenAI flag | `OPENAI_API_KEY` 존재 여부 | 법률 RAG, KNIA DB/Redis 검색은 하위 stage service에서 접근 | Agent domain service |
+| `apps/agent/app/services/orchestration_output.py` | `orchestrator.py` | execution trace, judgment contract output policy, elderly-friendly report, stage bundle DTOs | 없음 | 입력 bundle에 포함된 KNIA/RAG metadata만 최종 출력에 복사 | Agent domain output layer |
 | `apps/agent/app/services/analyst_output_contracts.py` | `analyst_output_guard.py`, tests | Pydantic | 없음 | 없음 | Agent DTO guard layer |
 | `apps/agent/app/services/analyst_output_guard.py` | Agent analyst modules | 없음 | 없음 | 입력 evidence list만 사용 | Agent domain guard |
 | `apps/agent/app/services/legal_api_clients.py` | legal ingestion/retrieval 계열 service/script | `httpx` | `LAW_API_OC`, `LAW_API_BASE`, `LAW_API_TARGETS`, `DATA_GO_*` | `law.go.kr`, `apis.data.go.kr` 외부 HTTP | Agent egress |
@@ -534,7 +540,8 @@ Agent 주요 DTO:
 | `apps/gateway/src/storage/provider.ts` | 로컬 provider 구현, S3 provider 미구현 | 전용 단위 테스트 없음 | `S3StorageProvider`는 현재 의도적으로 비활성 상태 |
 | `apps/agent/app/routers/internal.py`, `apps/agent/app/routers/internal_routes/*` | 구현 완료 | `apps/agent/scripts/check_internal_routes.py`, `scripts/verify_agent_regression.ps1`, `apps/agent/scripts/test_*.py` | 내부 token 누락/불일치 시 401. Route split 후에도 기존 `/internal/v1/*` path contract를 유지해야 한다. |
 | `apps/agent/app/schemas.py` | 구현 완료 | `apps/agent/tests/test_orchestrator.py` 및 scripts에서 간접 검증 | 응답 모델이 크므로 프론트 표시 필드와 동기화 관리 필요 |
-| `apps/agent/app/services/orchestrator.py` | 구현 완료, 핵심 복합 로직 | `apps/agent/tests/test_orchestrator.py`, `apps/agent/scripts/test_legal_rag.py`, `test_knia_*`, `test_chat_*` 간접 검증 | KNIA/RAG/분석가 로직이 한 파이프라인에 결합되어 있어 입력 케이스별 회귀 테스트가 중요 |
+| `apps/agent/app/services/orchestrator.py` | 구현 완료, stage sequencing 중심 | `apps/agent/tests/test_orchestrator.py`, `apps/agent/scripts/test_legal_rag.py`, `test_knia_*`, `test_chat_*` 간접 검증 | 신규 stage 책임은 context/evidence/analysis/output 모듈에 추가하고 orchestrator는 순서 조립에 집중해야 한다 |
+| `apps/agent/app/services/orchestration_output.py` | 구현 완료, 최종 출력 보강 로직 | `apps/agent/tests/test_orchestrator.py`, `apps/agent/scripts/test_agent_regression_scenarios.py` 간접 검증 | 사용자 화면에 raw trace/내부 식별자가 노출되지 않도록 Gateway/Frontend sanitizer와 함께 유지해야 한다 |
 | `apps/agent/app/services/analyst_output_contracts.py` | 구현 완료, Analyst 출력 계약 | `apps/agent/tests/test_analyst_output_guard.py`, `apps/agent/tests/test_orchestrator.py` | LLM이 예외적인 JSON 타입을 반환해도 가능한 범위에서 정규화하되, 신규 analyst 추가 시 계약 모델을 함께 추가해야 함 |
 | `apps/agent/app/services/analyst_output_guard.py` | 구현 완료, Analyst 신뢰도 가드 | `apps/agent/tests/test_analyst_output_guard.py`, `apps/agent/tests/test_orchestrator.py` | 신규 analyst 출력 필드가 프론트 일반 화면에 기술 문자열로 노출되지 않도록 Gateway/Frontend sanitizer와 함께 관리 필요 |
 | `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | 구현 완료, 근거 상태 기반 문장 완화 | `apps/agent/tests/test_elderly_report_support_language.py`, `apps/agent/tests/test_orchestrator.py` | 쉬운 리포트 문장은 내부 코드가 아니라 사용자 표시 문구만 포함해야 하며, 근거 부족 시 확정 표현을 피해야 함 |
@@ -892,7 +899,7 @@ This section records the first SRP cleanup pass so future changes can compare mo
 Remaining SRP debt to handle in later iterations:
 
 - `apps/gateway/src/main.ts` is now a Gateway composition root with shared hooks, health checks, route-module registration, audit logging, and centralized error handling. Keep new API behavior inside route modules unless it changes shared Gateway lifecycle hooks.
-- `apps/agent/app/services/orchestrator.py` should continue moving stage-specific logic into normalizer, classifier, retriever, auditor, judgment, and report modules.
+- `apps/agent/app/services/orchestrator.py` now delegates context, evidence, analysis, reflection, and output enrichment to stage modules. Keep future stage-specific logic out of the orchestrator unless it only changes stage ordering.
 - `apps/agent/app/routers/internal.py` is now thin; keep new internal endpoint behavior inside `apps/agent/app/routers/internal_routes/*`.
 - `apps/frontend/src/views/CaseDetailView.vue` now delegates workspace state/actions to `useCaseWorkspace`; split visual subsections into components only if template complexity grows further.
 - KNIA parser/repository files are functionally cohesive but large; split only when adding new KNIA collection or persistence behavior.
@@ -982,7 +989,7 @@ This backlog separates trust-critical reinforcement from deferred enhancements. 
 | P0 | Agent regression automation | `scripts/verify_agent_regression.ps1` now runs compile, internal route contract, and representative judgment regression scenarios. `scripts/verify_core.ps1` calls this guard during Docker checks. | Wire the same command into hosted CI when the repository adds CI runners. |
 | P0 | Agent execution trace | Outputs include `video_input_contract`, `fact_arbitration`, `evidence_audit`, `agent_judgment`, and `presentation_policy`. A safe admin diagnostic API now exposes stage and packet summaries without raw user text. | Add local-only developer UI if needed, but keep public user screens sanitized. |
 | P0 | Reflection/reverification loop | `reflection_loop` now performs one bounded evidence requery when requeryable evidence requirements are missing, then records whether to request input, present reference-only, or finalize. | Continue improving requery terms and add UI/API visibility for the loop state. |
-| P0 | Agent SRP | `orchestrator.py` now delegates input context, evidence collection, analyst execution, and reflection requery to dedicated stage modules. | Continue extracting final output enrichment if new KNIA/report metadata grows further. |
+| P0 | Agent SRP | `orchestrator.py` now delegates input context, evidence collection, analyst execution, reflection requery, and final output enrichment to dedicated stage modules. | Keep future Agent additions inside the owning stage module and add tests before widening the orchestrator again. |
 | P1 | Gateway SRP | `gateway/src/main.ts` remains the composition root, but auth/session, basic case CRUD, upload, analysis/report, KNIA, and legal/admin routes now live under `apps/gateway/src/routes/`. | Keep new API behavior in route modules; split large route modules only when they grow further. |
 | P1 | Frontend source hygiene | `apps/frontend/src` is now TypeScript-only for source files; tracked generated `.js` duplicates were removed and `.gitignore` blocks them from returning. | Keep new frontend source in `.ts`/`.vue` files and avoid committing emitted JavaScript beside source. |
 
@@ -1110,14 +1117,30 @@ Remaining Gateway SRP debt after this pass:
 
 ## 2026-05-22 Agent Orchestrator SRP Stage Split
 
-This update reduces `apps/agent/app/services/orchestrator.py` to stage sequencing and output assembly. Input normalization, evidence collection, analyst execution, and bounded reflection requery are now delegated to dedicated modules. The change is behavior-preserving and does not alter public API DTOs, DB schema, Redis keys, storage paths, environment variables, or external integrations.
+This update reduces `apps/agent/app/services/orchestrator.py` to stage sequencing and final stage handoff. Input normalization, evidence collection, analyst execution, bounded reflection requery, and output enrichment are now delegated to dedicated modules. The change is behavior-preserving and does not alter public API DTOs, DB schema, Redis keys, storage paths, environment variables, or external integrations.
 
 | Path | Responsibility |
 | --- | --- |
 | `apps/agent/app/services/orchestration_context.py` | Builds `CaseContext`: video context, normalized input, scenario classification, user vehicle role inference, party action guide, input requirements, and follow-up loop state. |
 | `apps/agent/app/services/orchestration_evidence.py` | Builds `EvidenceBundle`: KNIA chart matching, KNIA JSON search, KNIA fault/reference evidence, legal retrieval, evidence normalization, and duplicate merging helpers. |
 | `apps/agent/app/services/orchestration_analysis.py` | Builds `AnalysisBundle` and `ReflectionStageResult`: analyst outputs, evidence audit, claim-evidence audit, KNIA fault application, and one bounded evidence requery. |
+| `apps/agent/app/services/orchestration_output.py` | Enriches the composed output with judgment contract effects, reflection loop, execution trace, elderly-friendly report, KNIA calculation metadata, and retrieval/scenario model metadata. |
 | `apps/agent/app/services/orchestration_stages.py` | Lightweight export facade for the stage functions and dataclasses. |
-| `apps/agent/app/services/orchestrator.py` | Keeps request entry points and orchestrates stage order, judgment contract, reflection loop result, final report composition, trace generation, and final metadata assembly. |
+| `apps/agent/app/services/orchestrator.py` | Keeps request entry points and orchestrates stage order, judgment contract creation, reflection loop creation, report composition, and output enrichment handoff. |
 
 Verification focus remains the same: Agent compile check and representative regression scenarios must pass after future changes to these stage modules.
+
+## 2026-05-22 Agent Output Enrichment SRP Split
+
+The final Agent output enrichment step now lives in `apps/agent/app/services/orchestration_output.py`. This keeps `orchestrator.py` from accumulating KNIA/report/trace metadata assembly whenever the response contract grows. The public `AnalysisOutput` shape, API routes, DB schema, Redis keys, storage paths, environment variables, and external integrations are unchanged.
+
+| Path | Responsibility |
+| --- | --- |
+| `apps/agent/app/services/orchestration_output.py` | Owns `enrich_analysis_output()`, `_attach_knia_fault_estimate()`, and `_build_retrieval_model_info()` for final response metadata assembly. |
+| `apps/agent/app/services/orchestration_stages.py` | Re-exports `enrich_analysis_output()` with the other stage helpers. |
+| `apps/agent/app/services/orchestrator.py` | Calls `enrich_analysis_output()` after composing the base analysis payload. |
+
+Verification focus:
+
+- `docker compose exec -T agent python -m compileall app scripts`
+- `docker compose exec -T agent python scripts/test_agent_regression_scenarios.py`

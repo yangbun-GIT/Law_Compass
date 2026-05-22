@@ -4,17 +4,16 @@ import os
 from typing import Any
 
 from app.personas.accident_scenario_personas import SCENARIO_PERSONA_HINTS
-from app.services.agent_execution_trace import VERSION as AGENT_TRACE_VERSION, build_agent_execution_trace
-from app.services.elderly_friendly.report_simplifier import build_elderly_friendly_report
-from app.services.judgment_contract import apply_judgment_contract_to_output, build_judgment_contract
+from app.services.judgment_contract import build_judgment_contract
 from app.services.keyword_recommender import recommend_keywords, suggest_next_inputs
 from app.services.orchestration_stages import (
     build_case_context,
     collect_evidence_stage,
+    enrich_analysis_output,
     run_analysis_stage,
     run_reflection_requery_stage,
 )
-from app.services.reflection_loop import VERSION as REFLECTION_LOOP_VERSION, build_reflection_loop_result
+from app.services.reflection_loop import build_reflection_loop_result
 from app.services.report_composer import compose_analysis_output
 from app.services.specialists import pick_specialists
 
@@ -155,49 +154,14 @@ def _analyze_core(
         llm_enabled=bool(os.getenv("OPENAI_API_KEY")),
         ai_profile=profile,
     )
-    output = apply_judgment_contract_to_output(output, judgment_contract)
-    output["reflection_loop"] = reflection_loop
-    output["model_info"]["reflection_loop_version"] = REFLECTION_LOOP_VERSION
-    output["agent_trace"] = build_agent_execution_trace(output)
-    output["model_info"]["agent_trace_version"] = AGENT_TRACE_VERSION
-    output["elderly_friendly_report"] = build_elderly_friendly_report(output)
-    output["claim_evidence"] = analysis_bundle.claim_evidence
-    output["knia_json_evidence"] = evidence_bundle.knia_json_evidence
-    if evidence_bundle.knia_fault_estimate:
-        output["knia_base_fault"] = evidence_bundle.knia_fault_estimate.get("base_fault")
-        output["knia_final_fault"] = evidence_bundle.knia_fault_estimate.get("final_fault")
-        output["knia_applied_adjustments"] = evidence_bundle.knia_fault_estimate.get("selected_adjustments") or []
-        output["knia_rejected_adjustments"] = evidence_bundle.knia_fault_estimate.get("rejected_adjustments") or []
-        output["knia_calculation_steps"] = evidence_bundle.knia_fault_estimate.get("calculation_steps") or []
-        output["knia_adjustment_evidence"] = evidence_bundle.knia_fault_estimate.get("evidence_used") or []
-        output["knia_reference_evidence"] = evidence_bundle.knia_reference_evidence
-        output.setdefault("elderly_friendly_report", {})["knia_fault_adjustment_card"] = {
-            "title": "KNIA 원문 근거 및 가감요소 적용",
-            "base_fault": evidence_bundle.knia_fault_estimate.get("base_fault"),
-            "final_fault": evidence_bundle.knia_fault_estimate.get("final_fault"),
-            "user_fault": {
-                "my": analysis_bundle.fault_ratio.get("my"),
-                "other": analysis_bundle.fault_ratio.get("other"),
-                "role": analysis_bundle.fault_ratio.get("user_vehicle_role"),
-                "role_label": analysis_bundle.fault_ratio.get("user_vehicle_role_label"),
-            },
-            "applied_adjustments": evidence_bundle.knia_fault_estimate.get("selected_adjustments") or [],
-            "rejected_adjustments": (evidence_bundle.knia_fault_estimate.get("rejected_adjustments") or [])[:5],
-            "calculation_steps": evidence_bundle.knia_fault_estimate.get("calculation_steps") or [],
-            "notice": evidence_bundle.knia_fault_estimate.get("notice"),
-        }
-    output["related_knia_source_links"] = [x.get("source_url") for x in evidence_bundle.knia_json_evidence if x.get("source_url")]
-    output["model_info"]["retrieval"] = {
-        "cache_hit": evidence_bundle.retrieval.get("cache_hit"),
-        "cache_key": evidence_bundle.retrieval.get("cache_key"),
-        "knia_cache_hit": evidence_bundle.knia_result.get("cache_hit"),
-        "knia_cache_key": evidence_bundle.knia_result.get("cache_key"),
-        "knia_json_cache": evidence_bundle.knia_json_result.get("cache"),
-        "query_expansion_terms": evidence_bundle.retrieval.get("query_expansion_terms") or evidence_bundle.evidence_query.get("query_terms"),
-        "knia_query_expansion_terms": evidence_bundle.knia_result.get("query_expansion_terms") or [],
-    }
-    output["model_info"]["scenario_classifier"] = context.scenario
-    return output
+    return enrich_analysis_output(
+        output=output,
+        context=context,
+        evidence_bundle=evidence_bundle,
+        analysis_bundle=analysis_bundle,
+        judgment_contract=judgment_contract,
+        reflection_loop=reflection_loop,
+    )
 
 
 def _profile_for_scenario(scenario_type: str) -> str:
