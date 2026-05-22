@@ -80,6 +80,26 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(result["observations"][0]["observation_quality"]["level"], "none")
         self.assertEqual(result["observation_quality_summary"]["quality_counts"]["none"], 1)
 
+    def test_openai_frame_selection_keeps_context_and_middle_sequence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 13):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index * 0.5, "role": "time_sequence"})
+
+            selected = frame_analysis._select_openai_frames(frames, 6)
+
+        refs = [Path(frame["path"]).name for frame in selected]
+        self.assertEqual(refs, [
+            "frame_001.jpg",
+            "frame_005.jpg",
+            "frame_006.jpg",
+            "frame_007.jpg",
+            "frame_008.jpg",
+            "frame_012.jpg",
+        ])
+
     def test_gpt5_payload_uses_cost_controls_without_temperature(self):
         captured = {}
 

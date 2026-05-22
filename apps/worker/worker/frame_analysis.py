@@ -128,7 +128,40 @@ def _select_openai_frames(frame_details: list[dict[str, Any]], max_frames: int) 
         return frames
     if max_frames == 1:
         return [frames[len(frames) // 2]]
-    return [frames[round(idx * (len(frames) - 1) / (max_frames - 1))] for idx in range(max_frames)]
+    return [frames[index] for index in _event_focused_frame_indexes(len(frames), max_frames)]
+
+
+def _event_focused_frame_indexes(frame_count: int, max_frames: int) -> list[int]:
+    if frame_count <= max_frames:
+        return list(range(frame_count))
+    if max_frames <= 1:
+        return [frame_count // 2]
+
+    midpoint = frame_count // 2
+    anchors = [
+        0,
+        frame_count - 1,
+        midpoint,
+        midpoint - 1,
+        midpoint + 1,
+        round((frame_count - 1) * 0.35),
+        round((frame_count - 1) * 0.65),
+    ]
+    selected: list[int] = []
+    for index in anchors:
+        clamped = max(0, min(frame_count - 1, index))
+        if clamped not in selected:
+            selected.append(clamped)
+        if len(selected) >= max_frames:
+            return sorted(selected)
+
+    for step in range(max_frames):
+        index = round(step * (frame_count - 1) / (max_frames - 1))
+        if index not in selected:
+            selected.append(index)
+        if len(selected) >= max_frames:
+            break
+    return sorted(selected)
 
 
 def _text_options_for_model(model: str) -> dict[str, Any]:
