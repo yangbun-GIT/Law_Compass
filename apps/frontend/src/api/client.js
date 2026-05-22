@@ -106,6 +106,7 @@ export const api = {
     analyzeVideo: (caseId, payload) => request(`/api/v1/cases/${caseId}/analyze-video`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
     getJobs: (caseId) => request(`/api/v1/cases/${caseId}/jobs`),
     getResult: (caseId) => request(`/api/v1/cases/${caseId}/result`),
+    getDebugResult: (caseId) => request(`/api/v1/cases/${caseId}/result?debug=1`),
     getReport: (caseId) => request(`/api/v1/cases/${caseId}/report`),
     getEasyReport: (caseId) => request(`/api/v1/cases/${caseId}/easy-report`),
     getEvidence: (caseId) => request(`/api/v1/cases/${caseId}/evidence`),

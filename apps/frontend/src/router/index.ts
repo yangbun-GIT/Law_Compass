@@ -6,6 +6,7 @@ import CaseDetailView from "../views/CaseDetailView.vue";
 import CaseCreateView from "../views/CaseCreateView.vue";
 import AccidentWizardView from "../views/AccidentWizardView.vue";
 import CaseResultView from "../views/CaseResultView.vue";
+import AgentLabView from "../views/AgentLabView.vue";
 import EvidenceDetailView from "../views/EvidenceDetailView.vue";
 import KniaRankingView from "../views/KniaRankingView.vue";
 import KniaChartView from "../views/KniaChartView.vue";
@@ -22,6 +23,7 @@ export const router = createRouter({
     { path: "/cases/:caseId", component: CaseDetailView, meta: { requiresAuth: true } },
     { path: "/cases/:caseId/wizard", component: AccidentWizardView, meta: { requiresAuth: true } },
     { path: "/cases/:caseId/result", component: CaseResultView, meta: { requiresAuth: true } },
+    { path: "/cases/:caseId/agents", component: AgentLabView, meta: { requiresAuth: true } },
     { path: "/evidence/:chunkId", component: EvidenceDetailView, meta: { requiresAuth: true } },
     { path: "/knia/ranking", component: KniaRankingView, meta: { requiresAuth: true } },
     { path: "/knia/myaccident", redirect: "/knia/ranking", meta: { requiresAuth: true } },

@@ -1,5 +1,18 @@
 # LawCompass 시스템 구성 명세서
 
+## 2026-05-22 Frontend Agent 개별 테스트 페이지
+
+Agent 분석 결과를 최종 리포트 하나로만 확인하지 않고, 같은 케이스 입력과 영상 task 결과를 공유하면서 책임 단위별 산출물을 따로 확인할 수 있는 개발자용 화면을 추가했다. 이 화면은 새로운 Agent 판단 로직을 만들지 않고 기존 `/cases/{caseId}/result?debug=1` 응답의 `debug.technical`을 분해해 보여준다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/frontend/src/views/AgentLabView.vue` | 신규 페이지다. 공통 사고 입력과 업로드/task 상태를 함께 보여주고, 법률 근거, 과실비율, 형사책임, 보험/행동계획, 입력/영상 계약, 판단/LLM 정책을 탭으로 분리해 JSON과 핵심 지표를 확인할 수 있다. 텍스트 분석, 영상 전처리, 영상 분석 작업 등록도 같은 화면에서 실행할 수 있다. |
+| `apps/frontend/src/router/index.ts`, `apps/frontend/src/router/index.js` | `/cases/:caseId/agents` 라우트를 추가했다. 인증이 필요한 케이스 내부 개발자용 화면이다. |
+| `apps/frontend/src/api/client.ts`, `apps/frontend/src/api/client.js` | 기존 결과 API에 `debug=1`을 붙여 Agent 내부 섹션을 가져오는 `getDebugResult()` 클라이언트 함수를 추가했다. |
+| `apps/frontend/src/views/CaseDetailView.vue`, `apps/frontend/src/views/CaseResultView.vue` | 케이스 입력 화면과 결과 화면에서 Agent 개별 테스트 페이지로 이동하는 링크를 추가했다. |
+
+이 변경은 DB schema, Redis key, Agent/Gateway 분석 계약을 바꾸지 않는다. 기존 분석 결과를 디버그 뷰로 읽어 프론트에서 분리 표시하는 UI 변경이다.
+
 ## 2026-05-22 Agent P1 영상/사용자 사실 중재 계층
 
 영상 프레임 분석 결과가 Agent 판단에 들어올 때 사용자 입력과 단순 병합하지 않고 `agent-fact-arbitration-v1` 계약으로 출처와 우선순위를 기록하도록 보강했다. 목적은 사용자가 주관적으로 잘못 입력할 수 있는 물리적 사고 사실은 고신뢰 영상 관찰값을 우선하고, 사용자가 직접 알고 있는 사고 유형/부상/보험 상태 같은 문맥 정보는 사용자 입력을 우선해 Agent 판단의 입력 근거를 명확히 남기는 것이다.
