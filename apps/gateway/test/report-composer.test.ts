@@ -21,8 +21,9 @@ describe("report composer", () => {
     });
 
     const text = JSON.stringify(enriched);
-    expect(enriched.evidence_reliability_card.level_label).toBe("높음");
-    expect(enriched.evidence_reliability_card.summary).toContain("주요 판단 10개");
+    const reliabilityCard = enriched.evidence_reliability_card!;
+    expect(reliabilityCard.level_label).toBe("높음");
+    expect(reliabilityCard.summary).toContain("주요 판단 10개");
     expect(text).not.toContain("claim_id");
     expect(text).not.toContain("evidence_refs");
     expect(text).not.toContain("support_level");
@@ -49,6 +50,35 @@ describe("report composer", () => {
     expect(report.missing_info.questions[0].question).toBe("다친 사람이 있나요?");
     expect(JSON.stringify(report)).not.toContain("input_requirements");
     expect(JSON.stringify(report)).not.toContain("blocking_fields");
+  });
+
+  it("adds a user-safe agent process card without raw trace packets", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      agent_trace: {
+        step_count: 2,
+        steps: [
+          { id: "input_normalization", phase: "perceive", status: "completed", packet: { fact_count: 3 } },
+          { id: "reflection_loop", phase: "recover", status: "resolved", packet: { next_action: "finalize" } },
+        ],
+      },
+      reflection_loop: {
+        status: "resolved",
+        next_action: "finalize",
+        requery_attempted: true,
+        requery_added_evidence_count: 1,
+        final_missing_requirements: [],
+      },
+      agent_judgment: { overall_status: "evidence_supported", decision_blockers: [] },
+    });
+
+    const processCard = enriched.agent_process_card!;
+    expect(processCard.status_label).toBe("해결됨");
+    expect(processCard.stats.find((item: any) => item.label === "추가 근거")?.value).toBe("1개");
+    expect(processCard.steps.map((item: any) => item.label)).toContain("입력 정리");
+    expect(processCard.steps.map((item: any) => item.label)).toContain("근거 보강 검토");
+    expect(JSON.stringify(processCard)).not.toContain("packet");
+    expect(JSON.stringify(processCard)).not.toContain("input_normalization");
+    expect(JSON.stringify(processCard)).not.toContain("next_action");
   });
 
   it("summarizes reanalysis changes without exposing judgment internals", () => {

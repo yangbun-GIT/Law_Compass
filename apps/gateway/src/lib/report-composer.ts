@@ -12,7 +12,9 @@ const TECHNICAL_KEYS = new Set([
   "input_requirements", "followup_loop", "required_input_questions", "blocking_fields", "optional_fields",
   "video_input_contract", "_video_input_contract", "accepted_observations", "uncertain_observations", "ignored_observations", "fact_patch",
   "fact_arbitration", "_fact_arbitration", "fact_sources", "_fact_sources", "video_primary_fields", "user_primary_fields",
-  "applied_video_fields", "kept_user_fields", "confirmed_fields", "conflicts", "requires_confirmation"
+  "applied_video_fields", "kept_user_fields", "confirmed_fields", "conflicts", "requires_confirmation",
+  "agent_trace", "reflection_loop", "trace_policy", "packet", "step_count", "requery_attempted",
+  "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "final_missing_requirements", "next_action"
 ]);
 const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi];
 const SAFE_INPUT_FIELDS = new Set(["accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "pedestrian_signal", "bicycle_location", "bicycle_direction"]);
@@ -345,7 +347,123 @@ function composeEvidenceReliabilityCard(result: AnyRecord = {}) {
 }
 export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {}) {
   const card = composeEvidenceReliabilityCard(result);
-  return card ? { ...report, evidence_reliability_card: card } : report;
+  const processCard = composeAgentProcessCard(result);
+  return {
+    ...report,
+    ...(card ? { evidence_reliability_card: card } : {}),
+    ...(processCard ? { agent_process_card: processCard } : {}),
+  };
+}
+
+function composeAgentProcessCard(result: AnyRecord = {}) {
+  const judgment = result.agent_judgment ?? {};
+  const reflection = result.reflection_loop ?? result.model_info?.reflection_loop ?? {};
+  const trace = result.agent_trace ?? result.model_info?.agent_trace ?? {};
+  const hasProcess = Object.keys(judgment).length || Object.keys(reflection).length || Object.keys(trace).length;
+  if (!hasProcess) return undefined;
+
+  const traceSteps = asArray(trace.steps)
+    .map((step: AnyRecord) => ({
+      label: traceStepLabel(step.id),
+      phase_label: phaseLabel(step.phase),
+      status_label: processStatusLabel(step.status),
+    }))
+    .filter((step) => step.label)
+    .slice(0, 9);
+  const blockerCount = asArray(judgment.decision_blockers).length || asArray(judgment.blocking_reasons).length;
+  const missingCount = asArray(reflection.final_missing_requirements).length;
+  const requeryAttempted = reflection.requery_attempted === true;
+  const requeryAdded = toNumber(reflection.requery_added_evidence_count, 0);
+  const nextAction = String(reflection.next_action ?? "");
+  const status = String(reflection.status ?? judgment.overall_status ?? trace.overall_status ?? "");
+  const summary = processSummary({ requeryAttempted, requeryAdded, nextAction, missingCount, blockerCount });
+  const warnings = [
+    ...(blockerCount ? [`판단을 확정하기 전에 확인할 항목이 ${blockerCount}개 남아 있습니다.`] : []),
+    ...(missingCount ? [`근거 조건 중 ${missingCount}개는 아직 보강이 필요합니다.`] : []),
+  ].slice(0, 3);
+
+  return {
+    title: "판단 검증 흐름",
+    status_label: processStatusLabel(status),
+    summary,
+    stats: [
+      { label: "다음 처리", value: nextActionLabel(nextAction) },
+      { label: "근거 재검색", value: requeryAttempted ? "실행됨" : "불필요" },
+      { label: "추가 근거", value: `${requeryAdded}개` },
+      { label: "검증 단계", value: `${toNumber(trace.step_count, traceSteps.length)}개` },
+    ],
+    steps: traceSteps,
+    warnings,
+    notice: "이 카드는 Agent 내부 원문 로그가 아니라 판단 가능 여부, 근거 보강 여부, 보완 입력 상태만 요약합니다.",
+  };
+}
+
+function processSummary(input: { requeryAttempted: boolean; requeryAdded: number; nextAction: string; missingCount: number; blockerCount: number }) {
+  if (input.nextAction === "request_missing_input") return "판단을 더 좁히려면 사용자의 보완 입력이 필요합니다.";
+  if (input.nextAction === "present_reference_only") return "근거 조건이 충분하지 않아 참고용 결과로만 표시됩니다.";
+  if (input.nextAction === "manual_review") return "자동 판단만으로 확정하기 어려워 검토가 필요한 상태입니다.";
+  if (input.requeryAttempted) return `근거가 부족한 지점을 한 번 더 검색했고, 관련 근거 ${input.requeryAdded}개를 추가로 확인했습니다.`;
+  if (input.blockerCount || input.missingCount) return "입력과 근거를 확인했지만 일부 조건은 아직 보강이 필요합니다.";
+  return "입력, 근거 검색, 판단 계약, 보완 질문 상태를 단계별로 확인했습니다.";
+}
+
+function traceStepLabel(value: any) {
+  const labels: AnyRecord = {
+    input_normalization: "입력 정리",
+    fact_arbitration: "영상/사용자 사실 중재",
+    scenario_classification: "사고 유형 분류",
+    evidence_retrieval: "법률·KNIA 근거 검색",
+    analyst_execution: "전문 분석 실행",
+    claim_validation: "주장-근거 연결 검증",
+    judgment_contract: "판단 가능 조건 확인",
+    reflection_loop: "근거 보강 검토",
+    followup_loop: "보완 질문 확인",
+  };
+  return labels[String(value)] ?? "";
+}
+
+function phaseLabel(value: any) {
+  const labels: AnyRecord = {
+    perceive: "입력",
+    observe: "관찰",
+    plan: "분류",
+    act: "검색",
+    solve: "분석",
+    verify: "검증",
+    guard: "통제",
+    recover: "보강",
+  };
+  return labels[String(value)] ?? "처리";
+}
+
+function nextActionLabel(value: any) {
+  const labels: AnyRecord = {
+    finalize: "결과 표시 가능",
+    request_missing_input: "보완 입력 필요",
+    present_reference_only: "참고용 표시",
+    manual_review: "수동 검토 필요",
+    requery_evidence: "근거 재검색",
+  };
+  return labels[String(value)] ?? "확인 필요";
+}
+
+function processStatusLabel(value: any) {
+  const labels: AnyRecord = {
+    completed: "완료",
+    skipped: "건너뜀",
+    unknown: "확인 필요",
+    resolved: "해결됨",
+    waiting_for_input: "입력 대기",
+    reference_only: "참고용",
+    needs_review: "검토 필요",
+    evidence_supported: "근거 확인됨",
+    unsupported: "근거 부족",
+    blocked_for_final: "확정 보류",
+    review_required: "검토 필요",
+    partial: "부분 확인",
+    insufficient: "부족",
+  };
+  return labels[String(value)] ?? cleanText(value, "확인 필요");
 }
 export function sanitizeEasyReport(report: AnyRecord = {}) {
   const safe: AnyRecord = {};

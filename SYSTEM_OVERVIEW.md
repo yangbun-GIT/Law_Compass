@@ -1,5 +1,19 @@
 # LawCompass 시스템 구성 명세서
 
+## 2026-05-22 Agent 판단 검증 상태 화면 연결
+
+Agent P1에서 생성한 `agent_trace`와 `reflection_loop`를 일반 결과 화면에서 직접 JSON으로 노출하지 않고, Gateway가 사용자 안전 요약 카드인 `agent_process_card`로 변환해 내려주도록 보강했다. 목적은 Agent가 입력 정리, 사실 중재, 근거 검색, 주장-근거 검증, 판단 계약, 근거 보강 루프를 어떤 상태로 통과했는지 확인 가능하게 하되, raw packet, evidence id, 내부 stage id, 모델 메타데이터, 사용자 원문 입력은 일반 화면에 섞이지 않게 하는 것이다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | `composeAgentProcessCard()`를 추가했다. `agent_trace`, `reflection_loop`, `agent_judgment`를 기반으로 다음 처리 상태, 근거 재검색 여부, 추가 근거 수, 검증 단계 수, 단계별 사용자 라벨을 생성한다. `sanitizeEasyReport()`의 기술 필드 필터도 `agent_trace`, `reflection_loop`, trace packet 관련 키를 숨기도록 확장했다. |
+| `apps/frontend/src/components/easy/AgentProcessCard.vue` | 결과 화면에 표시되는 Agent 판단 검증 카드다. Gateway가 만든 `agent_process_card`만 렌더링하며 raw JSON이나 내부 packet은 표시하지 않는다. |
+| `apps/frontend/src/components/easy/EasyReportView.vue` | `EvidenceReliabilityCard` 다음에 `AgentProcessCard`를 표시하도록 연결했다. |
+| `apps/frontend/src/utils/displaySanitizer.ts`, `apps/frontend/src/utils/displaySanitizer.js` | 일반 화면 sanitize 단계에서 raw `agent_trace`, `reflection_loop`, 재검색 내부 키가 노출되지 않도록 필터를 확장했다. |
+| `apps/gateway/test/report-composer.test.ts` | `agent_process_card`가 사용자 안전 라벨만 포함하고 raw trace packet, 내부 step id, `next_action` 같은 내부 키를 노출하지 않는지 검증하는 테스트를 추가했다. |
+
+이 변경은 DB schema, Redis key, storage path, 환경 변수, 외부 API 계약을 바꾸지 않는다. `/api/v1/cases/:caseId/easy-report` 응답의 사용자용 report payload에 `agent_process_card`가 추가된다.
+
 ## 2026-05-22 Agent P1 영상/사용자 사실 중재 계층
 
 영상 프레임 분석 결과가 Agent 판단에 들어올 때 사용자 입력과 단순 병합하지 않고 `agent-fact-arbitration-v1` 계약으로 출처와 우선순위를 기록하도록 보강했다. 목적은 사용자가 주관적으로 잘못 입력할 수 있는 물리적 사고 사실은 고신뢰 영상 관찰값을 우선하고, 사용자가 직접 알고 있는 사고 유형/부상/보험 상태 같은 문맥 정보는 사용자 입력을 우선해 Agent 판단의 입력 근거를 명확히 남기는 것이다.
