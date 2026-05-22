@@ -934,3 +934,16 @@ This update makes the Agent recovery path explicit when evidence coverage, KNIA/
 | `apps/agent/tests/test_orchestrator.py` | Adds assertions for reflection loop version, next action, trace stage, and video-case compatibility. |
 
 The loop is deliberately bounded to one requery attempt to avoid uncontrolled cost or latency. If evidence remains insufficient, the judgment contract and presentation policy keep the result as reference-only or request user-supplied missing facts.
+
+## 2026-05-22 Video Fact Explanation Card
+
+This update makes video-derived fact arbitration visible to users in safe Korean copy. When frame observations conflict with user input or are applied to Agent facts, the public report explains which physical fact was reflected without exposing raw contracts such as `video_input_contract`, `fact_arbitration`, frame-analysis provider strings, raw value keys, or internal reasons.
+
+| Path | Change |
+| --- | --- |
+| `apps/gateway/src/lib/report-composer.ts` | Converts Agent video contracts into `video_fact_explanation_card`, including applied video facts, user-input comparison items, deferred observations, confidence labels, and representative frame counts. |
+| `apps/frontend/src/components/easy/VideoFactExplanationCard.vue` | Renders the video fact explanation card with Korean labels and safe summaries only. |
+| `apps/frontend/src/components/easy/EasyReportView.vue` | Places the video fact card after the Agent process card and before the fault ratio card. |
+| `apps/gateway/test/report-composer.test.ts` | Verifies that the card is generated and raw arbitration/source/reason/value keys are not exposed. |
+
+No DB schema, Redis key, storage path, environment variable, or external API contract changed. Public easy-report responses may now include `video_fact_explanation_card`.

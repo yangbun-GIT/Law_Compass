@@ -81,6 +81,56 @@ describe("report composer", () => {
     expect(JSON.stringify(processCard)).not.toContain("next_action");
   });
 
+  it("adds a user-safe video fact explanation card without raw arbitration contracts", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      video_input_contract: {
+        accepted_observations: [
+          {
+            field: "lane_change_actor",
+            value: "opponent",
+            confidence: 0.91,
+            source: "frame_analysis:openai",
+            frame_refs: ["frame_6.jpg", "frame_7.jpg"],
+            reason: "opponent vehicle crossed lane marker",
+          },
+        ],
+        uncertain_observations: [
+          { field: "turn_signal", value: "unknown", confidence: 0.42, reason: "not visible" },
+        ],
+        fact_patch: { lane_change_actor: "opponent" },
+      },
+      fact_arbitration: {
+        applied_video_fields: ["lane_change_actor"],
+        conflicts: [
+          {
+            field: "lane_change_actor",
+            user_value: "user",
+            video_value: "opponent",
+            winner: "video",
+            video_confidence: 0.91,
+            frame_refs: ["frame_6.jpg"],
+            reason: "video primary field",
+          },
+        ],
+      },
+    });
+
+    const card = enriched.video_fact_explanation_card!;
+    const text = JSON.stringify(card);
+    expect(card.title).toBe("영상 기반 사실 반영");
+    expect(card.applied_items[0].label).toBe("차선변경 주체");
+    expect(card.applied_items[0].value).toBe("상대 차량");
+    expect(card.applied_items[0].confidence).toBe("91%");
+    expect(card.review_items[0].selected_source).toBe("영상");
+    expect(card.uncertain_items[0].label).toBe("방향지시등 사용");
+    expect(text).not.toContain("video_input_contract");
+    expect(text).not.toContain("fact_arbitration");
+    expect(text).not.toContain("frame_analysis:openai");
+    expect(text).not.toContain("user_value");
+    expect(text).not.toContain("video_value");
+    expect(text).not.toContain("reason");
+  });
+
   it("summarizes reanalysis changes without exposing judgment internals", () => {
     const card = composeReanalysisChangeCard(
       {

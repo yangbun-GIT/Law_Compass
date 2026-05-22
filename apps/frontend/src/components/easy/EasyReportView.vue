@@ -6,6 +6,7 @@
     <AnalysisChangeCard v-if="safeReport.analysis_change_card" :card="safeReport.analysis_change_card" />
     <EvidenceReliabilityCard v-if="safeReport.evidence_reliability_card" :card="safeReport.evidence_reliability_card" />
     <AgentProcessCard v-if="safeReport.agent_process_card" :card="safeReport.agent_process_card" />
+    <VideoFactExplanationCard v-if="safeReport.video_fact_explanation_card" :card="safeReport.video_fact_explanation_card" />
     <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
     <article class="card easy-card">
       <h2>{{ text(safeReport.insurance_explanation?.title || "보험 처리 안내") }}</h2>
@@ -91,6 +92,7 @@ import ElderlyActionCard from "./ElderlyActionCard.vue";
 import EvidenceReliabilityCard from "./EvidenceReliabilityCard.vue";
 import EasyFaultRatioCard from "./EasyFaultRatioCard.vue";
 import EasyLegalBasisCard from "./EasyLegalBasisCard.vue";
+import VideoFactExplanationCard from "./VideoFactExplanationCard.vue";
 import MissingInfoCard from "./MissingInfoCard.vue";
 import DetailToggleSection from "./DetailToggleSection.vue";
 import RelatedKniaStandardCard from "../knia/RelatedKniaStandardCard.vue";

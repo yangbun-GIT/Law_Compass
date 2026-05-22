@@ -345,13 +345,142 @@ function composeEvidenceReliabilityCard(result: AnyRecord = {}) {
       : "근거와 연결된 판단이라도 최종 판단은 보험사, 분쟁심의위, 수사기관, 법원의 확인이 필요합니다.",
   };
 }
+
+function composeVideoFactExplanationCard(result: AnyRecord = {}) {
+  const contract = result.video_input_contract ?? result.model_info?.video_input_contract ?? {};
+  const arbitration = result.fact_arbitration ?? result.model_info?.fact_arbitration ?? {};
+  const accepted = asArray(contract.accepted_observations);
+  const uncertain = asArray(contract.uncertain_observations);
+  const appliedFields = asArray(arbitration.applied_video_fields).map((field) => String(field));
+  const reviewItems = asArray(arbitration.conflicts);
+  const hasVideoFacts = accepted.length || uncertain.length || appliedFields.length || reviewItems.length;
+  if (!hasVideoFacts) return undefined;
+
+  const appliedItems = appliedFields
+    .map((field) => {
+      const observation = accepted.find((item: AnyRecord) => String(item?.field) === field) ?? {};
+      const value = contract.fact_patch?.[field] ?? observation.value;
+      return {
+        label: videoFactLabel(field),
+        value: videoFactValueLabel(field, value),
+        confidence: confidenceLabel(observation.confidence),
+        frame_label: frameCountLabel(observation.frame_refs),
+        explanation: "영상 프레임에서 직접 확인 가능한 물리적 사실로 보아 Agent 입력에 반영했습니다.",
+      };
+    })
+    .filter((item) => item.label && item.value)
+    .slice(0, 6);
+
+  const conflictItems = reviewItems
+    .map((item: AnyRecord) => {
+      const field = String(item?.field ?? "");
+      const winner = String(item?.winner ?? item?.selected_source ?? "");
+      const selectedValue = winner === "video" ? item.video_value : item.user_value;
+      return {
+        label: videoFactLabel(field),
+        selected_source: winner === "video" ? "영상" : "사용자 입력",
+        selected_value: videoFactValueLabel(field, selectedValue),
+        confidence: confidenceLabel(item.video_confidence ?? item.confidence),
+        frame_label: frameCountLabel(item.frame_refs),
+        explanation: winner === "video"
+          ? "영상에서 직접 확인 가능한 물리적 사실이라 영상 기준을 우선 적용했습니다."
+          : "영상만으로 확정하기 어려운 항목이라 사용자 입력을 유지했습니다.",
+      };
+    })
+    .filter((item) => item.label)
+    .slice(0, 5);
+
+  const uncertainItems = uncertain
+    .map((item: AnyRecord) => ({
+      label: videoFactLabel(String(item?.field ?? "")),
+      confidence: confidenceLabel(item?.confidence),
+      explanation: "신뢰도 기준에 미치지 않아 판단 사실로 바로 반영하지 않았습니다.",
+    }))
+    .filter((item) => item.label)
+    .slice(0, 5);
+
+  const summary = appliedItems.length
+    ? "영상에서 확인된 물리적 사실을 Agent 판단 입력에 우선 반영했습니다."
+    : uncertainItems.length
+      ? "일부 영상 관찰값은 신뢰도 기준에 미치지 않아 참고로만 보관했습니다."
+      : "영상 관찰값은 확인됐지만 기존 입력과 충돌하지 않았습니다.";
+
+  return {
+    title: "영상 기반 사실 반영",
+    summary,
+    stats: [
+      { label: "확인된 영상 사실", value: `${accepted.length}개` },
+      { label: "판단 반영", value: `${appliedItems.length}개` },
+      { label: "입력 충돌 검토", value: `${conflictItems.length}개` },
+      { label: "보류 관찰값", value: `${uncertainItems.length}개` },
+    ],
+    applied_items: appliedItems,
+    review_items: conflictItems,
+    uncertain_items: uncertainItems,
+    notice: "영상 분석값도 최종 판정이 아니라 프레임에서 확인된 사실 후보입니다. 신뢰도 기준을 넘은 물리적 사실만 Agent 입력에 반영합니다.",
+  };
+}
+
+function videoFactLabel(field: string) {
+  const labels: AnyRecord = {
+    stopped: "정차 여부",
+    sudden_brake: "급정거 여부",
+    opponent_behavior: "상대 차량 행동",
+    lane_change_actor: "차선변경 주체",
+    turn_signal: "방향지시등 사용",
+    user_signal: "내 차량 신호",
+    opponent_signal: "상대 차량 신호",
+    opponent_signal_violation: "상대 신호위반",
+    crosswalk_nearby: "횡단보도 주변",
+    school_zone: "어린이보호구역",
+    injury: "인명피해 여부",
+    damage_level: "파손 정도",
+  };
+  return labels[field] ?? cleanText(field, "");
+}
+
+function videoFactValueLabel(field: string, value: any) {
+  if (typeof value === "boolean") return value ? "예" : "아니오";
+  const key = String(value ?? "");
+  const labels: AnyRecord = {
+    rear_collision: "뒤에서 추돌",
+    lane_change: "차선 변경",
+    signal_violation: "신호 위반",
+    opponent: "상대 차량",
+    user: "내 차량",
+    both: "양측",
+    none: "없음",
+    minor: "경미",
+    moderate: "보통",
+    severe: "심함",
+    high: "높음",
+    medium: "보통",
+    low: "낮음",
+  };
+  return labels[key] ?? cleanText(value, "확인 필요");
+}
+
+function confidenceLabel(value: any) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "확인 필요";
+  const ratio = n > 1 ? n : n * 100;
+  return `${Math.max(0, Math.min(100, Math.round(ratio)))}%`;
+}
+
+function frameCountLabel(value: any) {
+  const count = asArray(value).length;
+  return count ? `대표 프레임 ${count}장` : "";
+}
+
 export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {}) {
   const card = composeEvidenceReliabilityCard(result);
   const processCard = composeAgentProcessCard(result);
+  const videoFactCard = composeVideoFactExplanationCard(result);
   return {
     ...report,
     ...(card ? { evidence_reliability_card: card } : {}),
     ...(processCard ? { agent_process_card: processCard } : {}),
+    ...(videoFactCard ? { video_fact_explanation_card: videoFactCard } : {}),
   };
 }
 
