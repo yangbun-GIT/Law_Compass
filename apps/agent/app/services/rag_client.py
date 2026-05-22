@@ -53,16 +53,29 @@ def retrieve_for_scenario(
         facts=facts,
         selected_keywords=selected_keywords,
     )
-    result = retrieve_legal_evidence(scenario_type=scenario_type, scenario_tags=scenario_tags, query=query, limit=limit)
+    try:
+        result = retrieve_legal_evidence(scenario_type=scenario_type, scenario_tags=scenario_tags, query=query, limit=limit)
+        result.setdefault("retrieval_error", None)
+    except Exception as exc:
+        result = {
+            "items": [],
+            "cache_hit": False,
+            "cache_key": None,
+            "retrieval_error": _safe_error(exc),
+        }
     if not result["items"]:
         fallback = retrieve_static_legal_chunks(query, limit=limit)
         for item in fallback:
             item.setdefault("retrieval_note", "static_fallback")
         result["items"] = fallback
+        result["fallback_used"] = bool(fallback)
+        result["static_support_count"] = len(fallback)
     else:
         support = retrieve_static_legal_chunks(query, limit=4)
         for item in support:
             item.setdefault("retrieval_note", "static_scenario_support")
+        result["fallback_used"] = False
+        result["static_support_count"] = len(support)
         result["items"] = _merge_static_support(result["items"], support, limit=limit)
     for item in result["items"]:
         item["cache_hit"] = result["cache_hit"]
@@ -70,6 +83,10 @@ def retrieve_for_scenario(
         item["query_expansion_terms"] = query_terms
     result["query_expansion_terms"] = query_terms
     return result
+
+
+def _safe_error(exc: Exception) -> dict[str, str]:
+    return {"type": exc.__class__.__name__, "message": "legal evidence retrieval failed"}
 
 
 def _merge_static_support(items: list[dict[str, Any]], support: list[dict[str, Any]], *, limit: int) -> list[dict[str, Any]]:

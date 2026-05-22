@@ -11,6 +11,10 @@ from app.services.agent_execution_trace import (
     build_agent_execution_trace,
 )
 from app.services.elderly_friendly.report_simplifier import build_elderly_friendly_report
+from app.services.evidence_source_status import (
+    VERSION as EVIDENCE_SOURCE_STATUS_VERSION,
+    build_evidence_source_status,
+)
 from app.services.judgment_contract import apply_judgment_contract_to_output
 from app.services.orchestration_analysis import AnalysisBundle
 from app.services.orchestration_context import CaseContext
@@ -38,6 +42,8 @@ def enrich_analysis_output(
     ]
     output["model_info"]["retrieval"] = _build_retrieval_model_info(evidence_bundle)
     output["model_info"]["scenario_classifier"] = context.scenario
+    output["model_info"]["evidence_source_status"] = build_evidence_source_status(evidence_bundle)
+    output["model_info"]["evidence_source_status_version"] = EVIDENCE_SOURCE_STATUS_VERSION
     output["agent_trace"] = build_agent_execution_trace(output)
     output["model_info"]["agent_trace_version"] = AGENT_TRACE_VERSION
     output["agent_quality_packet"] = build_agent_quality_packet(output)

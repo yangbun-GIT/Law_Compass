@@ -68,6 +68,7 @@ def match_knia_charts(
         cached = cache.get(cache_key)
         if cached:
             return {"items": json.loads(cached), "cache_hit": True, "cache_key": cache_key, "accident_party_type": party, "query_expansion_terms": expansion_terms}
+    lookup_error = None
     try:
         if chart_direct:
             items = _direct_lookup(chart_direct.group(0), limit)
@@ -75,11 +76,19 @@ def match_knia_charts(
             items = _hybrid_lookup(q, tags, party, limit, scenario_type=scenario_type)
             if not items and party != "unknown":
                 items = _hybrid_lookup(q, tags, None, limit, scenario_type=scenario_type)
-    except Exception:
+    except Exception as exc:
         items = []
+        lookup_error = _safe_error(exc)
     if cache:
         cache.setex(cache_key, 900, json.dumps(items, ensure_ascii=False))
-    return {"items": items, "cache_hit": False, "cache_key": cache_key, "accident_party_type": party, "query_expansion_terms": expansion_terms}
+    return {
+        "items": items,
+        "cache_hit": False,
+        "cache_key": cache_key,
+        "accident_party_type": party,
+        "query_expansion_terms": expansion_terms,
+        "lookup_error": lookup_error,
+    }
 
 
 def _tags_from_text(text: str, party: str | None = None) -> list[str]:
@@ -285,6 +294,10 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
 
 def _row_party_type(row: dict[str, Any]) -> str:
     return _party_from_chart_no(row.get("chart_no")) or row.get("accident_party_type") or "unknown"
+
+
+def _safe_error(exc: Exception) -> dict[str, str]:
+    return {"type": exc.__class__.__name__, "message": "KNIA chart lookup failed"}
 
 
 def _party_from_chart_no(chart_no: Any) -> str | None:

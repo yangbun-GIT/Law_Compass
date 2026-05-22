@@ -28,6 +28,7 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
     missing_packets = [name for name, present in packets.items() if not present]
     failed_sections = _llm_failed_sections(llm_policy)
     failure_observations = _failure_observations(output, llm_policy, missing_packets, failed_sections)
+    evidence_source_status = _dict(_dict(output.get("model_info")).get("evidence_source_status"))
 
     return {
         "version": VERSION,
@@ -62,6 +63,7 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
             "raw_user_text_in_packet": False,
         },
         "cost_observability": _cost_observability(output, llm_policy, failed_sections),
+        "evidence_source_status": evidence_source_status,
         "failure_observations": failure_observations,
     }
 
@@ -155,6 +157,11 @@ def _failure_observations(
                 "safe_message": "The Agent marked this result as reference-only because required evidence or facts were insufficient.",
             }
         )
+    evidence_status = _dict(_dict(output.get("model_info")).get("evidence_source_status"))
+    for source_name, details in _dict(evidence_status.get("sources")).items():
+        failure = _dict(details).get("failure_observation")
+        if isinstance(failure, dict):
+            observations.append({"section": source_name, **failure})
     return observations
 
 

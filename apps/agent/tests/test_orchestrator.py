@@ -37,7 +37,9 @@ def test_analyze_case_minimum_fields():
     assert result["agent_quality_packet"]["version"] == "agent-quality-packet-v1"
     assert result["agent_quality_packet"]["packet_contract"]["required_packets_present"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["safe_metadata_only"] is True
+    assert result["agent_quality_packet"]["evidence_source_status"]["version"] == "evidence-source-status-v1"
     assert result["model_info"]["agent_quality_packet_version"] == "agent-quality-packet-v1"
+    assert result["model_info"]["evidence_source_status"]["version"] == "evidence-source-status-v1"
     assert result["reflection_loop"]["version"] == "agent-reflection-loop-v1"
     assert result["reflection_loop"]["next_action"] in {
         "finalize",

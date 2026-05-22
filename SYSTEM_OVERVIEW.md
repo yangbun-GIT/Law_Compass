@@ -16,6 +16,22 @@
 
 남아 있는 대표 후속 작업은 KNIA 원문/DB 수집 안정화, 실제 사고 영상 기반 프레임 분석 보정, OpenAI 비용 모니터링, S3 직접 업로드 전환, 관리자/사용자 UI 마감, 장기적으로 교통사고 특화 비전 모델 검토다.
 
+## 2026-05-22 KNIA/법률 근거 소스 안정화
+
+실제 서비스 개발 단계의 첫 안정화 작업으로, 법률 RAG 또는 KNIA 상세 근거 소스가 비어 있거나 일시적으로 실패할 때 Agent가 조용히 빈 근거로 진행하지 않도록 보강했다. 법률 DB 검색 실패는 정적 사고 유형 근거로 복구하고, 복구 사실과 KNIA/법률 소스 상태를 `model_info.evidence_source_status` 및 `agent_quality_packet.evidence_source_status`에 안전 메타데이터로 남긴다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/rag_client.py` | 법률 RAG 조회 예외를 잡아 정적 사고 유형 근거 fallback으로 복구한다. `fallback_used`, `static_support_count`, `retrieval_error`를 검색 결과에 남긴다. |
+| `apps/agent/app/services/knia/knia_matcher.py` | KNIA chart lookup 실패를 빈 배열로만 숨기지 않고 `lookup_error` 안전 메타데이터로 남긴다. |
+| `apps/agent/app/services/evidence_source_status.py` | `evidence-source-status-v1` 생성기. `legal_rag`, `knia_chart_match`, `knia_json_detail`의 준비 상태, fallback 사용 여부, 비활성 사유, 복구 액션을 요약한다. |
+| `apps/agent/app/services/orchestration_output.py` | 최종 Agent `model_info`에 `evidence_source_status`와 버전을 기록하고, 품질 패킷 생성 전에 이 메타데이터가 준비되도록 연결했다. |
+| `apps/agent/app/services/agent_quality_packet.py` | 품질 패킷에 근거 소스 상태를 포함하고, 근거 소스 장애를 `failure_observations`에 병합한다. |
+| `apps/agent/scripts/test_evidence_source_resilience.py` | 법률 RAG 장애를 시뮬레이션해 정적 근거 fallback, KNIA/DB 비활성 상태, 복구 액션 생성이 동작하는지 검증한다. |
+| `scripts/verify_agent_regression.ps1` | 기존 Agent 검증 흐름에 근거 소스 복구력 검사를 추가했다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. 일반 사용자 화면에는 raw `model_info`와 품질 패킷을 직접 노출하지 않는 기존 sanitizer 정책을 유지해야 한다.
+
 ## 2026-05-22 Agent 품질 패킷 및 LLM 실패 관측 보강
 
 수업자료의 Agentic Design 기준 중 “단계별 packet, 관측 가능성, 실패 복구, 비용 인식”을 실제 Agent 출력 계약에 반영했다. `agent_trace`는 실행 순서를 설명하고, 새 `agent_quality_packet`은 결과가 필요한 packet을 모두 갖췄는지, LLM 보조 호출이 사용/차단/실패했는지, 영상 프레임 수와 판단 상태가 어떤지 안전한 메타데이터로 요약한다. 원문 사용자 입력, 내부 토큰, raw prompt는 포함하지 않는다.
