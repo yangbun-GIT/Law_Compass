@@ -48,6 +48,25 @@ PowerShell:
 ./scripts/smoke_e2e.ps1 -BaseUrl http://localhost
 ```
 
+## 3-0) 핵심 회귀 검증 일괄 실행
+Gateway 테스트/빌드, Frontend 빌드/표시 안전 테스트, Docker 기반 Agent 컴파일/대표 사고 회귀 검증, `/health` 확인을 한 번에 실행합니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/verify_core.ps1
+```
+
+이미 Docker 컨테이너가 실행 중이라 이미지 재빌드가 필요 없으면 아래처럼 실행할 수 있습니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/verify_core.ps1 -SkipDockerBuild
+```
+
+Docker Desktop을 사용할 수 없는 환경에서 Node/Vite 계층만 확인하려면 아래 옵션을 사용합니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/verify_core.ps1 -SkipDockerChecks
+```
+
 ## 3-1) 영상 프레임 분석 점검
 프레임 분석은 비용 방지를 위해 기본 비활성화되어 있습니다. 사용하려면 `.env`에서 `ENABLE_OPENAI_FRAME_ANALYSIS=1`로 설정한 뒤 worker를 재시작합니다.
 

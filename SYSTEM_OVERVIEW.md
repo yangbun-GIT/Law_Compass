@@ -971,3 +971,19 @@ This update strengthens the existing reanalysis comparison card so users can und
 | `apps/gateway/test/report-composer.test.ts` | Verifies reflected answer counts and safe Korean field labels in the reanalysis comparison card. |
 
 No new API route, DB schema, Redis key, storage path, environment variable, or external integration was added. The existing reanalysis response payload now carries richer user-safe comparison metadata.
+
+## 2026-05-22 Core Verification Entry Point
+
+This update converts the manually run project checks into a repeatable PowerShell entry point for local regression verification. It does not change service APIs, DB schema, Redis keys, storage paths, environment variables, or external integrations.
+
+| Path | Change |
+| --- | --- |
+| `scripts/verify_core.ps1` | Runs Gateway tests/build, Frontend build/display/chat checks, optional Docker compose build/start, Agent compile check, Agent representative regression scenarios, and Gateway `/health` through the edge service. |
+| `docs/OPERATIONS.md` | Documents the one-command verification flow plus `-SkipDockerBuild` and `-SkipDockerChecks` options. |
+| `DEVELOPMENT_PROMPT.md` | Adds the core regression command to the verification policy for changes that affect Agent judgment, Gateway report composition, Frontend result display, video facts, or follow-up/reanalysis flows. |
+
+Primary command:
+
+`powershell -ExecutionPolicy Bypass -File scripts/verify_core.ps1`
+
+Use this before committing trust-critical changes so rear-end, lane-change, signal-violation, bicycle/pedestrian, and video/user-conflict scenarios remain covered by the Agent regression script.
