@@ -303,8 +303,8 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   const beforeAdjustments = adjustmentSummaryOf(previous);
   const afterAdjustments = adjustmentSummaryOf(next);
   const adjustmentChanges = adjustmentDiff(previous, next);
-  const beforeQuestionCount = questionCountOf(previous);
-  const afterQuestionCount = questionCountOf(next);
+  const beforeQuestionCount = toNumber(followupContext.before_question_count, questionCountOf(previous));
+  const afterQuestionCount = toNumber(followupContext.after_question_count, questionCountOf(next));
   const questionDelta = beforeQuestionCount - afterQuestionCount;
   const answeredLabels = followupFieldLabels(followupContext.answered_fields);
   const unresolvedLabels = followupFieldLabels(followupContext.unresolved_fields);

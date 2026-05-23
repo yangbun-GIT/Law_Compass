@@ -333,7 +333,9 @@ def aggregate_held_followup(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "present_count": len(present),
         "missing_count": max(0, len(samples) - len(present)),
         "question_reduced_count": sum(1 for item in present if int(item.get("question_delta") or 0) > 0),
+        "question_delta_total": sum(int(item.get("question_delta") or 0) for item in present),
         "field_removed_count": sum(1 for item in present if item.get("field_removed_from_questions")),
+        "field_retained_count": sum(1 for item in present if not item.get("field_removed_from_questions")),
     }
 
 

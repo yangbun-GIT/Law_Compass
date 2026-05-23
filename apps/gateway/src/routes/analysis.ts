@@ -29,6 +29,11 @@ function trace(req: FastifyRequest) {
   return (req.headers["x-correlation-id"] as string) || randomUUID();
 }
 
+function easyReportQuestionCount(report: any) {
+  const questions = report?.missing_info?.questions;
+  return Array.isArray(questions) ? questions.length : 0;
+}
+
 async function buildReportContext(opts: AnalysisRouteOptions, caseId: string, ownerId: string, resultRow: any) {
   const caseRes = await opts.db.query(`SELECT * FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`, [caseId, ownerId]);
   const uploadRes = await opts.db.query(
@@ -254,10 +259,22 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     if (!caseRow.rowCount) return reply.code(404).send(opts.errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
     const currentCase = caseRow.rows[0];
     const previousResultRow = await opts.db.query(
-      `SELECT result FROM analysis_results WHERE case_id=$1 AND owner_user_id=$2 ORDER BY version DESC LIMIT 1`,
+      `SELECT result, elderly_friendly_report, report_payload FROM analysis_results WHERE case_id=$1 AND owner_user_id=$2 ORDER BY version DESC LIMIT 1`,
       [caseId, (req as any).user.id]
     );
-    const previousResult = previousResultRow.rows[0]?.result ?? {};
+    const previousRecord = previousResultRow.rows[0] ?? {};
+    const previousResult = previousRecord.result ?? {};
+    const previousStoredReport = previousRecord.elderly_friendly_report ?? previousRecord.report_payload;
+    const previousEasyReport = enrichEasyReport(
+      sanitizeEasyReport(
+        previousStoredReport && Object.keys(previousStoredReport).length
+          ? previousStoredReport
+          : previousResult.elderly_friendly_report && Object.keys(previousResult.elderly_friendly_report).length
+            ? previousResult.elderly_friendly_report
+            : composeEasyFallback(previousResult, { case: currentCase })
+      ),
+      previousResult
+    );
     const normalizedFollowup = normalizeFollowupAnswers(body?.followup_answers ?? body?.followupAnswers ?? {}, currentCase.structured_facts ?? {});
     const structuredFacts = {
       ...(currentCase.structured_facts ?? {}),
@@ -299,7 +316,11 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
       sanitizeEasyReport(agentResp.elderly_friendly_report ?? composeEasyFallback(agentResp, { case: { ...currentCase, structured_facts: structuredFacts } })),
       agentResp
     );
-    const reanalysisChangeCard = composeReanalysisChangeCard(previousResult, agentResp, normalizedFollowup);
+    const reanalysisChangeCard = composeReanalysisChangeCard(previousResult, agentResp, {
+      ...normalizedFollowup,
+      before_question_count: easyReportQuestionCount(previousEasyReport),
+      after_question_count: easyReportQuestionCount(baseEasyReport),
+    });
     const easyReport = reanalysisChangeCard ? { ...baseEasyReport, analysis_change_card: reanalysisChangeCard } : baseEasyReport;
     const ver = await opts.db.query(`SELECT COALESCE(MAX(version),0)+1 AS v FROM analysis_results WHERE case_id=$1`, [caseId]);
     const nextVersion = Number(ver.rows[0].v);

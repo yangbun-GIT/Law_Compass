@@ -804,4 +804,32 @@ describe("report composer", () => {
     expect(JSON.stringify(card)).not.toContain("next-law-2");
     expect(JSON.stringify(card)).not.toContain("unknown_internal_field");
   });
+
+  it("uses visible report question counts when composing reanalysis flow", () => {
+    const card = composeReanalysisChangeCard(
+      {
+        scenario_type: "rear_end_collision",
+        fault_ratio: { my: 20, other: 80 },
+        required_input_questions: [],
+      },
+      {
+        scenario_type: "rear_end_collision",
+        fault_ratio: { my: 20, other: 80 },
+        required_input_questions: [],
+      },
+      {
+        answered_fields: ["turn_signal"],
+        before_question_count: 1,
+        after_question_count: 0,
+      }
+    );
+
+    expect(card?.question_flow).toMatchObject({
+      before_count: 1,
+      after_count: 0,
+      answered_count: 1,
+      status_label: "질문 감소",
+    });
+    expect(card?.stats.find((item: any) => item.label === "질문 변화")?.value).toBe("1개 감소");
+  });
 });

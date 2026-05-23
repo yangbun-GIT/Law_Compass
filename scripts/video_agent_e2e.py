@@ -517,6 +517,15 @@ def run_held_observation_followup(base_url: str, case_id: str, token: str, repor
     latest_card = latest_report.get("analysis_change_card") if isinstance(latest_report.get("analysis_change_card"), dict) else {}
     if not latest_card:
         raise E2EError("latest easy-report did not persist analysis_change_card")
+    latest_flow = latest_card.get("question_flow") if isinstance(latest_card.get("question_flow"), dict) else {}
+    if not latest_flow:
+        raise E2EError("latest easy-report did not persist analysis_change_card.question_flow")
+    if int(latest_flow.get("before_count") or -1) != before_question_count:
+        raise E2EError("latest easy-report question_flow does not preserve original question count")
+    if int(latest_flow.get("after_count") or -1) != len(latest_questions):
+        raise E2EError("latest easy-report question_flow does not match current question count")
+    if int(latest_flow.get("answered_count") or 0) < 1:
+        raise E2EError("latest easy-report question_flow did not preserve answered field count")
     updated_case = http_json("GET", base_url, f"/api/v1/cases/{case_id}", token=token).get("case", {})
     latest_facts = updated_case.get("structured_facts") if isinstance(updated_case.get("structured_facts"), dict) else {}
     answered_fields = latest_facts.get("_followup_answered_fields") if isinstance(latest_facts.get("_followup_answered_fields"), list) else []
@@ -537,6 +546,13 @@ def run_held_observation_followup(base_url: str, case_id: str, token: str, repor
             "unresolved_count": question_flow.get("unresolved_count"),
             "status_label": question_flow.get("status_label"),
             "field_removed_from_questions": field not in after_question_fields,
+        },
+        "persisted_question_flow": {
+            "before_count": latest_flow.get("before_count"),
+            "after_count": latest_flow.get("after_count"),
+            "answered_count": latest_flow.get("answered_count"),
+            "unresolved_count": latest_flow.get("unresolved_count"),
+            "status_label": latest_flow.get("status_label"),
         },
         "answer_statuses": [
             {
