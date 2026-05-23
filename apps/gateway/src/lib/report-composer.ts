@@ -75,11 +75,13 @@ function requiredQuestionsForReport(result: AnyRecord = {}) {
   return asArray(result.required_input_questions ?? result.input_requirements?.questions)
     .map((item) => {
       if (!item || typeof item !== "object") return undefined;
+      const field = String(item.field ?? "");
+      if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
       const question = cleanText(item.question ?? item.label);
       if (!question) return undefined;
       return {
-        field: cleanText(item.field, ""),
-        label: cleanText(item.label ?? item.field ?? question),
+        field,
+        label: safeInputQuestionLabel(field, item.label ?? question),
         question,
         input_type: cleanText(item.input_type ?? "text"),
         options: asArray(item.options).map((option) => cleanText(option)).filter(Boolean).slice(0, 8),
@@ -799,7 +801,7 @@ function annotateMissingInfoQuestion(value: any, index = 0) {
   if (!value || typeof value !== "object") return undefined;
   const field = String(value.field ?? "");
   if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
-  const label = cleanText(value.label ?? videoFactLabel(field) ?? field, "");
+  const label = safeInputQuestionLabel(field, value.label);
   const question = cleanText(value.question ?? label, "");
   if (!question) return undefined;
   const priority = missingInfoQuestionPriority(field);
@@ -886,6 +888,20 @@ function videoFactLabel(field: string) {
     damage_level: "파손 정도",
   };
   return labels[field] ?? cleanText(field, "");
+}
+
+function safeInputQuestionLabel(field: string, fallback: any = "") {
+  const mapped = videoFactLabel(field);
+  if (mapped && mapped !== field) return mapped;
+  const label = cleanText(fallback, "");
+  return label && !containsBadValuePattern(label) ? label : "확인할 정보";
+}
+
+function containsBadValuePattern(value: string) {
+  return BAD_VALUE_PATTERNS.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(value);
+  });
 }
 
 function videoFactValueLabel(field: string, value: any) {
@@ -1129,11 +1145,12 @@ function sanitizeValue(value: any): any {
 function sanitizeInputQuestion(value: any) {
   if (!value || typeof value !== "object") return undefined;
   const field = String(value.field ?? "");
+  if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
   const question = cleanText(value.question ?? value.label, "");
   if (!question) return undefined;
   return {
-    field: SAFE_INPUT_FIELDS.has(field) ? field : "",
-    label: cleanText(value.label ?? field ?? question),
+    field,
+    label: safeInputQuestionLabel(field, value.label ?? question),
     question,
     input_type: String(value.input_type ?? "text"),
     options: asArray(value.options).map((option) => cleanText(option, "")).filter(Boolean).slice(0, 8),

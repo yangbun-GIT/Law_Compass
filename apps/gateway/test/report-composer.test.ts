@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeReanalysisChangeCard, enrichEasyReport, sanitizeEasyReport } from "../src/lib/report-composer.js";
+import { composeEasyFallback, composeReanalysisChangeCard, enrichEasyReport, sanitizeEasyReport } from "../src/lib/report-composer.js";
 
 describe("report composer", () => {
   it("adds a user-safe evidence reliability card without raw claim internals", () => {
@@ -75,6 +75,24 @@ describe("report composer", () => {
     expect((enriched as any).missing_info.next_focus.label).toBe("정차 여부");
     expect((enriched as any).missing_info.priority_items[0].reason).toContain("후방 추돌");
     expect(JSON.stringify(enriched)).not.toContain("unknown_internal_field");
+  });
+
+  it("maps raw required-input fields to safe Korean labels before prioritizing", () => {
+    const enriched = composeEasyFallback({
+      headline: "report",
+      input_requirements: {
+        questions: [
+          { field: "stopped", label: "stopped", question: "정차 중이었나요?", input_type: "single_choice" },
+          { field: "reported_speed_kmh", label: "reported_speed_kmh", question: "속도는 몇 km/h였나요?" },
+        ],
+      },
+    }, {});
+
+    const text = JSON.stringify(enriched);
+    expect((enriched as any).missing_info.questions.map((item: any) => item.field)).toEqual(["stopped"]);
+    expect((enriched as any).missing_info.priority_items[0].label).toBe("정차 여부");
+    expect(text).not.toContain("reported_speed_kmh");
+    expect(text).not.toContain("\"label\":\"stopped\"");
   });
 
   it("keeps missing-info checklist separate from selectable questions", () => {

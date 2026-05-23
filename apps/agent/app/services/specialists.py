@@ -11,6 +11,8 @@ class SpecialistRole:
 
 
 ALL_SPECIALISTS: list[SpecialistRole] = [
+    SpecialistRole("traffic-accident-attorney-analyst", "AI 교통사고 전문 변호사형 분석관", "판례·법령·KNIA 기준 기반 예상 판결과 민형사 쟁점"),
+    SpecialistRole("insurance-claims-practice-analyst", "AI 보험 처리 실무 분석관", "보험 접수·대인/대물·분쟁심의 기준 기반 예상 처리"),
     SpecialistRole("impact-dynamics-analyst", "충돌역학 분석가", "충돌 방향/속도/접촉 패턴"),
     SpecialistRole("rear-end-fault-specialist", "후미추돌 과실 전문가", "후미추돌 기본 과실 분기"),
     SpecialistRole("braking-pattern-analyst", "제동패턴 분석가", "급제동/제동거리 가정"),
@@ -51,40 +53,46 @@ def pick_specialists(ai_profile: str, requested_roles: list[str] | None = None) 
 
     mapping = {
         "rear_end_focus": [
+            "traffic-accident-attorney-analyst",
             "impact-dynamics-analyst",
             "rear-end-fault-specialist",
             "braking-pattern-analyst",
             "distance-keeping-evaluator",
-            "insurance-liability-planner",
+            "insurance-claims-practice-analyst",
             "claim-document-checker",
             "legal-obligation-checker",
             "uncertainty-calibrator",
         ],
         "intersection_focus": [
+            "traffic-accident-attorney-analyst",
             "signal-compliance-analyst",
             "right-of-way-specialist",
             "intersection-collision-analyst",
             "speed-feasibility-analyst",
             "criminal-risk-analyst",
+            "insurance-claims-practice-analyst",
             "reporting-duty-specialist",
             "precedent-linker",
             "uncertainty-calibrator",
         ],
         "lane_change_focus": [
+            "traffic-accident-attorney-analyst",
             "lane-change-rule-specialist",
             "blind-spot-risk-analyst",
             "turn-signal-compliance-analyst",
             "impact-dynamics-analyst",
-            "insurance-liability-planner",
+            "insurance-claims-practice-analyst",
             "precedent-linker",
             "evidence-relevance-auditor",
             "uncertainty-calibrator",
         ],
         "pedestrian_focus": [
+            "traffic-accident-attorney-analyst",
             "pedestrian-protection-analyst",
             "crosswalk-priority-specialist",
             "injury-severity-flagger",
             "criminal-risk-analyst",
+            "insurance-claims-practice-analyst",
             "reporting-duty-specialist",
             "medical-process-advisor",
             "precedent-linker",
@@ -95,8 +103,9 @@ def pick_specialists(ai_profile: str, requested_roles: list[str] | None = None) 
     return mapping.get(
         ai_profile,
         [
+            "traffic-accident-attorney-analyst",
             "impact-dynamics-analyst",
-            "insurance-liability-planner",
+            "insurance-claims-practice-analyst",
             "criminal-risk-analyst",
             "evidence-relevance-auditor",
             "precedent-linker",

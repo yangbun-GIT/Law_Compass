@@ -63,42 +63,42 @@ def _generate_json(system_prompt: str, user_payload: dict[str, Any], max_tokens:
 
 def generate_traffic_law_analysis(*, text: str, scenario_type: str, facts: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str, Any] | None:
     return _generate_json(
-        "너는 한국 교통법규 해석 전문가다. 도로교통법, 교통사고처리 특례법, 민식이법, 사고 후 조치 의무를 검토한다.",
+        "너는 대한민국 교통사고 민형사 사건에 특화된 AI 교통사고 전문 변호사형 분석관이다. 도로교통법, 교통사고처리 특례법, 판례·법령 근거, 사고 후 조치 의무를 근거 기반으로 검토하고, 근거가 부족하면 추가 확인 필요 사항을 명시한다.",
         {"text": text, "scenario_type": scenario_type, "facts": facts, "evidence": evidence, "required_keys": ["applicable_rules", "legal_issue_summary", "risk_flags", "required_facts", "evidence_ids"]},
     )
 
 
 def generate_fault_ratio_analysis(*, text: str, scenario_type: str, facts: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str, Any] | None:
     return _generate_json(
-        "너는 교통사고 과실비율 손해사정 전문가다. 기본 과실과 수정 요소를 참고용으로만 제시한다.",
+        "너는 대한민국 교통사고 전문 변호사형 과실비율 분석관이다. 유사 판례, KNIA 과실비율 기준, 법령 근거, 영상/사용자 입력 사실을 대조해 예상 과실범위와 수정 요소를 제시한다. 단일 정답처럼 단정하지 말고, 유사 근거와 불확실성을 함께 설명한다.",
         {"text": text, "scenario_type": scenario_type, "facts": facts, "evidence": evidence, "required_keys": ["my", "other", "confidence", "basis", "key_factors", "evidence_ids"]},
     )
 
 
 def generate_criminal_liability_analysis(*, text: str, scenario_type: str, facts: dict[str, Any], evidence: list[dict[str, Any]], legal_analysis: dict[str, Any]) -> dict[str, Any] | None:
     return _generate_json(
-        "너는 형사책임 검토 전문가다. 12대 중과실, 부상, 신고의무, 음주/무면허/도주 리스크를 가능성으로 표현한다.",
+        "너는 교통사고 형사 리스크를 검토하는 AI 교통사고 전문 변호사형 분석관이다. 12대 중과실, 사망·상해, 신호위반, 중앙선 침범, 속도위반, 신고의무, 음주/무면허/도주 리스크를 실제 법령·판례 근거 기반의 가능성으로 표현하고, 형사 사건화 가능성이 높으면 대응 방향과 필요한 증거를 분리해 제시한다.",
         {"text": text, "scenario_type": scenario_type, "facts": facts, "evidence": evidence, "legal_analysis": legal_analysis, "required_keys": ["reporting_required", "criminal_risk_level", "checklist", "risk_flags", "evidence_ids"]},
     )
 
 
 def generate_insurance_analysis(*, text: str, scenario_type: str, facts: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str, Any] | None:
     return _generate_json(
-        "너는 보험 보상 담당자다. 대인/대물 접수, 필요 서류, 예시 범위만 안내한다.",
+        "너는 교통사고 보험 처리 실무 분석관이다. KNIA 과실 기준, 보험 실무, 대인/대물 접수, 분쟁심의 가능성, 필요 서류를 근거 기반으로 안내한다. 보상금액이나 책임을 확정하지 말고 예상 처리 흐름과 쟁점을 분리한다.",
         {"text": text, "scenario_type": scenario_type, "facts": facts, "evidence": evidence, "required_keys": ["summary", "claim_type", "steps", "required_documents", "settlement_example", "next_steps"]},
     )
 
 
 def generate_action_plan(*, text: str, scenario_type: str, facts: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str, Any] | None:
     return _generate_json(
-        "너는 교통사고 후속 대응 코치다. 사용자가 지금 해야 할 일을 단계별로 정리한다.",
+        "너는 교통사고 민사·형사·보험 대응 코치다. 변호사 관점의 쟁점, 보험 처리 관점의 제출자료, 추가 확인이 필요한 영상/CCTV/신호/속도 자료를 단계별로 정리한다.",
         {"text": text, "scenario_type": scenario_type, "facts": facts, "evidence": evidence, "required_keys": ["action_plan"]},
     )
 
 
 def generate_final_report(**payload: Any) -> dict[str, Any] | None:
     return _generate_json(
-        "너는 여러 분석가의 결과를 종합해 사용자가 이해하기 쉬운 한국어 사고 리포트를 작성한다.",
+        "너는 AI 교통사고 법률 분석 리포트 편집자다. 변호사 관점의 판례 기반 예상, 형사/민사 대응, 보험 처리 예상이 구분되게 종합하되 실제 변호사 자문이나 판결 확정처럼 표현하지 않는다.",
         {**payload, "required_keys": ["accident_summary"]},
         max_tokens=900,
     )
