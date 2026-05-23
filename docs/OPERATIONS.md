@@ -180,6 +180,14 @@ python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeo
 python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeout-sec 240 --exercise-held-observation-followup
 ```
 
+여러 사고 영상 샘플을 같은 기준으로 반복 측정하려면 배치 측정 스크립트를 사용합니다. 이 스크립트는 `video_agent_e2e.py`를 샘플별로 실행하고, 각 결과와 `aggregate.json`을 `logs/video_accuracy/` 아래에 저장합니다. `logs/`는 Git에 올라가지 않으므로 실제 영상 측정 결과와 로컬 경로가 저장소에 노출되지 않습니다.
+
+```bash
+python scripts/video_accuracy_batch.py --manifest config/video_accuracy_samples.example.json --output-dir logs/video_accuracy
+```
+
+실제 OpenAI 분석 기준으로 측정하려면 먼저 worker를 `ENABLE_OPENAI_FRAME_ANALYSIS=1`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 재시작해야 합니다. 기대값이 틀린 샘플도 측정 결과로 남기려면 기본 실행을 사용하고, 기대값 불일치를 실패로 처리하려면 `--fail-on-mismatch`를 추가합니다. 샘플별 입력 케이스는 `case_json`으로 지정할 수 있으며, 파일은 `case` 객체를 포함하거나 케이스 payload 자체를 포함할 수 있습니다.
+
 검증 항목:
 - `/uploads/local` 로컬 영상 업로드
 - `/uploads/complete` 후 `video_preprocess` job 성공

@@ -1,0 +1,18 @@
+{
+  "samples": [
+    {
+      "name": "rear_end_reference",
+      "video_path": "C:/path/to/accident.mp4",
+      "case_json": "sample_data/sample_accident.json",
+      "require_frame_observations": true,
+      "require_agent_video_facts": true,
+      "expect_frame_observation": {
+        "stopped": true
+      },
+      "expect_agent_fact": {
+        "stopped": true,
+        "opponent_behavior": "rear_collision"
+      }
+    }
+  ]
+}

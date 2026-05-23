@@ -54,6 +54,19 @@
 
 이 결과는 현재 샘플 기준으로 OpenAI 프레임 분석이 정차 후방 추돌 후보를 안정적으로 확인했음을 의미한다. 다음 정확도 고도화는 동일한 측정 도구로 샘플 수를 늘려 `stopped`, `opponent_behavior`, `damage_level`의 confidence threshold를 조정하는 단계다.
 
+### 2026-05-23 영상 정확도 배치 측정 도구
+
+여러 사고 영상 샘플을 같은 기준으로 반복 측정하기 위해 `scripts/video_accuracy_batch.py`를 추가했다. 이 스크립트는 manifest의 `samples`를 읽고 샘플마다 `scripts/video_agent_e2e.py`를 실행한 뒤, 개별 결과 JSON과 `aggregate.json`을 `logs/video_accuracy/` 아래에 저장한다. `logs/`는 Git에서 제외되므로 실제 영상 경로, 케이스 ID, 측정 결과가 저장소에 올라가지 않는다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `scripts/video_agent_e2e.py` | `--case-json` 옵션을 추가했다. 샘플별 케이스 payload 또는 `{ "case": ... }` 형태의 JSON을 사용해 영상별 입력 사실을 바꿔 측정할 수 있다. |
+| `scripts/video_accuracy_batch.py` | manifest 기반 배치 측정 도구다. 샘플별 기대 관찰값/Agent fact, `require_frame_observations`, `require_agent_video_facts`, `exercise_held_observation_followup` 옵션을 `video_agent_e2e.py`로 전달하고 aggregate metric을 생성한다. Windows BOM manifest와 UTF-8 출력 수집을 안전하게 처리한다. |
+| `config/video_accuracy_samples.example.json` | 배치 측정 manifest 예시다. 실제 영상 경로는 로컬 파일 경로로 바꿔 사용한다. |
+| `docs/OPERATIONS.md` | 배치 측정 실행 방법, OpenAI/fixture worker 상태 전제, `--fail-on-mismatch` 사용 기준을 추가했다. |
+
+검증은 `FRAME_ANALYSIS_FIXTURE_MODE=rear_end`로 worker를 일시 재기동한 뒤 `logs/video_accuracy/local_manifest.json`을 사용해 수행했다. 결과는 sample 1개, passed 1개, mismatch 0개, failed 0개, expectation 3/3 통과였다. 검증 후 worker는 다시 `ENABLE_OPENAI_FRAME_ANALYSIS=0`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 복구했다.
+
 ## 2026-05-22 프로젝트 구조 보강 완료 판정
 
 현재 프로젝트 구조 보강 기준에서 P0와 신뢰성 관련 P1은 완료 상태로 판정한다. 완료 판정의 기준은 Agent 판단 골격, 영상 관찰값 입력 계약, 근거 검색 품질 회귀 검증, 서비스별 단일 책임 경계가 모두 코드와 검증 스크립트로 확인 가능해야 한다는 것이다.

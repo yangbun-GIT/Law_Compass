@@ -70,7 +70,17 @@ def multipart_upload(base_url: str, path: str, case_id: str, file_path: Path, to
         raise E2EError(f"POST {path} failed: {exc.code} {body}") from exc
 
 
-def create_case_payload():
+def create_case_payload(case_json_path: str = ""):
+    if case_json_path:
+        loaded = json.loads(Path(case_json_path).expanduser().resolve().read_text(encoding="utf-8-sig"))
+        if not isinstance(loaded, dict):
+            raise E2EError(f"case json must contain an object: {case_json_path}")
+        payload = loaded.get("case") if isinstance(loaded.get("case"), dict) else loaded
+        if not isinstance(payload, dict):
+            raise E2EError(f"case json must contain a case object: {case_json_path}")
+        if not payload.get("title") or not payload.get("description_text"):
+            raise E2EError("case json must include title and description_text")
+        return payload
     return {
         "title": "영상 E2E 후미추돌 검증",
         "description_text": "신호대기 또는 정차 중 뒤 차량이 추돌한 사고로 보입니다. 영상 전처리 결과와 사용자 입력을 함께 검증합니다.",
@@ -463,6 +473,11 @@ def main():
     parser = argparse.ArgumentParser(description="Run a local video upload -> preprocess -> Agent report E2E check.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
     parser.add_argument("--video-path", required=True)
+    parser.add_argument(
+        "--case-json",
+        default="",
+        help="Optional JSON file containing a case payload or an object with a case property.",
+    )
     parser.add_argument("--timeout-sec", type=int, default=DEFAULT_TIMEOUT_SEC)
     parser.add_argument(
         "--require-frame-observations",
@@ -519,7 +534,7 @@ def main():
     login = http_json("POST", args.base_url, "/api/v1/auth/login", {"email": email, "password": password})
     token = login["access_token"]
 
-    created = http_json("POST", args.base_url, "/api/v1/cases", create_case_payload(), token)
+    created = http_json("POST", args.base_url, "/api/v1/cases", create_case_payload(args.case_json), token)
     case_id = created["case"]["id"]
 
     uploaded = multipart_upload(args.base_url, "/api/v1/uploads/local", case_id, video_path, token)
