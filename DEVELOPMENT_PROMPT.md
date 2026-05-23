@@ -139,6 +139,12 @@
       필요한 경우 Redis 캐시, pagination, limit, timeout, retry backoff를 사용하십시오.
     </guideline>
 
+    <guideline name="operating_risk_roadmap">
+      OpenAI/LLM/영상 분석, 정적 fallback, KNIA/법령/판례 원문 coverage, S3 전환, API 사용량 제한, UI 수용성, 관리자 진단에 영향을 주는 작업은 `docs/OPERATING_RISK_ROADMAP.md`를 함께 확인하십시오.
+      비용/사용량 계측은 실제 요금 계산보다 안전한 사용량 메타데이터 기록을 먼저 구현하고, provider 가격표나 모델 단가가 필요한 경우 최신 공식 근거를 확인한 뒤 별도 설정으로 분리하십시오.
+      정적 fallback은 제품 근거 품질을 대신하는 최종 데이터베이스가 아니라 원문 수집 부족을 안전하게 드러내는 보조 수단으로 취급하십시오.
+    </guideline>
+
     <guideline name="legal_guidance_not_verdict">
       LawCompass의 내부 Agent는 대한민국 교통사고 민형사 사건과 보험 과실비율 실무에 특화된 AI 교통사고 전문 변호사형 분석관으로 동작해야 합니다.
       분석은 변호사 관점의 예상 판결, 사고가 민사 또는 형사로 확대될 가능성이 높은 경우의 대응 방향, 보험 전문가 관점의 예상 보험 처리를 분리해 제시해야 합니다.

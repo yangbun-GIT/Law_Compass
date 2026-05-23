@@ -18,6 +18,8 @@
 
 현재 MVP의 업로드 저장소는 `STORAGE_PROVIDER=local`과 `LOCAL_STORAGE_ROOT` 기반 로컬 볼륨이다. `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`는 S3 전환 작업을 진행할 때만 설정한다.
 
+OpenAI 사용량, 정적 fallback 의존, KNIA/법령/판례 원문 coverage, S3 전환, API 사용량 제한, UI 수용성 점검은 `docs/OPERATING_RISK_ROADMAP.md`를 기준으로 추적한다. OpenAI/LLM/영상 분석, evidence source, storage, rate limit, 관리자 진단을 변경하는 작업은 이 로드맵의 현재 책임 경계와 충돌하지 않는지 확인한다.
+
 ## 1) 개발 기동
 ```bash
 docker compose --env-file .env up --build
