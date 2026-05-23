@@ -120,6 +120,76 @@ def test_basis_summary_drops_unrelated_extra_basis_for_signal_cases():
     assert "Lane change legal duty guide" not in basis_titles
 
 
+def test_basis_summary_keeps_crosswalk_front_stop_rear_end_basis():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "rear_end_collision", "accident_party_label": "crosswalk rear-end"},
+        facts={"crosswalk_nearby": True, "front_vehicle_stopped": True},
+        legal_analysis={"legal_issue_summary": "rear-end crash after front vehicle stopped before crosswalk"},
+        fault_ratio={"my": 95, "other": 5, "key_factors": ["front vehicle stop reason", "crosswalk", "pedestrian signal"]},
+        legal_liability={"criminal_risk_level": "low"},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "knia_reference",
+                "title": "Rear-end default safe distance guide",
+                "related_reason": "rear-end safe distance and stopped vehicle reference.",
+            },
+            {
+                "source_type": "knia_reference",
+                "title": "Crosswalk front vehicle stop reason and rear-end fault guide",
+                "related_reason": "front vehicle stop reason, crosswalk, pedestrian signal, safe distance, and rear-end collision are directly relevant.",
+            },
+            {
+                "source_type": "legal_reference",
+                "title": "Crosswalk pedestrian signal duty guide",
+                "related_reason": "crosswalk, pedestrian signal, and front vehicle stop reason should be checked.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
+    assert "Crosswalk front vehicle stop reason and rear-end fault guide" in basis_titles
+
+
+def test_basis_summary_keeps_non_contact_bicycle_trigger_basis():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "bicycle_collision", "accident_party_label": "bicycle trigger rear-end"},
+        facts={"bicycle_involved": True, "possible_trigger_vehicle": "bicycle", "time_gap_sec": 4},
+        legal_analysis={"legal_issue_summary": "non-contact bicycle trigger followed by rear-end bus collision"},
+        fault_ratio={"my": 20, "other": 80, "key_factors": ["non-contact bicycle trigger", "time gap", "sudden braking"]},
+        legal_liability={"criminal_risk_level": "low"},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "knia_reference",
+                "title": "후미추돌 과실비율 참고 기준",
+                "related_reason": "rear-end safe distance reference.",
+            },
+            {
+                "source_type": "knia_reference",
+                "title": "Non-contact bicycle trigger and rear-end response guide",
+                "related_reason": "non-contact bicycle trigger, rear-end bus collision, sudden braking, and time gap are directly relevant.",
+            },
+            {
+                "source_type": "legal_reference",
+                "title": "자전거 사고 주의의무 확인",
+                "related_reason": "bicycle crash duty reference.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
+    assert "Non-contact bicycle trigger and rear-end response guide" in basis_titles
+
+
 def test_static_fallback_retrieves_legal_references_for_complex_reference_cases():
     centerline_chunks = retrieve_static_legal_chunks(
         "centerline obstacle avoidance oncoming vehicle collision parked vehicle",

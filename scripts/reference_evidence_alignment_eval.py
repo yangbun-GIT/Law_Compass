@@ -47,8 +47,8 @@ CONTENT_RULES: dict[str, list[list[str]]] = {
         ["safe distance", "안전거리", "stopped", "정차", "감속"],
     ],
     "front_vehicle_stop_reason": [
-        ["front vehicle", "앞차", "선행"],
-        ["stop reason", "정차 사유", "급정거", "정지"],
+        ["front vehicle", "truck", "stopped", "vehicle stops", "brakes", "rear-end bus", "rear-end", "앞차", "정지"],
+        ["stop reason", "sudden braking", "time gap", "trigger", "bicycle", "정지 사유", "급정거", "유발"],
     ],
     "unlit_stopped_vehicle_visibility": [
         ["unlit", "stealth", "무등", "스텔스"],
@@ -95,7 +95,9 @@ def safe_name(value: str) -> str:
     return "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in value.strip()) or "sample"
 
 
-def sample_output_path(sample_dir: Path, sample_name: str) -> Path | None:
+def sample_output_path(sample_dir: Path | None, sample_name: str) -> Path | None:
+    if sample_dir is None:
+        return None
     direct = sample_dir / f"{safe_name(sample_name)}.json"
     if direct.exists():
         return direct
@@ -103,7 +105,7 @@ def sample_output_path(sample_dir: Path, sample_name: str) -> Path | None:
     return matches[0] if matches else None
 
 
-def load_sample_payload(sample_dir: Path, sample_name: str) -> tuple[dict[str, Any], str | None]:
+def load_sample_payload(sample_dir: Path | None, sample_name: str) -> tuple[dict[str, Any], str | None]:
     path = sample_output_path(sample_dir, sample_name)
     if path is None:
         return {}, None
@@ -111,10 +113,25 @@ def load_sample_payload(sample_dir: Path, sample_name: str) -> tuple[dict[str, A
     return data if isinstance(data, dict) else {}, str(path)
 
 
+def load_batch_payloads(path: Path | None) -> dict[str, dict[str, Any]]:
+    if path is None:
+        return {}
+    data = load_json(path)
+    samples = data.get("samples") if isinstance(data, dict) else []
+    return {
+        str(sample.get("name") or ""): sample
+        for sample in samples
+        if isinstance(sample, dict) and sample.get("name")
+    }
+
+
 def card_from_payload(stage5_sample: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
     card = payload.get("expert_guidance_card") if isinstance(payload.get("expert_guidance_card"), dict) else {}
     if card:
         return card
+    batch_card = payload.get("expert_guidance") if isinstance(payload.get("expert_guidance"), dict) else {}
+    if batch_card:
+        return batch_card
     fallback = stage5_sample.get("expert_guidance")
     return fallback if isinstance(fallback, dict) else {}
 
@@ -278,8 +295,12 @@ def evaluate_focus(row: dict[str, Any], card_eval: dict[str, Any]) -> dict[str, 
     }
 
 
-def evaluate_sample(stage5_sample: dict[str, Any], sample_dir: Path) -> dict[str, Any]:
+def evaluate_sample(stage5_sample: dict[str, Any], sample_dir: Path | None, batch_sample: dict[str, Any] | None = None) -> dict[str, Any]:
     payload, output_json = load_sample_payload(sample_dir, str(stage5_sample.get("name") or ""))
+    source_batch_output = False
+    if not payload and batch_sample:
+        payload = batch_sample
+        source_batch_output = True
     card_eval = evaluate_card(card_from_payload(stage5_sample, payload))
     focus_rows = [
         evaluate_focus(row, card_eval)
@@ -305,7 +326,12 @@ def evaluate_sample(stage5_sample: dict[str, Any], sample_dir: Path) -> dict[str
         "name": stage5_sample.get("name"),
         "case_title": stage5_sample.get("case_title"),
         "source_output_json": output_json,
+        "source_batch_output": source_batch_output,
         "reference_guidance_readiness": stage5_sample.get("guidance_readiness"),
+        "conflict_followup_resolved": bool(stage5_sample.get("conflict_followup_resolved")),
+        "conflict_followup": stage5_sample.get("conflict_followup")
+        if isinstance(stage5_sample.get("conflict_followup"), dict)
+        else {"present": False},
         "alignment_readiness": readiness,
         "card_evaluation": card_eval,
         "focus_alignment": focus_rows,
@@ -356,6 +382,7 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
     focus_counts = Counter(row["status"] for sample in samples for row in sample["focus_alignment"])
     detail_gap_count = sum(1 for sample in samples if not sample["card_evaluation"].get("detail_available"))
     extra_basis_count = sum(int((sample.get("extra_basis_review") or {}).get("extra_basis_count") or 0) for sample in samples)
+    resolved_conflict_count = sum(1 for sample in samples if sample.get("conflict_followup_resolved"))
     return {
         "reference_evidence_alignment_eval": "completed",
         "sample_count": len(samples),
@@ -363,6 +390,7 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "focus_status_counts": dict(sorted(focus_counts.items())),
         "detail_capture_gap_count": detail_gap_count,
         "extra_basis_review_count": extra_basis_count,
+        "resolved_conflict_sample_count": resolved_conflict_count,
         "ready_for_manual_reference_evidence_review_count": readiness_counts.get(
             "ready_for_manual_reference_evidence_review",
             0,
@@ -394,13 +422,17 @@ def main() -> int:
         description="Evaluate whether expert guidance evidence is aligned with lawyer-reference focus items.",
     )
     parser.add_argument("--reference-eval", required=True, help="reference_guidance_eval_stage5.json")
-    parser.add_argument("--sample-dir", required=True, help="Directory containing video_agent_e2e sample JSON outputs.")
+    parser.add_argument("--sample-dir", help="Directory containing video_agent_e2e sample JSON outputs.")
+    parser.add_argument("--batch-output", help="Optional video_accuracy_batch aggregate.json used when sample JSON files are unavailable.")
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
     parser.add_argument("--include-not-ready", action="store_true", help="Also evaluate samples blocked by the reference gate.")
     args = parser.parse_args()
 
     reference_eval_path = Path(args.reference_eval).expanduser().resolve()
-    sample_dir = Path(args.sample_dir).expanduser().resolve()
+    sample_dir = Path(args.sample_dir).expanduser().resolve() if args.sample_dir else None
+    batch_payloads = load_batch_payloads(Path(args.batch_output).expanduser().resolve() if args.batch_output else None)
+    if sample_dir is None and not batch_payloads:
+        raise EvidenceAlignmentError("Either --sample-dir or --batch-output is required")
     data = load_json(reference_eval_path)
     samples = data.get("samples") if isinstance(data.get("samples"), list) else []
     if not samples:
@@ -410,7 +442,11 @@ def main() -> int:
         for sample in samples
         if args.include_not_ready or sample.get("guidance_readiness") == READY_STATUS
     ]
-    evaluated = [evaluate_sample(sample, sample_dir) for sample in selected if isinstance(sample, dict)]
+    evaluated = [
+        evaluate_sample(sample, sample_dir, batch_payloads.get(str(sample.get("name") or "")))
+        for sample in selected
+        if isinstance(sample, dict)
+    ]
     summary = aggregate(evaluated)
     output_path = Path(args.output).expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -259,6 +259,21 @@ Stage 7 재생성 결과 사고 1, 2, 4 모두 `video_accuracy_batch` 통과, `r
 
 검증은 `python -m py_compile scripts/reference_guidance_eval.py`와 `logs/video_accuracy/stage10_eval_fixture/` 아래 synthetic batch를 이용한 `reference_guidance_eval.py` 실행으로 통과했다. 후속 확인이 없는 충돌 샘플은 기존처럼 `needs_conflict_resolution_before_guidance`로 남고, `conflict_followup.latest_conflict_count=0`인 샘플은 `conflict_resolved_ready_for_evidence_review` 및 `ready_for_legal_knia_insurance_evidence_eval`로 이동하는 것을 확인했다. 이번 단계는 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
 
+### 2026-05-23 정확도 고도화 11단계 완료
+
+10단계에서 충돌 해소로 승격된 샘플이 근거 정합성 평가와 사용자 흐름 캘리브레이션까지 이어지도록 평가 도구와 Agent 근거 선택을 보강했다. 기존 `reference_evidence_alignment_eval.py`는 샘플별 E2E JSON 디렉터리만 상세 카드 입력으로 사용할 수 있어, `video_accuracy_batch.py`의 aggregate에 상세 `expert_guidance`가 있어도 사고 3·5 같은 승격 샘플을 바로 평가하기 어려웠다. 또한 `reference_guidance_calibration_eval.py`는 reference gate를 보지 않아 충돌 미해소 샘플도 과실 범위 튜닝 대상으로 섞일 수 있었다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `scripts/reference_evidence_alignment_eval.py` | `--batch-output` 입력을 추가해 batch aggregate의 상세 `expert_guidance`로 근거 정합성을 평가할 수 있게 했다. 평가 출력에 `conflict_followup_resolved`, `conflict_followup`, `resolved_conflict_sample_count`를 포함한다. `front_vehicle_stop_reason` content rule은 사고 5처럼 자전거 유발·후방 버스 추돌·시간적 여유가 정지 사유와 함께 판단되는 경우를 반영하도록 보강했다. |
+| `scripts/reference_guidance_calibration_eval.py` | `--reference-eval` readiness gate를 추가했다. `ready_for_legal_knia_insurance_evidence_eval`이 아닌 샘플은 `blocked_by_reference_gate`로 분류하고, 사고 3·5 캘리브레이션 규칙을 추가했다. |
+| `apps/agent/app/services/static_legal_fallback.py` | 횡단보도 앞 앞차 정지 후 후방 추돌 사고용 `Crosswalk front vehicle stop reason and rear-end fault guide` fallback 근거를 추가했다. |
+| `apps/agent/app/services/expert_guidance_sections.py` | 근거 선택 컨텍스트에 횡단보도/보행자 신호/앞차 정지 사유와 자전거 비접촉 유발/시간적 여유/후방 버스 추돌 쟁점을 명시적으로 반영한다. |
+| `apps/agent/tests/test_expert_guidance_sections.py` | 사고 3·5 유형에서 횡단보도 앞 정지 근거와 자전거 비접촉 유발 근거가 basis에 유지되는지 회귀 테스트를 추가했다. |
+| `docs/OPERATIONS.md` | `reference_evidence_alignment_eval.py --batch-output`와 `reference_guidance_calibration_eval.py --reference-eval` 사용 기준을 문서화했다. |
+
+검증은 `python -m py_compile ...`, `python -m pytest tests/test_expert_guidance_sections.py -q`, `docker compose up -d --build agent gateway`, OpenAI 프레임 분석 비활성 상태의 `python scripts/video_accuracy_batch.py --manifest logs/video_accuracy/lawyer_reference_manifest_stage8_no_frame_required.json --output-dir logs/video_accuracy/stage11_guidance_capture --timeout-sec 180`, `python scripts/reference_evidence_alignment_eval.py --reference-eval logs/video_accuracy/stage10_eval_fixture/reference_guidance_eval_stage11_resolved_3_5.json --batch-output logs/video_accuracy/stage11_guidance_capture/aggregate.json --output logs/video_accuracy/reference_evidence_alignment_stage11.json`, `python scripts/reference_guidance_calibration_eval.py --manifest logs/video_accuracy/lawyer_reference_manifest.json --batch-output logs/video_accuracy/stage11_guidance_capture/aggregate.json --reference-eval logs/video_accuracy/stage10_eval_fixture/reference_guidance_eval_stage11_resolved_3_5.json --output logs/video_accuracy/reference_guidance_calibration_eval_stage11.json`로 통과했다. 결과는 5개 샘플 모두 `ready_for_stage8_guidance_calibration`, resolved conflict sample 2개, calibration 5개 통과다. 실제 미해소 reference 결과를 gate로 넘기면 사고 3·5는 `blocked_by_reference_gate`로 남는 것도 확인했다. 이번 단계는 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
+
 ### 2026-05-23 정확도 고도화 9단계 완료
 
 영상 관찰값과 사용자 입력이 충돌한 뒤 사용자가 보완 질문에 답하는 재분석 흐름을 보강했다. 기존 `/api/v1/cases/:caseId/reanalyze`는 보완 답변을 Agent text 분석으로만 넘겨 최신 업로드의 영상 메타데이터를 다시 전달하지 않았기 때문에, 재분석 이후 `fact_arbitration`에서 같은 영상 근거와 사용자 답변을 다시 대조하기 어려웠다. 이제 Gateway가 최신 업로드의 `metadata`, `file_name`, `status`, `preprocess_summary`를 재분석 요청에 포함하고, Agent의 text 분석 DTO도 `video_metadata`를 받을 수 있다.

@@ -246,6 +246,15 @@ python scripts/reference_evidence_alignment_eval.py \
   --output logs/video_accuracy/reference_evidence_alignment_stage7.json
 ```
 
+샘플별 E2E JSON 디렉터리가 없고 `video_accuracy_batch.py`의 `aggregate.json`에 상세 `expert_guidance`가 들어 있다면 `--batch-output`만으로도 평가할 수 있습니다. 충돌 보완 후 ready로 승격된 샘플을 포함하려면 Stage 10 이후의 `reference_guidance_eval` 결과를 넘깁니다.
+
+```bash
+python scripts/reference_evidence_alignment_eval.py \
+  --reference-eval logs/video_accuracy/reference_guidance_eval_stage11.json \
+  --batch-output logs/video_accuracy/stage11_guidance_capture/aggregate.json \
+  --output logs/video_accuracy/reference_evidence_alignment_stage11.json
+```
+
 `ready_for_stage8_guidance_calibration`은 법률/KNIA/보험 family와 근거 제목·본문 요약이 모두 전문가 쟁점에 맞아 다음 안내 문구/과실 범위 캘리브레이션으로 넘어갈 수 있음을 뜻합니다. `needs_evidence_family_retrieval`은 Agent 검색어 또는 fallback 근거를 보강해야 함을 뜻하고, `needs_evidence_content_fit`은 family는 있으나 근거 제목 또는 reason이 쟁점 내용과 맞지 않음을 뜻합니다. 이 스크립트는 `logs/` 아래 결과를 읽고 쓰므로 실제 영상 경로와 측정 결과가 Git에 포함되지 않습니다.
 
 전문가 안내 카드의 과실 참고 범위와 사용자 보완 질문 우선순위가 실제 사용자 흐름에 맞는지 보려면 `reference_guidance_calibration_eval.py`를 실행합니다. 이 평가는 근거가 이미 맞는 샘플을 대상으로, `expert_guidance_card.fault_range_label`이 reference band와 겹치는지, 근거 제목/사유가 쟁점 키워드를 유지하는지, 신호 전환처럼 결론을 바꾸는 질문이 인명피해/파손 같은 후속 처리 질문보다 먼저 노출되는지 확인합니다.
@@ -254,10 +263,11 @@ python scripts/reference_evidence_alignment_eval.py \
 python scripts/reference_guidance_calibration_eval.py \
   --manifest logs/video_accuracy/lawyer_reference_manifest.json \
   --batch-output logs/video_accuracy/stage8_guidance_calibration_capture/aggregate.json \
+  --reference-eval logs/video_accuracy/reference_guidance_eval_stage11.json \
   --output logs/video_accuracy/reference_guidance_calibration_eval_stage8.json
 ```
 
-`calibrated_for_user_flow`는 과실 범위, 근거 문맥, 추가 확인 항목, 첫 보완 질문이 현재 reference 기준에서 사용자 흐름에 맞다는 뜻입니다. `needs_user_flow_calibration`이 나오면 숫자 튜닝보다 먼저 결과 화면 질문 순서와 Agent 입력 계약을 확인합니다. OpenAI 프레임 분석을 끈 상태에서 표시 계약만 확인하려면 로컬 검증 manifest에서 `require_frame_observations`를 끄고 배치를 실행할 수 있지만, 이 검증용 manifest와 결과는 반드시 `logs/` 아래에 두어 Git에 포함하지 않습니다.
+`--reference-eval`을 함께 넘기면 `ready_for_legal_knia_insurance_evidence_eval`이 아닌 샘플은 `blocked_by_reference_gate`로 남깁니다. 따라서 사고 3·5처럼 영상-사용자 충돌이 있었던 샘플은 확인 질문으로 충돌을 해소한 reference 평가 결과가 있어야 과실 범위/문구 캘리브레이션 대상이 됩니다. `calibrated_for_user_flow`는 과실 범위, 근거 문맥, 추가 확인 항목, 첫 보완 질문이 현재 reference 기준에서 사용자 흐름에 맞다는 뜻입니다. `needs_user_flow_calibration`이 나오면 숫자 튜닝보다 먼저 결과 화면 질문 순서와 Agent 입력 계약을 확인합니다. OpenAI 프레임 분석을 끈 상태에서 표시 계약만 확인하려면 로컬 검증 manifest에서 `require_frame_observations`를 끄고 배치를 실행할 수 있지만, 이 검증용 manifest와 결과는 반드시 `logs/` 아래에 두어 Git에 포함하지 않습니다.
 
 ## 3-3) 관리자용 Agent trace 진단
 일반 결과 화면에는 raw `agent_trace`와 `reflection_loop`를 노출하지 않습니다. 내부 점검이 필요할 때는 관리자 계정 또는 `x-admin-token`이 있는 로그인 세션으로 아래 API를 호출해 안전한 메타데이터 요약만 확인합니다.

@@ -8,6 +8,7 @@ from typing import Any
 
 
 DEFAULT_OUTPUT = "logs/video_accuracy/reference_guidance_calibration_eval.json"
+READY_STATUS = "ready_for_legal_knia_insurance_evidence_eval"
 
 
 CALIBRATION_RULES: dict[str, dict[str, Any]] = {
@@ -24,11 +25,20 @@ CALIBRATION_RULES: dict[str, dict[str, Any]] = {
         "required_missing_terms": ("신호", "상대"),
         "preferred_next_focus_terms": ("신호", "상대"),
     },
+    "accident_3_right_turn_crosswalk_rear_end": {
+        "expected_my_range": (90, 100),
+        "expected_other_range": (0, 10),
+    },
     "accident_4_stealth_stopped_vehicle_fatal": {
         "expected_my_range": (30, 50),
         "expected_other_range": (50, 70),
         "required_basis_terms": ("unlit", "speed", "avoidability", "criminal", "civil"),
         "required_limit_terms": ("확정", "참고", "바꿀 수"),
+    },
+    "accident_5_bicycle_trigger_truck_stopped_bus_rear_end": {
+        "expected_my_range": (10, 30),
+        "expected_other_range": (70, 90),
+        "required_basis_terms": ("bicycle", "rear", "time gap"),
     },
 }
 
@@ -50,6 +60,7 @@ def load_json(path: Path) -> Any:
 def load_manifest(path: Path) -> dict[str, dict[str, Any]]:
     data = load_json(path)
     samples = data.get("samples") if isinstance(data, dict) else []
+
     return {
         str(sample.get("name") or ""): sample
         for sample in samples
@@ -58,6 +69,18 @@ def load_manifest(path: Path) -> dict[str, dict[str, Any]]:
 
 
 def load_batch_samples(path: Path) -> dict[str, dict[str, Any]]:
+    data = load_json(path)
+    samples = data.get("samples") if isinstance(data, dict) else []
+    return {
+        str(sample.get("name") or ""): sample
+        for sample in samples
+        if isinstance(sample, dict) and sample.get("name")
+    }
+
+
+def load_reference_samples(path: Path | None) -> dict[str, dict[str, Any]]:
+    if path is None:
+        return {}
     data = load_json(path)
     samples = data.get("samples") if isinstance(data, dict) else []
     return {
@@ -98,7 +121,12 @@ def term_ready(blob: str, terms: tuple[str, ...]) -> tuple[bool, list[str]]:
     return not missing, missing
 
 
-def evaluate_sample(name: str, manifest_sample: dict[str, Any], batch_sample: dict[str, Any]) -> dict[str, Any]:
+def evaluate_sample(
+    name: str,
+    manifest_sample: dict[str, Any],
+    batch_sample: dict[str, Any],
+    reference_sample: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     rule = CALIBRATION_RULES.get(name, {})
     expert = batch_sample.get("expert_guidance") if isinstance(batch_sample.get("expert_guidance"), dict) else {}
     priority = batch_sample.get("missing_info_priority") if isinstance(batch_sample.get("missing_info_priority"), dict) else {}
@@ -107,6 +135,33 @@ def evaluate_sample(name: str, manifest_sample: dict[str, Any], batch_sample: di
     actual_ranges = range_from_label(label)
 
     checks: list[dict[str, Any]] = []
+    reference_readiness = reference_sample.get("guidance_readiness") if isinstance(reference_sample, dict) else None
+    if reference_sample and reference_readiness != READY_STATUS:
+        failed = [{
+            "id": "reference_guidance_ready",
+            "passed": False,
+            "actual": reference_readiness,
+            "expected": READY_STATUS,
+        }]
+        return {
+            "name": name,
+            "pipeline_status": batch_sample.get("status") or "missing",
+            "expected_guidance_range": expected_reference,
+            "fault_range_label": label,
+            "missing_info_top_label": priority.get("top_label"),
+            "reference_guidance_readiness": reference_readiness,
+            "conflict_followup_resolved": bool(reference_sample.get("conflict_followup_resolved")),
+            "calibration_status": "blocked_by_reference_gate",
+            "checks": failed,
+            "failed_checks": failed,
+        }
+    if reference_sample:
+        checks.append({
+            "id": "reference_guidance_ready",
+            "passed": True,
+            "actual": reference_readiness,
+            "expected": READY_STATUS,
+        })
     if rule.get("expected_my_range"):
         checks.append({
             "id": "my_fault_range_overlaps_reference_band",
@@ -164,6 +219,8 @@ def evaluate_sample(name: str, manifest_sample: dict[str, Any], batch_sample: di
         "expected_guidance_range": expected_reference,
         "fault_range_label": label,
         "missing_info_top_label": priority.get("top_label"),
+        "reference_guidance_readiness": reference_readiness,
+        "conflict_followup_resolved": bool(reference_sample.get("conflict_followup_resolved")) if reference_sample else False,
         "calibration_status": "calibrated_for_user_flow" if not failed else "needs_user_flow_calibration",
         "checks": checks,
         "failed_checks": failed,
@@ -186,6 +243,8 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
         recommendations.append("근거 제목과 reason이 쟁점 키워드를 담지 못한 경우 검색어 또는 static fallback evidence를 보강한다.")
     if failed_ids.get("missing_items_prompt_reference_decisive_facts"):
         recommendations.append("전문가 카드의 추가 확인 항목이 reference 쟁점과 어긋나면 input_requirements와 expert_guidance missing_facts를 함께 점검한다.")
+    if status_counts.get("blocked_by_reference_gate"):
+        recommendations.append("Reference gate에서 막힌 샘플은 충돌/누락 사실을 먼저 해소한 뒤 과실 범위 또는 문구 캘리브레이션에 포함한다.")
 
     return {
         "reference_guidance_calibration_eval": "completed",
@@ -203,6 +262,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Evaluate user-facing guidance calibration against lawyer-reference samples.")
     parser.add_argument("--manifest", required=True, help="JSON manifest with samples and reference evaluation metadata.")
     parser.add_argument("--batch-output", required=True, help="video_accuracy_batch aggregate.json.")
+    parser.add_argument("--reference-eval", help="Optional reference_guidance_eval output used as a readiness gate.")
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
@@ -210,9 +270,15 @@ def main() -> int:
     batch_path = Path(args.batch_output).expanduser().resolve()
     manifest = load_manifest(manifest_path)
     batch_samples = load_batch_samples(batch_path)
+    reference_samples = load_reference_samples(Path(args.reference_eval).expanduser().resolve() if args.reference_eval else None)
 
     evaluated = [
-        evaluate_sample(name, sample, batch_samples.get(name, {"name": name, "status": "missing"}))
+        evaluate_sample(
+            name,
+            sample,
+            batch_samples.get(name, {"name": name, "status": "missing"}),
+            reference_samples.get(name),
+        )
         for name, sample in manifest.items()
         if name in CALIBRATION_RULES
     ]

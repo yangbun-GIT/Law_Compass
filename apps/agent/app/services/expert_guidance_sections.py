@@ -243,6 +243,12 @@ def _guidance_context_text(
     if scenario_type == "parking_or_stopped_vehicle_accident":
         parts.extend(["stopped vehicle", "정차"])
     fact_text = " ".join(_flatten_values(facts)).lower()
+    if facts.get("crosswalk_nearby") is True or "crosswalk" in fact_text:
+        parts.extend(["crosswalk", "pedestrian", "pedestrian signal", "front vehicle", "stop reason"])
+    if facts.get("front_vehicle_stopped") is True or "front_vehicle_stopped" in fact_text:
+        parts.extend(["front vehicle", "stop reason", "sudden braking", "safe distance"])
+    if facts.get("bicycle_involved") is True or facts.get("possible_trigger_vehicle") == "bicycle" or "bicycle" in fact_text:
+        parts.extend(["bicycle", "non-contact", "trigger", "time gap", "rear-end bus", "sudden braking"])
     if (
         facts.get("stopped_vehicle_without_lights") is True
         or "without_lights" in fact_text
@@ -291,6 +297,8 @@ def _topic_groups() -> tuple[tuple[str, ...], ...]:
         ("lane change", "차로변경", "진로변경", "끼어들기", "merge"),
         ("rear", "후방", "뒤차", "추돌", "safe distance", "안전거리"),
         ("stopped", "정차", "정지", "감속"),
+        ("crosswalk", "pedestrian", "pedestrian signal", "횡단보도", "보행자", "보행자 신호"),
+        ("front vehicle", "stop reason", "sudden braking", "앞차", "정지 사유", "급정거"),
         ("centerline", "중앙선", "obstacle", "장애", "parked vehicle", "주차"),
         ("oncoming", "마주", "대향", "avoidability", "avoid", "회피"),
         ("unlit", "무등", "stealth", "스텔스", "visibility", "시인", "night", "야간"),
