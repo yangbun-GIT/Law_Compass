@@ -17,6 +17,8 @@
 
 후속 고도화는 “프로젝트 구조 보강”이 아니라 실제 정확도 개선 단계로 분류한다. 남은 대표 항목은 교통사고 특화 비전 모델 후보 조사, 실제 사고 영상 데이터셋 기반 threshold 튜닝, S3 직접 업로드 전환, OpenAI 사용량/비용 대시보드, 더 많은 실제 영상 회귀 샘플 확보다.
 
+아래 정확도 고도화 1~12단계 기록은 영상/Agent 판단 구조와 평가 절차를 만든 기준선이다. 즉, 현재까지의 완료 의미는 “실제 제품 정확도 보장”이 아니라 “실제 OpenAI ON 재측정, reference 확장, KNIA/법령/판례 원문 데이터 확장을 안전하게 반복할 수 있는 평가 골격 완료”다.
+
 ## 2026-05-23 영상 정확도 고도화 1차
 
 영상 프레임 분석 정확도를 높이기 위해 Worker가 OpenAI 프레임 분석을 호출할 때 케이스의 구조화 입력 중 시각적으로 검토 가능한 항목만 `visual_focus`로 전달한다. 이 값은 사고 유형, 정차 여부, 차선 변경 여부, 교차로/신호 상태, 상대 차량 행동처럼 사용자가 비교적 안정적으로 입력하는 항목에 한정한다. 프롬프트에는 이 컨텍스트가 “검토 초점”일 뿐이며, 프레임에서 확인되지 않으면 관찰값으로 복사하지 말라는 제한을 추가했다.
@@ -234,6 +236,41 @@ Stage 7 재생성 결과 사고 1, 2, 4 모두 `video_accuracy_batch` 통과, `r
 
 검증은 `python -m py_compile apps\agent\app\services\expert_guidance_sections.py scripts\reference_evidence_alignment_eval.py`, `python -m pytest tests\test_expert_guidance_sections.py -q`, `docker compose up -d --build agent`, `docker compose exec -T agent python -m compileall app scripts`, `python scripts\video_accuracy_batch.py --manifest logs\video_accuracy\stage6_ready_manifest.json --output-dir logs\video_accuracy\stage7_evidence_content_capture --timeout-sec 300`, `python scripts\reference_evidence_alignment_eval.py --reference-eval logs\video_accuracy\reference_guidance_eval_stage5.json --sample-dir logs\video_accuracy\stage7_evidence_content_capture --output logs\video_accuracy\reference_evidence_alignment_stage7.json`로 통과했다. 이번 단계는 OpenAI 프레임 분석을 새로 켜지 않았고, DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
 
+### 2026-05-23 정확도 고도화 8단계 완료
+
+근거가 맞는 상태에서 사용자에게 보이는 예상 과실 범위, 전문가 안내 문구, 보완 질문 우선순위를 실제 사용자 흐름 기준으로 캘리브레이션했다. 특히 신호 전환 사고는 설명 문장에 `황색/적색` 같은 단어가 포함되어 있어도 내 차량 신호와 상대 차량 신호가 각각 확인된 것으로 보지 않도록 조정했다. 또한 쉬운 리포트 변환 단계에서 `user_signal`, `opponent_signal` 같은 안전한 질문 field가 내부 토큰 정리 로직에 의해 지워지던 문제를 고쳤다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/input_requirements.py` | 교차로 신호 사고에서는 `user_signal`, `opponent_signal`, `opponent_signal_violation`을 자연어 키워드만으로 충족 처리하지 않고, 명시 fact 또는 보완 질문으로 확인한다. 양방향 신호 질문은 인명피해/파손 질문보다 먼저 나오도록 priority를 0으로 조정했다. |
+| `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | `missing_info.questions` 생성 시 안전한 field id는 원문을 보존하고, 사용자 표시 문구만 정제한다. 이로써 Gateway가 신호/자전거/횡단보도 질문을 안전하게 정렬할 수 있다. |
+| `apps/gateway/src/lib/report-composer.ts` | 보완 질문 우선순위를 실제 사고 흐름에 맞게 조정했다. 양방향 신호, 자전거 위치/방향, 횡단보도/보행자 신호는 판단 질문으로 우선 처리하고, 일반 `signal_state`는 인명피해보다 뒤로 둔다. |
+| `scripts/reference_guidance_calibration_eval.py` | 전문가 reference와 batch 결과를 대조해 과실 참고 범위 overlap, 근거 쟁점 키워드, 추가 확인 항목, 첫 보완 질문이 사용자 흐름에 맞는지 평가한다. |
+| `apps/agent/tests/test_input_requirements.py`, `apps/gateway/test/report-composer.test.ts` | 신호 전환 사고에서 양방향 신호 질문이 먼저 남는지, generic signal 질문이 불필요하게 최상단으로 올라오지 않는지 회귀 테스트를 추가했다. |
+| `docs/OPERATIONS.md` | Stage 8 캘리브레이션 평가 실행 방법과 `calibrated_for_user_flow`, `needs_user_flow_calibration` 상태 의미를 문서화했다. |
+
+Stage 8 로컬 검증 결과 5개 사고 샘플은 OpenAI 프레임 분석 비활성 상태의 표시 계약 배치에서 모두 통과했다. `reference_guidance_calibration_eval.py` 기준 사고 1, 2, 4는 모두 `calibrated_for_user_flow`로 통과했고, 실패 check는 0개다. 사고 2 신호 전환 샘플의 첫 보완 질문은 `내 차량 신호`로 조정되어, 인명피해 질문보다 결론을 좌우하는 신호 확인 질문이 먼저 표시된다. 사고 5 자전거 비접촉 유발 샘플도 첫 질문이 `자전거 위치`로 정렬된다.
+
+검증은 `docker compose exec -T agent python -m py_compile app/services/input_requirements.py app/services/elderly_friendly/plain_language_agent.py`, `npm test -- report-composer`, `npm run build`(Gateway), `docker compose up -d --build agent worker gateway`, `python scripts/video_accuracy_batch.py --manifest logs/video_accuracy/lawyer_reference_manifest_stage8_no_frame_required.json --output-dir logs/video_accuracy/stage8_guidance_calibration_capture --timeout-sec 180`, `python scripts/reference_guidance_calibration_eval.py --manifest logs/video_accuracy/lawyer_reference_manifest.json --batch-output logs/video_accuracy/stage8_guidance_calibration_capture/aggregate.json --output logs/video_accuracy/reference_guidance_calibration_eval_stage8.json`로 통과했다. OpenAI API를 새로 호출하지 않았고, 검증용 manifest와 batch 결과는 `logs/` 아래에만 저장된다. DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
+
+
+### 2026-05-23 정확도 고도화 9단계 완료
+
+영상 관찰값과 사용자 입력이 충돌한 뒤 사용자가 보완 질문에 답하는 재분석 흐름을 보강했다. 기존 `/api/v1/cases/:caseId/reanalyze`는 보완 답변을 Agent text 분석으로만 넘겨 최신 업로드의 영상 메타데이터를 다시 전달하지 않았기 때문에, 재분석 이후 `fact_arbitration`에서 같은 영상 근거와 사용자 답변을 다시 대조하기 어려웠다. 이제 Gateway가 최신 업로드의 `metadata`, `file_name`, `status`, `preprocess_summary`를 재분석 요청에 포함하고, Agent의 text 분석 DTO도 `video_metadata`를 받을 수 있다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/routes/analysis.ts` | `/reanalyze`에서 최신 업로드 영상 메타데이터를 Agent payload에 다시 포함한다. 명시 `video_metadata` payload가 있으면 테스트/운영 도구 입력을 우선한다. |
+| `apps/agent/app/schemas.py`, `apps/agent/app/routers/internal_routes/analysis.py`, `apps/agent/app/services/orchestrator.py` | `/internal/v1/analyze/text`도 `video_metadata`를 수신해 기존 `normalize_analysis_input`의 영상 입력 계약과 사실 중재 경로를 그대로 사용할 수 있게 했다. |
+| `apps/gateway/src/lib/followup-normalizer.ts` | 보완 답변 정규화가 한글 선택지뿐 아니라 E2E/진단 도구의 canonical 값(`true`, `false`, `rear_collision`, `opponent`, `red` 등)도 안전하게 facts로 변환한다. |
+| `scripts/video_agent_e2e.py` | `--exercise-conflict-followup` 옵션을 추가했다. 영상-사용자 충돌 질문을 찾아 영상값 기준 답변을 제출하고, 재분석 후 해당 충돌이 남지 않는지 확인한다. |
+| `scripts/video_accuracy_batch.py` | manifest의 `exercise_conflict_followup`을 E2E 옵션으로 연결하고, 샘플별 `conflict_followup`과 전체 `conflict_followup_summary`를 집계한다. |
+| `apps/gateway/test/followup-normalizer.test.ts`, `apps/gateway/test/analysis-routes.test.ts` | canonical 보완 답변 정규화와 재분석 영상 메타데이터 보존 helper를 검증한다. |
+| `docs/OPERATIONS.md` | 충돌 보완 질문 E2E 옵션과 배치 집계 해석 기준을 문서화했다. |
+
+검증은 `python -m py_compile scripts/video_agent_e2e.py scripts/video_accuracy_batch.py`, `python -m py_compile apps/agent/app/schemas.py apps/agent/app/routers/internal_routes/analysis.py apps/agent/app/services/orchestrator.py`, `npm test -- followup-normalizer analysis-routes`, `npm run build`(Gateway)로 통과했다. 이번 단계는 DB schema, Redis key, storage path, 외부 API, 환경변수 키를 변경하지 않는다. `/api/v1/cases/:caseId/reanalyze`의 내부 Agent payload에는 `video_metadata`가 추가되므로 영상 업로드가 있는 케이스의 재분석은 기존 영상 근거를 유지한다.
+
+
 ### 2026-05-23 정확도 고도화 7~9단계 통합 점검
 
 7~9단계를 10단계 진입 전 기준으로 다시 점검했다. 7단계의 근거 내용 적합성, 8단계의 사용자 질문 우선순위, 9단계의 충돌 보완 재분석 방향은 유지한다. 다만 9단계에서 `--exercise-conflict-followup` 옵션은 추가됐지만, 비용 없이 이 경로를 재현하는 deterministic fixture가 부족해 실제 OpenAI 호출 전 회귀 확인이 어려웠다.
@@ -289,39 +326,6 @@ Stage 7 재생성 결과 사고 1, 2, 4 모두 `video_accuracy_batch` 통과, `r
 검증은 `python -m py_compile scripts/reference_guidance_eval.py scripts/reference_evidence_alignment_eval.py scripts/reference_guidance_calibration_eval.py scripts/video_accuracy_batch.py scripts/video_agent_e2e.py`, `python -m pytest tests/test_expert_guidance_sections.py -q`, `npm test -- report-composer`, `npm run build`, `docker compose ps`, worker `ENABLE_OPENAI_FRAME_ANALYSIS=0` 확인으로 통과했다. 최종 평가 산출물은 `logs/video_accuracy/reference_evidence_alignment_stage12_final.json`, `logs/video_accuracy/reference_guidance_calibration_eval_stage12_final.json`, `logs/video_accuracy/reference_guidance_calibration_eval_stage12_gate_check.json`에 저장했다. `logs/`는 Git에서 제외되므로 실제 영상 경로와 평가 payload는 저장소에 포함되지 않는다.
 
 후속 작업은 프로젝트 구조 보강이 아니라 제품 완성 개발로 분류한다. 우선순위는 실제 OpenAI 프레임 분석 ON 상태에서 5개 이상 실제 영상 재측정, 더 많은 변호사/보험 reference 샘플 확보, KNIA/법령/판례 원문 데이터 확장, 비용 모니터링과 API 사용량 제한, S3 직접 업로드 전환, 사용자/관리자 UI 수용성 점검, 배포/보안 운영 점검 순서다. 이번 단계는 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
-
-### 2026-05-23 정확도 고도화 9단계 완료
-
-영상 관찰값과 사용자 입력이 충돌한 뒤 사용자가 보완 질문에 답하는 재분석 흐름을 보강했다. 기존 `/api/v1/cases/:caseId/reanalyze`는 보완 답변을 Agent text 분석으로만 넘겨 최신 업로드의 영상 메타데이터를 다시 전달하지 않았기 때문에, 재분석 이후 `fact_arbitration`에서 같은 영상 근거와 사용자 답변을 다시 대조하기 어려웠다. 이제 Gateway가 최신 업로드의 `metadata`, `file_name`, `status`, `preprocess_summary`를 재분석 요청에 포함하고, Agent의 text 분석 DTO도 `video_metadata`를 받을 수 있다.
-
-| Path | 변경 내용 |
-| --- | --- |
-| `apps/gateway/src/routes/analysis.ts` | `/reanalyze`에서 최신 업로드 영상 메타데이터를 Agent payload에 다시 포함한다. 명시 `video_metadata` payload가 있으면 테스트/운영 도구 입력을 우선한다. |
-| `apps/agent/app/schemas.py`, `apps/agent/app/routers/internal_routes/analysis.py`, `apps/agent/app/services/orchestrator.py` | `/internal/v1/analyze/text`도 `video_metadata`를 수신해 기존 `normalize_analysis_input`의 영상 입력 계약과 사실 중재 경로를 그대로 사용할 수 있게 했다. |
-| `apps/gateway/src/lib/followup-normalizer.ts` | 보완 답변 정규화가 한글 선택지뿐 아니라 E2E/진단 도구의 canonical 값(`true`, `false`, `rear_collision`, `opponent`, `red` 등)도 안전하게 facts로 변환한다. |
-| `scripts/video_agent_e2e.py` | `--exercise-conflict-followup` 옵션을 추가했다. 영상-사용자 충돌 질문을 찾아 영상값 기준 답변을 제출하고, 재분석 후 해당 충돌이 남지 않는지 확인한다. |
-| `scripts/video_accuracy_batch.py` | manifest의 `exercise_conflict_followup`을 E2E 옵션으로 연결하고, 샘플별 `conflict_followup`과 전체 `conflict_followup_summary`를 집계한다. |
-| `apps/gateway/test/followup-normalizer.test.ts`, `apps/gateway/test/analysis-routes.test.ts` | canonical 보완 답변 정규화와 재분석 영상 메타데이터 보존 helper를 검증한다. |
-| `docs/OPERATIONS.md` | 충돌 보완 질문 E2E 옵션과 배치 집계 해석 기준을 문서화했다. |
-
-검증은 `python -m py_compile scripts/video_agent_e2e.py scripts/video_accuracy_batch.py`, `python -m py_compile apps/agent/app/schemas.py apps/agent/app/routers/internal_routes/analysis.py apps/agent/app/services/orchestrator.py`, `npm test -- followup-normalizer analysis-routes`, `npm run build`(Gateway)로 통과했다. 이번 단계는 DB schema, Redis key, storage path, 외부 API, 환경변수 키를 변경하지 않는다. `/api/v1/cases/:caseId/reanalyze`의 내부 Agent payload에는 `video_metadata`가 추가되므로 영상 업로드가 있는 케이스의 재분석은 기존 영상 근거를 유지한다.
-
-### 2026-05-23 정확도 고도화 8단계 완료
-
-근거가 맞는 상태에서 사용자에게 보이는 예상 과실 범위, 전문가 안내 문구, 보완 질문 우선순위를 실제 사용자 흐름 기준으로 캘리브레이션했다. 특히 신호 전환 사고는 설명 문장에 `황색/적색` 같은 단어가 포함되어 있어도 내 차량 신호와 상대 차량 신호가 각각 확인된 것으로 보지 않도록 조정했다. 또한 쉬운 리포트 변환 단계에서 `user_signal`, `opponent_signal` 같은 안전한 질문 field가 내부 토큰 정리 로직에 의해 지워지던 문제를 고쳤다.
-
-| Path | 변경 내용 |
-| --- | --- |
-| `apps/agent/app/services/input_requirements.py` | 교차로 신호 사고에서는 `user_signal`, `opponent_signal`, `opponent_signal_violation`을 자연어 키워드만으로 충족 처리하지 않고, 명시 fact 또는 보완 질문으로 확인한다. 양방향 신호 질문은 인명피해/파손 질문보다 먼저 나오도록 priority를 0으로 조정했다. |
-| `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | `missing_info.questions` 생성 시 안전한 field id는 원문을 보존하고, 사용자 표시 문구만 정제한다. 이로써 Gateway가 신호/자전거/횡단보도 질문을 안전하게 정렬할 수 있다. |
-| `apps/gateway/src/lib/report-composer.ts` | 보완 질문 우선순위를 실제 사고 흐름에 맞게 조정했다. 양방향 신호, 자전거 위치/방향, 횡단보도/보행자 신호는 판단 질문으로 우선 처리하고, 일반 `signal_state`는 인명피해보다 뒤로 둔다. |
-| `scripts/reference_guidance_calibration_eval.py` | 전문가 reference와 batch 결과를 대조해 과실 참고 범위 overlap, 근거 쟁점 키워드, 추가 확인 항목, 첫 보완 질문이 사용자 흐름에 맞는지 평가한다. |
-| `apps/agent/tests/test_input_requirements.py`, `apps/gateway/test/report-composer.test.ts` | 신호 전환 사고에서 양방향 신호 질문이 먼저 남는지, generic signal 질문이 불필요하게 최상단으로 올라오지 않는지 회귀 테스트를 추가했다. |
-| `docs/OPERATIONS.md` | Stage 8 캘리브레이션 평가 실행 방법과 `calibrated_for_user_flow`, `needs_user_flow_calibration` 상태 의미를 문서화했다. |
-
-Stage 8 로컬 검증 결과 5개 사고 샘플은 OpenAI 프레임 분석 비활성 상태의 표시 계약 배치에서 모두 통과했다. `reference_guidance_calibration_eval.py` 기준 사고 1, 2, 4는 모두 `calibrated_for_user_flow`로 통과했고, 실패 check는 0개다. 사고 2 신호 전환 샘플의 첫 보완 질문은 `내 차량 신호`로 조정되어, 인명피해 질문보다 결론을 좌우하는 신호 확인 질문이 먼저 표시된다. 사고 5 자전거 비접촉 유발 샘플도 첫 질문이 `자전거 위치`로 정렬된다.
-
-검증은 `docker compose exec -T agent python -m py_compile app/services/input_requirements.py app/services/elderly_friendly/plain_language_agent.py`, `npm test -- report-composer`, `npm run build`(Gateway), `docker compose up -d --build agent worker gateway`, `python scripts/video_accuracy_batch.py --manifest logs/video_accuracy/lawyer_reference_manifest_stage8_no_frame_required.json --output-dir logs/video_accuracy/stage8_guidance_calibration_capture --timeout-sec 180`, `python scripts/reference_guidance_calibration_eval.py --manifest logs/video_accuracy/lawyer_reference_manifest.json --batch-output logs/video_accuracy/stage8_guidance_calibration_capture/aggregate.json --output logs/video_accuracy/reference_guidance_calibration_eval_stage8.json`로 통과했다. OpenAI API를 새로 호출하지 않았고, 검증용 manifest와 batch 결과는 `logs/` 아래에만 저장된다. DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
 
 ### 2026-05-23 전문가 참고 의견 안내 품질 평가 도구
 
