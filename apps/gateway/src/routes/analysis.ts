@@ -34,6 +34,26 @@ function easyReportQuestionCount(report: any) {
   return Array.isArray(questions) ? questions.length : 0;
 }
 
+type AnyRecord = Record<string, any>;
+
+function isNonEmptyRecord(value: any): value is AnyRecord {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length > 0;
+}
+
+export function buildReanalysisVideoMetadata(uploadRow: AnyRecord | null | undefined, bodyVideoMetadata?: AnyRecord | null) {
+  if (isNonEmptyRecord(bodyVideoMetadata)) return bodyVideoMetadata;
+  if (!uploadRow) return undefined;
+  const metadata = isNonEmptyRecord(uploadRow.metadata) ? uploadRow.metadata : {};
+  const hasUploadContext = Boolean(uploadRow.file_name || uploadRow.status || uploadRow.preprocess_summary || Object.keys(metadata).length);
+  if (!hasUploadContext) return undefined;
+  return {
+    upload_status: uploadRow.status ?? null,
+    file_name: uploadRow.file_name ?? null,
+    preprocess_summary: uploadRow.preprocess_summary ?? metadata.preprocess_summary ?? null,
+    metadata,
+  };
+}
+
 async function buildReportContext(opts: AnalysisRouteOptions, caseId: string, ownerId: string, resultRow: any) {
   const caseRes = await opts.db.query(`SELECT * FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`, [caseId, ownerId]);
   const uploadRes = await opts.db.query(
@@ -284,6 +304,14 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     const descriptionText = maskSensitive(body?.description_text ?? currentCase.description_text ?? "");
     const selectedKeywords = body?.selected_keywords ?? currentCase.selected_keywords ?? [];
     const analysisMode = body?.analysis_mode ?? currentCase.analysis_mode ?? "quick_summary";
+    const latestUpload = await opts.db.query(
+      `SELECT metadata,file_name,status,preprocess_summary
+       FROM uploads
+       WHERE case_id=$1 AND owner_user_id=$2 AND deleted_at IS NULL
+       ORDER BY updated_at DESC LIMIT 1`,
+      [caseId, (req as any).user.id]
+    );
+    const videoMetadata = buildReanalysisVideoMetadata(latestUpload.rows[0], body?.video_metadata ?? body?.videoMetadata);
 
     await opts.db.query(
       `UPDATE cases
@@ -304,6 +332,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
         description_text: descriptionText,
         structured_facts: structuredFacts,
         selected_keywords: selectedKeywords,
+        video_metadata: videoMetadata,
         analysis_mode: analysisMode,
         ai_profile: body?.ai_profile,
         specialist_roles: body?.specialist_roles

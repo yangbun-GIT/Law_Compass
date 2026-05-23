@@ -53,4 +53,34 @@ describe("followup normalizer", () => {
     expect(result.patch.opponent_signal_violation).toBe(true);
     expect(result.patch._followup_answered_fields).toEqual(["opponent_behavior", "opponent_signal_violation"]);
   });
+
+  it("accepts canonical conflict-resolution values from diagnostics and E2E checks", () => {
+    const result = normalizeFollowupAnswers(
+      {
+        stopped: false,
+        opponent_behavior: "rear_collision",
+        lane_change_actor: "opponent",
+        opponent_signal: "red",
+        opponent_signal_violation: true,
+        injury: false,
+      },
+      {}
+    );
+
+    expect(result.patch.stopped).toBe(false);
+    expect(result.patch.opponent_behavior).toBe("rear_collision");
+    expect(result.patch.lane_change_actor).toBe("opponent");
+    expect(result.patch.opponent_lane_change).toBe(true);
+    expect(result.patch.my_lane_change).toBe(false);
+    expect(result.patch.opponent_signal).toBe("red");
+    expect(result.patch.opponent_signal_violation).toBe(true);
+    expect(result.patch.injury).toBe(false);
+    expect(result.patch._followup_answered_fields).toEqual([
+      "stopped",
+      "opponent_behavior",
+      "lane_change_actor",
+      "opponent_signal",
+      "injury",
+    ]);
+  });
 });

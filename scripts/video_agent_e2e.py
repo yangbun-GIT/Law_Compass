@@ -303,6 +303,8 @@ def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool
                 "field": item.get("field"),
                 "winner": item.get("winner"),
                 "authority": item.get("authority"),
+                "user_value": item.get("user_value"),
+                "video_value": item.get("video_value"),
                 "video_confidence": item.get("video_confidence"),
             }
             for item in conflicts[:5]
@@ -471,6 +473,19 @@ def choose_quality_followup_question(report: dict) -> dict | None:
     return None
 
 
+def choose_conflict_followup_question(report: dict, agent_video_summary: dict) -> tuple[dict | None, dict | None]:
+    conflicts = agent_video_summary.get("conflicts") if isinstance(agent_video_summary.get("conflicts"), list) else []
+    questions = missing_questions(report)
+    for conflict in conflicts:
+        field = str(conflict.get("field") or "")
+        if not field:
+            continue
+        for question in questions:
+            if str(question.get("field") or "") == field:
+                return question, conflict
+    return None, None
+
+
 def answer_for_question(question: dict) -> str:
     field = str(question.get("field") or "")
     preferred = {
@@ -496,6 +511,21 @@ def answer_for_question(question: dict) -> str:
     if options:
         return options[0]
     return preferred.get(field, "확인 필요")
+
+
+def answer_for_conflict_resolution(question: dict, conflict: dict) -> str:
+    value = conflict.get("video_value")
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is not None and str(value).strip():
+        return str(value).strip()
+    return answer_for_question(question)
+
+
+def equivalent_fact_value(left, right) -> bool:
+    if isinstance(left, bool) or isinstance(right, bool):
+        return str(left).lower() == str(right).lower()
+    return str(left).strip().lower() == str(right).strip().lower()
 
 
 def run_held_observation_followup(base_url: str, case_id: str, token: str, report: dict):
@@ -587,6 +617,62 @@ def run_held_observation_followup(base_url: str, case_id: str, token: str, repor
     }
 
 
+def run_conflict_followup(base_url: str, case_id: str, token: str, report: dict, agent_video_summary: dict):
+    question, conflict = choose_conflict_followup_question(report, agent_video_summary)
+    if not question or not conflict:
+        raise E2EError("easy-report has no video/user conflict followup question")
+    before_questions = missing_questions(report)
+    before_question_count = len(before_questions)
+    field = str(question["field"])
+    expected_value = conflict.get("video_value")
+    answer = answer_for_conflict_resolution(question, conflict)
+    payload = {"followup_answers": {field: answer}}
+    reanalyzed = http_json("POST", base_url, f"/api/v1/cases/{case_id}/reanalyze", payload, token=token)
+    next_version = int(reanalyzed.get("version") or 0)
+    if next_version < 2:
+        raise E2EError("conflict reanalyze did not create a new analysis version")
+    next_report = reanalyzed.get("report") if isinstance(reanalyzed.get("report"), dict) else reanalyzed.get("result", {})
+    if not isinstance(next_report, dict):
+        raise E2EError("conflict reanalyze response did not include a report")
+    change_card = next_report.get("analysis_change_card")
+    if not isinstance(change_card, dict):
+        raise E2EError("conflict reanalyze response is missing analysis_change_card")
+
+    latest_report = http_json("GET", base_url, f"/api/v1/cases/{case_id}/easy-report", token=token)
+    latest_questions = missing_questions(latest_report)
+    latest_debug = http_json("GET", base_url, f"/api/v1/cases/{case_id}/report?debug=1", token=token).get("debug", {})
+    latest_video_summary = agent_video_fact_summary(latest_debug, False)
+    remaining_conflict_fields = [
+        str(item.get("field") or "")
+        for item in latest_video_summary.get("conflicts", [])
+        if isinstance(item, dict)
+    ]
+    if field in remaining_conflict_fields:
+        raise E2EError("conflict followup did not resolve the answered video/user conflict")
+
+    updated_case = http_json("GET", base_url, f"/api/v1/cases/{case_id}", token=token).get("case", {})
+    latest_facts = updated_case.get("structured_facts") if isinstance(updated_case.get("structured_facts"), dict) else {}
+    if expected_value is not None and not equivalent_fact_value(latest_facts.get(field), expected_value):
+        raise E2EError("conflict followup answer was not persisted as the selected case fact")
+
+    after_question_fields = [str(item.get("field") or "") for item in latest_questions if isinstance(item, dict)]
+    return {
+        "field": field,
+        "answer": answer,
+        "expected_value": expected_value,
+        "next_version": next_version,
+        "question_flow": {
+            "before_count": before_question_count,
+            "after_count": len(latest_questions),
+            "field_removed_from_questions": field not in after_question_fields,
+        },
+        "latest_conflict_count": latest_video_summary.get("conflict_count"),
+        "latest_applied_video_fields": latest_video_summary.get("applied_video_fields"),
+        "latest_confirmed_fields": latest_video_summary.get("confirmed_fields"),
+        "remaining_question_fields": after_question_fields[:8],
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run a local video upload -> preprocess -> Agent report E2E check.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
@@ -611,6 +697,11 @@ def main():
         "--exercise-held-observation-followup",
         action="store_true",
         help="Submit one held video-observation quality followup answer and fail unless reanalysis records a change card.",
+    )
+    parser.add_argument(
+        "--exercise-conflict-followup",
+        action="store_true",
+        help="Submit one video/user conflict followup answer and fail unless reanalysis resolves that conflict.",
     )
     parser.add_argument(
         "--expect-frame-observation",
@@ -676,6 +767,11 @@ def main():
         if args.exercise_held_observation_followup
         else None
     )
+    conflict_followup_summary = (
+        run_conflict_followup(args.base_url, case_id, token, report, agent_video_summary)
+        if args.exercise_conflict_followup
+        else None
+    )
 
     output = {
         "video_agent_e2e": "passed",
@@ -697,6 +793,8 @@ def main():
     }
     if followup_summary:
         output["held_observation_followup"] = followup_summary
+    if conflict_followup_summary:
+        output["conflict_followup"] = conflict_followup_summary
     if priority_summary:
         output["missing_info_priority"] = priority_summary
     if args.output_json:

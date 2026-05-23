@@ -88,6 +88,8 @@ def run_sample(
         command.append("--require-agent-video-facts")
     if sample.get("exercise_held_observation_followup"):
         command.append("--exercise-held-observation-followup")
+    if sample.get("exercise_conflict_followup"):
+        command.append("--exercise-conflict-followup")
     if not fail_on_mismatch:
         command.append("--allow-accuracy-mismatch")
     command.extend(expected_args("--expect-frame-observation", sample.get("expect_frame_observation")))
@@ -116,6 +118,7 @@ def run_sample(
     missing_info_priority = payload.get("missing_info_priority") if isinstance(payload.get("missing_info_priority"), dict) else {}
     field_metrics = field_metrics_from_payload(payload)
     held_followup = payload.get("held_observation_followup") if isinstance(payload.get("held_observation_followup"), dict) else {}
+    conflict_followup = payload.get("conflict_followup") if isinstance(payload.get("conflict_followup"), dict) else {}
     result.update({
         "provider": metrics.get("provider"),
         "model": metrics.get("model"),
@@ -134,6 +137,7 @@ def run_sample(
         "missing_info_priority": missing_priority_metrics(missing_info_priority),
         "expert_guidance": expert_guidance_metrics(expert_card),
         "held_observation_followup": held_followup_metrics(held_followup),
+        "conflict_followup": conflict_followup_metrics(conflict_followup),
         "field_metrics": field_metrics,
     })
     if expectations.get("failed_count"):
@@ -211,6 +215,26 @@ def held_followup_metrics(summary: dict[str, Any]) -> dict[str, Any]:
         "question_delta": before_count - after_count,
         "field_removed_from_questions": bool(flow.get("field_removed_from_questions")),
         "status_label": flow.get("status_label"),
+    }
+
+
+def conflict_followup_metrics(summary: dict[str, Any]) -> dict[str, Any]:
+    if not summary:
+        return {"present": False}
+    flow = summary.get("question_flow") if isinstance(summary.get("question_flow"), dict) else {}
+    before_count = int(flow.get("before_count") or 0)
+    after_count = int(flow.get("after_count") or 0)
+    return {
+        "present": True,
+        "field": summary.get("field"),
+        "next_version": summary.get("next_version"),
+        "before_question_count": before_count,
+        "after_question_count": after_count,
+        "question_delta": before_count - after_count,
+        "field_removed_from_questions": bool(flow.get("field_removed_from_questions")),
+        "latest_conflict_count": int(summary.get("latest_conflict_count") or 0),
+        "latest_confirmed_fields": summary.get("latest_confirmed_fields") if isinstance(summary.get("latest_confirmed_fields"), list) else [],
+        "latest_applied_video_fields": summary.get("latest_applied_video_fields") if isinstance(summary.get("latest_applied_video_fields"), list) else [],
     }
 
 
@@ -330,6 +354,7 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
     field_summary = aggregate_field_metrics(samples)
     expert_summary = aggregate_expert_guidance(samples)
     followup_summary = aggregate_held_followup(samples)
+    conflict_followup_summary = aggregate_conflict_followup(samples)
     video_flow_summary = aggregate_video_flow(samples)
     question_priority_summary = aggregate_question_priority(samples)
     recommendations = calibration_recommendations(samples, field_summary, video_flow_summary, question_priority_summary)
@@ -348,6 +373,7 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "field_summary": field_summary,
         "expert_guidance_summary": expert_summary,
         "held_observation_followup_summary": followup_summary,
+        "conflict_followup_summary": conflict_followup_summary,
         "recommendations": recommendations,
         "samples": samples,
     }
@@ -457,6 +483,21 @@ def aggregate_held_followup(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "question_delta_total": sum(int(item.get("question_delta") or 0) for item in present),
         "field_removed_count": sum(1 for item in present if item.get("field_removed_from_questions")),
         "field_retained_count": sum(1 for item in present if not item.get("field_removed_from_questions")),
+    }
+
+
+def aggregate_conflict_followup(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    present = [
+        sample.get("conflict_followup")
+        for sample in samples
+        if isinstance(sample.get("conflict_followup"), dict) and sample["conflict_followup"].get("present")
+    ]
+    return {
+        "present_count": len(present),
+        "missing_count": max(0, len(samples) - len(present)),
+        "resolved_count": sum(1 for item in present if int(item.get("latest_conflict_count") or 0) == 0),
+        "field_removed_count": sum(1 for item in present if item.get("field_removed_from_questions")),
+        "question_delta_total": sum(int(item.get("question_delta") or 0) for item in present),
     }
 
 

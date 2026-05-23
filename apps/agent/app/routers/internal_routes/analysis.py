@@ -17,6 +17,7 @@ async def analyze_text(payload: AnalyzeTextRequest, x_internal_token: str | None
             payload.description_text,
             structured_facts=payload.structured_facts,
             selected_keywords=payload.selected_keywords,
+            video_metadata=payload.video_metadata,
             analysis_mode=payload.analysis_mode,
             ai_profile=payload.ai_profile,
             specialist_roles=payload.specialist_roles,

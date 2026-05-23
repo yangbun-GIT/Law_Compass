@@ -217,9 +217,12 @@ python scripts/reference_guidance_eval.py \
 - `--require-frame-observations` 사용 시 OpenAI 프레임 분석이 켜져 있고, 오류 없이 1개 이상의 관찰값을 반환함
 - `--require-agent-video-facts` 사용 시 Agent의 `video_input_contract`가 프레임 관찰값을 수용하고 `fact_arbitration`이 영상 기반 사실을 실제 적용함
 - `--exercise-held-observation-followup` 사용 시 품질 보류 영상 관찰값 질문에 답변을 제출하고, `/reanalyze` 응답에 `analysis_change_card`가 생성됨
+- `--exercise-conflict-followup` 사용 시 영상 관찰값과 사용자 입력이 충돌한 질문에 답변을 제출하고, `/reanalyze`가 최신 업로드 영상 메타데이터를 다시 Agent에 전달해 해당 충돌이 해소되는지 확인함
 - E2E 출력의 `frame_analysis.observation_quality_summary`와 `agent_video_input.observation_quality_summary`에서 프레임 근거 누락, 단일 프레임 관찰값, Agent 승격/보류 수를 확인함
 
 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이면 프레임은 추출되지만 GPT 프레임 관찰값(`observations`)은 0개일 수 있습니다. 이 상태에서도 영상 전처리와 Agent 입력 계약 연결은 확인할 수 있습니다.
+
+배치 manifest에서 `exercise_conflict_followup: true`를 지정하면 `video_accuracy_batch.py`가 샘플별 `conflict_followup`과 전체 `conflict_followup_summary`를 남깁니다. 이 값은 정답 판정이 아니라 “영상-사용자 충돌 질문에 답한 뒤 같은 영상 근거를 유지한 재분석이 가능한가”를 확인하는 운영 지표입니다.
 
 배치 측정 결과의 `expert_guidance_summary`는 샘플별 전문가 관점 결과 카드가 실제 사용자 화면 기준으로 표시 가능한지 집계합니다. `reference_guidance_eval.py`는 이 값을 다시 읽어 `expert_guidance_status_counts`를 생성합니다. `expert_guidance_ready_for_reference_review`는 법률/보험/근거 표시가 갖춰졌고 쟁점별 근거 대조로 넘어갈 수 있음을 뜻합니다. `expert_guidance_safe_with_pending_facts`는 카드가 표시되지만 충돌/보완 사실을 먼저 확인해야 함을 뜻합니다. `expert_guidance_needs_display_fix` 또는 `missing_expert_guidance_card`가 나오면 정확도 조정보다 결과 payload와 표시 계약을 먼저 고쳐야 합니다.
 

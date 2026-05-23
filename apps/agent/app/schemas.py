@@ -8,6 +8,7 @@ class AnalyzeTextRequest(BaseModel):
     description_text: str = Field(min_length=1, max_length=10000)
     structured_facts: dict[str, Any] | None = None
     selected_keywords: list[str] | None = None
+    video_metadata: dict[str, Any] | None = None
     analysis_mode: str | None = None
     ai_profile: str | None = None
     specialist_roles: list[str] | None = None

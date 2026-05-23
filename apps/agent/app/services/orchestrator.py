@@ -22,6 +22,7 @@ def analyze_case(
     description_text: str,
     structured_facts: dict[str, Any] | None = None,
     selected_keywords: list[str] | None = None,
+    video_metadata: dict[str, Any] | None = None,
     analysis_mode: str | None = None,
     ai_profile: str | None = None,
     specialist_roles: list[str] | None = None,
@@ -33,7 +34,7 @@ def analyze_case(
         analysis_mode=analysis_mode,
         ai_profile=ai_profile,
         specialist_roles=specialist_roles,
-        video_metadata=None,
+        video_metadata=video_metadata,
     )
 
 

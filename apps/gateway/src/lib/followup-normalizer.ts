@@ -47,32 +47,68 @@ export function normalizeFollowupAnswers(answers: AnyRecord = {}, previousFacts:
 
 function applyAnswer(patch: AnyRecord, field: string, value: string) {
   if (field === "injury") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.injury = parsed;
+      return;
+    }
     patch.injury = !includesAny(value, ["없음", "아님"]);
     return;
   }
   if (field === "stopped") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.stopped = parsed;
+      if (parsed) patch.sudden_brake = false;
+      return;
+    }
     patch.stopped = includesAny(value, ["정차", "멈춰"]);
     if (includesAny(value, ["급정거"])) patch.sudden_brake = true;
     else if (patch.stopped) patch.sudden_brake = false;
     return;
   }
   if (field === "sudden_brake") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.sudden_brake = parsed;
+      return;
+    }
     patch.sudden_brake = !includesAny(value, ["없음"]);
     return;
   }
   if (field === "school_zone") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.school_zone = parsed;
+      return;
+    }
     patch.school_zone = includesAny(value, ["맞음", "어린이보호구역"]);
     return;
   }
   if (field === "victim_is_child") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.victim_is_child = parsed;
+      return;
+    }
     patch.victim_is_child = includesAny(value, ["미만", "어린이"]);
     return;
   }
   if (field === "crosswalk_nearby") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.crosswalk_nearby = parsed;
+      return;
+    }
     patch.crosswalk_nearby = !includesAny(value, ["아님"]);
     return;
   }
   if (field === "turn_signal") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.turn_signal = parsed;
+      return;
+    }
     patch.turn_signal = includesAny(value, ["켰음", "켰"]);
     return;
   }
@@ -100,6 +136,16 @@ function applyAnswer(patch: AnyRecord, field: string, value: string) {
   if (field === "lane_change_actor") {
     patch.lane_change_actor = value;
     patch.lane_change = true;
+    if (value.trim().toLowerCase() === "user") {
+      patch.my_lane_change = true;
+      patch.opponent_lane_change = false;
+      return;
+    }
+    if (["opponent", "other", "target", "other_vehicle"].includes(value.trim().toLowerCase())) {
+      patch.opponent_lane_change = true;
+      patch.my_lane_change = false;
+      return;
+    }
     if (includesAny(value, ["내 차량"])) {
       patch.my_lane_change = true;
       patch.opponent_lane_change = false;
@@ -114,6 +160,11 @@ function applyAnswer(patch: AnyRecord, field: string, value: string) {
     return;
   }
   if (field === "opponent_signal_violation") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.opponent_signal_violation = parsed;
+      return;
+    }
     patch.opponent_signal_violation = includesAny(value, ["예", "맞음", "위반"]);
     return;
   }
@@ -125,6 +176,12 @@ function applyAnswer(patch: AnyRecord, field: string, value: string) {
 }
 
 function normalizeSignal(value: string) {
+  const lowered = value.trim().toLowerCase();
+  if (["green", "go"].includes(lowered)) return "green";
+  if (["yellow", "amber"].includes(lowered)) return "yellow";
+  if (["red", "stop"].includes(lowered)) return "red";
+  if (["flashing", "blink"].includes(lowered)) return "flashing";
+  if (["none", "no_signal", "no signal"].includes(lowered)) return "none";
   if (includesAny(value, ["녹색", "초록"])) return "green";
   if (includesAny(value, ["황색"])) return "yellow";
   if (includesAny(value, ["적색", "빨간불"])) return "red";
@@ -134,6 +191,16 @@ function normalizeSignal(value: string) {
 }
 
 function mapAccidentType(value: string) {
+  const lowered = value.trim().toLowerCase();
+  if ([
+    "rear_end_collision",
+    "lane_change_collision",
+    "intersection_signal_violation",
+    "pedestrian_crosswalk_accident",
+    "bicycle_collision",
+    "object_collision",
+    "single_vehicle_accident",
+  ].includes(lowered)) return lowered;
   if (includesAny(value, ["후미"])) return "rear_end_collision";
   if (includesAny(value, ["차선"])) return "lane_change_collision";
   if (includesAny(value, ["교차"])) return "intersection_signal_violation";
@@ -145,6 +212,10 @@ function mapAccidentType(value: string) {
 }
 
 function normalizeOpponentBehavior(value: string) {
+  const lowered = value.trim().toLowerCase();
+  if (["rear_collision", "rear_vehicle_collision", "rear_end", "rear_end_collision"].includes(lowered)) return "rear_collision";
+  if (["lane_change", "cut_in", "opponent_lane_change"].includes(lowered)) return "lane_change";
+  if (["signal_violation", "red_light_violation"].includes(lowered)) return "signal_violation";
   if (includesAny(value, ["뒤에서 추돌", "후미", "후방", "추돌"])) return "rear_collision";
   if (includesAny(value, ["차선 변경", "차선변경", "끼어들기"])) return "lane_change";
   if (includesAny(value, ["신호 위반", "신호위반"])) return "signal_violation";
@@ -152,11 +223,20 @@ function normalizeOpponentBehavior(value: string) {
 }
 
 function isUnknown(value: string) {
+  const lowered = value.trim().toLowerCase();
+  if (["unknown", "unclear", "not_sure", "not sure"].includes(lowered)) return true;
   return UNKNOWN_VALUES.some((item) => value.includes(item));
 }
 
 function includesAny(value: string, words: string[]) {
   return words.some((word) => value.includes(word));
+}
+
+function parseBooleanLike(value: string): boolean | undefined {
+  const lowered = value.trim().toLowerCase();
+  if (["true", "yes", "y", "1", "observed", "detected"].includes(lowered)) return true;
+  if (["false", "no", "n", "0", "not_observed", "not observed", "none"].includes(lowered)) return false;
+  return undefined;
 }
 
 function unique(values: any[]) {

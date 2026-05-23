@@ -234,6 +234,22 @@ Stage 7 재생성 결과 사고 1, 2, 4 모두 `video_accuracy_batch` 통과, `r
 
 검증은 `python -m py_compile apps\agent\app\services\expert_guidance_sections.py scripts\reference_evidence_alignment_eval.py`, `python -m pytest tests\test_expert_guidance_sections.py -q`, `docker compose up -d --build agent`, `docker compose exec -T agent python -m compileall app scripts`, `python scripts\video_accuracy_batch.py --manifest logs\video_accuracy\stage6_ready_manifest.json --output-dir logs\video_accuracy\stage7_evidence_content_capture --timeout-sec 300`, `python scripts\reference_evidence_alignment_eval.py --reference-eval logs\video_accuracy\reference_guidance_eval_stage5.json --sample-dir logs\video_accuracy\stage7_evidence_content_capture --output logs\video_accuracy\reference_evidence_alignment_stage7.json`로 통과했다. 이번 단계는 OpenAI 프레임 분석을 새로 켜지 않았고, DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
 
+### 2026-05-23 정확도 고도화 9단계 완료
+
+영상 관찰값과 사용자 입력이 충돌한 뒤 사용자가 보완 질문에 답하는 재분석 흐름을 보강했다. 기존 `/api/v1/cases/:caseId/reanalyze`는 보완 답변을 Agent text 분석으로만 넘겨 최신 업로드의 영상 메타데이터를 다시 전달하지 않았기 때문에, 재분석 이후 `fact_arbitration`에서 같은 영상 근거와 사용자 답변을 다시 대조하기 어려웠다. 이제 Gateway가 최신 업로드의 `metadata`, `file_name`, `status`, `preprocess_summary`를 재분석 요청에 포함하고, Agent의 text 분석 DTO도 `video_metadata`를 받을 수 있다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/gateway/src/routes/analysis.ts` | `/reanalyze`에서 최신 업로드 영상 메타데이터를 Agent payload에 다시 포함한다. 명시 `video_metadata` payload가 있으면 테스트/운영 도구 입력을 우선한다. |
+| `apps/agent/app/schemas.py`, `apps/agent/app/routers/internal_routes/analysis.py`, `apps/agent/app/services/orchestrator.py` | `/internal/v1/analyze/text`도 `video_metadata`를 수신해 기존 `normalize_analysis_input`의 영상 입력 계약과 사실 중재 경로를 그대로 사용할 수 있게 했다. |
+| `apps/gateway/src/lib/followup-normalizer.ts` | 보완 답변 정규화가 한글 선택지뿐 아니라 E2E/진단 도구의 canonical 값(`true`, `false`, `rear_collision`, `opponent`, `red` 등)도 안전하게 facts로 변환한다. |
+| `scripts/video_agent_e2e.py` | `--exercise-conflict-followup` 옵션을 추가했다. 영상-사용자 충돌 질문을 찾아 영상값 기준 답변을 제출하고, 재분석 후 해당 충돌이 남지 않는지 확인한다. |
+| `scripts/video_accuracy_batch.py` | manifest의 `exercise_conflict_followup`을 E2E 옵션으로 연결하고, 샘플별 `conflict_followup`과 전체 `conflict_followup_summary`를 집계한다. |
+| `apps/gateway/test/followup-normalizer.test.ts`, `apps/gateway/test/analysis-routes.test.ts` | canonical 보완 답변 정규화와 재분석 영상 메타데이터 보존 helper를 검증한다. |
+| `docs/OPERATIONS.md` | 충돌 보완 질문 E2E 옵션과 배치 집계 해석 기준을 문서화했다. |
+
+검증은 `python -m py_compile scripts/video_agent_e2e.py scripts/video_accuracy_batch.py`, `python -m py_compile apps/agent/app/schemas.py apps/agent/app/routers/internal_routes/analysis.py apps/agent/app/services/orchestrator.py`, `npm test -- followup-normalizer analysis-routes`, `npm run build`(Gateway)로 통과했다. 이번 단계는 DB schema, Redis key, storage path, 외부 API, 환경변수 키를 변경하지 않는다. `/api/v1/cases/:caseId/reanalyze`의 내부 Agent payload에는 `video_metadata`가 추가되므로 영상 업로드가 있는 케이스의 재분석은 기존 영상 근거를 유지한다.
+
 ### 2026-05-23 정확도 고도화 8단계 완료
 
 근거가 맞는 상태에서 사용자에게 보이는 예상 과실 범위, 전문가 안내 문구, 보완 질문 우선순위를 실제 사용자 흐름 기준으로 캘리브레이션했다. 특히 신호 전환 사고는 설명 문장에 `황색/적색` 같은 단어가 포함되어 있어도 내 차량 신호와 상대 차량 신호가 각각 확인된 것으로 보지 않도록 조정했다. 또한 쉬운 리포트 변환 단계에서 `user_signal`, `opponent_signal` 같은 안전한 질문 field가 내부 토큰 정리 로직에 의해 지워지던 문제를 고쳤다.
