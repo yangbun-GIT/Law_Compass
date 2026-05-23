@@ -837,9 +837,9 @@ function prioritizeMissingInfo(report: AnyRecord = {}) {
   const items = compactDisplayItems(asArray(missing.items), questionTexts, 8);
   const priorityItems = questions.slice(0, 3).map((item: AnyRecord) => ({
     label: item.label,
-    question: item.question,
+    question: replaceRawFieldTokens(item.question),
     priority_label: item.priority_label,
-    reason: item.priority_reason,
+    reason: replaceRawFieldTokens(item.priority_reason),
   }));
   const top = priorityItems[0];
   return {
@@ -862,7 +862,7 @@ function annotateMissingInfoQuestion(value: any, index = 0) {
   const field = String(value.field ?? "");
   if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
   const label = safeInputQuestionLabel(field, value.label);
-  const question = cleanText(value.question ?? label, "");
+  const question = replaceRawFieldTokens(cleanText(value.question ?? label, ""));
   if (!question) return undefined;
   const priority = missingInfoQuestionPriority(field);
   return {
@@ -955,6 +955,17 @@ function safeInputQuestionLabel(field: string, fallback: any = "") {
   if (mapped && mapped !== field) return mapped;
   const label = cleanText(fallback, "");
   return label && !containsBadValuePattern(label) ? label : "확인할 정보";
+}
+
+function replaceRawFieldTokens(value: any) {
+  let text = cleanText(value, "");
+  if (!text) return text;
+  for (const field of SAFE_INPUT_FIELDS) {
+    const label = videoFactLabel(field);
+    if (!label || label === field) continue;
+    text = text.split(field).join(label);
+  }
+  return text;
 }
 
 function containsBadValuePattern(value: string) {
@@ -1208,7 +1219,7 @@ function sanitizeInputQuestion(value: any) {
   if (!value || typeof value !== "object") return undefined;
   const field = String(value.field ?? "");
   if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
-  const question = cleanText(value.question ?? value.label, "");
+  const question = replaceRawFieldTokens(value.question ?? value.label);
   if (!question) return undefined;
   return {
     field,
@@ -1217,19 +1228,19 @@ function sanitizeInputQuestion(value: any) {
     input_type: String(value.input_type ?? "text"),
     options: asArray(value.options).map((option) => cleanText(option, "")).filter(Boolean).slice(0, 8),
     priority_label: cleanText(value.priority_label, ""),
-    priority_reason: cleanText(value.priority_reason, ""),
+    priority_reason: replaceRawFieldTokens(value.priority_reason),
   };
 }
 function sanitizePriorityItem(value: any) {
   if (!value || typeof value !== "object") return undefined;
-  const label = cleanText(value.label, "");
-  const question = cleanText(value.question, "");
+  const label = replaceRawFieldTokens(value.label);
+  const question = replaceRawFieldTokens(value.question);
   if (!label && !question) return undefined;
   return {
     label,
     question,
     priority_label: cleanText(value.priority_label, ""),
-    reason: cleanText(value.reason ?? value.priority_reason, ""),
+    reason: replaceRawFieldTokens(value.reason ?? value.priority_reason),
   };
 }
 export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord = {}) {

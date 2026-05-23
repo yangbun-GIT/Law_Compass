@@ -1,4 +1,5 @@
 ﻿from app.schemas import AnalysisOutput
+from app.services.orchestration_analysis import _apply_knia_fault_estimate
 from app.services.orchestrator import analyze_case, analyze_video_case
 
 
@@ -166,6 +167,34 @@ def test_reference_complex_contexts_use_contextual_fault_ranges():
     assert centerline["fault_ratio"]["my"] == 30
     assert unlit["fault_ratio"]["my"] == 40
     assert bicycle["fault_ratio"]["my"] == 20
+
+
+def test_contextual_complex_fault_estimate_is_not_overwritten_by_knia_base_fault():
+    fault_ratio = {
+        "my": 30,
+        "other": 70,
+        "fault_estimate_source": "contextual_complex_case",
+        "basis": "contextual estimate",
+    }
+
+    _apply_knia_fault_estimate(
+        fault_ratio=fault_ratio,
+        knia_fault_estimate={"final_fault": {"A": 100, "B": 0}},
+        scenario={"scenario_type": "rear_end_collision"},
+        normalized={
+            "description_text": "주차 차량 회피 후 정차 중 마주오던 차량과 충돌",
+            "structured_facts": {
+                "centerline_crossed": True,
+                "centerline_cross_reason": "주차 차량 회피",
+                "stopped": True,
+            },
+        },
+    )
+
+    assert fault_ratio["my"] == 30
+    assert fault_ratio["other"] == 70
+    assert fault_ratio["knia_reference_fault"] == {"A": 100, "B": 0}
+    assert fault_ratio["knia_override_policy"] == "preserved_contextual_complex_case_estimate"
 
 
 def test_uncertain_signal_transition_does_not_treat_user_as_clear_victim():

@@ -143,6 +143,26 @@ describe("report composer", () => {
     expect(text).not.toContain("\"label\":\"stopped\"");
   });
 
+  it("removes raw field tokens from missing-info priority text", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({
+      headline: "report",
+      missing_info: {
+        questions: [
+          {
+            field: "stopped",
+            label: "stopped",
+            question: "stopped 값을 확인해 주세요.",
+            priority_reason: "stopped는 후방 추돌 판단에 필요합니다.",
+          },
+        ],
+      },
+    }), {});
+
+    const text = JSON.stringify((enriched as any).missing_info.priority_items);
+    expect(text).not.toContain("stopped");
+    expect(text).toContain("정차 여부");
+  });
+
   it("keeps missing-info checklist separate from selectable questions", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({
       headline: "report",

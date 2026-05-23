@@ -174,6 +174,13 @@ def _apply_knia_fault_estimate(
         return
     final_fault = knia_fault_estimate.get("final_fault") or {}
     fault_ratio["knia_reference_fault"] = final_fault
+    if fault_ratio.get("fault_estimate_source") == "contextual_complex_case":
+        fault_ratio["basis"] = (
+            "복합 사고 맥락과 KNIA 과실비율 인정기준을 함께 검토한 참고용 과실 추정입니다. "
+            "KNIA 기본값은 참고 기준으로 보존하되, 정차 사유·시인성·회피 가능성·후속 추돌 여부가 우선 반영되었습니다."
+        )
+        fault_ratio["knia_override_policy"] = "preserved_contextual_complex_case_estimate"
+        return
     fault_ratio["basis"] = "KNIA 원문 기본과실과 수집된 가감요소를 함께 반영한 참고 산정입니다."
     if isinstance(final_fault.get("A"), int) and isinstance(final_fault.get("B"), int):
         mapped_fault = map_fault_ratio_to_user(

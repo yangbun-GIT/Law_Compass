@@ -37,15 +37,19 @@ def analyze_fault_ratio(
     if _centerline_obstacle_stop_context(facts):
         my, other, confidence = 30, 70, 0.66
         key_factors = ["중앙선 침범 사유", "정차 여부", "상대 차량 회피 가능성", "후속 추돌 분리"]
+        fault_estimate_source = "contextual_complex_case"
     elif _unlit_stopped_vehicle_context(facts):
         my, other, confidence = 40, 60, 0.58
         key_factors = ["무등화 정차 차량", "야간 시인성", "속도위반 여부", "회피 가능성 감정"]
+        fault_estimate_source = "contextual_complex_case"
     elif _bicycle_trigger_rear_end_context(facts):
         my, other, confidence = 20, 80, 0.6
         key_factors = ["자전거 비접촉 유발", "정지의 불가피성", "후방 차량 안전거리", "급차로변경·급제동 여부"]
+        fault_estimate_source = "contextual_complex_case"
     elif _uncertain_signal_transition_context(facts):
         my, other, confidence = 80, 20, 0.55
         key_factors = ["신호 전환 시점", "내 차량 진입 신호", "상대 차량 진입 신호", "CCTV·신호체계 확인"]
+        fault_estimate_source = "contextual_complex_case"
     elif scenario_type == "rear_end_collision":
         if user_vehicle_role == FRONT_VEHICLE:
             my, other, confidence = 0, 100, 0.82
@@ -53,6 +57,7 @@ def analyze_fault_ratio(
             my, other, confidence = 100, 0, 0.82
         else:
             my, other, confidence = (10 if facts.get("stopped") else 20), (90 if facts.get("stopped") else 80), 0.74
+        fault_estimate_source = "scenario_default"
     elif scenario_type == "intersection_signal_violation":
         if user_vehicle_role == SIGNAL_COMPLIANT_VEHICLE:
             my, other, confidence = 0, 100, 0.78
@@ -60,6 +65,7 @@ def analyze_fault_ratio(
             my, other, confidence = 100, 0, 0.78
         else:
             my, other, confidence = (15 if facts.get("opponent_signal_violation") else 45), (85 if facts.get("opponent_signal_violation") else 55), 0.68
+        fault_estimate_source = "scenario_default"
     elif scenario_type == "lane_change_collision":
         if user_vehicle_role == STRAIGHT_VEHICLE:
             my, other, confidence = 30, 70, 0.76
@@ -67,10 +73,13 @@ def analyze_fault_ratio(
             my, other, confidence = 70, 30, 0.76
         else:
             my, other, confidence = (30 if not facts.get("lane_change") else 45), (70 if not facts.get("lane_change") else 55), 0.62
+        fault_estimate_source = "scenario_default"
     elif scenario_type in ("pedestrian_crosswalk_accident", "school_zone_child_accident"):
         my, other, confidence = 70, 30, 0.55
+        fault_estimate_source = "scenario_default"
     else:
         my, other, confidence = 50, 50, 0.42
+        fault_estimate_source = "scenario_default"
 
     basis = "사고 유형, 구조화 입력, 법률 RAG 근거를 함께 반영한 참고용 과실 추정입니다."
     if knia:
@@ -83,6 +92,7 @@ def analyze_fault_ratio(
         "evidence_count": len(evidence),
         "key_factors": key_factors,
         "user_vehicle_role": user_vehicle_role,
+        "fault_estimate_source": fault_estimate_source,
         "evidence_ids": [ev.get("chunk_id") for ev in evidence[:6] if ev.get("chunk_id")],
     }, evidence), llm_usage, used=False)
 
