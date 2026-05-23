@@ -3,6 +3,7 @@ import unittest
 from worker.job_processor import (
     build_agent_video_request,
     build_analysis_result_values,
+    build_frame_analysis_context,
     build_video_analyze_payload,
 )
 from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION
@@ -36,6 +37,30 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
         self.assertEqual(result["structured_facts"]["stopped"], True)
         self.assertEqual(result["selected_keywords"], ["후방추돌", "안전거리"])
         self.assertEqual(result["analysis_mode"], "rear-end-focused")
+
+    def test_frame_analysis_context_uses_case_facts_as_visual_focus_only(self):
+        metadata = {"duration_sec": 8.5, "width": 1280, "height": 720, "fps": 30}
+        case_inputs = (
+            {
+                "accident_type": "rear_end_collision",
+                "stopped": True,
+                "opponent_behavior": "rear_collision",
+                "free_text_note": "must not be copied into frame prompt context",
+            },
+            ["rear impact", "stationary"],
+            "fault_ratio",
+        )
+
+        result = build_frame_analysis_context(self.row, metadata, case_inputs)
+
+        self.assertEqual(result["case_id"], "case-1")
+        self.assertEqual(result["upload_id"], "upload-1")
+        self.assertTrue(result["user_context_is_visual_focus_only"])
+        self.assertEqual(result["visual_focus"]["accident_type"], "rear_end_collision")
+        self.assertEqual(result["visual_focus"]["stopped"], True)
+        self.assertEqual(result["visual_focus"]["opponent_behavior"], "rear_collision")
+        self.assertNotIn("free_text_note", result["visual_focus"])
+        self.assertEqual(result["selected_keywords"], ["rear impact", "stationary"])
 
     def test_agent_video_request_preserves_preprocess_contract_and_summary_inputs(self):
         payload = {

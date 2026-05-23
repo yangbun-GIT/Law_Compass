@@ -87,3 +87,25 @@ def test_matching_user_and_video_values_are_marked_confirmed():
     assert result["contract"]["conflicts"] == []
     assert result["contract"]["confirmed_fields"] == ["opponent_behavior"]
     assert result["contract"]["fact_sources"]["opponent_behavior"]["source"] == "user_and_video"
+
+
+def test_matching_user_alias_and_video_value_are_canonicalized_and_confirmed():
+    result = arbitrate_facts(
+        user_facts={"opponent_behavior": "rear_vehicle_collision"},
+        video_contract={
+            "fact_patch": {"opponent_behavior": "rear_collision"},
+            "accepted_observations": [
+                {
+                    "field": "opponent_behavior",
+                    "value": "rear_collision",
+                    "confidence": 0.85,
+                    "source": "frame_analysis:openai",
+                    "frame_refs": ["frame_8.jpg", "frame_12.jpg"],
+                }
+            ],
+        },
+    )
+
+    assert result["facts"]["opponent_behavior"] == "rear_collision"
+    assert result["contract"]["conflicts"] == []
+    assert result["contract"]["confirmed_fields"] == ["opponent_behavior"]

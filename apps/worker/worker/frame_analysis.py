@@ -50,6 +50,8 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "You are extracting observable traffic accident facts from dashcam frame sequence images. "
             "Return JSON only. Do not decide legal liability, insurance responsibility, or fault ratio. "
             "Use unknown and low confidence when a fact is not clearly visible. "
+            "The Context JSON may contain user-supplied accident type or structured facts. "
+            "Use it only to prioritize which visual facts to inspect; never use it as visual evidence and never copy it into observations unless the frames support it. "
             "Allowed observation fields: stopped, sudden_brake, impact_direction, collision_direction, "
             "opponent_behavior, lane_change_actor, turn_signal, user_signal, opponent_signal, "
             "opponent_signal_violation, crosswalk_nearby, school_zone, damage_level. "

@@ -17,6 +17,23 @@
 
 후속 고도화는 “프로젝트 구조 보강”이 아니라 실제 정확도 개선 단계로 분류한다. 남은 대표 항목은 교통사고 특화 비전 모델 후보 조사, 실제 사고 영상 데이터셋 기반 threshold 튜닝, S3 직접 업로드 전환, OpenAI 사용량/비용 대시보드, 더 많은 실제 영상 회귀 샘플 확보다.
 
+## 2026-05-23 영상 정확도 고도화 1차
+
+영상 프레임 분석 정확도를 높이기 위해 Worker가 OpenAI 프레임 분석을 호출할 때 케이스의 구조화 입력 중 시각적으로 검토 가능한 항목만 `visual_focus`로 전달한다. 이 값은 사고 유형, 정차 여부, 차선 변경 여부, 교차로/신호 상태, 상대 차량 행동처럼 사용자가 비교적 안정적으로 입력하는 항목에 한정한다. 프롬프트에는 이 컨텍스트가 “검토 초점”일 뿐이며, 프레임에서 확인되지 않으면 관찰값으로 복사하지 말라는 제한을 추가했다.
+
+`scripts/video_agent_e2e.py`에는 샘플별 정확도 기준을 걸 수 있도록 `--expect-frame-observation field=value`와 `--expect-agent-fact field=value` 옵션을 추가했다. 실제 OpenAI 검증이나 fixture 검증 시 특정 관찰값 또는 Agent `fact_patch`가 기대값과 맞지 않으면 실패하도록 하여, 이후 threshold 조정과 모델 교체 후보 비교를 반복 측정할 수 있게 한다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/worker/worker/job_processor.py` | 영상 전처리 단계에서 케이스의 구조화 입력을 읽고, 안전한 `visual_focus` 컨텍스트로 OpenAI 프레임 분석에 전달한다. |
+| `apps/worker/worker/frame_analysis.py` | 사용자 컨텍스트를 시각 검토 초점으로만 사용하고 프레임 증거 없이는 관찰값으로 쓰지 말라는 프롬프트 제한을 추가했다. |
+| `apps/agent/app/services/fact_arbitration.py` | `rear_vehicle_collision`과 `rear_collision`처럼 같은 의미의 사용자/영상 값을 충돌로 보지 않고 canonical 값으로 확정한다. |
+| `scripts/video_agent_e2e.py` | 샘플별 기대 관찰값/Agent fact 검증 옵션과 `accuracy_expectations` 출력 요약을 추가했다. 영상 fact 검증은 새로 적용된 필드뿐 아니라 사용자 입력과 영상이 일치해 `confirmed_fields`로 확정된 필드도 성공으로 본다. |
+| `apps/worker/tests/test_job_processor_contract.py`, `apps/worker/tests/test_frame_analysis_contract.py`, `apps/agent/tests/test_fact_arbitration.py` | visual focus 전달, 프롬프트 제한, 사용자/영상 canonical alias 처리를 회귀 테스트로 고정했다. |
+| `apps/gateway/src/lib/report-composer.ts`, `apps/frontend/src/components/easy/VideoFactExplanationCard.vue`, `apps/gateway/test/report-composer.test.ts` | 영상 관찰값이 사용자 입력과 같은 사실을 확인한 경우를 `confirmed_items`와 `영상 확인` 통계로 분리 표시한다. 새로 판단에 반영된 값과 기존 입력을 영상이 확인한 값을 혼동하지 않도록 회귀 테스트를 추가했다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. OpenAI 호출 비용 정책도 바꾸지 않으며 기본값은 계속 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이다.
+
 ## 2026-05-22 프로젝트 구조 보강 완료 판정
 
 현재 프로젝트 구조 보강 기준에서 P0와 신뢰성 관련 P1은 완료 상태로 판정한다. 완료 판정의 기준은 Agent 판단 골격, 영상 관찰값 입력 계약, 근거 검색 품질 회귀 검증, 서비스별 단일 책임 경계가 모두 코드와 검증 스크립트로 확인 가능해야 한다는 것이다.

@@ -78,16 +78,17 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
     metadata = probe_video(storage_path)
     frame_details = extract_event_frames(storage_path, str(row[1]), str(row[2]), metadata.get("duration_sec"), STORAGE_ROOT)
     frames = [item["path"] for item in frame_details]
+    cur.execute(
+        """
+        SELECT c.structured_facts, c.selected_keywords, c.analysis_mode
+        FROM cases c WHERE c.id=%s
+        """,
+        (row[1],),
+    )
+    case_inputs = cur.fetchone()
     openai_frame_analysis = analyze_frames_with_openai(
         frame_details,
-        {
-            "case_id": str(row[1]),
-            "upload_id": str(row[2]),
-            "duration_sec": metadata.get("duration_sec"),
-            "width": metadata.get("width"),
-            "height": metadata.get("height"),
-            "fps": metadata.get("fps"),
-        },
+        build_frame_analysis_context(row, metadata, case_inputs),
     )
     metadata["representative_frames"] = frames
     metadata["representative_frame_details"] = frame_details
@@ -125,18 +126,25 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
     time.sleep(random.uniform(0.1, 0.4))
     cur.execute("UPDATE uploads SET status='ready', derived_path=%s WHERE id=%s", (frame_dir, row[2]))
     cur.execute("UPDATE jobs SET status='succeeded', artifacts=%s, finished_at=now() WHERE id=%s", (json.dumps(artifacts), row[0]))
-    _enqueue_video_analyze_job(cur, row, payload, redis_client)
+    _enqueue_video_analyze_job(cur, row, payload, redis_client, case_inputs)
 
 
-def _enqueue_video_analyze_job(cur: Any, row: tuple[Any, ...], payload: dict[str, Any], redis_client: Any) -> None:
-    cur.execute(
-        """
-        SELECT c.structured_facts, c.selected_keywords, c.analysis_mode
-        FROM cases c WHERE c.id=%s
-        """,
-        (row[1],),
-    )
-    case_inputs = cur.fetchone()
+def _enqueue_video_analyze_job(
+    cur: Any,
+    row: tuple[Any, ...],
+    payload: dict[str, Any],
+    redis_client: Any,
+    case_inputs: tuple[Any, ...] | None = None,
+) -> None:
+    if case_inputs is None:
+        cur.execute(
+            """
+            SELECT c.structured_facts, c.selected_keywords, c.analysis_mode
+            FROM cases c WHERE c.id=%s
+            """,
+            (row[1],),
+        )
+        case_inputs = cur.fetchone()
     analyze_payload = build_video_analyze_payload(row, payload, case_inputs)
     cur.execute(
         """
@@ -148,6 +156,35 @@ def _enqueue_video_analyze_job(cur: Any, row: tuple[Any, ...], payload: dict[str
     )
     analyze_job_id = str(cur.fetchone()[0])
     redis_client.xadd(STREAM_KEY, {"job_id": analyze_job_id, "job_type": "video_analyze"}, maxlen=10000, approximate=True)
+
+
+def build_frame_analysis_context(row: tuple[Any, ...], metadata: dict[str, Any], case_inputs: tuple[Any, ...] | None) -> dict[str, Any]:
+    structured_facts = case_inputs[0] if case_inputs and isinstance(case_inputs[0], dict) else {}
+    selected_keywords = list(case_inputs[1] if case_inputs and case_inputs[1] else [])
+    safe_fact_keys = {
+        "accident_type",
+        "accident_party_type",
+        "stopped",
+        "sudden_brake",
+        "lane_change",
+        "intersection",
+        "signal_state",
+        "opponent_behavior",
+        "injury",
+        "damage_level",
+    }
+    visual_focus = {key: structured_facts.get(key) for key in safe_fact_keys if structured_facts.get(key) not in (None, "", [], {})}
+    return {
+        "case_id": str(row[1]),
+        "upload_id": str(row[2]),
+        "duration_sec": metadata.get("duration_sec"),
+        "width": metadata.get("width"),
+        "height": metadata.get("height"),
+        "fps": metadata.get("fps"),
+        "user_context_is_visual_focus_only": True,
+        "visual_focus": visual_focus,
+        "selected_keywords": selected_keywords[:8],
+    }
 
 
 def _process_video_analyze(cur: Any, row: tuple[Any, ...], payload: dict[str, Any], job_id: str) -> None:

@@ -198,6 +198,7 @@ class FrameAnalysisContractTest(unittest.TestCase):
             result = frame_analysis.analyze_frames_with_openai(frames, {})
 
         prompt_text = captured["payload"]["input"][0]["content"][0]["text"]
+        self.assertIn("Use it only to prioritize which visual facts to inspect", prompt_text)
         self.assertIn("Do not mark stopped=false merely because the dashcam image changes", prompt_text)
         self.assertEqual(result["observations"][0]["field"], "stopped")
         self.assertEqual(result["observations"][0]["value"], False)

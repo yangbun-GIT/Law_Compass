@@ -42,7 +42,7 @@
     </section>
 
     <section v-if="card.applied_items?.length" class="video-fact-section">
-      <h3>판단에 반영된 영상 사실</h3>
+      <h3>판단에 반영한 영상 사실</h3>
       <div class="video-fact-list">
         <div v-for="item in card.applied_items" :key="`${item.label}-${item.value}`" class="video-fact-item">
           <span class="item-label">{{ text(item.label) }}</span>
@@ -56,8 +56,24 @@
       </div>
     </section>
 
+    <section v-if="card.confirmed_items?.length" class="video-fact-section">
+      <h3>기존 입력과 일치한 영상 사실</h3>
+      <div class="video-fact-list">
+        <div v-for="item in card.confirmed_items" :key="`${item.label}-${item.value}`" class="video-fact-item">
+          <span class="item-label">{{ text(item.label) }}</span>
+          <strong>{{ text(item.value) }}</strong>
+          <p>{{ text(item.explanation) }}</p>
+          <div class="chips compact">
+            <span class="chip selected">영상 확인</span>
+            <span v-if="item.confidence" class="chip">신뢰도 {{ text(item.confidence) }}</span>
+            <span v-if="item.frame_label" class="chip">{{ text(item.frame_label) }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section v-if="card.review_items?.length" class="video-fact-section">
-      <h3>사용자 입력과 비교한 항목</h3>
+      <h3>사용자 입력과 비교가 필요한 항목</h3>
       <div class="video-fact-list">
         <div v-for="item in card.review_items" :key="`${item.label}-${item.selected_source}`" class="video-fact-item">
           <span class="item-label">{{ text(item.label) }}</span>
@@ -175,8 +191,8 @@ function text(value: unknown) {
   color: #edf6ff;
   font-weight: 800;
   min-width: 0;
-  padding: 10px 12px;
   overflow-wrap: anywhere;
+  padding: 10px 12px;
 }
 
 .quality-section {

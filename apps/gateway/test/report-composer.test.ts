@@ -383,6 +383,58 @@ describe("report composer", () => {
     expect((enriched as any).video_fact_explanation_card.quality_summary.status_label).toBe("확인 필요");
   });
 
+  it("shows video-confirmed fields separately from newly applied fields", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "confirmed" }), {
+      video_input_contract: {
+        version: "agent-video-input-contract-v1",
+        technical_metadata: { representative_frame_count: 6 },
+        accepted_observations: [
+          {
+            field: "opponent_behavior",
+            value: "rear_collision",
+            confidence: 0.9,
+            source: "frame_analysis:openai",
+            frame_refs: ["frame_008.jpg", "frame_012.jpg"],
+          },
+          {
+            field: "stopped",
+            value: true,
+            confidence: 0.92,
+            source: "frame_analysis:openai",
+            frame_refs: ["frame_005.jpg", "frame_006.jpg"],
+          },
+        ],
+        uncertain_observations: [],
+        ignored_observations: [],
+        fact_patch: { opponent_behavior: "rear_collision", stopped: true },
+        observation_quality_summary: {
+          accepted_count: 2,
+          uncertain_count: 0,
+          ignored_count: 0,
+          uncertain_reasons: {},
+          accepted_multi_frame_count: 2,
+        },
+      },
+      fact_arbitration: {
+        applied_video_fields: [],
+        confirmed_fields: ["opponent_behavior", "stopped"],
+        conflicts: [],
+      },
+    });
+
+    const card = (enriched as any).video_fact_explanation_card;
+    const statMap = Object.fromEntries((card.stats || []).map((item: any) => [item.label, item.value]));
+
+    expect(card.summary).toContain("기존 입력과 같은 사실");
+    expect(card.applied_items).toHaveLength(0);
+    expect(card.confirmed_items).toHaveLength(2);
+    expect(statMap["판단 반영"]).toBe("0개");
+    expect(statMap["영상 확인"]).toBe("2개");
+    expect(JSON.stringify(card.confirmed_items)).toContain("영상 관찰값이 기존 입력과 같은 방향");
+    expect(JSON.stringify(card)).not.toContain("frame_analysis:openai");
+    expect(JSON.stringify(card)).not.toContain("confirmed_fields");
+  });
+
   it("keeps OpenAI frame-analysis display states consistent across zero, held, conflict, and applied samples", () => {
     const samples = [
       {

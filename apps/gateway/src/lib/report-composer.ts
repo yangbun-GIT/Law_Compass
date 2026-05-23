@@ -434,15 +434,22 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   const observedCount = accepted.length + uncertain.length + asArray(contract.ignored_observations).length;
   const representativeFrameCount = toNumber(technical.representative_frame_count, 0);
   const appliedFields = asArray(arbitration.applied_video_fields).map((field) => String(field));
+  const confirmedFields = asArray(arbitration.confirmed_fields).map((field) => String(field));
   const reviewItems = asArray(arbitration.conflicts);
-  const hasVideoFacts = accepted.length || uncertain.length || appliedFields.length || reviewItems.length;
+  const hasVideoFacts = accepted.length || uncertain.length || appliedFields.length || confirmedFields.length || reviewItems.length;
   const hasVideoProcessing = Boolean(contract.version) && (representativeFrameCount > 0 || Boolean(contract.observation_quality_summary));
   if (!hasVideoFacts && !hasVideoProcessing) return undefined;
   const qualitySummary = videoObservationQualitySummary(contract, representativeFrameCount);
 
+  const observationByField = new Map<string, AnyRecord>();
+  for (const item of accepted) {
+    const field = String(item?.field ?? "");
+    if (field && !observationByField.has(field)) observationByField.set(field, item);
+  }
+
   const appliedItems = appliedFields
     .map((field) => {
-      const observation = accepted.find((item: AnyRecord) => String(item?.field) === field) ?? {};
+      const observation = observationByField.get(field) ?? {};
       const value = contract.fact_patch?.[field] ?? observation.value;
       return {
         label: videoFactLabel(field),
@@ -450,6 +457,21 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
         confidence: confidenceLabel(observation.confidence),
         frame_label: frameCountLabel(observation.frame_refs),
         explanation: "영상 프레임에서 직접 확인 가능한 물리적 사실로 보아 분석 입력에 반영했습니다.",
+      };
+    })
+    .filter((item) => item.label && item.value)
+    .slice(0, 6);
+
+  const confirmedItems = confirmedFields
+    .map((field) => {
+      const observation = observationByField.get(field) ?? {};
+      const value = contract.fact_patch?.[field] ?? observation.value;
+      return {
+        label: videoFactLabel(field),
+        value: videoFactValueLabel(field, value),
+        confidence: confidenceLabel(observation.confidence),
+        frame_label: frameCountLabel(observation.frame_refs),
+        explanation: "영상 관찰값이 기존 입력과 같은 방향이라, 해당 사실을 확인된 입력으로 유지했습니다.",
       };
     })
     .filter((item) => item.label && item.value)
@@ -495,11 +517,15 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
 
   const summary = appliedItems.length
     ? "영상에서 확인된 물리적 사실을 판단 입력에 우선 반영했습니다."
-    : uncertainItems.length
-      ? "영상에서 사고 사실 후보를 찾았지만 바로 반영하지 않고 사용자 확인 질문으로 넘겼습니다."
-      : representativeFrameCount
-        ? "영상 프레임은 추출됐지만 현재 기준으로 바로 판단에 반영할 수 있는 물리 사실은 확인되지 않았습니다."
-        : "영상 관찰값은 확인됐지만 기존 입력과 충돌하지 않았습니다.";
+    : confirmedItems.length
+      ? "영상 관찰값이 기존 입력과 같은 사실을 확인해 판단 근거를 보강했습니다."
+      : conflictItems.length
+        ? "영상 관찰값과 기존 입력이 달라 사용자 확인이 필요한 상태입니다."
+        : uncertainItems.length
+          ? "영상에서 사고 사실 후보를 찾았지만 바로 반영하지 않고 사용자 확인 질문으로 넘겼습니다."
+          : representativeFrameCount
+            ? "영상 프레임은 추출됐지만 현재 기준으로 바로 판단에 반영할 수 있는 물리 사실은 확인되지 않았습니다."
+            : "영상 관찰값은 확인됐지만 기존 입력과 충돌하지 않았습니다.";
 
   return {
     title: "영상 기반 사실 반영",
@@ -508,12 +534,14 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
       ...(representativeFrameCount ? [{ label: "대표 프레임", value: `${representativeFrameCount}장` }] : []),
       { label: "영상 관찰 후보", value: `${observedCount}개` },
       { label: "판단 반영", value: `${appliedItems.length}개` },
+      { label: "영상 확인", value: `${confirmedItems.length}개` },
       { label: "입력 충돌 검토", value: `${conflictItems.length}개` },
       { label: "확인 필요", value: `${uncertainItems.length}개` },
       { label: "품질 상태", value: qualitySummary.status_label },
     ],
     quality_summary: qualitySummary,
     applied_items: appliedItems,
+    confirmed_items: confirmedItems,
     review_items: conflictItems,
     uncertain_items: uncertainItems,
     notice: "영상 관찰값은 프레임에서 보이는 사실 후보입니다. 신뢰도와 프레임 근거가 충분한 물리 사실만 판단 입력에 반영합니다.",
@@ -541,7 +569,7 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
       ? `대표 프레임 ${representativeFrameCount}장을 확인했지만 확정 가능한 사고 사실 관찰값은 만들지 않았습니다.`
       : "",
     acceptedCount
-      ? `판단 입력에 반영한 영상 관찰값 ${acceptedCount}개를 확인했습니다.`
+      ? `품질 기준을 통과한 영상 관찰값 ${acceptedCount}개를 확인했습니다.`
       : "바로 반영할 수 있는 영상 관찰값은 아직 없습니다.",
     singleFrameCount
       ? `단일 프레임에서만 보인 관찰값 ${singleFrameCount}개는 보강 정보로만 신중하게 사용합니다.`

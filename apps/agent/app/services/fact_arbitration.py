@@ -73,7 +73,8 @@ def arbitrate_facts(
             applied_video_fields.append(field)
             continue
 
-        if _equivalent(user_value, video_value):
+        if _equivalent(field, user_value, video_value):
+            facts[field] = _canonical_fact_value(field, video_value)
             fact_sources[field] = _source_info("user_and_video", authority, observation)
             confirmed_fields.append(field)
             continue
@@ -217,10 +218,30 @@ def _conflict_reason(field: str, winner: str, authority: str) -> str:
     return "User input is kept because no source authority is defined for this field."
 
 
-def _equivalent(left: Any, right: Any) -> bool:
+def _equivalent(field: str, left: Any, right: Any) -> bool:
     if isinstance(left, bool) or isinstance(right, bool):
         return _as_bool(left) is _as_bool(right)
-    return str(left).strip().lower() == str(right).strip().lower()
+    return _canonical_fact_value(field, left) == _canonical_fact_value(field, right)
+
+
+def _canonical_fact_value(field: str, value: Any) -> Any:
+    if field == "opponent_behavior":
+        text = str(value).strip().lower()
+        if text in {"rear_collision", "rear_vehicle_collision", "rear_end", "rear_end_collision", "rear_impact"}:
+            return "rear_collision"
+        if text in {"lane_change", "cut_in", "opponent_lane_change"}:
+            return "lane_change"
+        if text in {"signal_violation", "red_light_violation"}:
+            return "signal_violation"
+    if field == "lane_change_actor":
+        text = str(value).strip().lower()
+        if text in {"opponent", "other", "target", "other_vehicle"}:
+            return "opponent"
+        if text in {"user", "ego", "self", "my_vehicle"}:
+            return "user"
+    if isinstance(value, str):
+        return value.strip().lower()
+    return value
 
 
 def _is_empty(value: Any) -> bool:
