@@ -206,6 +206,19 @@ Stage 4의 실제 OpenAI 프레임 분석 배치 결과(`logs/video_accuracy/sta
 
 검증은 `python -m py_compile ...`, `python -m pytest tests/test_expert_guidance_sections.py -q`, `docker compose up -d --build agent`, `docker compose exec -T agent python -m compileall app scripts`, `python scripts/video_accuracy_batch.py --manifest logs/video_accuracy/stage6_ready_manifest.json --output-dir logs/video_accuracy/stage6_evidence_capture --timeout-sec 300`, `python scripts/reference_evidence_alignment_eval.py --reference-eval logs/video_accuracy/reference_guidance_eval_stage5.json --sample-dir logs/video_accuracy/stage6_evidence_capture --output logs/video_accuracy/reference_evidence_alignment_stage6.json`로 통과했다. 이번 단계는 OpenAI 프레임 분석을 새로 켜지 않고 저장/전처리/Agent 카드 경로를 평가했으며, DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
 
+### 2026-05-23 정확도 고도화 4~6단계 통합 점검
+
+7단계로 넘어가기 전에 4~6단계 결과를 다시 점검했다. 기능 흐름의 추가 누락은 없었지만, 6단계에서 `expert_guidance_sections.py`에 이전 구현의 legacy family helper와 표시 문자열 정리 잔여물이 남아 있어 사용자 결과 생성 파일의 책임 경계가 흐려질 수 있었다. 해당 잔여 코드를 제거하고, 근거 family 분류와 사용자 표시 label을 현재 `expert_guidance_card` 계약에 맞춰 정리했다.
+
+| 점검 범위 | 결과 |
+| --- | --- |
+| 4단계 실제 OpenAI 배치 결과 | 저장된 Stage 4 배치 기준을 유지한다. 5개 샘플 모두 pipeline 통과, 보류율 39.1%, 충돌률 8.7%였고 threshold를 낮추기보다 보완 질문 흐름을 유지하는 결론은 변동 없다. |
+| 5단계 reference guidance 평가 | 재평가 결과 5개 샘플 모두 pipeline 통과, 사고 1·2·4는 `ready_for_legal_knia_insurance_evidence_eval`, 사고 3·5는 `needs_conflict_resolution_before_guidance`로 유지됐다. |
+| 6단계 근거 family 정합성 | 사고 1·2·4 모두 `reference_evidence_alignment_eval` 기준 통과, 13개 쟁점 전부 `evidence_alignment_ready`로 유지됐다. |
+| 코드 품질 보강 | `apps/agent/app/services/expert_guidance_sections.py`에서 legacy helper를 제거하고 `법률 근거`, `KNIA 기준`, `보험 처리 근거`, `참고 근거` family label만 생성하도록 정리했다. |
+
+검증은 `python -m py_compile apps\agent\app\services\expert_guidance_sections.py scripts\reference_evidence_alignment_eval.py scripts\reference_guidance_eval.py scripts\video_agent_e2e.py scripts\video_accuracy_batch.py`, `python -m pytest tests\test_expert_guidance_sections.py -q`, `docker compose up -d --build agent`, `docker compose exec -T agent python -m compileall app scripts`, `python scripts\reference_guidance_eval.py --manifest logs\video_accuracy\lawyer_reference_manifest.json --batch-output logs\video_accuracy\stage4_openai_flow\aggregate.json --output logs\video_accuracy\reference_guidance_eval_stage5.json`, `python scripts\video_accuracy_batch.py --manifest logs\video_accuracy\stage6_ready_manifest.json --output-dir logs\video_accuracy\stage6_evidence_capture --timeout-sec 300`, `python scripts\reference_evidence_alignment_eval.py --reference-eval logs\video_accuracy\reference_guidance_eval_stage5.json --sample-dir logs\video_accuracy\stage6_evidence_capture --output logs\video_accuracy\reference_evidence_alignment_stage6.json`로 통과했다. 이번 통합 점검은 OpenAI API를 새로 호출하지 않았고, DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
+
 ### 2026-05-23 전문가 참고 의견 안내 품질 평가 도구
 
 `scripts/reference_guidance_eval.py`를 추가했다. 이 스크립트는 영상 정확도 배치 결과와 `lawyer_reference_manifest.json`의 `reference.evaluation_focus`를 결합해, 샘플별로 예상 과실 안내를 만들기 전에 필요한 사실/근거 검증 상태를 평가한다. 목적은 실제 판결 정답을 주입하는 것이 아니라, 전문가 참고 의견의 쟁점에 도달하기 위해 Agent가 어떤 fact, 영상 관찰값, KNIA/법령/판례/보험 근거를 더 확인해야 하는지 정리하는 것이다.

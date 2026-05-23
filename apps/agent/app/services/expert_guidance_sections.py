@@ -46,7 +46,7 @@ def build_expert_guidance_sections(
             "title": "보험 처리 예상",
             "summary": _safe_text(
                 insurance_guide.get("summary"),
-                "보험 접수 후 대물·대인 처리 여부와 과실비율 다툼 가능성을 나누어 확인해야 합니다.",
+                "보험 접수 후 대물·대인 처리 여부와 과실비율 협의 가능성을 확인해야 합니다.",
             ),
             "expected_steps": _safe_list(insurance_guide.get("steps"), 5),
             "documents": _safe_list(insurance_guide.get("required_documents"), 6),
@@ -56,7 +56,10 @@ def build_expert_guidance_sections(
             "title": "추가 확인 필요",
             "items": missing_facts[:6],
         },
-        "notice": "이 내용은 유사 근거와 입력 사실을 바탕으로 한 참고용 예상입니다. 실제 결과는 보험사, 분쟁심의위, 수사기관, 법원의 판단에 따라 달라질 수 있습니다.",
+        "notice": (
+            "이 내용은 유사 근거와 입력 사실을 바탕으로 한 참고용 예상입니다. "
+            "실제 결과는 보험사, 분쟁심의, 수사기관, 법원의 판단에 따라 달라질 수 있습니다."
+        ),
     }
 
 
@@ -74,7 +77,7 @@ def _status(evidence_audit: dict[str, Any], claim_evidence: dict[str, Any], miss
 def _summary(status: str, scenario: dict[str, Any], fault_range: str) -> str:
     label = _safe_text(scenario.get("accident_party_label"), _scenario_label(str(scenario.get("scenario_type") or "")))
     if status == "needs_more_facts":
-        return f"{label}로 보이나, {fault_range}를 좁히려면 핵심 사실을 더 확인해야 합니다."
+        return f"{label}로 보이며, {fault_range}를 좁히려면 핵심 사실을 더 확인해야 합니다."
     if status == "evidence_supported_reference":
         return f"{label}에 대해 확인된 근거를 기준으로 {fault_range} 범위의 참고 판단을 제시합니다."
     return f"{label}에 대해 현재 근거로 가능한 {fault_range} 참고 범위를 제시합니다."
@@ -88,13 +91,14 @@ def _legal_summary(
 ) -> str:
     issue = _safe_text(
         legal_analysis.get("legal_issue_summary"),
-        "사고 유형과 주요 사실을 기준으로 법률상 쟁점을 확인했습니다.",
+        "사고 유형과 주요 사실을 기준으로 법률 쟁점을 확인했습니다.",
     )
     risk = str(legal_liability.get("criminal_risk_level") or "unknown")
-    risk_label = {"high": "형사 쟁점이 높게 검토될 수 있습니다", "medium": "형사 쟁점은 보통 수준으로 검토됩니다", "low": "형사 쟁점은 낮은 편으로 보입니다"}.get(
-        risk,
-        "형사 쟁점은 추가 확인이 필요합니다",
-    )
+    risk_label = {
+        "high": "형사 쟁점이 높게 검토될 수 있습니다",
+        "medium": "형사 쟁점은 보통 수준으로 검토됩니다",
+        "low": "형사 쟁점은 낮은 편으로 보입니다",
+    }.get(risk, "형사 쟁점은 추가 확인이 필요합니다")
     return f"{issue} 현재는 {fault_range}로 안내하며, {risk_label}."
 
 
@@ -127,7 +131,7 @@ def _civil_points(fault_ratio: dict[str, Any], evidence_audit: dict[str, Any]) -
 def _criminal_points(legal_liability: dict[str, Any]) -> list[str]:
     items = _safe_list(legal_liability.get("checklist"), 5)
     if not items:
-        items = ["인명피해 여부", "신호위반·중앙선 침범 등 중대 위반 여부", "사고 후 조치 여부"]
+        items = ["인명피해 여부", "신호위반·중앙선 침범 등 중대한 위반 여부", "사고 후 조치 여부"]
     if legal_liability.get("reporting_required") is True:
         items.insert(0, "신고 또는 형사 절차 검토가 필요할 수 있습니다.")
     return list(dict.fromkeys(items))[:5]
@@ -206,35 +210,14 @@ def _limits(status: str, missing_facts: list[str]) -> list[str]:
     return items
 
 
-def _legacy_family_label(item: dict[str, Any]) -> str:
-    family_key = _family_key(item)
-    if family_key == "knia":
-        return "KNIA 湲곗?"
-    if family_key == "legal":
-        return "踰뺣쪧 洹쇨굅"
-    if family_key == "insurance":
-        return "蹂댄뿕 泥섎━ 洹쇨굅"
-    return "李멸퀬 洹쇨굅"
-
-
-def _legacy_family_key(item: dict[str, Any]) -> str:
-    source_type = str(item.get("source_type") or "").lower()
-    joined = " ".join(str(item.get(key) or "").lower() for key in ("source", "title", "source_url", "law_name"))
-    if source_type.startswith("knia") or "knia" in joined or "과실비율" in joined:
-        return "KNIA 기준"
-    if item.get("law_name") or "law.go.kr" in joined or "법" in joined:
-        return "법률 근거"
-    return "참고 근거"
-
-
 def _family_key(item: dict[str, Any]) -> str:
     source_type = str(item.get("source_type") or "").lower()
     joined = " ".join(str(item.get(key) or "").lower() for key in ("source", "title", "source_url", "law_name"))
-    if source_type.startswith("knia") or "knia" in joined or "fault ratio" in joined or "\uacfc\uc2e4" in joined:
+    if source_type.startswith("knia") or "knia" in joined or "fault ratio" in joined or "과실" in joined:
         return "knia"
-    if source_type.startswith("insurance") or "insurance" in joined:
+    if source_type.startswith("insurance") or "insurance" in joined or "보험" in joined:
         return "insurance"
-    if source_type.startswith("legal") or item.get("law_name") or "law.go.kr" in joined or "road traffic act" in joined:
+    if source_type.startswith("legal") or item.get("law_name") or "law.go.kr" in joined or "road traffic act" in joined or "법" in joined:
         return "legal"
     return "general"
 
@@ -242,12 +225,12 @@ def _family_key(item: dict[str, Any]) -> str:
 def _family_label(item: dict[str, Any]) -> str:
     family_key = _family_key(item)
     if family_key == "knia":
-        return "KNIA \uae30\uc900"
+        return "KNIA 기준"
     if family_key == "legal":
-        return "\ubc95\ub960 \uadfc\uac70"
+        return "법률 근거"
     if family_key == "insurance":
-        return "\ubcf4\ud5d8 \ucc98\ub9ac \uadfc\uac70"
-    return "\ucc38\uace0 \uadfc\uac70"
+        return "보험 처리 근거"
+    return "참고 근거"
 
 
 def _scenario_label(value: str) -> str:
