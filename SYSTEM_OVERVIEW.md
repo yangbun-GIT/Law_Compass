@@ -61,11 +61,11 @@
 | Path | 변경 내용 |
 | --- | --- |
 | `scripts/video_agent_e2e.py` | `--case-json` 옵션을 추가했다. 샘플별 케이스 payload 또는 `{ "case": ... }` 형태의 JSON을 사용해 영상별 입력 사실을 바꿔 측정할 수 있다. |
-| `scripts/video_accuracy_batch.py` | manifest 기반 배치 측정 도구다. 샘플별 기대 관찰값/Agent fact, `require_frame_observations`, `require_agent_video_facts`, `exercise_held_observation_followup` 옵션을 `video_agent_e2e.py`로 전달하고 aggregate metric을 생성한다. Windows BOM manifest와 UTF-8 출력 수집을 안전하게 처리한다. |
+| `scripts/video_accuracy_batch.py` | manifest 기반 배치 측정 도구다. 샘플별 기대 관찰값/Agent fact, `require_frame_observations`, `require_agent_video_facts`, `exercise_held_observation_followup` 옵션을 `video_agent_e2e.py`로 전달하고 aggregate metric을 생성한다. `aggregate.json`에는 필드별 관찰/반영/확인/충돌 통계(`field_summary`), threshold 조정 준비 상태(`calibration_readiness`), 다음 조치 추천(`recommendations`)을 함께 남긴다. Windows BOM manifest와 UTF-8 출력 수집을 안전하게 처리한다. |
 | `config/video_accuracy_samples.example.json` | 배치 측정 manifest 예시다. 실제 영상 경로는 로컬 파일 경로로 바꿔 사용한다. |
 | `docs/OPERATIONS.md` | 배치 측정 실행 방법, OpenAI/fixture worker 상태 전제, `--fail-on-mismatch` 사용 기준을 추가했다. |
 
-검증은 `FRAME_ANALYSIS_FIXTURE_MODE=rear_end`로 worker를 일시 재기동한 뒤 `logs/video_accuracy/local_manifest.json`을 사용해 수행했다. 결과는 sample 1개, passed 1개, mismatch 0개, failed 0개, expectation 3/3 통과였다. 검증 후 worker는 다시 `ENABLE_OPENAI_FRAME_ANALYSIS=0`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 복구했다.
+검증은 `FRAME_ANALYSIS_FIXTURE_MODE=rear_end`로 worker를 일시 재기동한 뒤 `logs/video_accuracy/local_manifest.json`을 사용해 수행했다. 결과는 sample 1개, passed 1개, mismatch 0개, failed 0개, expectation 3/3 통과였다. 배치 결과는 샘플 수가 1개뿐이므로 `calibration_readiness=collect_more_samples`를 반환하며, `opponent_behavior` 충돌은 conflict gate 점검 추천으로 남는다. threshold 조정은 이 결과만으로 바로 수행하지 않고 최소 3개 이상의 실제 사고 영상 샘플을 같은 manifest 기준으로 누적한 뒤 검토한다. 검증 후 worker는 다시 `ENABLE_OPENAI_FRAME_ANALYSIS=0`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 복구했다.
 
 ## 2026-05-22 프로젝트 구조 보강 완료 판정
 

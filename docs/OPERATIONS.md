@@ -188,6 +188,8 @@ python scripts/video_accuracy_batch.py --manifest config/video_accuracy_samples.
 
 실제 OpenAI 분석 기준으로 측정하려면 먼저 worker를 `ENABLE_OPENAI_FRAME_ANALYSIS=1`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 재시작해야 합니다. 기대값이 틀린 샘플도 측정 결과로 남기려면 기본 실행을 사용하고, 기대값 불일치를 실패로 처리하려면 `--fail-on-mismatch`를 추가합니다. 샘플별 입력 케이스는 `case_json`으로 지정할 수 있으며, 파일은 `case` 객체를 포함하거나 케이스 payload 자체를 포함할 수 있습니다.
 
+`aggregate.json`에는 전체 통과/불일치 수 외에 `field_summary`, `calibration_readiness`, `recommendations`가 포함됩니다. `field_summary`는 필드별 프레임 관찰 수, Agent fact 반영 수, 사용자 확인 수, 충돌 수, 기대값 통과율을 보여줍니다. `calibration_readiness=collect_more_samples`이면 threshold를 조정하지 말고 실제 사고 영상 샘플을 더 모아야 합니다. `review_conflict_gate` 또는 `inspect_field_mismatch` 추천이 나오면 prompt나 threshold를 바꾸기 전에 원본 프레임, 사용자 입력, Agent 충돌 정책을 먼저 확인합니다.
+
 검증 항목:
 - `/uploads/local` 로컬 영상 업로드
 - `/uploads/complete` 후 `video_preprocess` job 성공
