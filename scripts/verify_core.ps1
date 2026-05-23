@@ -65,6 +65,10 @@ try {
     }
   }
 
+  Invoke-Step "Reference hardening fixture" {
+    python scripts/verify_reference_hardening_fixture.py
+  }
+
   if (-not $SkipDockerChecks) {
     if (-not $SkipDockerBuild) {
       Invoke-Step "Docker compose build/start" {

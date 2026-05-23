@@ -294,6 +294,12 @@ python scripts/reference_guidance_calibration_eval.py \
 
 새 환경에서 `logs/` 산출물이 없을 때는 tracked synthetic fixture로 최소 평가 흐름을 먼저 확인합니다. 이 fixture는 실제 영상 경로, 사용자 정보, 실제 변호사 의견 원문을 포함하지 않으며, ready 샘플 1개와 reference gate에 막히는 충돌 샘플 1개만 담고 있습니다.
 
+가장 간단한 확인 방법은 아래 smoke 스크립트입니다. 이 스크립트는 미해소 충돌 fixture와 충돌 해소 fixture를 모두 실행하고, guidance/evidence/calibration gate의 기대 카운트가 맞지 않으면 실패합니다. 출력 JSON은 `logs/video_accuracy/reference_hardening_fixture_smoke/` 아래에 저장되며 Git에는 포함되지 않습니다.
+
+```bash
+python scripts/verify_reference_hardening_fixture.py
+```
+
 ```bash
 python scripts/reference_guidance_eval.py \
   --manifest tests/fixtures/video_accuracy/reference_hardening_minimal/manifest.json \
