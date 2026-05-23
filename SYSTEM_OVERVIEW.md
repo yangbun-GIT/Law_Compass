@@ -1727,3 +1727,19 @@ Worker와 Agent가 생성하는 영상 관찰값 품질 요약을 일반 결과 
 | `docs/OPERATIONS.md` | 품질 보류 관찰값 보완 질문 E2E 실행 명령과 검증 항목을 문서화했다. |
 
 이 변경은 DB schema, Redis key, storage path, 외부 API 계약을 변경하지 않는다. 품질 보류 질문이 없는 결과에서 해당 옵션을 사용하면 의도적으로 실패한다.
+
+## 2026-05-23 전문가 관점 결과 카드 연결
+
+Agent가 산출한 법률 분석, 과실비율, 형사 리스크, 보험 처리 안내, 근거 검증 상태를 하나의 사용자 안전 결과 섹션으로 묶는 `expert_guidance_sections`를 추가했다. 목적은 사용자에게 “확정 판결”처럼 보이는 단일 결론을 주는 것이 아니라, 변호사 관점의 예상 법률 쟁점, 보험 실무 관점의 처리 흐름, 추가 확인이 필요한 사실을 분리해서 보여주는 것이다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/expert_guidance_sections.py` | 기존 analyst 결과를 이용해 `legal_prediction`, `insurance_prediction`, `missing_facts`, `basis`, `notice`로 구성된 사용자 안전 전문가 안내 payload를 생성한다. 내부 `chunk_id`, cache key, model metadata는 포함하지 않는다. |
+| `apps/agent/app/services/orchestration_output.py` | 최종 Agent 출력 보강 단계에서 `expert_guidance_sections`를 생성하고, 이후 `elderly_friendly_report`를 다시 빌드해 최신 payload를 기준으로 사용자 결과가 만들어지게 했다. |
+| `apps/gateway/src/lib/report-composer.ts` | Agent의 `expert_guidance_sections`를 일반 화면용 `expert_guidance_card`로 변환한다. 상태 라벨, 과실 참고 범위, 법률/보험 포인트, 확인 근거, 추가 확인 항목만 노출한다. |
+| `apps/frontend/src/components/easy/ExpertGuidanceCard.vue` | 사용자 결과 화면에 전문가 관점 예상 안내 카드를 추가한다. 법률 관점, 보험 처리 예상, 확인 근거, 추가 확인 사항을 분리 표시한다. |
+| `apps/frontend/src/components/easy/EasyReportView.vue` | 과실비율 카드 다음에 `ExpertGuidanceCard`를 배치한다. |
+| `apps/frontend/src/utils/displaySanitizer.ts` | raw `expert_guidance_sections`가 일반 화면에 직접 노출되지 않도록 기술 필드로 분류한다. |
+| `apps/agent/tests/test_expert_guidance_sections.py`, `apps/gateway/test/report-composer.test.ts` | 전문가 안내 payload와 Gateway 카드가 내부 근거 ID 없이 법률/보험/추가 확인 항목을 표시하는지 검증한다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. easy-report 표시 payload만 확장한다.

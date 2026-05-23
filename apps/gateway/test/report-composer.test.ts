@@ -30,6 +30,54 @@ describe("report composer", () => {
     expect(text).not.toContain("support_level");
   });
 
+  it("adds expert guidance sections as a user-safe legal and insurance card", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      expert_guidance_sections: {
+        version: "expert-guidance-sections-v1",
+        status: "needs_more_facts",
+        summary: "후미추돌 사고에 대해 참고용 예상 범위를 정리했습니다.",
+        legal_prediction: {
+          title: "법률 관점 예상",
+          summary: "안전거리 유지 의무와 정차 사유를 함께 봅니다.",
+          fault_range_label: "내 책임 10~30% / 상대 70~90% 참고",
+          civil_points: ["정차 여부", "후방 추돌 여부"],
+          criminal_points: ["인명피해 여부 확인"],
+          basis: [
+            {
+              family_label: "KNIA 기준",
+              title: "후방 추돌 기준",
+              reason: "정차 차량 후방 추돌과 연결됩니다.",
+              chunk_id: "internal-knia-id",
+            },
+          ],
+          limits: ["확정 판단이 아닌 참고용 예상입니다."],
+        },
+        insurance_prediction: {
+          title: "보험 처리 예상",
+          summary: "대물 접수와 과실비율 협의를 준비합니다.",
+          expected_steps: ["보험사 사고 접수", "블랙박스 원본 제출"],
+          documents: ["블랙박스 원본", "차량 파손 사진"],
+        },
+        missing_facts: {
+          title: "추가 확인 필요",
+          items: ["정차 사유", "충돌 직전 속도"],
+        },
+        notice: "실제 결과는 보험사와 법원의 판단에 따라 달라질 수 있습니다.",
+      },
+    });
+
+    const card = (enriched as any).expert_guidance_card;
+    const text = JSON.stringify(card);
+    expect(card.status_label).toBe("추가 확인 필요");
+    expect(card.legal.fault_range_label).toBe("내 책임 10~30% / 상대 70~90% 참고");
+    expect(card.insurance.steps).toContain("보험사 사고 접수");
+    expect(card.basis[0].family_label).toBe("KNIA 기준");
+    expect(card.missing_items).toContain("정차 사유");
+    expect(text).not.toContain("expert-guidance-sections-v1");
+    expect(text).not.toContain("chunk_id");
+    expect(text).not.toContain("internal-knia-id");
+  });
+
   it("keeps user-safe missing-info questions usable after sanitizing", () => {
     const report = sanitizeEasyReport({
       missing_info: {

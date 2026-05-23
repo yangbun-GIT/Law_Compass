@@ -27,6 +27,7 @@
       <p class="soft-warning">{{ text(safeReport.legal_explanation?.caution) }}</p>
     </article>
     <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
+    <ExpertGuidanceCard v-if="safeReport.expert_guidance_card" :card="safeReport.expert_guidance_card" />
     <VideoFactExplanationCard v-if="safeReport.video_fact_explanation_card" :card="safeReport.video_fact_explanation_card" />
     <EvidenceReliabilityCard v-if="safeReport.evidence_reliability_card" :card="safeReport.evidence_reliability_card" />
     <article class="card easy-card wide-card">
@@ -92,6 +93,7 @@ import AgentProcessCard from "./AgentProcessCard.vue";
 import ElderlyActionCard from "./ElderlyActionCard.vue";
 import EvidenceReliabilityCard from "./EvidenceReliabilityCard.vue";
 import EasyFaultRatioCard from "./EasyFaultRatioCard.vue";
+import ExpertGuidanceCard from "./ExpertGuidanceCard.vue";
 import EasyLegalBasisCard from "./EasyLegalBasisCard.vue";
 import VideoFactExplanationCard from "./VideoFactExplanationCard.vue";
 import MissingInfoCard from "./MissingInfoCard.vue";

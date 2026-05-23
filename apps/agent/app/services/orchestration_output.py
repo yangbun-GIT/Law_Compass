@@ -15,6 +15,7 @@ from app.services.evidence_source_status import (
     VERSION as EVIDENCE_SOURCE_STATUS_VERSION,
     build_evidence_source_status,
 )
+from app.services.expert_guidance_sections import build_expert_guidance_sections
 from app.services.judgment_contract import apply_judgment_contract_to_output
 from app.services.orchestration_analysis import AnalysisBundle
 from app.services.orchestration_context import CaseContext
@@ -35,6 +36,19 @@ def enrich_analysis_output(
     output["reflection_loop"] = reflection_loop
     output["model_info"]["reflection_loop_version"] = REFLECTION_LOOP_VERSION
     output["claim_evidence"] = analysis_bundle.claim_evidence
+    output["expert_guidance_sections"] = build_expert_guidance_sections(
+        scenario=context.scenario,
+        facts=context.normalized["structured_facts"],
+        legal_analysis=analysis_bundle.legal_analysis,
+        fault_ratio=analysis_bundle.fault_ratio,
+        legal_liability=analysis_bundle.legal_liability,
+        insurance_guide=analysis_bundle.insurance_guide,
+        evidence=evidence_bundle.evidence,
+        evidence_audit=analysis_bundle.evidence_audit,
+        claim_evidence=analysis_bundle.claim_evidence,
+        input_requirements=context.input_requirements,
+        reflection_loop=reflection_loop,
+    )
     output["knia_json_evidence"] = evidence_bundle.knia_json_evidence
     _attach_knia_fault_estimate(output, evidence_bundle, analysis_bundle)
     output["related_knia_source_links"] = [

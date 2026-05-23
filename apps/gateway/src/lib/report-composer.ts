@@ -15,7 +15,8 @@ const TECHNICAL_KEYS = new Set([
   "fact_arbitration", "_fact_arbitration", "fact_sources", "_fact_sources", "video_primary_fields", "user_primary_fields",
   "applied_video_fields", "kept_user_fields", "confirmed_fields", "conflicts", "requires_confirmation",
   "agent_trace", "reflection_loop", "trace_policy", "packet", "step_count", "requery_attempted",
-  "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "initial_query_terms", "final_missing_requirements", "next_action"
+  "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "initial_query_terms", "final_missing_requirements", "next_action",
+  "expert_guidance_sections"
 ]);
 const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi];
 const SAFE_INPUT_FIELDS = new Set(["accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "pedestrian_signal", "bicycle_location", "bicycle_direction"]);
@@ -425,6 +426,65 @@ function composeEvidenceReliabilityCard(result: AnyRecord = {}) {
       ? "근거가 부족한 판단은 추가 확인이 필요한 참고 정보로 표시합니다."
       : "이 카드는 판단 문장과 근거 문서가 얼마나 연결됐는지 보여줍니다.",
   };
+}
+
+function composeExpertGuidanceCard(result: AnyRecord = {}) {
+  const source = result.expert_guidance_sections ?? result.elderly_friendly_report?.expert_guidance_sections ?? {};
+  if (!source || typeof source !== "object" || !Object.keys(source).length) return undefined;
+  const legal = source.legal_prediction ?? {};
+  const insurance = source.insurance_prediction ?? {};
+  const missing = source.missing_facts ?? {};
+  const basis = asArray(legal.basis ?? source.basis)
+    .map((item: AnyRecord) => ({
+      family_label: cleanText(item?.family_label, "참고 근거"),
+      title: cleanText(item?.title, "교통사고 관련 근거"),
+      reason: cleanText(item?.reason, "입력 사고와 연결해 참고할 수 있는 근거입니다."),
+    }))
+    .filter((item) => item.title)
+    .slice(0, 4);
+  const legalPoints = [
+    ...asArray(legal.civil_points).map((item) => cleanText(item, "")),
+    ...asArray(legal.criminal_points).map((item) => cleanText(item, "")),
+  ].filter(Boolean).slice(0, 6);
+  const insuranceSteps = asArray(insurance.expected_steps).map((item) => cleanText(item, "")).filter(Boolean).slice(0, 5);
+  const documents = asArray(insurance.documents).map((item) => cleanText(item, "")).filter(Boolean).slice(0, 6);
+  const missingItems = asArray(missing.items).map((item) => cleanText(item, "")).filter(Boolean).slice(0, 5);
+  const statusLabel = expertGuidanceStatusLabel(source.status);
+
+  if (!basis.length && !legalPoints.length && !insuranceSteps.length && !missingItems.length && !legal.summary && !insurance.summary) {
+    return undefined;
+  }
+
+  return {
+    title: "전문가 관점 예상 안내",
+    status_label: statusLabel,
+    summary: cleanText(source.summary, "입력 사실과 유사 근거를 바탕으로 참고용 예상 안내를 정리했습니다."),
+    legal: {
+      title: cleanText(legal.title, "법률 관점 예상"),
+      summary: cleanText(legal.summary, ""),
+      fault_range_label: cleanText(legal.fault_range_label, "과실범위 확인 필요"),
+      points: legalPoints,
+      limits: asArray(legal.limits).map((item) => cleanText(item, "")).filter(Boolean).slice(0, 4),
+    },
+    insurance: {
+      title: cleanText(insurance.title, "보험 처리 예상"),
+      summary: cleanText(insurance.summary, ""),
+      steps: insuranceSteps,
+      documents,
+    },
+    basis,
+    missing_items: missingItems,
+    notice: cleanText(source.notice, "확정 판단이 아닌 참고용 예상입니다."),
+  };
+}
+
+function expertGuidanceStatusLabel(value: any) {
+  const labels: AnyRecord = {
+    evidence_supported_reference: "근거 확인됨",
+    reference_only: "참고용",
+    needs_more_facts: "추가 확인 필요",
+  };
+  return labels[String(value)] ?? "참고용";
 }
 
 function composeVideoFactExplanationCard(result: AnyRecord = {}) {
@@ -954,6 +1014,7 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
   const card = composeEvidenceReliabilityCard(result);
   const processCard = composeAgentProcessCard(result);
   const videoFactCard = composeVideoFactExplanationCard(result);
+  const expertGuidanceCard = composeExpertGuidanceCard(result);
   const videoQuestions = combineVideoQuestions(
     composeVideoConflictQuestions(result),
     composeVideoQualityQuestions(result),
@@ -964,6 +1025,7 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
     ...(card ? { evidence_reliability_card: card } : {}),
     ...(processCard ? { agent_process_card: processCard } : {}),
     ...(videoFactCard ? { video_fact_explanation_card: videoFactCard } : {}),
+    ...(expertGuidanceCard ? { expert_guidance_card: expertGuidanceCard } : {}),
   };
 }
 
