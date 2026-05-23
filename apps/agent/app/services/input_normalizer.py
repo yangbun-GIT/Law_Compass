@@ -75,10 +75,18 @@ def _compact_for_analysis(value: Any) -> Any:
         return [_compact_for_analysis(v) for v in value if not _is_empty(v)]
     return value
 
+def _normalize_fact_aliases(facts: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(facts)
+    if "crosswalk_nearby" not in normalized and normalized.get("crosswalk") is True:
+        normalized["crosswalk_nearby"] = True
+    if "opponent_signal_violation" not in normalized and normalized.get("other_signal_violation") is not None:
+        normalized["opponent_signal_violation"] = normalized.get("other_signal_violation")
+    return normalized
+
 def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None) -> dict[str, Any]:
     clean_text, security_flags = sanitize_input(description_text or "")
     video_contract = normalize_video_input_contract(video_metadata, preprocessed_summary=clean_text)
-    user_facts = _compact_for_analysis(structured_facts or {})
+    user_facts = _normalize_fact_aliases(_compact_for_analysis(structured_facts or {}))
     arbitration = arbitrate_facts(user_facts=user_facts, video_contract=video_contract)
     fact_arbitration = arbitration["contract"]
     facts = _compact_for_analysis(arbitration["facts"])

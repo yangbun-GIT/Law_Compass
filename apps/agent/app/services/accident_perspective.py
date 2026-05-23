@@ -39,6 +39,8 @@ def infer_user_vehicle_role(text: str, facts: dict[str, Any] | None = None, scen
 
     haystack = _haystack(text, facts)
     if _is_rear_end_context(scenario_type, haystack):
+        if facts.get("front_vehicle_stopped") is True and facts.get("stopped") is False:
+            return FOLLOWING_VEHICLE
         if _facts_indicate_front_vehicle_rear_end(facts):
             return FRONT_VEHICLE
         if _has_front_vehicle_phrase(haystack):
@@ -187,12 +189,22 @@ def _facts_indicate_front_vehicle_rear_end(facts: dict[str, Any]) -> bool:
 
 
 def _has_front_vehicle_phrase(text: str) -> bool:
+    if _contains_any(text, ["정차", "신호대기", "선행차", "앞차"]) and _contains_any(
+        text,
+        ["뒤에서", "뒤차", "후미", "들이받", "받혔", "추돌당", "추돌 받"],
+    ):
+        return True
     front_markers = ["정차", "신호대기", "앞차", "앞 차량", "선행차", "선행 차량"]
     impact_markers = ["뒤에서", "후미", "뒷차", "받힘", "받혔", "추돌당", "추돌 받"]
     return _contains_any(text, front_markers) and _contains_any(text, impact_markers)
 
 
 def _has_following_vehicle_phrase(text: str) -> bool:
+    if _contains_any(text, ["내가", "제가", "내 차", "제 차", "우리 차"]) and _contains_any(
+        text,
+        ["앞차", "앞 차량", "선행차", "선행 차량"],
+    ) and _contains_any(text, ["추돌", "들이받", "박았", "박음", "받음"]):
+        return True
     my_markers = ["내가", "제가", "내 차", "제 차", "우리 차"]
     front_markers = ["앞차", "앞 차량", "선행차", "선행 차량"]
     impact_markers = ["추돌", "받음", "들이받", "박았", "박음"]

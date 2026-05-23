@@ -102,3 +102,87 @@ def test_analyze_video_case_applies_video_input_contract():
     assert "expert_guidance_sections" in AnalysisOutput(**result).model_dump()
     AnalysisOutput(**result)
 
+
+def test_crosswalk_alias_rear_end_case_keeps_following_vehicle_fault():
+    result = analyze_case(
+        "우회전 중 앞차가 횡단보도 앞에서 일시정지했고 제 차가 뒤에서 추돌했습니다.",
+        structured_facts={
+            "accident_type": "후방 추돌",
+            "crosswalk": True,
+            "pedestrian_signal": "red",
+            "front_vehicle_stopped": True,
+            "stopped": False,
+            "opponent_behavior": "앞차가 횡단보도 앞에서 일시정지",
+        },
+        selected_keywords=["우회전", "횡단보도", "후방 추돌"],
+        analysis_mode="fault_ratio",
+    )
+
+    assert result["structured_facts"]["crosswalk_nearby"] is True
+    assert result["scenario_type"] == "rear_end_collision"
+    assert result["fault_ratio"]["user_vehicle_role"] == "following_vehicle"
+    assert result["fault_ratio"]["my"] >= 90
+
+
+def test_reference_complex_contexts_use_contextual_fault_ranges():
+    centerline = analyze_case(
+        "주차 차량을 피하려고 중앙선을 넘은 상태로 가다가 멈췄고 마주오던 차와 충돌했습니다.",
+        structured_facts={
+            "centerline_crossed": True,
+            "centerline_cross_reason": "주차 차량 회피",
+            "stopped": True,
+            "secondary_collision": True,
+            "opponent_behavior": "마주오던 차량과 충돌 후 뒤차와도 충돌",
+        },
+        selected_keywords=["중앙선", "주차 차량", "후속 추돌"],
+        analysis_mode="fault_ratio",
+    )
+    unlit = analyze_case(
+        "야간에 등화 없이 정차한 차량을 추돌했습니다.",
+        structured_facts={
+            "stopped_vehicle_without_lights": True,
+            "light_condition": "night",
+            "reported_speed_kmh": 141,
+            "speed_limit_kmh": 100,
+            "fatality": True,
+            "opponent_behavior": "무등화 정차 차량",
+        },
+        selected_keywords=["무등화", "정차 차량", "속도"],
+        analysis_mode="fault_ratio",
+    )
+    bicycle = analyze_case(
+        "자전거를 보고 정지했는데 뒤 고속버스가 후방 추돌했습니다.",
+        structured_facts={
+            "stopped": True,
+            "bicycle_involved": True,
+            "possible_trigger_vehicle": "자전거",
+            "rear_vehicle_collision": True,
+            "opponent_behavior": "뒤 고속버스가 후방 추돌",
+        },
+        selected_keywords=["자전거", "비접촉", "후방 추돌"],
+        analysis_mode="fault_ratio",
+    )
+
+    assert centerline["fault_ratio"]["my"] == 30
+    assert unlit["fault_ratio"]["my"] == 40
+    assert bicycle["fault_ratio"]["my"] == 20
+
+
+def test_uncertain_signal_transition_does_not_treat_user_as_clear_victim():
+    result = analyze_case(
+        "교차로에서 좌회전 중 직진 차량과 충돌했고 진입 후 황색, 충돌 시 적색으로 바뀐 것 같습니다.",
+        structured_facts={
+            "intersection": True,
+            "turning": "left_turn",
+            "signal_state": "황색에서 적색으로 변경",
+            "signal_timing_uncertain": True,
+            "cctv_needed": True,
+            "opponent_behavior": "좌측 1차로 직진 차량",
+        },
+        selected_keywords=["좌회전", "직진 차량", "신호 변경", "CCTV"],
+        analysis_mode="fault_ratio",
+    )
+
+    assert result["scenario_type"] == "intersection_signal_violation"
+    assert result["fault_ratio"]["my"] == 80
+    assert result["fault_ratio"]["other"] == 20

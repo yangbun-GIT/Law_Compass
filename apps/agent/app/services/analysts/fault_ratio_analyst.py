@@ -32,7 +32,21 @@ def analyze_fault_ratio(
 
     knia = next((ev for ev in evidence if ev.get("source_type") == "knia_fault_standard"), None)
     user_vehicle_role = infer_user_vehicle_role(text, facts, scenario_type)
-    if scenario_type == "rear_end_collision":
+    key_factors = ["사고 유형", "신호·정차·차선변경 여부", "인명피해 여부", "관련 법규와 KNIA 기준"]
+
+    if _centerline_obstacle_stop_context(facts):
+        my, other, confidence = 30, 70, 0.66
+        key_factors = ["중앙선 침범 사유", "정차 여부", "상대 차량 회피 가능성", "후속 추돌 분리"]
+    elif _unlit_stopped_vehicle_context(facts):
+        my, other, confidence = 40, 60, 0.58
+        key_factors = ["무등화 정차 차량", "야간 시인성", "속도위반 여부", "회피 가능성 감정"]
+    elif _bicycle_trigger_rear_end_context(facts):
+        my, other, confidence = 20, 80, 0.6
+        key_factors = ["자전거 비접촉 유발", "정지의 불가피성", "후방 차량 안전거리", "급차로변경·급제동 여부"]
+    elif _uncertain_signal_transition_context(facts):
+        my, other, confidence = 80, 20, 0.55
+        key_factors = ["신호 전환 시점", "내 차량 진입 신호", "상대 차량 진입 신호", "CCTV·신호체계 확인"]
+    elif scenario_type == "rear_end_collision":
         if user_vehicle_role == FRONT_VEHICLE:
             my, other, confidence = 0, 100, 0.82
         elif user_vehicle_role == FOLLOWING_VEHICLE:
@@ -67,7 +81,7 @@ def analyze_fault_ratio(
         "confidence": confidence,
         "basis": basis,
         "evidence_count": len(evidence),
-        "key_factors": ["사고 유형", "신호·정차·차선변경 여부", "인명피해 여부", "관련 법규와 KNIA 기준"],
+        "key_factors": key_factors,
         "user_vehicle_role": user_vehicle_role,
         "evidence_ids": [ev.get("chunk_id") for ev in evidence[:6] if ev.get("chunk_id")],
     }, evidence), llm_usage, used=False)
@@ -78,3 +92,34 @@ def _normalize(data: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str
     data.setdefault("evidence_ids", [ev.get("chunk_id") for ev in evidence[:6] if ev.get("chunk_id")])
     data.setdefault("key_factors", ["AI 분석", "RAG 근거", "KNIA 기준"])
     return data
+
+
+def _centerline_obstacle_stop_context(facts: dict[str, Any]) -> bool:
+    reason = str(facts.get("centerline_cross_reason") or facts.get("analysis_uncertainty") or "")
+    return facts.get("centerline_crossed") is True and facts.get("stopped") is True and any(
+        token in reason for token in ("주차", "장애", "obstacle", "parking")
+    )
+
+
+def _unlit_stopped_vehicle_context(facts: dict[str, Any]) -> bool:
+    if facts.get("stopped_vehicle_without_lights") is True:
+        return True
+    text = " ".join(str(facts.get(key) or "") for key in ("opponent_behavior", "accident_type", "analysis_uncertainty"))
+    return any(token in text for token in ("무등화", "스텔스", "unlit", "without lights"))
+
+
+def _bicycle_trigger_rear_end_context(facts: dict[str, Any]) -> bool:
+    trigger = str(facts.get("possible_trigger_vehicle") or facts.get("bicycle_behavior") or "").lower()
+    return (
+        (facts.get("bicycle_involved") is True or "bicycle" in trigger or "자전거" in trigger)
+        and (facts.get("rear_vehicle_collision") is True or facts.get("stopped") is True)
+    )
+
+
+def _uncertain_signal_transition_context(facts: dict[str, Any]) -> bool:
+    signal_state = str(facts.get("signal_state") or facts.get("analysis_uncertainty") or "")
+    return (
+        facts.get("signal_timing_uncertain") is True
+        or facts.get("cctv_needed") is True
+        or ("황색" in signal_state and "적색" in signal_state)
+    )

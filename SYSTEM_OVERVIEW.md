@@ -1772,3 +1772,30 @@ Agent가 산출한 법률 분석, 과실비율, 형사 리스크, 보험 처리 
 - 사고 영상 1~5 실제 OpenAI 프레임 분석 배치 재실행에서 4개 샘플은 통과했고, 1개 샘플은 OpenAI read timeout으로 실패했다. 동일 사고2 단일 재시도는 통과했으므로 DTO/카드 전달 문제는 해소된 것으로 본다.
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. 실제 OpenAI 검증 뒤에는 비용 방지를 위해 worker를 다시 `ENABLE_OPENAI_FRAME_ANALYSIS=0`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 복구해야 한다.
+
+## 2026-05-23 변호사 reference 샘플 과실 범위 1차 보정
+
+사고 영상 1~5번 reference set을 기준으로 Agent 텍스트 입력 경로의 과실 범위가 과도하게 단순화되는 문제를 보정했다. 이 변경은 reference 의견을 정답으로 주입하는 것이 아니라, 구조화된 사용자 입력과 영상 관찰값이 알려주는 주요 쟁점이 기존 기본 50:50 또는 단순 후방추돌 규칙에 묻히지 않도록 하는 1차 정확도 고도화다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/input_normalizer.py` | 사용자 입력의 `crosswalk=true`를 Agent 표준 fact인 `crosswalk_nearby=true`로 보강해 횡단보도 앞 후방 추돌이 보행자 사고로 잘못 분류되지 않게 했다. |
+| `apps/agent/app/services/accident_perspective.py` | `front_vehicle_stopped=true`, `stopped=false`인 후방 추돌에서는 사용자를 뒤따르던 차량으로 추론한다. 정상 한국어 후방추돌 표현도 역할 추론에서 우선 처리한다. |
+| `apps/agent/app/services/analysts/fault_ratio_analyst.py` | 중앙선 회피 후 정차·후속 추돌, 무등화 정차 차량, 자전거 비접촉 유발 후 후방 추돌, 신호 전환/CCTV 필요 교차로 사고에 대한 보수적 참고 과실 범위를 추가했다. |
+| `apps/agent/tests/test_orchestrator.py`, `apps/agent/tests/test_rear_end_user_perspective.py` | reference 샘플에서 드러난 입력 alias, 후방 추돌 역할 추론, 복합 사고 과실 범위, 신호 전환 불확실성 회귀를 추가했다. |
+
+텍스트 경로 기준 보정 후 샘플별 참고 범위:
+
+| 샘플 | 현재 Agent 기준 |
+| --- | --- |
+| 사고1 중앙선 회피·마주오던 차량·후속 추돌 | 내 책임 20~40% / 상대 60~80% 참고 |
+| 사고2 좌회전·신호 전환·CCTV 필요 | 내 책임 70~90% / 상대 10~30% 참고 |
+| 사고3 횡단보도 앞 일시정지 차량 후방 추돌 | 내 책임 90~100% / 상대 0~10% 참고 |
+| 사고4 야간 무등화 정차 차량 추돌 | 내 책임 30~50% / 상대 50~70% 참고 |
+| 사고5 자전거 비접촉 유발·트럭 정지·후방 버스 추돌 | 내 책임 10~30% / 상대 70~90% 참고 |
+
+검증:
+- Codex 번들 Python 3.12에서 `apps/agent/tests/test_orchestrator.py`, `apps/agent/tests/test_rear_end_user_perspective.py` 10개 테스트 통과.
+- `powershell -ExecutionPolicy Bypass -File scripts/verify_agent_regression.ps1 -SkipDockerBuild` 통과.
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. 실제 OpenAI 프레임 분석 배치는 비용과 timeout 변동이 있으므로 이번 보정에서는 재호출하지 않았고, 다음 실제 영상 검증 시 동일 reference manifest로 재측정한다.
