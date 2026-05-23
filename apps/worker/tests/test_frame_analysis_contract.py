@@ -99,6 +99,28 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(result["observations"][0]["observation_quality"]["level"], "none")
         self.assertEqual(result["observation_quality_summary"]["quality_counts"]["none"], 1)
 
+    def test_conflict_stopped_fixture_returns_override_quality_observation(self):
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = "conflict_stopped"
+        frame_analysis.OPENAI_API_KEY = ""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 3):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index * 0.5, "role": "time_sequence"})
+            result = frame_analysis.analyze_frames_with_openai(frames, {"upload_id": "upload-conflict"})
+
+        observation = result["observations"][0]
+        self.assertEqual(result["model"], "fixture:conflict_stopped")
+        self.assertEqual(observation["field"], "stopped")
+        self.assertEqual(observation["value"], False)
+        self.assertEqual(observation["confidence"], 0.93)
+        self.assertEqual(observation["frame_refs"], ["frame_001.jpg", "frame_002.jpg"])
+        self.assertEqual(observation["observation_quality"]["level"], "high")
+        self.assertEqual(result["observation_quality_summary"]["multi_frame_observation_count"], 1)
+
     def test_openai_frame_selection_keeps_context_and_middle_sequence(self):
         with tempfile.TemporaryDirectory() as tmp:
             frames = []

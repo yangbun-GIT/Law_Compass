@@ -234,6 +234,20 @@ Stage 7 재생성 결과 사고 1, 2, 4 모두 `video_accuracy_batch` 통과, `r
 
 검증은 `python -m py_compile apps\agent\app\services\expert_guidance_sections.py scripts\reference_evidence_alignment_eval.py`, `python -m pytest tests\test_expert_guidance_sections.py -q`, `docker compose up -d --build agent`, `docker compose exec -T agent python -m compileall app scripts`, `python scripts\video_accuracy_batch.py --manifest logs\video_accuracy\stage6_ready_manifest.json --output-dir logs\video_accuracy\stage7_evidence_content_capture --timeout-sec 300`, `python scripts\reference_evidence_alignment_eval.py --reference-eval logs\video_accuracy\reference_guidance_eval_stage5.json --sample-dir logs\video_accuracy\stage7_evidence_content_capture --output logs\video_accuracy\reference_evidence_alignment_stage7.json`로 통과했다. 이번 단계는 OpenAI 프레임 분석을 새로 켜지 않았고, DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
 
+### 2026-05-23 정확도 고도화 7~9단계 통합 점검
+
+7~9단계를 10단계 진입 전 기준으로 다시 점검했다. 7단계의 근거 내용 적합성, 8단계의 사용자 질문 우선순위, 9단계의 충돌 보완 재분석 방향은 유지한다. 다만 9단계에서 `--exercise-conflict-followup` 옵션은 추가됐지만, 비용 없이 이 경로를 재현하는 deterministic fixture가 부족해 실제 OpenAI 호출 전 회귀 확인이 어려웠다.
+
+| Path | 보강 내용 |
+| --- | --- |
+| `apps/worker/worker/frame_analysis.py` | `FRAME_ANALYSIS_FIXTURE_MODE=conflict_stopped`를 추가했다. 기본 E2E 케이스의 `stopped=true`와 충돌하도록 `stopped=false`, confidence `0.93`, 2개 frame ref 관찰값을 반환한다. |
+| `apps/worker/tests/test_frame_analysis_contract.py` | `conflict_stopped` fixture가 다중 프레임 high-quality 관찰값을 반환하는지 검증한다. |
+| `docs/OPERATIONS.md` | `conflict_stopped` fixture로 `--exercise-conflict-followup` 재분석 경로를 비용 없이 확인하는 명령을 추가했다. |
+
+검증은 `python -m unittest discover -s tests`와 `python -m compileall worker tests`(Worker), `npm test`와 `npm run build`(Gateway), `FRAME_ANALYSIS_FIXTURE_MODE=conflict_stopped` 상태의 `python scripts/video_agent_e2e.py --video-path ... --require-frame-observations --exercise-conflict-followup`로 통과했다. E2E에서는 `stopped` 충돌 질문 답변 후 새 분석 버전이 생성되고, 최신 `fact_arbitration.conflicts`가 0개로 줄며 `confirmed_fields=["stopped"]`가 남는 것을 확인했다. 검증 후 worker는 다시 비용 안전 기본값인 `ENABLE_OPENAI_FRAME_ANALYSIS=0`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 복구했다.
+
+이 통합 보강은 실제 사고 판단 모델이 아니라 9단계 재분석 계약을 검증하기 위한 테스트 fixture다. DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다. 10단계에서는 이 fixture와 실제 샘플을 이용해 사고 3·5 같은 충돌 케이스가 `확인 질문 -> 재분석 -> 근거 안내` 흐름으로 안정적으로 이어지는지 검증하면 된다.
+
 ### 2026-05-23 정확도 고도화 9단계 완료
 
 영상 관찰값과 사용자 입력이 충돌한 뒤 사용자가 보완 질문에 답하는 재분석 흐름을 보강했다. 기존 `/api/v1/cases/:caseId/reanalyze`는 보완 답변을 Agent text 분석으로만 넘겨 최신 업로드의 영상 메타데이터를 다시 전달하지 않았기 때문에, 재분석 이후 `fact_arbitration`에서 같은 영상 근거와 사용자 답변을 다시 대조하기 어려웠다. 이제 Gateway가 최신 업로드의 `metadata`, `file_name`, `status`, `preprocess_summary`를 재분석 요청에 포함하고, Agent의 text 분석 DTO도 `video_metadata`를 받을 수 있다.

@@ -287,6 +287,18 @@ def _fixture_observations(mode: str, frame_refs: list[str]) -> list[dict[str, An
                 "reason": "Fixture validates that low-confidence frame observations become user followup questions.",
             }
         ]
+    if mode == "conflict_stopped":
+        return [
+            {
+                "field": "stopped",
+                "value": False,
+                "confidence": 0.93,
+                "source": "frame_analysis:fixture",
+                "detector": "fixture:conflict_stopped",
+                "frame_refs": frame_refs,
+                "reason": "Fixture validates video/user stopped-state conflict followup and reanalysis.",
+            }
+        ]
     return []
 
 

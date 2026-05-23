@@ -154,6 +154,15 @@ docker compose up -d --force-recreate worker
 python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeout-sec 240 --require-frame-observations --exercise-held-observation-followup
 ```
 
+영상 관찰값과 사용자 입력이 충돌한 뒤 보완 질문 답변으로 재분석되는 흐름은 `conflict_stopped` fixture로 확인합니다. 기본 E2E 케이스는 `stopped=true`를 포함하고, fixture는 `stopped=false` 관찰값을 반환하므로 `/reanalyze`가 최신 영상 메타데이터를 다시 Agent에 전달하는지 확인하기에 적합합니다.
+
+```powershell
+$env:ENABLE_OPENAI_FRAME_ANALYSIS="1"
+$env:FRAME_ANALYSIS_FIXTURE_MODE="conflict_stopped"
+docker compose up -d --force-recreate worker
+python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeout-sec 240 --require-frame-observations --exercise-conflict-followup
+```
+
 fixture 점검 후 기본 모드로 되돌리려면 아래처럼 worker를 재기동합니다.
 
 ```powershell
