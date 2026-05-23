@@ -39,6 +39,9 @@
       <perspective name="AI/RAG Engineer">
         Agent orchestration, 법률/KNIA RAG, 임베딩, LLM 비용, 근거 품질, fallback 동작을 점검합니다.
       </perspective>
+      <perspective name="Traffic Accident Legal Product Reviewer">
+        과실비율 결과가 확정 판결처럼 보이지 않는지, 유사 판례/KNIA 기준/상황 사실/불확실성 안내가 균형 있게 제시되는지 점검합니다.
+      </perspective>
       <perspective name="DevOps/SRE Engineer">
         Docker Compose, 헬스체크, 리소스 사용량, 로그, 배포 안정성, 장애 복구성을 점검합니다.
       </perspective>
@@ -134,6 +137,14 @@
       단일 서버 2GB RAM 환경과 외부 API/LLM 비용을 고려하십시오.
       무거운 라이브러리 도입, 대량 메모리 로딩, 무제한 외부 호출, 불필요한 임베딩 재생성은 피하십시오.
       필요한 경우 Redis 캐시, pagination, limit, timeout, retry backoff를 사용하십시오.
+    </guideline>
+
+    <guideline name="legal_guidance_not_verdict">
+      LawCompass의 결과는 실제 판결이나 법률 확정 의견이 아니라, 입력된 사고 사실과 영상 관찰값을 바탕으로 유사 KNIA 기준, 법령, 판례, 조정 가능 요소를 제시하는 참고 가이드입니다.
+      전문 변호사 의견이나 실제 처리 결과가 제공되더라도 이를 Agent 입력 사실이나 절대 정답으로 주입하지 말고, 평가용 reference range와 위험 케이스로 분리하십시오.
+      사용자는 변호사처럼 전문적으로 사고를 설명하지 못할 수 있으므로, 간단한 설명/영상만으로도 가능한 범위를 추정하되 근거 부족, CCTV/신호체계/속도/차선 위치처럼 결론을 바꿀 수 있는 미확인 요소를 명시하십시오.
+      영상 관찰값과 사용자 입력이 충돌하면 둘 중 하나를 무조건 우선하지 말고, 관찰 품질, frame reference, 사용자 확인, 유사 기준 적합성을 함께 보고 보류/확인/참고 전용 상태로 처리하십시오.
+      과실비율 숫자는 단일 정답처럼 표시하지 말고 기준 비율, 조정 가능 범위, 주요 감산/가산 요인, 반대 가능성을 함께 제시하십시오.
     </guideline>
 
     <guideline name="validation_and_errors">
@@ -303,6 +314,7 @@
 - [ ] 구조/API/DB/환경변수/외부 연동이 바뀌면 `SYSTEM_OVERVIEW.md` 업데이트가 필요한지 판단했다.
 - [ ] 개발 원칙이나 작업 방식이 바뀌면 `DEVELOPMENT_PROMPT.md` 업데이트가 필요한지 판단했다.
 - [ ] Agent 판단, 도구 호출, 영상 관찰값, LLM 사용, 근거 검색을 바꾸는 작업이면 아래 Agentic Design 적용 기준을 확인했다.
+- [ ] 과실비율/법률 근거/영상 판단을 바꾸는 작업이면 결과가 확정 판결처럼 보이지 않고 참고 가이드, 유사 기준, 불확실성, 추가 확인 필요 사항을 함께 표현하는지 확인했다.
 - [ ] 작업 종료 시 커밋/푸시가 가능한 상태인지 확인했다.
 
 ## 현재 프로젝트에서 특히 주의할 점
@@ -393,6 +405,7 @@ The updated Agentic Design Pattern lecture should be applied as durable engineer
 - Cost awareness: LLM and vision paths should record safe metadata such as model, enabled/disabled state, frame count, output cap, token usage when available, and cap/fallback reason. Full billing UI is optional, but cost-relevant execution must be inspectable.
 - Guardrails: user input must not override system policy, tool authority, internal tokens, evidence requirements, finality policy, or display sanitization. Prompt-injection and unsafe-input regression tests should be added or preserved when these surfaces change.
 - Evaluation: judgment changes should keep repeatable evaluation evidence. At minimum, representative scenarios should report pass/fail, evidence coverage, finality/reference-only status, OpenAI usage, and latency when measurable.
+- Expert lawyer opinions, insurer/police outcomes, or real dispute results may be used as calibration references, but they must not be injected into the user case payload as observed facts. Keep them in evaluation manifests or test expectations and compare whether the Agent can reach a reasonable guidance range through video facts, user facts, KNIA/legal evidence, and uncertainty handling.
 
 ### Escalation Patterns
 

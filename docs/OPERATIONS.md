@@ -190,6 +190,8 @@ python scripts/video_accuracy_batch.py --manifest config/video_accuracy_samples.
 
 `aggregate.json`에는 전체 통과/불일치 수 외에 `field_summary`, `calibration_readiness`, `recommendations`가 포함됩니다. `field_summary`는 필드별 프레임 관찰 수, Agent fact 반영 수, 사용자 확인 수, 충돌 수, 기대값 통과율을 보여줍니다. `calibration_readiness=collect_more_samples`이면 threshold를 조정하지 말고 실제 사고 영상 샘플을 더 모아야 합니다. `review_conflict_gate` 또는 `inspect_field_mismatch` 추천이 나오면 prompt나 threshold를 바꾸기 전에 원본 프레임, 사용자 입력, Agent 충돌 정책을 먼저 확인합니다.
 
+전문 변호사 의견, 경찰/보험 처리 결과, 실제 분쟁 결과가 있는 경우에는 manifest의 `reference` 메타데이터에만 기록합니다. 이 값은 배치 결과 JSON에 보존되지만 Agent 입력 payload로 전달되지 않습니다. 실제 사용자는 전문적인 법률 의견을 입력하지 못할 수 있으므로 `case_json`에는 일반 사용자가 작성할 법한 짧은 사고 설명과 확인 가능한 사실만 넣고, `reference`는 결과 비교와 캘리브레이션 판단에만 사용합니다.
+
 검증 항목:
 - `/uploads/local` 로컬 영상 업로드
 - `/uploads/complete` 후 `video_preprocess` job 성공

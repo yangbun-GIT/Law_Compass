@@ -12,6 +12,11 @@
       "expect_agent_fact": {
         "stopped": true,
         "opponent_behavior": "rear_collision"
+      },
+      "reference": {
+        "source_type": "expert_opinion",
+        "purpose": "evaluation_only_not_agent_input",
+        "expected_guidance": "정차 중 후방 추돌은 일반적으로 뒤차 책임이 크게 검토되지만, 영상과 추가 사실에 따라 조정 가능성을 함께 안내한다."
       }
     }
   ]

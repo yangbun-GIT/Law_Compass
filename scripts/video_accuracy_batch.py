@@ -100,6 +100,9 @@ def run_sample(
         "returncode": completed.returncode,
         "output_json": str(sample_output),
     }
+    reference = sample.get("reference")
+    if isinstance(reference, dict):
+        result["reference"] = reference
     if completed.returncode:
         result["stderr"] = completed.stderr[-4000:]
         result["stdout"] = completed.stdout[-4000:]
