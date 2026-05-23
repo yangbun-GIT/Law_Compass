@@ -145,6 +145,7 @@ python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeo
 ```
 
 품질 보류 관찰값이 보완 질문과 재분석으로 이어지는 흐름은 `held_quality` fixture로 비용 없이 확인할 수 있습니다.
+이 옵션은 보완 질문 생성뿐 아니라 답변 제출 후 새 분석 버전 생성, `analysis_change_card.question_flow`, 케이스 `structured_facts`의 답변 상태 기록, 최신 easy-report의 변화 카드 보존 여부까지 확인합니다.
 
 ```powershell
 $env:ENABLE_OPENAI_FRAME_ANALYSIS="1"

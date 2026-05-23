@@ -113,6 +113,7 @@ def run_sample(
     expectations = payload.get("accuracy_expectations") if isinstance(payload.get("accuracy_expectations"), dict) else {}
     expert_card = payload.get("expert_guidance_card") if isinstance(payload.get("expert_guidance_card"), dict) else {}
     field_metrics = field_metrics_from_payload(payload)
+    held_followup = payload.get("held_observation_followup") if isinstance(payload.get("held_observation_followup"), dict) else {}
     result.update({
         "provider": metrics.get("provider"),
         "model": metrics.get("model"),
@@ -128,6 +129,7 @@ def run_sample(
         "accuracy_passed_count": expectations.get("passed_count"),
         "accuracy_failed_count": expectations.get("failed_count"),
         "expert_guidance": expert_guidance_metrics(expert_card),
+        "held_observation_followup": held_followup_metrics(held_followup),
         "field_metrics": field_metrics,
     })
     if expectations.get("failed_count"):
@@ -148,6 +150,24 @@ def expert_guidance_metrics(card: dict[str, Any]) -> dict[str, Any]:
         "insurance_document_count": int(card.get("insurance_document_count") or 0),
         "basis_count": int(card.get("basis_count") or 0),
         "missing_item_count": int(card.get("missing_item_count") or 0),
+    }
+
+
+def held_followup_metrics(summary: dict[str, Any]) -> dict[str, Any]:
+    if not summary:
+        return {"present": False}
+    flow = summary.get("question_flow") if isinstance(summary.get("question_flow"), dict) else {}
+    before_count = int(flow.get("before_count") or 0)
+    after_count = int(flow.get("after_count") or 0)
+    return {
+        "present": True,
+        "field": summary.get("field"),
+        "next_version": summary.get("next_version"),
+        "before_question_count": before_count,
+        "after_question_count": after_count,
+        "question_delta": before_count - after_count,
+        "field_removed_from_questions": bool(flow.get("field_removed_from_questions")),
+        "status_label": flow.get("status_label"),
     }
 
 
@@ -267,6 +287,7 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
     field_summary = aggregate_field_metrics(samples)
     recommendations = calibration_recommendations(samples, field_summary)
     expert_summary = aggregate_expert_guidance(samples)
+    followup_summary = aggregate_held_followup(samples)
     return {
         "video_accuracy_batch": "completed" if failed == 0 else "failed",
         "sample_count": total,
@@ -279,6 +300,7 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "calibration_readiness": calibration_readiness(total, max(0, checked - accuracy_passed), failed),
         "field_summary": field_summary,
         "expert_guidance_summary": expert_summary,
+        "held_observation_followup_summary": followup_summary,
         "recommendations": recommendations,
         "samples": samples,
     }
@@ -298,6 +320,20 @@ def aggregate_expert_guidance(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "with_insurance_steps_count": sum(1 for item in present_samples if int(item.get("insurance_step_count") or 0) > 0),
         "with_basis_count": sum(1 for item in present_samples if int(item.get("basis_count") or 0) > 0),
         "with_missing_items_count": sum(1 for item in present_samples if int(item.get("missing_item_count") or 0) > 0),
+    }
+
+
+def aggregate_held_followup(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    present = [
+        sample.get("held_observation_followup")
+        for sample in samples
+        if isinstance(sample.get("held_observation_followup"), dict) and sample["held_observation_followup"].get("present")
+    ]
+    return {
+        "present_count": len(present),
+        "missing_count": max(0, len(samples) - len(present)),
+        "question_reduced_count": sum(1 for item in present if int(item.get("question_delta") or 0) > 0),
+        "field_removed_count": sum(1 for item in present if item.get("field_removed_from_questions")),
     }
 
 

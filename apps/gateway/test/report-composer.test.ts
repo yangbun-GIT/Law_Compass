@@ -776,8 +776,18 @@ describe("report composer", () => {
     expect(card?.answer_items.map((item: any) => item.status_label)).toContain("분석 반영");
     expect(card?.answer_items.map((item: any) => item.status_label)).toContain("추가 확인 필요");
     expect(card?.stats.find((item: any) => item.label === "남은 질문")?.value).toBe("0개");
+    expect(card?.stats.find((item: any) => item.label === "질문 변화")?.value).toBe("1개 감소");
     expect(card?.stats.find((item: any) => item.label === "관련 근거")?.value).toBe("3개");
+    expect(card?.question_flow).toEqual({
+      before_count: 1,
+      after_count: 0,
+      answered_count: 2,
+      unresolved_count: 1,
+      ignored_count: 1,
+      status_label: "질문 감소",
+    });
     expect(card?.evidence_notes.join(" ")).toContain("현재 대표 KNIA 기준");
+    expect(card?.decision_notes.join(" ")).toContain("남은 보완 질문이 1개에서 0개로 바뀌었습니다.");
     expect(card?.evidence_notes.join(" ")).toContain("현재 적용된 KNIA 가감요소: 1개");
     expect(card?.knia_adjustment_changes.added.map((item: any) => item.label)).toContain("상대 차량의 현저한 과실");
     expect(card?.evidence_changes.added.map((item: any) => item.title)).toContain("KNIA 관련 법규");

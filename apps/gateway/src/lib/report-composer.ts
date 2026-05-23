@@ -305,6 +305,7 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
   const adjustmentChanges = adjustmentDiff(previous, next);
   const beforeQuestionCount = questionCountOf(previous);
   const afterQuestionCount = questionCountOf(next);
+  const questionDelta = beforeQuestionCount - afterQuestionCount;
   const answeredLabels = followupFieldLabels(followupContext.answered_fields);
   const unresolvedLabels = followupFieldLabels(followupContext.unresolved_fields);
   const ignoredCount = asArray(followupContext.ignored_fields).length;
@@ -358,6 +359,11 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
     beforeJudgment !== afterJudgment
       ? `판단 상태가 ${beforeJudgment}에서 ${afterJudgment}(으)로 바뀌었습니다.`
       : `판단 상태는 ${afterJudgment}로 유지되었습니다.`,
+    beforeQuestionCount !== afterQuestionCount
+      ? `남은 보완 질문이 ${beforeQuestionCount}개에서 ${afterQuestionCount}개로 바뀌었습니다.`
+      : answeredLabels.length
+        ? "보완 답변은 반영됐지만 남은 질문 수는 그대로입니다. 다른 불확실성이 아직 남아 있을 수 있습니다."
+        : "",
     reflection.requery_attempted
       ? `부족한 근거를 한 번 더 검색했고 관련 근거 ${toNumber(reflection.requery_added_evidence_count, 0)}개를 추가 확인했습니다.`
       : "추가 근거 재검색 없이 기존 근거와 보완 입력으로 재판단했습니다.",
@@ -382,10 +388,23 @@ export function composeReanalysisChangeCard(previous: AnyRecord | undefined, nex
       { label: "현재 상대 책임", value: afterFault.other !== undefined ? `${afterFault.other}%` : "확인 필요" },
       { label: "근거 충족도", value: coverageLevelOf(next) },
       { label: "남은 질문", value: `${afterQuestionCount}개` },
+      { label: "질문 변화", value: questionDelta > 0 ? `${questionDelta}개 감소` : questionDelta < 0 ? `${Math.abs(questionDelta)}개 증가` : "변화 없음" },
       { label: "반영 답변", value: `${answeredLabels.length}개` },
       { label: "대표 KNIA", value: kniaStandardLabel(next) },
       { label: "관련 근거", value: `${afterEvidence.relevant}개` },
     ],
+    question_flow: {
+      before_count: beforeQuestionCount,
+      after_count: afterQuestionCount,
+      answered_count: answeredLabels.length,
+      unresolved_count: unresolvedLabels.length,
+      ignored_count: ignoredCount,
+      status_label: questionDelta > 0
+        ? "질문 감소"
+        : answeredLabels.length || unresolvedLabels.length
+          ? "답변 반영"
+          : "변화 없음",
+    },
     decision_notes: decisionNotes,
     evidence_notes: evidenceNotes,
     evidence_changes: evidenceChanges,

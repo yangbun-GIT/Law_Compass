@@ -482,13 +482,19 @@ def run_held_observation_followup(base_url: str, case_id: str, token: str, repor
     question = choose_quality_followup_question(report)
     if not question:
         raise E2EError("easy-report has no held video-observation quality followup question")
+    before_questions = missing_questions(report)
+    before_question_count = len(before_questions)
+    field = str(question["field"])
     answer = answer_for_question(question)
     payload = {
         "followup_answers": {
-            str(question["field"]): answer,
+            field: answer,
         }
     }
     reanalyzed = http_json("POST", base_url, f"/api/v1/cases/{case_id}/reanalyze", payload, token=token)
+    next_version = int(reanalyzed.get("version") or 0)
+    if next_version < 2:
+        raise E2EError("reanalyze did not create a new analysis version")
     next_report = reanalyzed.get("report") if isinstance(reanalyzed.get("report"), dict) else reanalyzed.get("result", {})
     if not isinstance(next_report, dict):
         raise E2EError("reanalyze response did not include a report")
@@ -498,17 +504,40 @@ def run_held_observation_followup(base_url: str, case_id: str, token: str, repor
     answer_items = change_card.get("answer_items") if isinstance(change_card.get("answer_items"), list) else []
     if not answer_items:
         raise E2EError("analysis_change_card is missing followup answer_items")
+    question_flow = change_card.get("question_flow") if isinstance(change_card.get("question_flow"), dict) else {}
+    if not question_flow:
+        raise E2EError("analysis_change_card is missing question_flow")
+    if int(question_flow.get("answered_count") or 0) < 1:
+        raise E2EError("analysis_change_card question_flow did not record the answered field")
     answer_text = json.dumps(answer_items, ensure_ascii=False)
-    if str(question["field"]) in answer_text:
+    if field in answer_text:
         raise E2EError("analysis_change_card exposed raw followup field names")
     latest_report = http_json("GET", base_url, f"/api/v1/cases/{case_id}/easy-report", token=token)
     latest_questions = missing_questions(latest_report)
+    latest_card = latest_report.get("analysis_change_card") if isinstance(latest_report.get("analysis_change_card"), dict) else {}
+    if not latest_card:
+        raise E2EError("latest easy-report did not persist analysis_change_card")
+    updated_case = http_json("GET", base_url, f"/api/v1/cases/{case_id}", token=token).get("case", {})
+    latest_facts = updated_case.get("structured_facts") if isinstance(updated_case.get("structured_facts"), dict) else {}
+    answered_fields = latest_facts.get("_followup_answered_fields") if isinstance(latest_facts.get("_followup_answered_fields"), list) else []
+    unresolved_fields = latest_facts.get("_followup_unresolved_fields") if isinstance(latest_facts.get("_followup_unresolved_fields"), list) else []
+    if field not in answered_fields and field not in unresolved_fields:
+        raise E2EError("reanalyze did not persist followup field status into case facts")
+    after_question_fields = [str(item.get("field") or "") for item in latest_questions if isinstance(item, dict)]
     return {
-        "field": question.get("field"),
+        "field": field,
         "question": question.get("question"),
         "answer": answer,
-        "next_version": reanalyzed.get("version"),
+        "next_version": next_version,
         "change_summary": change_card.get("summary"),
+        "question_flow": {
+            "before_count": before_question_count,
+            "after_count": len(latest_questions),
+            "answered_count": question_flow.get("answered_count"),
+            "unresolved_count": question_flow.get("unresolved_count"),
+            "status_label": question_flow.get("status_label"),
+            "field_removed_from_questions": field not in after_question_fields,
+        },
         "answer_statuses": [
             {
                 "label": item.get("label"),
@@ -518,6 +547,7 @@ def run_held_observation_followup(base_url: str, case_id: str, token: str, repor
             if isinstance(item, dict)
         ],
         "remaining_question_count": len(latest_questions),
+        "remaining_question_fields": after_question_fields[:8],
     }
 
 
