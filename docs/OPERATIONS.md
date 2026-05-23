@@ -198,12 +198,13 @@ python scripts/video_accuracy_batch.py --manifest config/video_accuracy_samples.
 ```bash
 python scripts/reference_guidance_eval.py \
   --manifest logs/video_accuracy/lawyer_reference_manifest.json \
-  --batch-output logs/video_accuracy/lawyer_reference_openai/aggregate.json \
-  --batch-output logs/video_accuracy/lawyer_reference_openai_sample4_retry/aggregate.json \
-  --output logs/video_accuracy/reference_guidance_eval.json
+  --batch-output logs/video_accuracy/stage4_openai_flow/aggregate.json \
+  --output logs/video_accuracy/reference_guidance_eval_stage5.json
 ```
 
 여러 `--batch-output`을 넘기면 같은 샘플의 재시도 결과를 병합합니다. 실패했던 샘플이 재시도에서 통과한 경우 통과 결과를 우선 사용하므로, 표시 오류 수정 후 단일 샘플만 재측정한 결과도 전체 평가에 반영할 수 있습니다. 이 평가는 판결 정답 맞추기가 아니라, “예상 안내를 만들기 전에 어떤 사실/근거 검증이 남았는가”를 찾기 위한 단계입니다.
+
+`reference_guidance_eval.py` 출력에는 batch의 `video_flow_summary`와 `question_priority_summary`가 다시 포함됩니다. 따라서 실제 OpenAI 프레임 관찰값이 결과 화면에서 `반영`, `확인`, `보류`, `참고`, `충돌` 중 어디로 흘렀는지와, 어떤 보완 질문이 가장 먼저 올라오는지를 전문가 reference 평가와 한 번에 대조할 수 있습니다. `recommendations`는 다음 단계를 자동 결정하지 않고, 충돌 샘플 우선 확인, 근거 대조 진입 가능 샘플, 표시 계약 문제 여부를 점검하기 위한 운영 메모로 사용합니다.
 
 검증 항목:
 - `/uploads/local` 로컬 영상 업로드
