@@ -214,6 +214,33 @@ python scripts/video_accuracy_batch.py --manifest config/video_accuracy_samples.
 
 `aggregate.json`에는 전체 통과/불일치 수 외에 `video_flow_summary`, `question_priority_summary`, `field_summary`, `calibration_readiness`, `recommendations`가 포함됩니다. `video_flow_summary`는 전체 프레임 관찰값이 Agent에서 반영, 확인, 보류, 참고 관찰, 충돌 중 어디로 흘렀는지 비율로 보여줍니다. `question_priority_summary`는 결과 화면에서 가장 먼저 떠오른 보완 질문 라벨과 우선순위 분포를 보여줍니다. `field_summary`는 필드별 프레임 관찰 수, Agent fact 반영 수, 사용자 확인 수, 충돌 수, 기대값 통과율을 보여줍니다. `calibration_readiness=collect_more_samples`이면 threshold를 조정하지 말고 실제 사고 영상 샘플을 더 모아야 합니다. `keep_conservative_thresholds`, `prioritize_conflict_questions`, `review_conflict_gate`, `inspect_field_mismatch` 추천이 나오면 prompt나 threshold를 바꾸기 전에 원본 프레임, 사용자 입력, Agent 충돌 정책, 보완 질문 순서를 먼저 확인합니다.
 
+2026-05-24 최신 OpenAI ON 재측정은 아래 흐름으로 수행했다. 실제 OpenAI 호출 후에는 반드시 worker를 `ENABLE_OPENAI_FRAME_ANALYSIS=0`, `FRAME_ANALYSIS_FIXTURE_MODE=`로 되돌린다.
+
+```bash
+python scripts/video_accuracy_batch.py \
+  --manifest logs/video_accuracy/lawyer_reference_manifest.json \
+  --output-dir logs/video_accuracy/stage4_openai_latest_20260524 \
+  --timeout-sec 300
+
+python scripts/reference_guidance_eval.py \
+  --manifest logs/video_accuracy/lawyer_reference_manifest.json \
+  --batch-output logs/video_accuracy/stage4_openai_latest_20260524/aggregate.json \
+  --output logs/video_accuracy/reference_guidance_eval_stage4_latest_20260524.json
+
+python scripts/reference_evidence_alignment_eval.py \
+  --reference-eval logs/video_accuracy/reference_guidance_eval_stage4_latest_20260524.json \
+  --batch-output logs/video_accuracy/stage4_openai_latest_20260524/aggregate.json \
+  --output logs/video_accuracy/reference_evidence_alignment_stage4_latest_20260524.json
+
+python scripts/reference_guidance_calibration_eval.py \
+  --manifest logs/video_accuracy/lawyer_reference_manifest.json \
+  --batch-output logs/video_accuracy/stage4_openai_latest_20260524/aggregate.json \
+  --reference-eval logs/video_accuracy/reference_guidance_eval_stage4_latest_20260524.json \
+  --output logs/video_accuracy/reference_guidance_calibration_stage4_latest_20260524.json
+```
+
+이 재측정에서 5개 샘플의 pipeline은 모두 통과했지만, 사고 2 신호 전환 샘플은 근거 카드와 첫 보완 질문이 신호/CCTV 쟁점보다 급정거/후방추돌 쪽으로 치우쳐 `needs_user_flow_calibration`으로 남았다. 이 상태는 threshold 문제가 아니라 신호 전환 사고의 근거 검색, 카드 선택, 질문 우선순위 보강 항목으로 분류한다.
+
 전문 변호사 의견, 경찰/보험 처리 결과, 실제 분쟁 결과가 있는 경우에는 manifest의 `reference` 메타데이터에만 기록합니다. 이 값은 배치 결과 JSON에 보존되지만 Agent 입력 payload로 전달되지 않습니다. 실제 사용자는 전문적인 법률 의견을 입력하지 못할 수 있으므로 `case_json`에는 일반 사용자가 작성할 법한 짧은 사고 설명과 확인 가능한 사실만 넣고, `reference`는 결과 비교와 캘리브레이션 판단에만 사용합니다.
 
 전문가 참고 의견 샘플이 실제 안내 품질 기준에 얼마나 가까운지 보려면 `reference_guidance_eval.py`를 실행합니다. 이 스크립트는 영상 관찰값의 성공 여부만 보지 않고, manifest의 `evaluation_focus`별로 사용자 입력 fact, 영상 관찰값, 충돌 여부, 다음에 필요한 KNIA/법령/판례/보험 근거 확인 항목을 분리합니다. 결과는 `logs/video_accuracy/reference_guidance_eval.json`에 저장하는 것을 권장합니다.
