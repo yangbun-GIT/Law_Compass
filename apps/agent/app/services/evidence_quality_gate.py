@@ -45,6 +45,20 @@ SCENARIO_PROFILES: dict[str, EvidenceProfile] = {
         terms=("bicycle", "자전거"),
         required_families=("legal", "knia"),
     ),
+    "parking_or_stopped_vehicle_accident": EvidenceProfile(
+        tags=("stopped_vehicle", "parking", "visibility", "centerline"),
+        terms=(
+            "stopped vehicle",
+            "unlit stopped vehicle",
+            "centerline obstacle avoidance",
+            "visibility",
+            "avoidability",
+            "rear-end",
+            "parking",
+            "centerline",
+        ),
+        required_families=("legal", "knia"),
+    ),
     "object_collision": EvidenceProfile(
         tags=("object",),
         terms=("object", "시설물", "고정물", "물체"),

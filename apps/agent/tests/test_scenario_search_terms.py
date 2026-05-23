@@ -24,10 +24,51 @@ def test_fact_values_expand_retrieval_terms():
             "damage_level": "minor_rear_bumper_damage",
         },
         selected_keywords=[],
+        max_terms=40,
     )
 
     assert "정차 차량 추돌" in terms
     assert "후방 범퍼 파손" in terms
+
+
+def test_reference_guidance_fact_values_expand_terms():
+    terms = scenario_search_terms(
+        scenario_type="parking_or_stopped_vehicle_accident",
+        scenario_tags=["stopped_vehicle", "centerline"],
+        facts={
+            "centerline_crossed": True,
+            "secondary_collision": True,
+            "stopped_vehicle_without_lights": True,
+            "reported_speed_kmh": 141,
+            "speed_limit_kmh": 100,
+            "fatality": True,
+        },
+        selected_keywords=[],
+        max_terms=40,
+    )
+
+    assert "centerline obstacle avoidance" in terms
+    assert "secondary collision" in terms
+    assert "unlit stopped vehicle" in terms
+    assert "avoidability analysis" in terms
+    assert "criminal civil liability split" in terms
+
+
+def test_bicycle_trigger_expands_terms():
+    terms = scenario_search_terms(
+        scenario_type="bicycle_collision",
+        scenario_tags=["bicycle", "rear_end"],
+        facts={
+            "bicycle_involved": True,
+            "possible_trigger_vehicle": "bicycle",
+            "time_gap_sec": 4,
+            "sudden_brake": True,
+        },
+        selected_keywords=[],
+    )
+
+    assert "non-contact bicycle trigger" in terms
+    assert "reaction time gap" in terms
 
 
 def test_lane_change_actor_expands_directional_terms():
@@ -82,3 +123,23 @@ def test_parking_text_does_not_default_to_rear_end():
     scenario = classify_scenario("주차된 차량을 출차 중 접촉했습니다", {}, [])
     assert scenario["scenario_type"] == "parking_or_stopped_vehicle_accident"
     assert scenario["accident_party_type"] == "car_vs_car"
+
+
+def test_crosswalk_rear_end_is_classified_as_rear_end():
+    scenario = classify_scenario(
+        "우회전 중 횡단보도 앞에서 정차한 앞차를 뒤에서 추돌했습니다.",
+        {"crosswalk_nearby": True, "stopped": True},
+        [],
+    )
+    assert scenario["scenario_type"] == "rear_end_collision"
+    assert "crosswalk" in scenario["scenario_tags"]
+
+
+def test_unlit_stopped_vehicle_is_classified_as_stopped_vehicle_case():
+    scenario = classify_scenario(
+        "야간에 등화 없이 정차한 차량을 추돌했습니다.",
+        {"stopped_vehicle_without_lights": True, "light_condition": "night"},
+        [],
+    )
+    assert scenario["scenario_type"] == "parking_or_stopped_vehicle_accident"
+    assert "visibility" in scenario["scenario_tags"]

@@ -18,6 +18,10 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "school_zone_child_accident"
         accident_party_type = "car_vs_person"
         tags.update(["school_zone", "child_protection", "injury", "speed_limit", "pedestrian"])
+    elif facts.get("crosswalk_nearby") and (facts.get("stopped") or any(w in haystack for w in ["앞차", "후방", "뒤차", "추돌", "rear"])):
+        scenario_type = "rear_end_collision"
+        accident_party_type = "car_vs_car"
+        tags.update(["rear_end", "safe_distance", "stopped_vehicle", "crosswalk"])
     elif facts.get("victim_is_child") or facts.get("pedestrian") or facts.get("crosswalk_nearby") or any(w in haystack for w in ["횡단보도", "보행자", "사람을", "사람과", "무단횡단"]):
         scenario_type = "pedestrian_crosswalk_accident"
         accident_party_type = "car_vs_person"
@@ -48,6 +52,10 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
     elif any(w in haystack for w in ["뺑소니", "도주"]):
         scenario_type = "hit_and_run_risk"
         tags.update(["hit_and_run", "reporting_duty"])
+    elif facts.get("stopped_vehicle_without_lights") or any(w in haystack for w in ["무등화", "스텔스", "등화 없이"]):
+        scenario_type = "parking_or_stopped_vehicle_accident"
+        accident_party_type = "car_vs_car"
+        tags.update(["stopped_vehicle", "visibility", "night", "rear_end"])
     elif any(w in haystack for w in ["주차", "주정차"]):
         scenario_type = "parking_or_stopped_vehicle_accident"
         accident_party_type = "car_vs_car"
@@ -61,6 +69,17 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         tags.add("injury")
     if facts.get("signal_state") in ("red", "적색"):
         tags.add("signal")
+    if facts.get("secondary_collision"):
+        tags.add("secondary_collision")
+    if facts.get("centerline_crossed"):
+        tags.add("centerline")
+    if facts.get("bicycle_involved") or facts.get("possible_trigger_vehicle") == "bicycle":
+        tags.add("bicycle")
+        tags.add("non_contact_trigger")
+    if facts.get("reported_speed_kmh") or facts.get("speed_limit_kmh"):
+        tags.add("speed")
+    if facts.get("fatality"):
+        tags.add("fatality")
     if "12대" in haystack or "중과실" in haystack:
         tags.add("twelve_gross_negligence")
 

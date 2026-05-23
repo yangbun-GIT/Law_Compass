@@ -19,6 +19,15 @@ SCENARIO_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "general_collision": ("교통사고", "과실비율", "보험접수", "블랙박스", "사고 경위"),
 }
 
+SCENARIO_SEARCH_TERMS["parking_or_stopped_vehicle_accident"] = (
+    *SCENARIO_SEARCH_TERMS.get("parking_or_stopped_vehicle_accident", ()),
+    "centerline obstacle avoidance",
+    "unlit stopped vehicle",
+    "avoidability analysis",
+    "stopped vehicle",
+    "parking vehicle",
+)
+
 TAG_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "injury": ("부상", "진단서", "대인접수"),
     "school_zone": ("어린이보호구역", "제한속도"),
@@ -35,6 +44,12 @@ TAG_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "safe_distance": ("안전거리", "급정거"),
     "reporting_duty": ("신고의무", "구호조치"),
     "twelve_gross_negligence": ("12대 중과실", "형사책임"),
+    "centerline": ("centerline crossing", "centerline obstacle avoidance", "oncoming vehicle collision"),
+    "secondary_collision": ("secondary collision", "front and rear collision", "rear-end after primary collision"),
+    "visibility": ("unlit stopped vehicle", "night visibility", "avoidability analysis"),
+    "speed": ("speeding", "speed limit", "avoidability analysis"),
+    "fatality": ("fatal traffic accident", "criminal civil liability split", "criminal liability"),
+    "non_contact_trigger": ("non-contact bicycle trigger", "bicycle induced accident", "reaction time gap"),
 }
 
 PARTY_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
@@ -174,6 +189,64 @@ def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
         terms.extend(["어린이 피해", "어린이 보호의무"])
     if facts.get("bicycle_location"):
         terms.extend(["자전거 통행 위치", "자전거도로"])
+    if facts.get("centerline_crossed"):
+        terms.extend([
+            "centerline crossing",
+            "centerline obstacle avoidance",
+            "oncoming vehicle collision",
+            "중앙선 침범",
+            "중앙선 회피",
+        ])
+    if facts.get("secondary_collision"):
+        terms.extend([
+            "secondary collision",
+            "front and rear collision",
+            "rear-end after primary collision",
+            "후속 추돌",
+            "2차 충돌",
+        ])
+    if facts.get("stopped_vehicle_without_lights"):
+        terms.extend([
+            "unlit stopped vehicle",
+            "stealth stopped vehicle",
+            "night visibility",
+            "avoidability analysis",
+            "무등화 정차 차량",
+            "야간 시인성",
+        ])
+    if facts.get("reported_speed_kmh") or facts.get("speed_limit_kmh"):
+        terms.extend([
+            "speeding",
+            "speed limit",
+            "avoidability analysis",
+            "criminal civil liability split",
+            "속도위반",
+            "회피 가능성",
+        ])
+    if facts.get("fatality"):
+        terms.extend([
+            "fatal traffic accident",
+            "criminal liability",
+            "civil fault ratio",
+            "사망 사고",
+            "형사 민사 구분",
+        ])
+    if facts.get("bicycle_involved") or facts.get("possible_trigger_vehicle") == "bicycle":
+        terms.extend([
+            "non-contact bicycle trigger",
+            "bicycle induced accident",
+            "rear-end after bicycle avoidance",
+            "자전거 비접촉 유발",
+            "자전거 회피 정지",
+        ])
+    if facts.get("time_gap_sec"):
+        terms.extend([
+            "reaction time gap",
+            "sudden braking time gap",
+            "safe distance reaction time",
+            "시간적 여유",
+            "급제동 대응 시간",
+        ])
     return tuple(terms)
 
 

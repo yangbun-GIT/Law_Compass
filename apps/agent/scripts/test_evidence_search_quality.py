@@ -70,6 +70,47 @@ SCENARIOS = [
         description_text="자전거와 차량이 충돌했습니다.",
         required_terms=("자전거", "차대 자전거", "자전거 통행 위치"),
     ),
+    EvidenceSearchScenario(
+        name="centerline_obstacle_secondary_collision",
+        scenario_type="parking_or_stopped_vehicle_accident",
+        scenario_tags=["centerline", "stopped_vehicle", "secondary_collision"],
+        facts={
+            "centerline_crossed": True,
+            "centerline_cross_reason": "parked vehicle avoidance",
+            "secondary_collision": True,
+            "stopped": True,
+        },
+        description_text="The vehicle crossed the centerline to avoid a parked car, stopped, then had an oncoming collision and a secondary rear-end collision.",
+        required_terms=("centerline obstacle avoidance", "oncoming vehicle collision", "secondary collision"),
+    ),
+    EvidenceSearchScenario(
+        name="unlit_stopped_vehicle_avoidability",
+        scenario_type="parking_or_stopped_vehicle_accident",
+        scenario_tags=["stopped_vehicle", "visibility", "speed"],
+        facts={
+            "stopped_vehicle_without_lights": True,
+            "light_condition": "night",
+            "speed_limit_kmh": 100,
+            "reported_speed_kmh": 141,
+            "fatality": True,
+        },
+        description_text="At night the vehicle hit an unlit stopped vehicle. Speed and avoidability at the legal speed are disputed.",
+        required_terms=("unlit stopped vehicle", "avoidability analysis", "criminal civil liability split"),
+    ),
+    EvidenceSearchScenario(
+        name="bicycle_non_contact_trigger_bus_rear_end",
+        scenario_type="bicycle_collision",
+        scenario_tags=["bicycle", "non_contact_trigger", "rear_end"],
+        facts={
+            "bicycle_involved": True,
+            "possible_trigger_vehicle": "bicycle",
+            "stopped": True,
+            "sudden_brake": True,
+            "time_gap_sec": 4,
+        },
+        description_text="A truck stopped after a bicycle came from the bus side, then a bus hit the truck from behind.",
+        required_terms=("non-contact bicycle trigger", "rear-end after bicycle avoidance", "reaction time gap"),
+    ),
 ]
 
 
