@@ -346,6 +346,7 @@ def evaluate_sample(sample: dict[str, Any], manifest_path: Path, batch_sample: d
         for focus in focuses
     ]
     readiness = sample_readiness(focus_rows, batch_sample)
+    expert_status = evaluate_expert_guidance_card(batch_sample, readiness)
     return {
         "name": str(sample.get("name") or ""),
         "pipeline_status": str(batch_sample.get("status") or "missing"),
@@ -359,9 +360,39 @@ def evaluate_sample(sample: dict[str, Any], manifest_path: Path, batch_sample: d
         "confirmed_count": batch_sample.get("confirmed_count"),
         "conflict_count": batch_sample.get("conflict_count"),
         "guidance_readiness": readiness,
+        "expert_guidance_status": expert_status["status"],
+        "expert_guidance_checks": expert_status["checks"],
+        "expert_guidance": batch_sample.get("expert_guidance") if isinstance(batch_sample.get("expert_guidance"), dict) else {"present": False},
         "focus_evaluations": focus_rows,
         "next_actions": next_actions(focus_rows, readiness),
     }
+
+
+def evaluate_expert_guidance_card(batch_sample: dict[str, Any], readiness: str) -> dict[str, Any]:
+    card = batch_sample.get("expert_guidance") if isinstance(batch_sample.get("expert_guidance"), dict) else {}
+    if str(batch_sample.get("status") or "missing") == "failed":
+        return {"status": "not_evaluated_pipeline_failed", "checks": []}
+    if not card.get("present"):
+        return {"status": "missing_expert_guidance_card", "checks": [{"id": "present", "passed": False}]}
+
+    checks = [
+        {"id": "fault_range_visible", "passed": bool(card.get("fault_range_label"))},
+        {"id": "legal_points_visible", "passed": int(card.get("legal_point_count") or 0) > 0},
+        {"id": "insurance_steps_visible", "passed": int(card.get("insurance_step_count") or 0) > 0},
+        {"id": "basis_visible", "passed": int(card.get("basis_count") or 0) > 0},
+    ]
+    if readiness in {"needs_conflict_resolution_before_guidance", "needs_user_confirmation_before_guidance", "needs_fact_schema_or_followup_question"}:
+        checks.append({
+            "id": "pending_facts_visible",
+            "passed": int(card.get("missing_item_count") or 0) > 0 or "추가" in str(card.get("status_label") or ""),
+        })
+
+    failed = [item for item in checks if not item["passed"]]
+    if failed:
+        return {"status": "expert_guidance_needs_display_fix", "checks": checks}
+    if readiness == "ready_for_legal_knia_insurance_evidence_eval":
+        return {"status": "expert_guidance_ready_for_reference_review", "checks": checks}
+    return {"status": "expert_guidance_safe_with_pending_facts", "checks": checks}
 
 
 def next_actions(focus_rows: list[dict[str, Any]], readiness: str) -> list[str]:
@@ -391,6 +422,7 @@ def dedupe(values: list[str]) -> list[str]:
 
 def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
     readiness_counts = Counter(sample["guidance_readiness"] for sample in samples)
+    expert_counts = Counter(sample["expert_guidance_status"] for sample in samples)
     focus_counts = Counter(row["status"] for sample in samples for row in sample["focus_evaluations"])
     criterion_counts = Counter(row["criterion_id"] for sample in samples for row in sample["focus_evaluations"])
     recurring_gaps = [
@@ -403,6 +435,7 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "sample_count": len(samples),
         "pipeline_passed_count": sum(1 for sample in samples if sample["pipeline_status"] == "passed"),
         "readiness_counts": dict(sorted(readiness_counts.items())),
+        "expert_guidance_status_counts": dict(sorted(expert_counts.items())),
         "focus_status_counts": dict(sorted(focus_counts.items())),
         "recurring_gaps": recurring_gaps,
         "samples": samples,

@@ -111,6 +111,7 @@ def run_sample(
     payload = json.loads(sample_output.read_text(encoding="utf-8"))
     metrics = payload.get("video_accuracy_metrics") if isinstance(payload.get("video_accuracy_metrics"), dict) else {}
     expectations = payload.get("accuracy_expectations") if isinstance(payload.get("accuracy_expectations"), dict) else {}
+    expert_card = payload.get("expert_guidance_card") if isinstance(payload.get("expert_guidance_card"), dict) else {}
     field_metrics = field_metrics_from_payload(payload)
     result.update({
         "provider": metrics.get("provider"),
@@ -125,11 +126,28 @@ def run_sample(
         "accuracy_checked_count": expectations.get("checked_count"),
         "accuracy_passed_count": expectations.get("passed_count"),
         "accuracy_failed_count": expectations.get("failed_count"),
+        "expert_guidance": expert_guidance_metrics(expert_card),
         "field_metrics": field_metrics,
     })
     if expectations.get("failed_count"):
         result["status"] = "mismatch"
     return result
+
+
+def expert_guidance_metrics(card: dict[str, Any]) -> dict[str, Any]:
+    if not card:
+        return {"present": False}
+    return {
+        "present": True,
+        "status_label": card.get("status_label"),
+        "fault_range_label": card.get("fault_range_label"),
+        "legal_point_count": int(card.get("legal_point_count") or 0),
+        "legal_limit_count": int(card.get("legal_limit_count") or 0),
+        "insurance_step_count": int(card.get("insurance_step_count") or 0),
+        "insurance_document_count": int(card.get("insurance_document_count") or 0),
+        "basis_count": int(card.get("basis_count") or 0),
+        "missing_item_count": int(card.get("missing_item_count") or 0),
+    }
 
 
 def field_metrics_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -225,6 +243,7 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
     accuracy_passed = sum(int(item.get("accuracy_passed_count") or 0) for item in samples)
     field_summary = aggregate_field_metrics(samples)
     recommendations = calibration_recommendations(samples, field_summary)
+    expert_summary = aggregate_expert_guidance(samples)
     return {
         "video_accuracy_batch": "completed" if failed == 0 else "failed",
         "sample_count": total,
@@ -236,8 +255,26 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "accuracy_failed_count": max(0, checked - accuracy_passed),
         "calibration_readiness": calibration_readiness(total, max(0, checked - accuracy_passed), failed),
         "field_summary": field_summary,
+        "expert_guidance_summary": expert_summary,
         "recommendations": recommendations,
         "samples": samples,
+    }
+
+
+def aggregate_expert_guidance(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    present_samples = [
+        sample.get("expert_guidance")
+        for sample in samples
+        if isinstance(sample.get("expert_guidance"), dict) and sample["expert_guidance"].get("present")
+    ]
+    return {
+        "present_count": len(present_samples),
+        "missing_count": max(0, len(samples) - len(present_samples)),
+        "with_fault_range_count": sum(1 for item in present_samples if item.get("fault_range_label")),
+        "with_legal_points_count": sum(1 for item in present_samples if int(item.get("legal_point_count") or 0) > 0),
+        "with_insurance_steps_count": sum(1 for item in present_samples if int(item.get("insurance_step_count") or 0) > 0),
+        "with_basis_count": sum(1 for item in present_samples if int(item.get("basis_count") or 0) > 0),
+        "with_missing_items_count": sum(1 for item in present_samples if int(item.get("missing_item_count") or 0) > 0),
     }
 
 

@@ -191,6 +191,44 @@ def assert_agent_process_card(report: dict):
     return card
 
 
+def assert_expert_guidance_card(report: dict):
+    card = report.get("expert_guidance_card")
+    if not isinstance(card, dict):
+        raise E2EError("easy-report is missing expert_guidance_card")
+    legal = card.get("legal") if isinstance(card.get("legal"), dict) else {}
+    insurance = card.get("insurance") if isinstance(card.get("insurance"), dict) else {}
+    if not card.get("status_label"):
+        raise E2EError("expert_guidance_card is missing status label")
+    if not legal.get("fault_range_label"):
+        raise E2EError("expert_guidance_card is missing legal fault range")
+    if not insurance.get("summary") and not insurance.get("steps"):
+        raise E2EError("expert_guidance_card is missing insurance guidance")
+
+    encoded = json.dumps(card, ensure_ascii=False)
+    forbidden_tokens = [
+        "expert_guidance_sections",
+        "chunk_id",
+        "cache_key",
+        "model_info",
+        "evidence_ids",
+        "source_uri",
+    ]
+    leaked = [token for token in forbidden_tokens if token in encoded]
+    if leaked:
+        raise E2EError(f"expert_guidance_card leaked internal tokens: {leaked}")
+    return {
+        "status_label": card.get("status_label"),
+        "summary": card.get("summary"),
+        "fault_range_label": legal.get("fault_range_label"),
+        "legal_point_count": len(legal.get("points") or []),
+        "legal_limit_count": len(legal.get("limits") or []),
+        "insurance_step_count": len(insurance.get("steps") or []),
+        "insurance_document_count": len(insurance.get("documents") or []),
+        "basis_count": len(card.get("basis") or []),
+        "missing_item_count": len(card.get("missing_items") or []),
+    }
+
+
 def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool):
     technical = debug_report.get("technical") if isinstance(debug_report.get("technical"), dict) else {}
     video_contract = technical.get("video_input_contract") if isinstance(technical.get("video_input_contract"), dict) else {}
@@ -544,6 +582,7 @@ def main():
     jobs = wait_for_video_pipeline(args.base_url, case_id, token, args.timeout_sec)
     report = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/easy-report", token=token)
     card = assert_agent_process_card(report)
+    expert_card = assert_expert_guidance_card(report)
     video_card = assert_video_fact_card(report)
     priority_summary = assert_missing_info_priority(report)
     debug_report = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/report?debug=1", token=token).get("debug", {})
@@ -570,6 +609,7 @@ def main():
         "agent_video_input": agent_video_summary,
         "accuracy_expectations": accuracy_summary,
         "video_accuracy_metrics": video_accuracy_metrics(frame_summary, agent_video_summary, video_card, accuracy_summary),
+        "expert_guidance_card": expert_card,
         "video_fact_card": video_card,
         "agent_process_status": card.get("status_label"),
         "agent_process_stats": card.get("stats", []),

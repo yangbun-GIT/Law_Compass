@@ -1743,3 +1743,16 @@ Agent가 산출한 법률 분석, 과실비율, 형사 리스크, 보험 처리 
 | `apps/agent/tests/test_expert_guidance_sections.py`, `apps/gateway/test/report-composer.test.ts` | 전문가 안내 payload와 Gateway 카드가 내부 근거 ID 없이 법률/보험/추가 확인 항목을 표시하는지 검증한다. |
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. easy-report 표시 payload만 확장한다.
+
+## 2026-05-23 전문가 안내 카드 품질 평가 연결
+
+사고 영상 E2E와 reference set 평가가 새 `expert_guidance_card`를 필수 사용자 결과로 점검하도록 보강했다. 이 변경의 목적은 영상 처리나 Agent 실행이 성공해도, 최종 사용자가 보는 법률 관점 예상·보험 처리 예상·확인 근거 카드가 빠지거나 내부 식별자를 노출하는 문제를 조기에 잡는 것이다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `scripts/video_agent_e2e.py` | `/easy-report` 응답에서 `expert_guidance_card` 존재, 과실 참고 범위, 보험 안내, 내부 token 비노출을 검증하고 `expert_guidance_card` 요약을 출력 JSON에 포함한다. |
+| `scripts/video_accuracy_batch.py` | 샘플별 `expert_guidance` 지표와 전체 `expert_guidance_summary`를 aggregate 결과에 추가한다. |
+| `scripts/reference_guidance_eval.py` | batch aggregate의 전문가 카드 지표를 읽어 `expert_guidance_status`와 `expert_guidance_status_counts`를 생성한다. 보완 사실이 남은 샘플은 카드가 안전하게 보류/추가 확인 상태를 보여주는지 평가한다. |
+| `docs/OPERATIONS.md` | 실제 영상 E2E와 reference 평가에서 전문가 카드 검증 항목과 상태 의미를 문서화했다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. 기존 측정 JSON의 로컬 저장 위치는 계속 `logs/`이며 Git에 포함하지 않는다.
