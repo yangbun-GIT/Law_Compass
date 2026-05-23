@@ -218,6 +218,7 @@ describe("report composer", () => {
 
     const question = (enriched as any).missing_info.questions.find((item: any) => item.field === "opponent_behavior");
     expect(question.question).not.toBe("raw?");
+    expect(question.question).toContain("상대 차량 행동");
     expect(question.options).not.toContain("front");
     expect(question.options.length).toBeGreaterThan(1);
     expect(JSON.stringify((enriched as any).missing_info)).not.toContain("front");
@@ -436,12 +437,52 @@ describe("report composer", () => {
     expect(conflict.confidence).toBe("90%");
     const question = (enriched as any).missing_info.questions[0];
     expect(question.field).toBe("stopped");
-    expect(question.question).toContain("영상 기준 정차 여부: 주행 중");
-    expect(question.question).toContain("기존 입력: 정차 중");
+    expect(question.question).toContain("충돌 직전 내 차량이 완전히 정차 중이었나요");
+    expect(question.question).toContain("영상 관찰은 주행 중");
+    expect(question.question).toContain("기존 입력은 정차 중");
     expect(question.options).toContain("정차 중");
     expect(question.options).toContain("주행 중");
     expect(JSON.stringify(card)).not.toContain("user_value");
     expect(JSON.stringify(card)).not.toContain("video_value");
+    expect(JSON.stringify(card)).not.toContain("frame_refs");
+  });
+
+  it("keeps direction-only video observations as supporting display items", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "direction-support" }), {
+      video_input_contract: {
+        version: "agent-video-input-contract-v1",
+        technical_metadata: { representative_frame_count: 5 },
+        accepted_observations: [],
+        uncertain_observations: [],
+        supporting_observations: [
+          {
+            field: "collision_direction",
+            value: "front",
+            confidence: 0.91,
+            source: "frame_analysis:openai",
+            frame_refs: ["frame_002.jpg"],
+          },
+        ],
+        ignored_observations: [],
+        observation_quality_summary: {
+          accepted_count: 0,
+          uncertain_count: 0,
+          supporting_count: 1,
+          ignored_count: 0,
+          uncertain_reasons: {},
+        },
+      },
+    });
+
+    const card = (enriched as any).video_fact_explanation_card;
+    const statMap = Object.fromEntries((card.stats || []).map((item: any) => [item.label, item.value]));
+    expect(card.summary).toContain("참고 관찰값");
+    expect(card.supporting_items[0].label).toBe("충돌 방향 참고");
+    expect(card.supporting_items[0].value).toBe("앞쪽");
+    expect(statMap["영상 관찰 후보"]).toBe("1개");
+    expect(statMap["참고 관찰"]).toBe("1개");
+    expect((enriched as any).missing_info?.questions ?? []).toEqual([]);
+    expect(JSON.stringify(card)).not.toContain("frame_analysis:openai");
     expect(JSON.stringify(card)).not.toContain("frame_refs");
   });
 

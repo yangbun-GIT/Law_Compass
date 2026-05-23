@@ -236,6 +236,7 @@ def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool
     fact_patch = video_contract.get("fact_patch") if isinstance(video_contract.get("fact_patch"), dict) else {}
     accepted = video_contract.get("accepted_observations") if isinstance(video_contract.get("accepted_observations"), list) else []
     uncertain = video_contract.get("uncertain_observations") if isinstance(video_contract.get("uncertain_observations"), list) else []
+    supporting = video_contract.get("supporting_observations") if isinstance(video_contract.get("supporting_observations"), list) else []
     confirmation_candidates = video_contract.get("confirmation_candidates") if isinstance(video_contract.get("confirmation_candidates"), list) else []
     confirmation_groups = video_contract.get("confirmation_groups") if isinstance(video_contract.get("confirmation_groups"), list) else []
     applied_video_fields = arbitration.get("applied_video_fields") if isinstance(arbitration.get("applied_video_fields"), list) else []
@@ -252,6 +253,16 @@ def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool
         "video_contract_version": video_contract.get("version"),
         "accepted_observation_count": len(accepted),
         "uncertain_observation_count": len(uncertain),
+        "supporting_observation_count": len(supporting),
+        "supporting_observations": [
+            {
+                "field": item.get("field"),
+                "value": item.get("value"),
+                "confidence": item.get("confidence"),
+            }
+            for item in supporting[:8]
+            if isinstance(item, dict)
+        ],
         "confirmation_candidate_count": len(confirmation_candidates),
         "confirmation_groups": [
             {
@@ -352,6 +363,7 @@ def assert_video_fact_card(report: dict):
 def video_accuracy_metrics(frame_summary: dict, agent_video_summary: dict, video_card: dict, accuracy_summary: dict) -> dict:
     accepted = int(agent_video_summary.get("accepted_observation_count") or 0)
     uncertain = int(agent_video_summary.get("uncertain_observation_count") or 0)
+    supporting = int(agent_video_summary.get("supporting_observation_count") or 0)
     confirmed = len(agent_video_summary.get("confirmed_fields") or [])
     applied = len(agent_video_summary.get("applied_video_fields") or [])
     conflicts = int(agent_video_summary.get("conflict_count") or 0)
@@ -368,6 +380,7 @@ def video_accuracy_metrics(frame_summary: dict, agent_video_summary: dict, video
         "frame_observation_count": observed,
         "agent_accepted_count": accepted,
         "agent_uncertain_count": uncertain,
+        "agent_supporting_count": supporting,
         "applied_count": applied,
         "confirmed_count": confirmed,
         "actionable_count": actionable,
@@ -377,6 +390,7 @@ def video_accuracy_metrics(frame_summary: dict, agent_video_summary: dict, video
         "accuracy_failed_count": max(0, checked - passed),
         "actionable_rate": round(actionable / accepted, 3) if accepted else 0,
         "uncertain_rate": round(uncertain / observed, 3) if observed else 0,
+        "supporting_rate": round(supporting / observed, 3) if observed else 0,
         "conflict_rate": round(conflicts / accepted, 3) if accepted else 0,
         "display_stats": stats,
     }

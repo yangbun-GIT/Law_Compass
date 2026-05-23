@@ -75,6 +75,11 @@ _FACT_FIELDS = {
     "damage_level",
 }
 
+_SUPPORTING_OBSERVATION_FIELDS = {
+    "impact_direction",
+    "collision_direction",
+}
+
 _FIELD_ALIASES = {
     "ego_stopped": "stopped",
     "vehicle_stopped": "stopped",
@@ -83,8 +88,6 @@ _FIELD_ALIASES = {
     "hard_brake": "sudden_brake",
     "emergency_brake": "sudden_brake",
     "rear_impact": "opponent_behavior",
-    "impact_direction": "opponent_behavior",
-    "collision_direction": "opponent_behavior",
     "opponent_lane_change": "lane_change_actor",
     "my_lane_change": "lane_change_actor",
     "signal_violation": "opponent_signal_violation",
@@ -119,6 +122,7 @@ def normalize_video_input_contract(
     accepted: list[dict[str, Any]] = []
     uncertain: list[dict[str, Any]] = []
     ignored: list[dict[str, Any]] = []
+    supporting: list[dict[str, Any]] = []
 
     for raw in observations:
         observation = _normalize_observation(raw)
@@ -128,6 +132,9 @@ def normalize_video_input_contract(
         field = str(observation["field"])
         confidence = observation.get("confidence")
         source = str(observation.get("source") or "")
+        if field in _SUPPORTING_OBSERVATION_FIELDS:
+            supporting.append({**observation, "reason": "supporting_observation_not_agent_fact"})
+            continue
         if field not in _FACT_FIELDS:
             ignored.append({**observation, "reason": "field_not_in_agent_fact_contract"})
             continue
@@ -166,10 +173,11 @@ def normalize_video_input_contract(
         "fact_patch": fact_patch,
         "accepted_observations": accepted,
         "uncertain_observations": uncertain,
+        "supporting_observations": supporting,
         "ignored_observations": ignored,
         "confirmation_candidates": confirmation_candidates,
         "confirmation_groups": confirmation_groups,
-        "observation_quality_summary": _quality_summary(accepted, uncertain, ignored, confirmation_candidates, confirmation_groups),
+        "observation_quality_summary": _quality_summary(accepted, uncertain, ignored, supporting, confirmation_candidates, confirmation_groups),
         "warnings": warnings,
         "fact_confidence_threshold": MIN_FACT_CONFIDENCE,
         "field_confidence_thresholds": FIELD_CONFIDENCE_THRESHOLDS,
@@ -233,7 +241,7 @@ def _normalize_observation(raw: Any) -> dict[str, Any] | None:
     field = raw.get("field") or raw.get("key") or raw.get("name") or raw.get("type")
     value = raw.get("value")
     if field is None:
-        direct = [(key, raw.get(key)) for key in _FACT_FIELDS.union(_FIELD_ALIASES) if key in raw]
+        direct = [(key, raw.get(key)) for key in _FACT_FIELDS.union(_FIELD_ALIASES).union(_SUPPORTING_OBSERVATION_FIELDS) if key in raw]
         if len(direct) != 1:
             return None
         field, value = direct[0]
@@ -314,6 +322,7 @@ def _quality_summary(
     accepted: list[dict[str, Any]],
     uncertain: list[dict[str, Any]],
     ignored: list[dict[str, Any]],
+    supporting: list[dict[str, Any]],
     confirmation_candidates: list[dict[str, Any]] | None = None,
     confirmation_groups: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
@@ -332,6 +341,7 @@ def _quality_summary(
         "accepted_count": len(accepted),
         "uncertain_count": len(uncertain),
         "ignored_count": len(ignored),
+        "supporting_count": len(supporting),
         "uncertain_reasons": reasons,
         "accepted_single_frame_count": sum(1 for count in accepted_frame_ref_counts if count == 1),
         "accepted_multi_frame_count": sum(1 for count in accepted_frame_ref_counts if count >= 2),

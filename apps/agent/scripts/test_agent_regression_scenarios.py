@@ -105,8 +105,8 @@ def _run_video_rear_end_conflict() -> dict[str, Any]:
                         "reason": "Ego vehicle appears stationary before impact.",
                     },
                     {
-                        "field": "impact_direction",
-                        "value": "rear",
+                        "field": "opponent_behavior",
+                        "value": "rear_collision",
                         "confidence": 0.96,
                         "source": "frame_analysis",
                         "frame_refs": ["rear_end_1.jpg", "rear_end_2.jpg"],

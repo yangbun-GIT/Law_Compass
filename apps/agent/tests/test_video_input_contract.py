@@ -17,8 +17,8 @@ def test_high_confidence_video_observation_becomes_fact_patch():
                         "frame_refs": ["frame_1.jpg"],
                     },
                     {
-                        "field": "impact_direction",
-                        "value": "rear",
+                        "field": "opponent_behavior",
+                        "value": "rear_collision",
                         "confidence": 0.88,
                         "source": "vision_model:v1",
                         "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
@@ -69,7 +69,7 @@ def test_frame_observation_without_frame_reference_is_not_fact_patch():
     assert contract["observation_quality_summary"]["uncertain_reasons"]["missing_frame_reference"] == 1
 
 
-def test_collision_direction_front_is_not_treated_as_opponent_behavior():
+def test_collision_direction_front_is_kept_as_supporting_observation():
     contract = normalize_video_input_contract(
         {
             "metadata": {
@@ -87,10 +87,36 @@ def test_collision_direction_front_is_not_treated_as_opponent_behavior():
     )
 
     assert "opponent_behavior" not in contract["fact_patch"]
-    assert contract["uncertain_observations"][0]["field"] == "opponent_behavior"
-    assert contract["uncertain_observations"][0]["raw_value"] == "front"
-    assert contract["uncertain_observations"][0]["value"] is None
-    assert contract["uncertain_observations"][0]["reason"] == "value_not_actionable"
+    assert contract["uncertain_observations"] == []
+    assert contract["supporting_observations"][0]["field"] == "collision_direction"
+    assert contract["supporting_observations"][0]["raw_field"] == "collision_direction"
+    assert contract["supporting_observations"][0]["value"] == "front"
+    assert contract["supporting_observations"][0]["reason"] == "supporting_observation_not_agent_fact"
+    assert contract["observation_quality_summary"]["supporting_count"] == 1
+    assert contract["confirmation_candidates"] == []
+
+
+def test_impact_direction_rear_does_not_create_rear_collision_fact_by_itself():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "impact_direction",
+                        "value": "rear",
+                        "confidence": 0.96,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_8.jpg", "frame_10.jpg"],
+                    }
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"] == {}
+    assert contract["accepted_observations"] == []
+    assert contract["supporting_observations"][0]["field"] == "impact_direction"
+    assert contract["supporting_observations"][0]["value"] == "rear"
     assert contract["confirmation_candidates"] == []
 
 
@@ -130,8 +156,8 @@ def test_uncertain_rear_end_observations_are_grouped_for_confirmation():
                         "frame_refs": ["frame_1.jpg"],
                     },
                     {
-                        "field": "impact_direction",
-                        "value": "rear",
+                        "field": "opponent_behavior",
+                        "value": "rear_collision",
                         "confidence": 0.8,
                         "source": "frame_analysis:openai",
                         "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
@@ -175,8 +201,8 @@ def test_video_physical_fact_overrides_conflicting_user_fact():
                         "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
                     },
                     {
-                        "field": "impact_direction",
-                        "value": "rear",
+                        "field": "opponent_behavior",
+                        "value": "rear_collision",
                         "confidence": 0.96,
                         "source": "frame_analysis",
                         "frame_refs": ["frame_1.jpg", "frame_2.jpg"],

@@ -10,7 +10,7 @@ const TECHNICAL_KEYS = new Set([
   "decision_blockers", "decision_readiness", "knia_basis",
   "presentation_policy", "presentation_status", "restricted_sections", "finality",
   "input_requirements", "followup_loop", "required_input_questions", "blocking_fields", "optional_fields",
-  "video_input_contract", "_video_input_contract", "accepted_observations", "uncertain_observations", "ignored_observations", "fact_patch",
+  "video_input_contract", "_video_input_contract", "accepted_observations", "uncertain_observations", "supporting_observations", "ignored_observations", "fact_patch",
   "confirmation_candidates", "confirmation_groups", "observation_quality", "observation_quality_summary", "quality_gate", "frame_refs",
   "fact_arbitration", "_fact_arbitration", "fact_sources", "_fact_sources", "video_primary_fields", "user_primary_fields",
   "applied_video_fields", "kept_user_fields", "confirmed_fields", "conflicts", "requires_confirmation",
@@ -493,12 +493,13 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   const technical = contract.technical_metadata && typeof contract.technical_metadata === "object" ? contract.technical_metadata : {};
   const accepted = asArray(contract.accepted_observations);
   const uncertain = asArray(contract.uncertain_observations);
-  const observedCount = accepted.length + uncertain.length + asArray(contract.ignored_observations).length;
+  const supporting = asArray(contract.supporting_observations);
+  const observedCount = accepted.length + uncertain.length + supporting.length + asArray(contract.ignored_observations).length;
   const representativeFrameCount = toNumber(technical.representative_frame_count, 0);
   const appliedFields = asArray(arbitration.applied_video_fields).map((field) => String(field));
   const confirmedFields = asArray(arbitration.confirmed_fields).map((field) => String(field));
   const reviewItems = asArray(arbitration.conflicts);
-  const hasVideoFacts = accepted.length || uncertain.length || appliedFields.length || confirmedFields.length || reviewItems.length;
+  const hasVideoFacts = accepted.length || uncertain.length || supporting.length || appliedFields.length || confirmedFields.length || reviewItems.length;
   const hasVideoProcessing = Boolean(contract.version) && (representativeFrameCount > 0 || Boolean(contract.observation_quality_summary));
   if (!hasVideoFacts && !hasVideoProcessing) return undefined;
   const qualitySummary = videoObservationQualitySummary(contract, representativeFrameCount);
@@ -577,6 +578,16 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
     .filter((item) => item.label)
     .slice(0, 5);
 
+  const supportingItems = supporting
+    .map((item: AnyRecord) => ({
+      label: videoFactLabel(String(item?.field ?? "")),
+      value: videoFactValueLabel(String(item?.field ?? ""), item?.value),
+      confidence: confidenceLabel(item?.confidence),
+      explanation: "충돌 방향처럼 의미는 있지만 단독으로 과실 판단 사실이 되지는 않는 참고 관찰입니다.",
+    }))
+    .filter((item) => item.label && item.value)
+    .slice(0, 5);
+
   const summary = appliedItems.length
     ? "영상에서 확인된 물리적 사실을 판단 입력에 우선 반영했습니다."
     : confirmedItems.length
@@ -585,6 +596,8 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
         ? "영상 관찰값과 기존 입력이 달라 사용자 확인이 필요한 상태입니다."
         : uncertainItems.length
           ? "영상에서 사고 사실 후보를 찾았지만 바로 반영하지 않고 사용자 확인 질문으로 넘겼습니다."
+          : supportingItems.length
+            ? "영상에서 참고 관찰값은 확인했지만, 단독으로 판단 사실에 반영하지는 않았습니다."
           : representativeFrameCount
             ? "영상 프레임은 추출됐지만 현재 기준으로 바로 판단에 반영할 수 있는 물리 사실은 확인되지 않았습니다."
             : "영상 관찰값은 확인됐지만 기존 입력과 충돌하지 않았습니다.";
@@ -599,6 +612,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
       { label: "영상 확인", value: `${confirmedItems.length}개` },
       { label: "입력 충돌 검토", value: `${conflictItems.length}개` },
       { label: "확인 필요", value: `${uncertainItems.length}개` },
+      ...(supportingItems.length ? [{ label: "참고 관찰", value: `${supportingItems.length}개` }] : []),
       { label: "품질 상태", value: qualitySummary.status_label },
     ],
     quality_summary: qualitySummary,
@@ -606,6 +620,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
     confirmed_items: confirmedItems,
     review_items: conflictItems,
     uncertain_items: uncertainItems,
+    supporting_items: supportingItems,
     notice: "영상 관찰값은 프레임에서 보이는 사실 후보입니다. 신뢰도와 프레임 근거가 충분한 물리 사실만 판단 입력에 반영합니다.",
   };
 }
@@ -617,6 +632,7 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
   const acceptedCount = toNumber(summary.accepted_count, asArray(contract.accepted_observations).length);
   const uncertainCount = toNumber(summary.uncertain_count, asArray(contract.uncertain_observations).length);
   const ignoredCount = toNumber(summary.ignored_count, asArray(contract.ignored_observations).length);
+  const supportingCount = toNumber(summary.supporting_count, asArray(contract.supporting_observations).length);
   const singleFrameCount = toNumber(summary.accepted_single_frame_count, 0);
   const multiFrameCount = toNumber(summary.accepted_multi_frame_count, 0);
   const reasonEntries = Object.entries(summary.uncertain_reasons ?? {})
@@ -627,7 +643,7 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
     .filter((item) => item.label && item.count > 0)
     .slice(0, 5);
   const notes = [
-    !acceptedCount && !uncertainCount && !ignoredCount && representativeFrameCount
+    !acceptedCount && !uncertainCount && !ignoredCount && !supportingCount && representativeFrameCount
       ? `대표 프레임 ${representativeFrameCount}장을 확인했지만 확정 가능한 사고 사실 관찰값은 만들지 않았습니다.`
       : "",
     acceptedCount
@@ -642,12 +658,16 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
     uncertainCount || ignoredCount
       ? `추가 확인이 필요한 관찰값 ${uncertainCount + ignoredCount}개는 확정 사실로 반영하지 않았습니다.`
       : "",
+    supportingCount
+      ? `충돌 방향 등 참고 관찰값 ${supportingCount}개는 사용자 확인이나 다른 사실과 함께만 해석합니다.`
+      : "",
   ].filter(Boolean);
   return {
     status_label: videoObservationQualityStatus(acceptedCount, uncertainCount, ignoredCount, representativeFrameCount),
     accepted_count: acceptedCount,
     uncertain_count: uncertainCount,
     ignored_count: ignoredCount,
+    supporting_count: supportingCount,
     representative_frame_count: representativeFrameCount,
     single_frame_count: singleFrameCount,
     multi_frame_count: multiFrameCount,
@@ -692,9 +712,7 @@ function composeVideoConflictQuestions(result: AnyRecord = {}) {
     const videoLabel = videoFactValueLabel(field, item.video_value);
     const label = videoFactLabel(field);
     const options = unique([selectedLabel, alternateLabel, "확인 필요"]).filter((value: string) => value !== "확인 필요" || selectedLabel !== "확인 필요");
-    const question = userLabel && videoLabel && userLabel !== videoLabel
-      ? `영상 기준 ${label}: ${videoLabel}, 기존 입력: ${userLabel}입니다. 실제 상황은 어느 쪽에 가깝나요?`
-      : `${label}은(는) ${selectedLabel}로 보입니다. 실제와 맞나요?`;
+    const question = videoConflictQuestionText(field, label, videoLabel, userLabel, selectedLabel);
     questions.push({
       field,
       label,
@@ -715,9 +733,7 @@ function composeVideoQualityQuestions(result: AnyRecord = {}) {
     if (!SAFE_INPUT_FIELDS.has(field)) continue;
     const label = videoFactLabel(field);
     const observedLabel = videoFactValueLabel(field, item?.value);
-    const question = observedLabel && observedLabel !== "확인 필요"
-      ? `영상에서 ${label}이(가) ${observedLabel}처럼 보였지만, 신뢰도가 충분하지 않아 바로 반영하지 않았습니다. 실제 상황은 어느 쪽에 가깝나요?`
-      : `영상만으로는 ${label}을(를) 충분히 확인하지 못했습니다. 실제 상황을 선택해 주세요.`;
+    const question = videoQualityQuestionText(field, label, observedLabel);
     questions.push({
       field,
       label,
@@ -727,6 +743,35 @@ function composeVideoQualityQuestions(result: AnyRecord = {}) {
     });
   }
   return questions.slice(0, 4);
+}
+
+function videoConflictQuestionText(field: string, label: string, videoLabel: string, userLabel: string, selectedLabel: string) {
+  if (field === "stopped") {
+    return `충돌 직전 내 차량이 완전히 정차 중이었나요, 움직이는 중이었나요? 영상 관찰은 ${videoLabel}, 기존 입력은 ${userLabel}입니다.`;
+  }
+  if (field === "opponent_behavior") {
+    return `충돌 직전 상대 차량은 어떤 행동을 했나요? 영상 관찰은 ${videoLabel}, 기존 입력은 ${userLabel}입니다.`;
+  }
+  if (userLabel && videoLabel && userLabel !== videoLabel) {
+    return `영상 기준 ${label}: ${videoLabel}, 기존 입력: ${userLabel}입니다. 실제 상황은 어느 쪽에 가깝나요?`;
+  }
+  return `${label}은(는) ${selectedLabel}로 보입니다. 실제와 맞나요?`;
+}
+
+function videoQualityQuestionText(field: string, label: string, observedLabel: string) {
+  if (field === "stopped") {
+    return observedLabel && observedLabel !== "확인 필요"
+      ? `충돌 직전 내 차량이 ${observedLabel}처럼 보였지만, 신뢰도가 충분하지 않았습니다. 실제로는 정차 중이었나요, 움직이는 중이었나요?`
+      : "영상만으로는 충돌 직전 내 차량의 정차 여부를 충분히 확인하지 못했습니다. 실제 상황을 선택해 주세요.";
+  }
+  if (field === "opponent_behavior") {
+    return observedLabel && observedLabel !== "확인 필요"
+      ? `영상에서 상대 차량 행동이 ${observedLabel}처럼 보였지만, 신뢰도가 충분하지 않았습니다. 실제 상대 차량의 행동을 선택해 주세요.`
+      : "영상만으로는 충돌 직전 상대 차량 행동을 충분히 확인하지 못했습니다. 실제 상황을 선택해 주세요.";
+  }
+  return observedLabel && observedLabel !== "확인 필요"
+    ? `영상에서 ${label}이(가) ${observedLabel}처럼 보였지만, 신뢰도가 충분하지 않아 바로 반영하지 않았습니다. 실제 상황은 어느 쪽에 가깝나요?`
+    : `영상만으로는 ${label}을(를) 충분히 확인하지 못했습니다. 실제 상황을 선택해 주세요.`;
 }
 
 function compareVideoObservationPriority(left: AnyRecord, right: AnyRecord) {
@@ -944,6 +989,8 @@ function videoFactLabel(field: string) {
     pedestrian_signal: "보행자 신호",
     bicycle_location: "자전거 위치",
     bicycle_direction: "자전거 진행 방향",
+    impact_direction: "충격 방향 참고",
+    collision_direction: "충돌 방향 참고",
     injury: "인명피해 여부",
     damage_level: "파손 정도",
   };
@@ -995,6 +1042,12 @@ function videoFactValueLabel(field: string, value: any) {
     rear_collision: "뒤에서 추돌",
     lane_change: "차선 변경",
     signal_violation: "신호 위반",
+    rear: "뒤쪽",
+    front: "앞쪽",
+    left: "왼쪽",
+    right: "오른쪽",
+    side: "측면",
+    unknown: "확인 필요",
     opponent: "상대 차량",
     user: "내 차량",
     both: "양측",

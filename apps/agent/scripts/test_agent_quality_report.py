@@ -33,8 +33,8 @@ QUALITY_SCENARIOS: tuple[dict[str, Any], ...] = (
                         "frame_refs": ["frame_001.jpg"],
                     },
                     {
-                        "field": "impact_direction",
-                        "value": "rear",
+                        "field": "opponent_behavior",
+                        "value": "rear_collision",
                         "confidence": 0.89,
                         "source": "frame_analysis",
                         "frame_refs": ["frame_001.jpg", "frame_002.jpg"],

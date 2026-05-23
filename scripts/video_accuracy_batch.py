@@ -120,6 +120,7 @@ def run_sample(
         "frame_observation_count": metrics.get("frame_observation_count"),
         "agent_accepted_count": metrics.get("agent_accepted_count"),
         "agent_uncertain_count": metrics.get("agent_uncertain_count"),
+        "agent_supporting_count": metrics.get("agent_supporting_count"),
         "applied_count": metrics.get("applied_count"),
         "confirmed_count": metrics.get("confirmed_count"),
         "conflict_count": metrics.get("conflict_count"),
@@ -156,6 +157,8 @@ def field_metrics_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
     expectations = payload.get("accuracy_expectations") if isinstance(payload.get("accuracy_expectations"), dict) else {}
     observations = frame.get("observations") if isinstance(frame.get("observations"), list) else []
     fact_patch = agent.get("fact_patch") if isinstance(agent.get("fact_patch"), dict) else {}
+    supporting_observations = agent.get("supporting_observations") if isinstance(agent.get("supporting_observations"), list) else []
+    supporting_fields = {str(item.get("field")) for item in supporting_observations if isinstance(item, dict) and item.get("field")}
     applied = set(str(item) for item in (agent.get("applied_video_fields") or []) if item is not None)
     confirmed = set(str(item) for item in (agent.get("confirmed_fields") or []) if item is not None)
     conflicts = agent.get("conflicts") if isinstance(agent.get("conflicts"), list) else []
@@ -185,6 +188,7 @@ def field_metrics_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
             applied=applied,
             confirmed=confirmed,
             conflict_fields=conflict_fields,
+            supporting_fields=supporting_fields,
             checks=expectation_by_field.get(field, []),
         ))
     for field, value in fact_patch.items():
@@ -200,7 +204,24 @@ def field_metrics_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
             applied=applied,
             confirmed=confirmed,
             conflict_fields=conflict_fields,
+            supporting_fields=supporting_fields,
             checks=expectation_by_field.get(str(field), []),
+        ))
+    for field in supporting_fields:
+        if field in seen or field in fact_patch:
+            continue
+        rows.append(field_metric_row(
+            field=field,
+            value=None,
+            confidence=None,
+            frame_ref_count=0,
+            from_observation=False,
+            fact_patch=fact_patch,
+            applied=applied,
+            confirmed=confirmed,
+            conflict_fields=conflict_fields,
+            supporting_fields=supporting_fields,
+            checks=expectation_by_field.get(field, []),
         ))
     return rows
 
@@ -216,6 +237,7 @@ def field_metric_row(
     applied: set[str],
     confirmed: set[str],
     conflict_fields: set[str],
+    supporting_fields: set[str],
     checks: list[dict[str, Any]],
 ) -> dict[str, Any]:
     return {
@@ -228,6 +250,7 @@ def field_metric_row(
         "applied": field in applied,
         "confirmed": field in confirmed,
         "conflict": field in conflict_fields,
+        "supporting": field in supporting_fields,
         "expectation_checked_count": len(checks),
         "expectation_passed_count": sum(1 for item in checks if item.get("passed")),
         "expectation_failed_count": sum(1 for item in checks if not item.get("passed")),
@@ -292,6 +315,7 @@ def aggregate_field_metrics(samples: list[dict[str, Any]]) -> list[dict[str, Any
                 "applied_count": 0,
                 "confirmed_count": 0,
                 "conflict_count": 0,
+                "supporting_count": 0,
                 "expectation_checked_count": 0,
                 "expectation_passed_count": 0,
                 "expectation_failed_count": 0,
@@ -304,6 +328,7 @@ def aggregate_field_metrics(samples: list[dict[str, Any]]) -> list[dict[str, Any
             bucket["applied_count"] += 1 if item.get("applied") else 0
             bucket["confirmed_count"] += 1 if item.get("confirmed") else 0
             bucket["conflict_count"] += 1 if item.get("conflict") else 0
+            bucket["supporting_count"] += 1 if item.get("supporting") else 0
             bucket["expectation_checked_count"] += int(item.get("expectation_checked_count") or 0)
             bucket["expectation_passed_count"] += int(item.get("expectation_passed_count") or 0)
             bucket["expectation_failed_count"] += int(item.get("expectation_failed_count") or 0)
@@ -359,12 +384,13 @@ def calibration_recommendations(samples: list[dict[str, Any]], field_summary: li
         conflicts = int(field.get("conflict_count") or 0)
         observations = int(field.get("observation_count") or 0)
         fact_patch = int(field.get("fact_patch_count") or 0)
+        supporting = int(field.get("supporting_count") or 0)
         if checked and failed:
             recommendations.append({
                 "type": "inspect_field_mismatch",
                 "message": f"{field['field']} 기대값 실패 {failed}/{checked}건을 확인한 뒤 prompt 또는 threshold를 조정하세요.",
             })
-        if observations >= 3 and fact_patch == 0:
+        if observations >= 3 and fact_patch == 0 and supporting == 0:
             recommendations.append({
                 "type": "review_field_threshold",
                 "message": f"{field['field']} 관찰값은 {observations}건이지만 fact_patch 반영이 없습니다. confidence/frame_ref 기준이 과도한지 검토하세요.",

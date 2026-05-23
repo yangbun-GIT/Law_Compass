@@ -79,8 +79,8 @@ def test_analyze_video_case_applies_video_input_contract():
                         "frame_refs": ["frame_1.jpg"],
                     },
                     {
-                        "field": "impact_direction",
-                        "value": "rear",
+                        "field": "opponent_behavior",
+                        "value": "rear_collision",
                         "confidence": 0.9,
                         "source": "frame_analysis",
                         "frame_refs": ["frame_1.jpg"],

@@ -24,6 +24,7 @@
         <div class="chips compact">
           <span class="chip selected">분석 반영 {{ card.quality_summary.accepted_count || 0 }}개</span>
           <span class="chip">확인 필요 {{ (card.quality_summary.uncertain_count || 0) + (card.quality_summary.ignored_count || 0) }}개</span>
+          <span v-if="card.quality_summary.supporting_count" class="chip">참고 {{ card.quality_summary.supporting_count }}개</span>
           <span class="chip">복수 프레임 {{ card.quality_summary.multi_frame_count || 0 }}개</span>
         </div>
       </div>
@@ -100,6 +101,20 @@
           {{ text(item.label) }} · 신뢰도 {{ text(item.confidence) }} · {{ text(item.explanation) }}
         </li>
       </ul>
+    </section>
+
+    <section v-if="card.supporting_items?.length" class="video-fact-section">
+      <h3>참고로만 보는 영상 관찰</h3>
+      <div class="video-fact-list">
+        <div v-for="item in card.supporting_items" :key="`${item.label}-${item.value}`" class="video-fact-item">
+          <span class="item-label">{{ text(item.label) }}</span>
+          <strong>{{ text(item.value) }}</strong>
+          <p>{{ text(item.explanation) }}</p>
+          <div class="chips compact">
+            <span v-if="item.confidence" class="chip">영상 신뢰도 {{ text(item.confidence) }}</span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <p v-if="card.notice" class="kv">{{ text(card.notice) }}</p>
