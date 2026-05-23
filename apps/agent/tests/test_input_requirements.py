@@ -22,6 +22,28 @@ def test_rear_end_text_uses_targeted_input_questions():
     assert all("accident_type" not in item["question"] for item in questions)
 
 
+def test_signal_transition_requires_each_party_signal_confirmation():
+    requirements = build_input_requirements(
+        facts={
+            "accident_type": "좌회전 직진 충돌",
+            "intersection": True,
+            "signal_state": "황색에서 적색으로 변경",
+            "signal_timing_uncertain": True,
+            "cctv_needed": True,
+        },
+        scenario_type="intersection_signal_violation",
+        missing_fields=["injury", "damage_level"],
+        description_text="교차로에서 좌회전 중 진입 후 황색불이 되었고 충돌할 때는 빨간불로 바뀐 것 같습니다.",
+    )
+
+    fields = [item["field"] for item in requirements["questions"]]
+
+    assert fields[:2] == ["opponent_signal", "user_signal"]
+    assert "opponent_signal" in requirements["blocking_fields"]
+    assert "user_signal" in requirements["blocking_fields"]
+    assert "injury" in fields
+
+
 def test_orchestrator_exposes_required_input_contract_in_report():
     result = analyze_case("정차 중 뒤에서 추돌당했습니다.")
 

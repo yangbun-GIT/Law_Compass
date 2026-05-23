@@ -116,7 +116,7 @@ SCENARIO_FIELD_SPECS: dict[str, list[dict[str, Any]]] = {
             "reason": "내 신호와 상대 신호를 분리해야 신호위반 책임을 잘못 뒤집지 않습니다.",
             "input_type": "single_choice",
             "options": ["녹색", "황색", "적색", "비보호/점멸", "확인 중"],
-            "priority": 1,
+            "priority": 0,
             "blocks_decision": True,
         },
         {
@@ -126,7 +126,7 @@ SCENARIO_FIELD_SPECS: dict[str, list[dict[str, Any]]] = {
             "reason": "상대 신호위반 여부가 과실비율과 형사책임 판단의 핵심입니다.",
             "input_type": "single_choice",
             "options": ["녹색", "황색", "적색", "비보호/점멸", "확인 중"],
-            "priority": 1,
+            "priority": 0,
             "blocks_decision": True,
         },
     ],
@@ -355,7 +355,7 @@ def _append_question(
             "reason": spec.get("reason") or "판단 정확도를 높이기 위해 필요한 정보입니다.",
             "input_type": spec.get("input_type") or "text",
             "options": list(spec.get("options") or []),
-            "priority": int(spec.get("priority") or 5),
+            "priority": int(spec["priority"]) if spec.get("priority") is not None else 5,
             "blocks_decision": bool(spec.get("blocks_decision")),
             "source": source,
         }
@@ -365,6 +365,8 @@ def _append_question(
 def _is_satisfied(field: str, facts: dict[str, Any], text: str, scenario_type: str) -> bool:
     if not _is_empty(facts.get(field)):
         return True
+    if scenario_type == "intersection_signal_violation" and field in {"user_signal", "opponent_signal", "opponent_signal_violation"}:
+        return False
     if field == "accident_type" and scenario_type not in {"general_collision", "general_vehicle_collision", "unknown"}:
         return True
     if scenario_type == "rear_end_collision" and field == "opponent_behavior":

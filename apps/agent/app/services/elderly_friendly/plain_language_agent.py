@@ -3,6 +3,27 @@
 from typing import Any
 from app.services.elderly_friendly.ui_text_mapper import as_percent, confidence_label, field_label, risk_label, scenario_label, scrub_user_text
 
+SAFE_QUESTION_FIELDS = {
+    "accident_type",
+    "signal_state",
+    "injury",
+    "opponent_behavior",
+    "damage_level",
+    "stopped",
+    "sudden_brake",
+    "school_zone",
+    "victim_is_child",
+    "crosswalk_nearby",
+    "lane_change_actor",
+    "turn_signal",
+    "user_signal",
+    "opponent_signal",
+    "opponent_signal_violation",
+    "pedestrian_signal",
+    "bicycle_location",
+    "bicycle_direction",
+}
+
 class PlainLanguageAgent:
     def make_headline(self, result: dict[str, Any]) -> str:
         scenario = result.get("scenario_type") or result.get("structured_facts", {}).get("scenario_type")
@@ -135,7 +156,8 @@ def _required_questions(result: dict[str, Any]) -> list[dict[str, Any]]:
     seen: set[str] = set()
     for item in questions:
         if isinstance(item, dict):
-            field = scrub_user_text(item.get("field"))
+            raw_field = str(item.get("field") or "").strip()
+            field = raw_field if raw_field in SAFE_QUESTION_FIELDS else ""
             text = scrub_user_text(item.get("question") or item.get("label"))
             label = scrub_user_text(item.get("label") or item.get("field") or text)
             input_type = scrub_user_text(item.get("input_type") or "text")

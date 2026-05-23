@@ -147,6 +147,45 @@ describe("report composer", () => {
     expect((enriched as any).missing_info.next_focus.label).toBe("상대 차량 행동");
   });
 
+  it("prioritizes party-specific signal questions over generic follow-up details", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({
+      headline: "report",
+      missing_info: {
+        questions: [
+          { field: "injury", label: "인명피해 여부", question: "다친 사람이 있나요?", options: ["예", "아니오"] },
+          { field: "signal_state", label: "신호 상태", question: "사고 당시 전체 신호 상태는 어땠나요?", options: ["녹색", "황색", "적색"] },
+          { field: "opponent_signal", label: "상대 차량 신호", question: "상대 차량이 교차로에 진입할 때 신호는 무엇이었나요?", options: ["녹색", "황색", "적색"] },
+          { field: "user_signal", label: "내 차량 신호", question: "내 차량이 교차로에 진입할 때 신호는 무엇이었나요?", options: ["녹색", "황색", "적색"] },
+        ],
+      },
+    }), {});
+
+    expect((enriched as any).missing_info.questions.map((item: any) => item.field)).toEqual([
+      "user_signal",
+      "opponent_signal",
+      "injury",
+      "signal_state",
+    ]);
+    expect((enriched as any).missing_info.next_focus.label).toBe("내 차량 신호");
+  });
+
+  it("keeps generic signal-state follow-up behind injury when party signals are not requested", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({
+      headline: "report",
+      missing_info: {
+        questions: [
+          { field: "signal_state", label: "신호 상태", question: "사고 당시 신호 상태는 어땠나요?", options: ["녹색", "황색", "적색"] },
+          { field: "injury", label: "인명피해 여부", question: "다친 사람이 있나요?", options: ["예", "아니오"] },
+        ],
+      },
+    }), {});
+
+    expect((enriched as any).missing_info.questions.map((item: any) => item.field)).toEqual([
+      "injury",
+      "signal_state",
+    ]);
+  });
+
   it("maps raw required-input fields to safe Korean labels before prioritizing", () => {
     const enriched = composeEasyFallback({
       headline: "report",

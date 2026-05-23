@@ -234,6 +234,23 @@ Stage 7 재생성 결과 사고 1, 2, 4 모두 `video_accuracy_batch` 통과, `r
 
 검증은 `python -m py_compile apps\agent\app\services\expert_guidance_sections.py scripts\reference_evidence_alignment_eval.py`, `python -m pytest tests\test_expert_guidance_sections.py -q`, `docker compose up -d --build agent`, `docker compose exec -T agent python -m compileall app scripts`, `python scripts\video_accuracy_batch.py --manifest logs\video_accuracy\stage6_ready_manifest.json --output-dir logs\video_accuracy\stage7_evidence_content_capture --timeout-sec 300`, `python scripts\reference_evidence_alignment_eval.py --reference-eval logs\video_accuracy\reference_guidance_eval_stage5.json --sample-dir logs\video_accuracy\stage7_evidence_content_capture --output logs\video_accuracy\reference_evidence_alignment_stage7.json`로 통과했다. 이번 단계는 OpenAI 프레임 분석을 새로 켜지 않았고, DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
 
+### 2026-05-23 정확도 고도화 8단계 완료
+
+근거가 맞는 상태에서 사용자에게 보이는 예상 과실 범위, 전문가 안내 문구, 보완 질문 우선순위를 실제 사용자 흐름 기준으로 캘리브레이션했다. 특히 신호 전환 사고는 설명 문장에 `황색/적색` 같은 단어가 포함되어 있어도 내 차량 신호와 상대 차량 신호가 각각 확인된 것으로 보지 않도록 조정했다. 또한 쉬운 리포트 변환 단계에서 `user_signal`, `opponent_signal` 같은 안전한 질문 field가 내부 토큰 정리 로직에 의해 지워지던 문제를 고쳤다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/input_requirements.py` | 교차로 신호 사고에서는 `user_signal`, `opponent_signal`, `opponent_signal_violation`을 자연어 키워드만으로 충족 처리하지 않고, 명시 fact 또는 보완 질문으로 확인한다. 양방향 신호 질문은 인명피해/파손 질문보다 먼저 나오도록 priority를 0으로 조정했다. |
+| `apps/agent/app/services/elderly_friendly/plain_language_agent.py` | `missing_info.questions` 생성 시 안전한 field id는 원문을 보존하고, 사용자 표시 문구만 정제한다. 이로써 Gateway가 신호/자전거/횡단보도 질문을 안전하게 정렬할 수 있다. |
+| `apps/gateway/src/lib/report-composer.ts` | 보완 질문 우선순위를 실제 사고 흐름에 맞게 조정했다. 양방향 신호, 자전거 위치/방향, 횡단보도/보행자 신호는 판단 질문으로 우선 처리하고, 일반 `signal_state`는 인명피해보다 뒤로 둔다. |
+| `scripts/reference_guidance_calibration_eval.py` | 전문가 reference와 batch 결과를 대조해 과실 참고 범위 overlap, 근거 쟁점 키워드, 추가 확인 항목, 첫 보완 질문이 사용자 흐름에 맞는지 평가한다. |
+| `apps/agent/tests/test_input_requirements.py`, `apps/gateway/test/report-composer.test.ts` | 신호 전환 사고에서 양방향 신호 질문이 먼저 남는지, generic signal 질문이 불필요하게 최상단으로 올라오지 않는지 회귀 테스트를 추가했다. |
+| `docs/OPERATIONS.md` | Stage 8 캘리브레이션 평가 실행 방법과 `calibrated_for_user_flow`, `needs_user_flow_calibration` 상태 의미를 문서화했다. |
+
+Stage 8 로컬 검증 결과 5개 사고 샘플은 OpenAI 프레임 분석 비활성 상태의 표시 계약 배치에서 모두 통과했다. `reference_guidance_calibration_eval.py` 기준 사고 1, 2, 4는 모두 `calibrated_for_user_flow`로 통과했고, 실패 check는 0개다. 사고 2 신호 전환 샘플의 첫 보완 질문은 `내 차량 신호`로 조정되어, 인명피해 질문보다 결론을 좌우하는 신호 확인 질문이 먼저 표시된다. 사고 5 자전거 비접촉 유발 샘플도 첫 질문이 `자전거 위치`로 정렬된다.
+
+검증은 `docker compose exec -T agent python -m py_compile app/services/input_requirements.py app/services/elderly_friendly/plain_language_agent.py`, `npm test -- report-composer`, `npm run build`(Gateway), `docker compose up -d --build agent worker gateway`, `python scripts/video_accuracy_batch.py --manifest logs/video_accuracy/lawyer_reference_manifest_stage8_no_frame_required.json --output-dir logs/video_accuracy/stage8_guidance_calibration_capture --timeout-sec 180`, `python scripts/reference_guidance_calibration_eval.py --manifest logs/video_accuracy/lawyer_reference_manifest.json --batch-output logs/video_accuracy/stage8_guidance_calibration_capture/aggregate.json --output logs/video_accuracy/reference_guidance_calibration_eval_stage8.json`로 통과했다. OpenAI API를 새로 호출하지 않았고, 검증용 manifest와 batch 결과는 `logs/` 아래에만 저장된다. DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
+
 ### 2026-05-23 전문가 참고 의견 안내 품질 평가 도구
 
 `scripts/reference_guidance_eval.py`를 추가했다. 이 스크립트는 영상 정확도 배치 결과와 `lawyer_reference_manifest.json`의 `reference.evaluation_focus`를 결합해, 샘플별로 예상 과실 안내를 만들기 전에 필요한 사실/근거 검증 상태를 평가한다. 목적은 실제 판결 정답을 주입하는 것이 아니라, 전문가 참고 의견의 쟁점에 도달하기 위해 Agent가 어떤 fact, 영상 관찰값, KNIA/법령/판례/보험 근거를 더 확인해야 하는지 정리하는 것이다.
