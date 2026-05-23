@@ -189,7 +189,7 @@ python scripts/video_accuracy_batch.py --manifest config/video_accuracy_samples.
 
 실제 OpenAI 분석 기준으로 측정하려면 먼저 worker를 `ENABLE_OPENAI_FRAME_ANALYSIS=1`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 재시작해야 합니다. 기대값이 틀린 샘플도 측정 결과로 남기려면 기본 실행을 사용하고, 기대값 불일치를 실패로 처리하려면 `--fail-on-mismatch`를 추가합니다. 샘플별 입력 케이스는 `case_json`으로 지정할 수 있으며, 파일은 `case` 객체를 포함하거나 케이스 payload 자체를 포함할 수 있습니다.
 
-`aggregate.json`에는 전체 통과/불일치 수 외에 `field_summary`, `calibration_readiness`, `recommendations`가 포함됩니다. `field_summary`는 필드별 프레임 관찰 수, Agent fact 반영 수, 사용자 확인 수, 충돌 수, 기대값 통과율을 보여줍니다. `calibration_readiness=collect_more_samples`이면 threshold를 조정하지 말고 실제 사고 영상 샘플을 더 모아야 합니다. `review_conflict_gate` 또는 `inspect_field_mismatch` 추천이 나오면 prompt나 threshold를 바꾸기 전에 원본 프레임, 사용자 입력, Agent 충돌 정책을 먼저 확인합니다.
+`aggregate.json`에는 전체 통과/불일치 수 외에 `video_flow_summary`, `question_priority_summary`, `field_summary`, `calibration_readiness`, `recommendations`가 포함됩니다. `video_flow_summary`는 전체 프레임 관찰값이 Agent에서 반영, 확인, 보류, 참고 관찰, 충돌 중 어디로 흘렀는지 비율로 보여줍니다. `question_priority_summary`는 결과 화면에서 가장 먼저 떠오른 보완 질문 라벨과 우선순위 분포를 보여줍니다. `field_summary`는 필드별 프레임 관찰 수, Agent fact 반영 수, 사용자 확인 수, 충돌 수, 기대값 통과율을 보여줍니다. `calibration_readiness=collect_more_samples`이면 threshold를 조정하지 말고 실제 사고 영상 샘플을 더 모아야 합니다. `keep_conservative_thresholds`, `prioritize_conflict_questions`, `review_conflict_gate`, `inspect_field_mismatch` 추천이 나오면 prompt나 threshold를 바꾸기 전에 원본 프레임, 사용자 입력, Agent 충돌 정책, 보완 질문 순서를 먼저 확인합니다.
 
 전문 변호사 의견, 경찰/보험 처리 결과, 실제 분쟁 결과가 있는 경우에는 manifest의 `reference` 메타데이터에만 기록합니다. 이 값은 배치 결과 JSON에 보존되지만 Agent 입력 payload로 전달되지 않습니다. 실제 사용자는 전문적인 법률 의견을 입력하지 못할 수 있으므로 `case_json`에는 일반 사용자가 작성할 법한 짧은 사고 설명과 확인 가능한 사실만 넣고, `reference`는 결과 비교와 캘리브레이션 판단에만 사용합니다.
 

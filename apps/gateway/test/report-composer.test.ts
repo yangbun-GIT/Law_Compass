@@ -125,6 +125,28 @@ describe("report composer", () => {
     expect(JSON.stringify(enriched)).not.toContain("unknown_internal_field");
   });
 
+  it("prioritizes rear-end decision facts before follow-up damage details", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({
+      headline: "report",
+      missing_info: {
+        questions: [
+          { field: "damage_level", label: "파손 정도", question: "파손 정도는 어느 정도인가요?", options: ["경미", "심함"] },
+          { field: "sudden_brake", label: "급정거 여부", question: "충돌 직전 급정거가 있었나요?", options: ["예", "아니오"] },
+          { field: "injury", label: "인명피해 여부", question: "다친 사람이 있나요?", options: ["예", "아니오"] },
+          { field: "opponent_behavior", label: "상대 차량 행동", question: "상대 차량은 어떻게 움직였나요?", options: ["뒤에서 추돌", "차선 변경"] },
+        ],
+      },
+    }), {});
+
+    expect((enriched as any).missing_info.questions.map((item: any) => item.field)).toEqual([
+      "opponent_behavior",
+      "sudden_brake",
+      "injury",
+      "damage_level",
+    ]);
+    expect((enriched as any).missing_info.next_focus.label).toBe("상대 차량 행동");
+  });
+
   it("maps raw required-input fields to safe Korean labels before prioritizing", () => {
     const enriched = composeEasyFallback({
       headline: "report",

@@ -112,6 +112,8 @@ def run_sample(
     metrics = payload.get("video_accuracy_metrics") if isinstance(payload.get("video_accuracy_metrics"), dict) else {}
     expectations = payload.get("accuracy_expectations") if isinstance(payload.get("accuracy_expectations"), dict) else {}
     expert_card = payload.get("expert_guidance_card") if isinstance(payload.get("expert_guidance_card"), dict) else {}
+    video_fact_card = payload.get("video_fact_card") if isinstance(payload.get("video_fact_card"), dict) else {}
+    missing_info_priority = payload.get("missing_info_priority") if isinstance(payload.get("missing_info_priority"), dict) else {}
     field_metrics = field_metrics_from_payload(payload)
     held_followup = payload.get("held_observation_followup") if isinstance(payload.get("held_observation_followup"), dict) else {}
     result.update({
@@ -128,6 +130,8 @@ def run_sample(
         "accuracy_checked_count": expectations.get("checked_count"),
         "accuracy_passed_count": expectations.get("passed_count"),
         "accuracy_failed_count": expectations.get("failed_count"),
+        "video_display": video_display_metrics(video_fact_card, metrics),
+        "missing_info_priority": missing_priority_metrics(missing_info_priority),
         "expert_guidance": expert_guidance_metrics(expert_card),
         "held_observation_followup": held_followup_metrics(held_followup),
         "field_metrics": field_metrics,
@@ -135,6 +139,37 @@ def run_sample(
     if expectations.get("failed_count"):
         result["status"] = "mismatch"
     return result
+
+
+def video_display_metrics(card: dict[str, Any], metrics: dict[str, Any]) -> dict[str, Any]:
+    stats = card.get("stats") if isinstance(card.get("stats"), list) else metrics.get("display_stats")
+    stat_map: dict[str, str] = {}
+    if isinstance(stats, list):
+        for item in stats:
+            if isinstance(item, dict) and item.get("label"):
+                stat_map[str(item["label"])] = str(item.get("value") or "")
+    return {
+        "present": bool(card),
+        "status_label": card.get("status_label") if card else None,
+        "summary": card.get("summary") if card else None,
+        "quality_status": stat_map.get("품질 상태"),
+        "observed_label": stat_map.get("영상 관찰 후보"),
+        "applied_label": stat_map.get("판단 반영"),
+        "confirmed_label": stat_map.get("영상 확인"),
+        "conflict_label": stat_map.get("입력 충돌 검토"),
+        "held_label": stat_map.get("확인 필요"),
+    }
+
+
+def missing_priority_metrics(priority: dict[str, Any]) -> dict[str, Any]:
+    if not priority:
+        return {"present": False}
+    return {
+        "present": True,
+        "top_label": priority.get("top_label"),
+        "top_priority": priority.get("top_priority"),
+        "priority_count": int(priority.get("priority_count") or 0),
+    }
 
 
 def expert_guidance_metrics(card: dict[str, Any]) -> dict[str, Any]:
@@ -285,9 +320,11 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
     checked = sum(int(item.get("accuracy_checked_count") or 0) for item in samples)
     accuracy_passed = sum(int(item.get("accuracy_passed_count") or 0) for item in samples)
     field_summary = aggregate_field_metrics(samples)
-    recommendations = calibration_recommendations(samples, field_summary)
     expert_summary = aggregate_expert_guidance(samples)
     followup_summary = aggregate_held_followup(samples)
+    video_flow_summary = aggregate_video_flow(samples)
+    question_priority_summary = aggregate_question_priority(samples)
+    recommendations = calibration_recommendations(samples, field_summary, video_flow_summary, question_priority_summary)
     return {
         "video_accuracy_batch": "completed" if failed == 0 else "failed",
         "sample_count": total,
@@ -298,12 +335,88 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "accuracy_passed_count": accuracy_passed,
         "accuracy_failed_count": max(0, checked - accuracy_passed),
         "calibration_readiness": calibration_readiness(total, max(0, checked - accuracy_passed), failed),
+        "video_flow_summary": video_flow_summary,
+        "question_priority_summary": question_priority_summary,
         "field_summary": field_summary,
         "expert_guidance_summary": expert_summary,
         "held_observation_followup_summary": followup_summary,
         "recommendations": recommendations,
         "samples": samples,
     }
+
+
+def aggregate_video_flow(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    total_observations = sum(int(sample.get("frame_observation_count") or 0) for sample in samples)
+    accepted = sum(int(sample.get("agent_accepted_count") or 0) for sample in samples)
+    uncertain = sum(int(sample.get("agent_uncertain_count") or 0) for sample in samples)
+    supporting = sum(int(sample.get("agent_supporting_count") or 0) for sample in samples)
+    applied = sum(int(sample.get("applied_count") or 0) for sample in samples)
+    confirmed = sum(int(sample.get("confirmed_count") or 0) for sample in samples)
+    conflicts = sum(int(sample.get("conflict_count") or 0) for sample in samples)
+    status_counts = count_values(
+        sample.get("video_display", {}).get("status_label")
+        for sample in samples
+        if isinstance(sample.get("video_display"), dict)
+    )
+    quality_counts = count_values(
+        sample.get("video_display", {}).get("quality_status")
+        for sample in samples
+        if isinstance(sample.get("video_display"), dict)
+    )
+    return {
+        "sample_count": len(samples),
+        "total_frame_observation_count": total_observations,
+        "accepted_count": accepted,
+        "uncertain_count": uncertain,
+        "supporting_count": supporting,
+        "applied_count": applied,
+        "confirmed_count": confirmed,
+        "conflict_count": conflicts,
+        "accepted_rate": rate(accepted, total_observations),
+        "uncertain_rate": rate(uncertain, total_observations),
+        "supporting_rate": rate(supporting, total_observations),
+        "applied_rate": rate(applied, total_observations),
+        "confirmed_rate": rate(confirmed, total_observations),
+        "conflict_rate": rate(conflicts, total_observations),
+        "display_status_counts": status_counts,
+        "quality_status_counts": quality_counts,
+        "attention_sample_count": sum(
+            1
+            for sample in samples
+            if sample.get("status") != "passed"
+            or int(sample.get("agent_uncertain_count") or 0) > 0
+            or int(sample.get("conflict_count") or 0) > 0
+        ),
+    }
+
+
+def aggregate_question_priority(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    priorities = [
+        sample.get("missing_info_priority")
+        for sample in samples
+        if isinstance(sample.get("missing_info_priority"), dict) and sample["missing_info_priority"].get("present")
+    ]
+    return {
+        "present_count": len(priorities),
+        "missing_count": max(0, len(samples) - len(priorities)),
+        "top_label_counts": count_values(item.get("top_label") for item in priorities),
+        "top_priority_counts": count_values(item.get("top_priority") for item in priorities),
+        "total_priority_item_count": sum(int(item.get("priority_count") or 0) for item in priorities),
+    }
+
+
+def count_values(values: Any) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        if value is None or value == "":
+            continue
+        key = str(value)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def rate(numerator: int, denominator: int) -> float:
+    return round(numerator / denominator, 3) if denominator else 0.0
 
 
 def aggregate_expert_guidance(samples: list[dict[str, Any]]) -> dict[str, Any]:
@@ -403,8 +516,15 @@ def calibration_readiness(sample_count: int, accuracy_failed_count: int, failed_
     return "ready_for_threshold_review"
 
 
-def calibration_recommendations(samples: list[dict[str, Any]], field_summary: list[dict[str, Any]]) -> list[dict[str, str]]:
+def calibration_recommendations(
+    samples: list[dict[str, Any]],
+    field_summary: list[dict[str, Any]],
+    video_flow_summary: dict[str, Any] | None = None,
+    question_priority_summary: dict[str, Any] | None = None,
+) -> list[dict[str, str]]:
     recommendations: list[dict[str, str]] = []
+    video_flow_summary = video_flow_summary or {}
+    question_priority_summary = question_priority_summary or {}
     if len(samples) < 3:
         recommendations.append({
             "type": "collect_more_samples",
@@ -415,6 +535,25 @@ def calibration_recommendations(samples: list[dict[str, Any]], field_summary: li
         recommendations.append({
             "type": "fix_pipeline_failures",
             "message": f"E2E 자체가 실패한 샘플 {len(failed_samples)}개를 먼저 확인하세요.",
+        })
+    uncertain_rate = float(video_flow_summary.get("uncertain_rate") or 0)
+    conflict_count = int(video_flow_summary.get("conflict_count") or 0)
+    if uncertain_rate >= 0.3:
+        recommendations.append({
+            "type": "keep_conservative_thresholds",
+            "message": f"영상 관찰 보류율이 {uncertain_rate:.1%}입니다. 현재 단계에서는 threshold를 낮추기보다 보류 질문과 사용자 확인 흐름을 유지하세요.",
+        })
+    if conflict_count:
+        recommendations.append({
+            "type": "prioritize_conflict_questions",
+            "message": f"영상-사용자 입력 충돌이 {conflict_count}건입니다. 정차 여부와 상대 차량 행동 같은 판단 핵심 질문을 우선 노출해야 합니다.",
+        })
+    top_label_counts = question_priority_summary.get("top_label_counts") if isinstance(question_priority_summary.get("top_label_counts"), dict) else {}
+    if top_label_counts:
+        top_label = max(top_label_counts.items(), key=lambda item: item[1])[0]
+        recommendations.append({
+            "type": "review_top_question_flow",
+            "message": f"가장 자주 첫 질문으로 올라온 항목은 '{top_label}'입니다. 실제 사용자 입력 화면에서 이 질문을 먼저 답하기 쉬운 형태로 유지하세요.",
         })
     for field in field_summary:
         checked = int(field.get("expectation_checked_count") or 0)
