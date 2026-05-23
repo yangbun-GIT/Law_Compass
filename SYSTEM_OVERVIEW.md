@@ -34,6 +34,26 @@
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약을 변경하지 않는다. OpenAI 호출 비용 정책도 바꾸지 않으며 기본값은 계속 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이다.
 
+### 2026-05-23 영상 정확도 측정 도구 보강
+
+`scripts/video_agent_e2e.py`는 실제 OpenAI 프레임 분석 결과를 정확도 튜닝 근거로 남길 수 있도록 보강됐다. `--allow-accuracy-mismatch`를 사용하면 기대값 불일치를 즉시 실패로 끊지 않고 `accuracy_expectations`와 `video_accuracy_metrics`에 기록한다. `--output-json`을 사용하면 전체 결과를 로컬 JSON 파일로 저장할 수 있다. 저장 위치로 `logs/`를 쓰면 `.gitignore` 정책에 따라 측정 결과가 Git에 올라가지 않는다.
+
+로컬 Python 테스트 실행을 위해 루트에 `requirements-dev.txt`를 추가했다. 현재 포함 항목은 `pytest==9.0.3`이며, 로컬에서는 `python -m pip install --user -r requirements-dev.txt` 후 `python -m pytest ...` 형태로 실행한다. 운영 Docker image의 production requirements에는 pytest를 추가하지 않는다.
+
+실제 사고 영상 `car_accident_1.mp4`로 OpenAI 프레임 분석을 재측정한 결과는 다음과 같다. 실행 후 worker는 다시 비용 안전 기본값인 `ENABLE_OPENAI_FRAME_ANALYSIS=0`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 복구했다.
+
+| 항목 | 결과 |
+| --- | --- |
+| 모델/설정 | `gpt-4.1-mini`, `detail=low`, 6프레임 선택 |
+| Worker 관찰값 | 4개: `stopped=true`, `impact_direction=rear_end`, `damage_level=minor_rear_bumper_damage`, `opponent_behavior=rear_vehicle_collision` |
+| Agent 수용 | accepted 4개, uncertain 0개, conflict 0개 |
+| Agent fact_patch | `stopped=true`, `damage_level=minor_rear_bumper_damage`, `opponent_behavior=rear_collision` |
+| 사실 중재 | 새로 덮어쓴 필드 0개, 기존 입력과 영상이 일치한 `confirmed_fields` 3개 |
+| 기대값 검증 | `stopped=true`, `opponent_behavior=rear_collision` 포함 3개 기대값 모두 통과 |
+| 표시 상태 | `영상 확인 3개`, `판단 반영 0개`, `품질 상태=반영 가능` |
+
+이 결과는 현재 샘플 기준으로 OpenAI 프레임 분석이 정차 후방 추돌 후보를 안정적으로 확인했음을 의미한다. 다음 정확도 고도화는 동일한 측정 도구로 샘플 수를 늘려 `stopped`, `opponent_behavior`, `damage_level`의 confidence threshold를 조정하는 단계다.
+
 ## 2026-05-22 프로젝트 구조 보강 완료 판정
 
 현재 프로젝트 구조 보강 기준에서 P0와 신뢰성 관련 P1은 완료 상태로 판정한다. 완료 판정의 기준은 Agent 판단 골격, 영상 관찰값 입력 계약, 근거 검색 품질 회귀 검증, 서비스별 단일 책임 경계가 모두 코드와 검증 스크립트로 확인 가능해야 한다는 것이다.

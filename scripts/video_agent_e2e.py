@@ -272,11 +272,13 @@ def evaluate_accuracy_expectations(frame_summary: dict, agent_video_summary: dic
         checks.append({"scope": "agent_fact_patch", "field": field, "expected": expected_value, "actual": actual, "passed": actual == expected_value})
 
     failed = [item for item in checks if not item.get("passed")]
-    if failed:
+    if failed and not args.allow_accuracy_mismatch:
         raise E2EError(f"accuracy expectations failed: {failed}")
     return {
         "checked_count": len(checks),
         "passed_count": len(checks) - len(failed),
+        "failed_count": len(failed),
+        "mismatch_allowed": bool(args.allow_accuracy_mismatch),
         "checks": checks,
     }
 
@@ -296,6 +298,39 @@ def assert_video_fact_card(report: dict):
         "status_label": quality.get("status_label"),
         "representative_frame_count": quality.get("representative_frame_count"),
         "stats": stats,
+    }
+
+
+def video_accuracy_metrics(frame_summary: dict, agent_video_summary: dict, video_card: dict, accuracy_summary: dict) -> dict:
+    accepted = int(agent_video_summary.get("accepted_observation_count") or 0)
+    uncertain = int(agent_video_summary.get("uncertain_observation_count") or 0)
+    confirmed = len(agent_video_summary.get("confirmed_fields") or [])
+    applied = len(agent_video_summary.get("applied_video_fields") or [])
+    conflicts = int(agent_video_summary.get("conflict_count") or 0)
+    observed = int(frame_summary.get("observation_count") or 0)
+    actionable = applied + confirmed
+    checked = int(accuracy_summary.get("checked_count") or 0)
+    passed = int(accuracy_summary.get("passed_count") or 0)
+    stats = video_card.get("stats") if isinstance(video_card.get("stats"), list) else []
+    return {
+        "provider": frame_summary.get("provider"),
+        "model": frame_summary.get("model"),
+        "detail": frame_summary.get("detail"),
+        "selected_frame_count": frame_summary.get("selected_frame_count"),
+        "frame_observation_count": observed,
+        "agent_accepted_count": accepted,
+        "agent_uncertain_count": uncertain,
+        "applied_count": applied,
+        "confirmed_count": confirmed,
+        "actionable_count": actionable,
+        "conflict_count": conflicts,
+        "accuracy_checked_count": checked,
+        "accuracy_passed_count": passed,
+        "accuracy_failed_count": max(0, checked - passed),
+        "actionable_rate": round(actionable / accepted, 3) if accepted else 0,
+        "uncertain_rate": round(uncertain / observed, 3) if observed else 0,
+        "conflict_rate": round(conflicts / accepted, 3) if accepted else 0,
+        "display_stats": stats,
     }
 
 
@@ -456,6 +491,16 @@ def main():
         default=[],
         help="Expected Agent video fact_patch value in field=value format. Can be repeated.",
     )
+    parser.add_argument(
+        "--allow-accuracy-mismatch",
+        action="store_true",
+        help="Record failed expectation checks without failing the E2E run. Useful for actual model calibration.",
+    )
+    parser.add_argument(
+        "--output-json",
+        default="",
+        help="Optional path to write the full JSON result for accuracy calibration records.",
+    )
     args = parser.parse_args()
 
     video_path = Path(args.video_path).expanduser().resolve()
@@ -509,6 +554,7 @@ def main():
         "frame_analysis": frame_summary,
         "agent_video_input": agent_video_summary,
         "accuracy_expectations": accuracy_summary,
+        "video_accuracy_metrics": video_accuracy_metrics(frame_summary, agent_video_summary, video_card, accuracy_summary),
         "video_fact_card": video_card,
         "agent_process_status": card.get("status_label"),
         "agent_process_stats": card.get("stats", []),
@@ -518,6 +564,10 @@ def main():
         output["held_observation_followup"] = followup_summary
     if priority_summary:
         output["missing_info_priority"] = priority_summary
+    if args.output_json:
+        output_path = Path(args.output_json).expanduser().resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(output, ensure_ascii=False, indent=2))
 
 
