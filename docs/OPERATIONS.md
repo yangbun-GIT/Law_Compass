@@ -192,6 +192,18 @@ python scripts/video_accuracy_batch.py --manifest config/video_accuracy_samples.
 
 전문 변호사 의견, 경찰/보험 처리 결과, 실제 분쟁 결과가 있는 경우에는 manifest의 `reference` 메타데이터에만 기록합니다. 이 값은 배치 결과 JSON에 보존되지만 Agent 입력 payload로 전달되지 않습니다. 실제 사용자는 전문적인 법률 의견을 입력하지 못할 수 있으므로 `case_json`에는 일반 사용자가 작성할 법한 짧은 사고 설명과 확인 가능한 사실만 넣고, `reference`는 결과 비교와 캘리브레이션 판단에만 사용합니다.
 
+전문가 참고 의견 샘플이 실제 안내 품질 기준에 얼마나 가까운지 보려면 `reference_guidance_eval.py`를 실행합니다. 이 스크립트는 영상 관찰값의 성공 여부만 보지 않고, manifest의 `evaluation_focus`별로 사용자 입력 fact, 영상 관찰값, 충돌 여부, 다음에 필요한 KNIA/법령/판례/보험 근거 확인 항목을 분리합니다. 결과는 `logs/video_accuracy/reference_guidance_eval.json`에 저장하는 것을 권장합니다.
+
+```bash
+python scripts/reference_guidance_eval.py \
+  --manifest logs/video_accuracy/lawyer_reference_manifest.json \
+  --batch-output logs/video_accuracy/lawyer_reference_openai/aggregate.json \
+  --batch-output logs/video_accuracy/lawyer_reference_openai_sample4_retry/aggregate.json \
+  --output logs/video_accuracy/reference_guidance_eval.json
+```
+
+여러 `--batch-output`을 넘기면 같은 샘플의 재시도 결과를 병합합니다. 실패했던 샘플이 재시도에서 통과한 경우 통과 결과를 우선 사용하므로, 표시 오류 수정 후 단일 샘플만 재측정한 결과도 전체 평가에 반영할 수 있습니다. 이 평가는 판결 정답 맞추기가 아니라, “예상 안내를 만들기 전에 어떤 사실/근거 검증이 남았는가”를 찾기 위한 단계입니다.
+
 검증 항목:
 - `/uploads/local` 로컬 영상 업로드
 - `/uploads/complete` 후 `video_preprocess` job 성공
