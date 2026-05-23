@@ -24,6 +24,58 @@ REQUIRED_FAMILIES: dict[str, set[str]] = {
     "stopped_state": {"knia", "legal", "insurance"},
 }
 
+CONTENT_RULES: dict[str, list[list[str]]] = {
+    "centerline_obstacle": [
+        ["centerline", "중앙선"],
+        ["obstacle", "parked vehicle", "주차", "장애"],
+        ["oncoming", "마주", "대향", "avoid"],
+    ],
+    "secondary_collision": [
+        ["secondary", "후속", "2차"],
+        ["rear", "후방", "뒤차", "추돌"],
+    ],
+    "signal_transition": [
+        ["signal", "신호"],
+        ["transition", "yellow", "red", "opponent signal", "cctv", "전환", "황색", "적색", "진입"],
+    ],
+    "crosswalk_pedestrian_signal": [
+        ["crosswalk", "횡단보도"],
+        ["pedestrian", "보행", "signal", "신호"],
+    ],
+    "rear_end_default": [
+        ["rear", "후방", "뒤차", "추돌"],
+        ["safe distance", "안전거리", "stopped", "정차", "감속"],
+    ],
+    "front_vehicle_stop_reason": [
+        ["front vehicle", "앞차", "선행"],
+        ["stop reason", "정차 사유", "급정거", "정지"],
+    ],
+    "unlit_stopped_vehicle_visibility": [
+        ["unlit", "stealth", "무등", "스텔스"],
+        ["visibility", "night", "시인", "야간"],
+        ["stopped", "정차"],
+    ],
+    "speed_avoidability": [
+        ["speed", "speeding", "speed limit", "속도", "제한속도", "과속", "avoidability", "avoid"],
+    ],
+    "criminal_civil_split": [
+        ["criminal", "형사"],
+        ["civil", "민사", "fault ratio", "과실"],
+    ],
+    "non_contact_bicycle_trigger": [
+        ["bicycle", "자전거"],
+        ["non-contact", "trigger", "비접촉", "유발"],
+        ["rear", "후방", "bus", "버스", "추돌"],
+    ],
+    "time_gap_sudden_brake": [
+        ["time gap", "reaction time", "시간", "여유"],
+        ["sudden", "brake", "급", "제동", "급정거"],
+    ],
+    "stopped_state": [
+        ["stopped", "stop", "정차", "정지", "감속"],
+    ],
+}
+
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -74,6 +126,17 @@ def evaluate_card(card: dict[str, Any]) -> dict[str, Any]:
     missing_items = card.get("missing_items") if isinstance(card.get("missing_items"), list) else []
 
     basis_families = Counter(family_key(item) for item in basis if isinstance(item, dict))
+    basis_items = [
+        {
+            "family_key": family_key(item),
+            "family_label": str(item.get("family_label") or ""),
+            "title": str(item.get("title") or ""),
+            "reason": str(item.get("reason") or ""),
+            "content_text": basis_text(item),
+        }
+        for item in basis
+        if isinstance(item, dict)
+    ]
     has_detail = bool(basis or legal_points or insurance_steps or missing_items)
     return {
         "present": bool(card.get("present", True) if card else False),
@@ -90,7 +153,15 @@ def evaluate_card(card: dict[str, Any]) -> dict[str, Any]:
             for item in basis
             if isinstance(item, dict) and item.get("title")
         ][:6],
+        "basis_items": basis_items[:8],
     }
+
+
+def basis_text(item: dict[str, Any]) -> str:
+    return " ".join(
+        str(item.get(key) or "")
+        for key in ("family_label", "title", "reason")
+    ).lower()
 
 
 def family_key(value: Any) -> str:
@@ -107,6 +178,62 @@ def family_key(value: Any) -> str:
     if text:
         return "general"
     return ""
+
+
+def evaluate_content_fit(criterion_id: str, card_eval: dict[str, Any]) -> dict[str, Any]:
+    groups = CONTENT_RULES.get(criterion_id, [])
+    basis_items = [item for item in card_eval.get("basis_items") or [] if isinstance(item, dict)]
+    if not groups:
+        return {
+            "content_fit_status": "content_rule_not_defined",
+            "required_keyword_groups": [],
+            "missing_keyword_groups": [],
+            "matched_basis_titles": [],
+        }
+
+    group_results = []
+    missing_groups: list[list[str]] = []
+    for group in groups:
+        matches = sorted(
+            {
+                token
+                for token in group
+                if any(token.lower() in str(item.get("content_text") or "") for item in basis_items)
+            }
+        )
+        if not matches:
+            missing_groups.append(group)
+        group_results.append({"required_any_of": group, "matched_tokens": matches})
+
+    matched_basis_titles = [
+        str(item.get("title") or "")
+        for item in basis_items
+        if _basis_matches_all_groups(str(item.get("content_text") or ""), groups)
+    ][:5]
+    partial_basis_titles = [
+        str(item.get("title") or "")
+        for item in basis_items
+        if not _basis_matches_all_groups(str(item.get("content_text") or ""), groups)
+        and _basis_matches_any_group(str(item.get("content_text") or ""), groups)
+    ][:5]
+    status = "content_fit_ready" if not missing_groups else "content_keyword_gap"
+    if status == "content_fit_ready" and not matched_basis_titles and partial_basis_titles:
+        status = "combined_content_fit_ready"
+    return {
+        "content_fit_status": status,
+        "required_keyword_groups": group_results,
+        "missing_keyword_groups": missing_groups,
+        "matched_basis_titles": matched_basis_titles,
+        "partial_basis_titles": partial_basis_titles,
+    }
+
+
+def _basis_matches_all_groups(text: str, groups: list[list[str]]) -> bool:
+    return bool(groups) and all(any(token.lower() in text for token in group) for group in groups)
+
+
+def _basis_matches_any_group(text: str, groups: list[list[str]]) -> bool:
+    return any(any(token.lower() in text for token in group) for group in groups)
 
 
 def evaluate_focus(row: dict[str, Any], card_eval: dict[str, Any]) -> dict[str, Any]:
@@ -130,6 +257,15 @@ def evaluate_focus(row: dict[str, Any], card_eval: dict[str, Any]) -> dict[str, 
     else:
         missing = sorted(required - families)
         status = "evidence_family_gap" if missing else "evidence_alignment_ready"
+    content_eval = evaluate_content_fit(criterion_id, card_eval)
+    if status == "evidence_alignment_ready":
+        content_status = content_eval.get("content_fit_status")
+        if content_status == "content_keyword_gap":
+            status = "evidence_content_gap"
+        elif content_status == "content_rule_not_defined":
+            status = "evidence_alignment_ready"
+        else:
+            status = "evidence_content_ready"
     return {
         "focus": row.get("focus"),
         "criterion_id": criterion_id,
@@ -138,6 +274,7 @@ def evaluate_focus(row: dict[str, Any], card_eval: dict[str, Any]) -> dict[str, 
         "available_families": sorted(families),
         "missing_families": sorted(required - families) if card_eval.get("detail_available") else [],
         "status": status,
+        "content_fit": content_eval,
     }
 
 
@@ -160,8 +297,10 @@ def evaluate_sample(stage5_sample: dict[str, Any], sample_dir: Path) -> dict[str
         readiness = "ready_but_needs_detailed_card_capture"
     elif "evidence_family_gap" in statuses:
         readiness = "needs_evidence_family_retrieval"
+    elif "evidence_content_gap" in statuses:
+        readiness = "needs_evidence_content_fit"
     else:
-        readiness = "ready_for_manual_reference_evidence_review"
+        readiness = "ready_for_stage8_guidance_calibration"
     return {
         "name": stage5_sample.get("name"),
         "case_title": stage5_sample.get("case_title"),
@@ -170,7 +309,29 @@ def evaluate_sample(stage5_sample: dict[str, Any], sample_dir: Path) -> dict[str
         "alignment_readiness": readiness,
         "card_evaluation": card_eval,
         "focus_alignment": focus_rows,
+        "extra_basis_review": extra_basis_review(card_eval, focus_rows),
         "next_actions": next_actions(readiness),
+    }
+
+
+def extra_basis_review(card_eval: dict[str, Any], focus_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    focus_criteria = {
+        str(row.get("criterion_id") or "")
+        for row in focus_rows
+        if isinstance(row, dict) and row.get("criterion_id") in CONTENT_RULES
+    }
+    basis_items = [item for item in card_eval.get("basis_items") or [] if isinstance(item, dict)]
+    extra_titles = []
+    for item in basis_items:
+        text = str(item.get("content_text") or "")
+        if any(_basis_matches_any_group(text, CONTENT_RULES[criterion]) for criterion in focus_criteria):
+            continue
+        title = str(item.get("title") or "")
+        if title:
+            extra_titles.append(title)
+    return {
+        "extra_basis_count": len(extra_titles),
+        "extra_basis_titles": extra_titles[:6],
     }
 
 
@@ -181,25 +342,33 @@ def next_actions(readiness: str) -> list[str]:
         return ["Regenerate E2E/batch output with detailed expert guidance card capture enabled."]
     if readiness == "needs_evidence_family_retrieval":
         return ["Add missing KNIA/legal/insurance evidence family through Agent search terms or fallback references."]
+    if readiness == "needs_evidence_content_fit":
+        return ["Improve evidence retrieval, fallback references, or guidance basis selection so title/reason text matches the expert focus item."]
     if readiness == "basis_or_insurance_gap":
         return ["Fix missing basis or insurance guidance in the expert guidance card."]
     if readiness == "display_contract_fix_required":
         return ["Fix Gateway/Frontend expert guidance display contract before accuracy tuning."]
-    return ["Review actual evidence title/content fit against the expert reference focus items."]
+    return ["Proceed to guidance calibration using content-fit-ready evidence references."]
 
 
 def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
     readiness_counts = Counter(sample["alignment_readiness"] for sample in samples)
     focus_counts = Counter(row["status"] for sample in samples for row in sample["focus_alignment"])
     detail_gap_count = sum(1 for sample in samples if not sample["card_evaluation"].get("detail_available"))
+    extra_basis_count = sum(int((sample.get("extra_basis_review") or {}).get("extra_basis_count") or 0) for sample in samples)
     return {
         "reference_evidence_alignment_eval": "completed",
         "sample_count": len(samples),
         "readiness_counts": dict(sorted(readiness_counts.items())),
         "focus_status_counts": dict(sorted(focus_counts.items())),
         "detail_capture_gap_count": detail_gap_count,
+        "extra_basis_review_count": extra_basis_count,
         "ready_for_manual_reference_evidence_review_count": readiness_counts.get(
             "ready_for_manual_reference_evidence_review",
+            0,
+        ),
+        "ready_for_stage8_guidance_calibration_count": readiness_counts.get(
+            "ready_for_stage8_guidance_calibration",
             0,
         ),
         "recommendations": recommendations(readiness_counts, detail_gap_count),
@@ -213,8 +382,10 @@ def recommendations(readiness_counts: Counter, detail_gap_count: int) -> list[st
         output.append("Detailed expert guidance card fields are missing. Regenerate E2E output before content-fit review.")
     if readiness_counts.get("needs_evidence_family_retrieval"):
         output.append("Some samples are missing required evidence families. Reinforce Agent search terms or fallback references.")
-    if readiness_counts.get("ready_for_manual_reference_evidence_review"):
-        output.append("Detailed evidence families are ready. Review actual evidence title/content fit next.")
+    if readiness_counts.get("needs_evidence_content_fit"):
+        output.append("Some focus items lack content-fit evidence. Improve retrieval/fallback/basis selection before guidance calibration.")
+    if readiness_counts.get("ready_for_stage8_guidance_calibration"):
+        output.append("Evidence title/reason content fits the expert focus items. Proceed to guidance calibration.")
     return output
 
 

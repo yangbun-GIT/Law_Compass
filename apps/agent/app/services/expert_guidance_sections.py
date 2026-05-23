@@ -24,7 +24,15 @@ def build_expert_guidance_sections(
 
     input_requirements = input_requirements or {}
     reflection_loop = reflection_loop or {}
-    basis = _basis_summary(evidence)
+    basis = _basis_summary(
+        evidence,
+        context_text=_guidance_context_text(
+            scenario=scenario,
+            facts=facts,
+            legal_analysis=legal_analysis,
+            fault_ratio=fault_ratio,
+        ),
+    )
     missing_facts = _missing_facts(input_requirements, legal_analysis, reflection_loop)
     status = _status(evidence_audit, claim_evidence, missing_facts)
     fault_range = _fault_range(fault_ratio, status)
@@ -137,7 +145,7 @@ def _criminal_points(legal_liability: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(items))[:5]
 
 
-def _basis_summary(evidence: list[dict[str, Any]]) -> list[dict[str, str]]:
+def _basis_summary(evidence: list[dict[str, Any]], *, context_text: str = "") -> list[dict[str, str]]:
     candidates: list[dict[str, str]] = []
     seen: set[str] = set()
     for item in evidence:
@@ -155,7 +163,16 @@ def _basis_summary(evidence: list[dict[str, Any]]) -> list[dict[str, str]]:
         if key in seen:
             continue
         seen.add(key)
-        candidates.append({"_family_key": family_key, "family_label": family, "title": title, "reason": reason})
+        content_text = f"{title} {reason} {item.get('source') or ''} {item.get('law_name') or ''}"
+        candidates.append(
+            {
+                "_family_key": family_key,
+                "_relevance_score": str(_relevance_score(content_text, context_text)),
+                "family_label": family,
+                "title": title,
+                "reason": reason,
+            }
+        )
     return _balanced_basis(candidates)
 
 
@@ -164,15 +181,27 @@ def _balanced_basis(candidates: list[dict[str, str]]) -> list[dict[str, str]]:
     selected_ids: set[int] = set()
 
     for family_key in ("legal", "knia", "insurance"):
-        for index, item in enumerate(candidates):
+        family_candidates = sorted(
+            enumerate(candidates),
+            key=lambda pair: int(pair[1].get("_relevance_score") or 0),
+            reverse=True,
+        )
+        for index, item in family_candidates:
             if index in selected_ids or item.get("_family_key") != family_key:
                 continue
             selected.append(item)
             selected_ids.add(index)
             break
 
-    for index, item in enumerate(candidates):
+    relevant_candidates = sorted(
+        enumerate(candidates),
+        key=lambda pair: int(pair[1].get("_relevance_score") or 0),
+        reverse=True,
+    )
+    for index, item in relevant_candidates:
         if index in selected_ids:
+            continue
+        if int(item.get("_relevance_score") or 0) <= 0 and _has_core_basis(selected):
             continue
         selected.append(item)
         selected_ids.add(index)
@@ -180,9 +209,95 @@ def _balanced_basis(candidates: list[dict[str, str]]) -> list[dict[str, str]]:
             break
 
     return [
-        {key: value for key, value in item.items() if key != "_family_key"}
+        {key: value for key, value in item.items() if key not in {"_family_key", "_relevance_score"}}
         for item in selected[:5]
     ]
+
+
+def _has_core_basis(items: list[dict[str, str]]) -> bool:
+    families = {item.get("_family_key") for item in items}
+    return "legal" in families and "knia" in families
+
+
+def _guidance_context_text(
+    *,
+    scenario: dict[str, Any],
+    facts: dict[str, Any],
+    legal_analysis: dict[str, Any],
+    fault_ratio: dict[str, Any],
+) -> str:
+    parts = [
+        scenario.get("scenario_type"),
+        scenario.get("accident_party_label"),
+        scenario.get("summary"),
+        legal_analysis.get("legal_issue_summary"),
+    ]
+    parts.extend(_safe_list(legal_analysis.get("required_facts"), 10))
+    parts.extend(_safe_list(fault_ratio.get("key_factors"), 10))
+    parts.extend(_flatten_values(facts))
+    scenario_type = str(scenario.get("scenario_type") or "")
+    if scenario_type == "intersection_signal_violation":
+        parts.extend(["intersection", "signal", "신호", "교차로", "좌회전", "cctv"])
+    if scenario_type == "rear_end_collision":
+        parts.extend(["rear", "stopped", "safe distance", "후방", "정차", "안전거리"])
+    if scenario_type == "parking_or_stopped_vehicle_accident":
+        parts.extend(["stopped vehicle", "정차"])
+    fact_text = " ".join(_flatten_values(facts)).lower()
+    if (
+        facts.get("stopped_vehicle_without_lights") is True
+        or "without_lights" in fact_text
+        or "unlit" in fact_text
+        or "무등" in fact_text
+        or "스텔스" in fact_text
+    ):
+        parts.extend(["unlit", "visibility", "night", "무등화", "시인성", "야간"])
+    return " ".join(str(part or "") for part in parts).lower()
+
+
+def _flatten_values(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        output: list[str] = []
+        for key, item in value.items():
+            output.append(str(key))
+            output.extend(_flatten_values(item))
+        return output
+    if isinstance(value, list):
+        output = []
+        for item in value:
+            output.extend(_flatten_values(item))
+        return output
+    if value is None:
+        return []
+    return [str(value)]
+
+
+def _relevance_score(content_text: str, context_text: str) -> int:
+    content = content_text.lower()
+    context = context_text.lower()
+    score = 0
+    for terms in _topic_groups():
+        content_has = any(term in content for term in terms)
+        context_has = any(term in context for term in terms)
+        if content_has and context_has:
+            score += 4
+        elif content_has and not context_has:
+            score -= 5
+    return score
+
+
+def _topic_groups() -> tuple[tuple[str, ...], ...]:
+    return (
+        ("signal", "신호", "intersection", "교차로", "cctv", "yellow", "red", "좌회전"),
+        ("lane change", "차로변경", "진로변경", "끼어들기", "merge"),
+        ("rear", "후방", "뒤차", "추돌", "safe distance", "안전거리"),
+        ("stopped", "정차", "정지", "감속"),
+        ("centerline", "중앙선", "obstacle", "장애", "parked vehicle", "주차"),
+        ("oncoming", "마주", "대향", "avoidability", "avoid", "회피"),
+        ("unlit", "무등", "stealth", "스텔스", "visibility", "시인", "night", "야간"),
+        ("speed", "speeding", "speed limit", "속도", "과속", "제한속도"),
+        ("criminal", "형사", "civil", "민사", "fatality", "사망"),
+        ("bicycle", "자전거", "non-contact", "비접촉", "trigger", "유발"),
+    )
 
 
 def _missing_facts(

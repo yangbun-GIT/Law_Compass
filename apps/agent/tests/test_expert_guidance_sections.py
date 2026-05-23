@@ -57,7 +57,7 @@ def test_builds_user_safe_legal_and_insurance_guidance():
 def test_basis_summary_keeps_legal_basis_when_knia_items_are_first():
     sections = build_expert_guidance_sections(
         scenario={"scenario_type": "parking_or_stopped_vehicle_accident"},
-        facts={},
+        facts={"centerline_crossed": True, "centerline_cross_reason": "parked vehicle obstacle avoidance"},
         legal_analysis={},
         fault_ratio={"my": 30, "other": 70},
         legal_liability={"criminal_risk_level": "medium"},
@@ -81,6 +81,43 @@ def test_basis_summary_keeps_legal_basis_when_knia_items_are_first():
     basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
     assert "Centerline obstacle avoidance legal duty guide" in basis_titles[:4]
     assert "KNIA centerline reference" in basis_titles[:4]
+
+
+def test_basis_summary_drops_unrelated_extra_basis_for_signal_cases():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "intersection_signal_violation", "accident_party_label": "signal transition crash"},
+        facts={"accident_type": "left turn signal transition", "opponent_signal": "unknown"},
+        legal_analysis={"legal_issue_summary": "signal transition and CCTV verification are key facts"},
+        fault_ratio={"my": 80, "other": 20, "key_factors": ["signal transition", "CCTV verification"]},
+        legal_liability={"criminal_risk_level": "medium"},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "legal_reference",
+                "title": "Signal transition and CCTV verification guide",
+                "related_reason": "signal transition, opponent signal, and CCTV are decisive facts.",
+            },
+            {
+                "source_type": "knia_reference",
+                "title": "Intersection signal fault ratio guide",
+                "related_reason": "intersection and signal violation fault ratio reference.",
+            },
+            {
+                "source_type": "legal_reference",
+                "title": "Lane change legal duty guide",
+                "related_reason": "lane change, merge, and side collision duty review.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
+    assert "Signal transition and CCTV verification guide" in basis_titles
+    assert "Intersection signal fault ratio guide" in basis_titles
+    assert "Lane change legal duty guide" not in basis_titles
 
 
 def test_static_fallback_retrieves_legal_references_for_complex_reference_cases():

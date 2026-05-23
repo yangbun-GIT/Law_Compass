@@ -219,6 +219,21 @@ Stage 4의 실제 OpenAI 프레임 분석 배치 결과(`logs/video_accuracy/sta
 
 검증은 `python -m py_compile apps\agent\app\services\expert_guidance_sections.py scripts\reference_evidence_alignment_eval.py scripts\reference_guidance_eval.py scripts\video_agent_e2e.py scripts\video_accuracy_batch.py`, `python -m pytest tests\test_expert_guidance_sections.py -q`, `docker compose up -d --build agent`, `docker compose exec -T agent python -m compileall app scripts`, `python scripts\reference_guidance_eval.py --manifest logs\video_accuracy\lawyer_reference_manifest.json --batch-output logs\video_accuracy\stage4_openai_flow\aggregate.json --output logs\video_accuracy\reference_guidance_eval_stage5.json`, `python scripts\video_accuracy_batch.py --manifest logs\video_accuracy\stage6_ready_manifest.json --output-dir logs\video_accuracy\stage6_evidence_capture --timeout-sec 300`, `python scripts\reference_evidence_alignment_eval.py --reference-eval logs\video_accuracy\reference_guidance_eval_stage5.json --sample-dir logs\video_accuracy\stage6_evidence_capture --output logs\video_accuracy\reference_evidence_alignment_stage6.json`로 통과했다. 이번 통합 점검은 OpenAI API를 새로 호출하지 않았고, DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
 
+### 2026-05-23 정확도 고도화 7단계 완료
+
+6단계에서 확인한 근거 family 정합성을 실제 근거 제목/본문 요약 내용까지 확장했다. 기존 `reference_evidence_alignment_eval.py`는 쟁점별로 `legal`, `knia`, `insurance` family가 있는지 중심으로 평가했지만, 7단계부터는 각 `criterion_id`별 필수 키워드 묶음이 `expert_guidance_card.basis.title`과 `reason`에 실제로 나타나는지도 확인한다. 또한 현재 사고 쟁점과 직접 맞지 않는 추가 근거가 카드에 섞이면 `extra_basis_review`로 표시한다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `scripts/reference_evidence_alignment_eval.py` | `centerline_obstacle`, `signal_transition`, `unlit_stopped_vehicle_visibility`, `speed_avoidability`, `criminal_civil_split` 등 전문가 reference 쟁점별 content-fit keyword rule을 추가했다. 출력에는 `content_fit`, `matched_basis_titles`, `missing_keyword_groups`, `extra_basis_review`, `ready_for_stage8_guidance_calibration` 상태가 포함된다. |
+| `apps/agent/app/services/expert_guidance_sections.py` | 전문가 안내 카드의 basis 선택 시 사고 scenario, facts, legal issue, fault key factor를 문맥으로 사용해 근거 relevance를 계산한다. 신호 전환 사고에 차로변경 근거가 섞이거나, 중앙선 회피 사고에 무등화 정차 차량 근거가 우선 노출되는 문제를 줄였다. |
+| `apps/agent/tests/test_expert_guidance_sections.py` | 신호 전환 사고에서 차로변경 근거가 basis에 남지 않는 회귀 테스트를 추가했다. |
+| `docs/OPERATIONS.md` | `reference_evidence_alignment_eval.py`의 Stage 7 실행 예시와 `ready_for_stage8_guidance_calibration`, `needs_evidence_content_fit` 상태 의미를 문서화했다. |
+
+Stage 7 재생성 결과 사고 1, 2, 4 모두 `video_accuracy_batch` 통과, `reference_evidence_alignment_eval` 기준 13개 쟁점 전부 `evidence_content_ready`, 샘플 3개 모두 `ready_for_stage8_guidance_calibration`으로 통과했다. `extra_basis_review_count`는 0이다. 사고 1은 중앙선 회피 법률 근거, 후방추돌 KNIA 기준, 중앙선 회피 KNIA 기준을 함께 표시하고, 사고 2는 신호 준수 법률 근거, 교차로 과실비율 기준, 신호 전환/CCTV 확인 근거만 표시한다. 사고 4는 무등화 정차 차량, 야간 시인성, 속도·회피 가능성, 형사/민사 구분 근거를 함께 표시한다.
+
+검증은 `python -m py_compile apps\agent\app\services\expert_guidance_sections.py scripts\reference_evidence_alignment_eval.py`, `python -m pytest tests\test_expert_guidance_sections.py -q`, `docker compose up -d --build agent`, `docker compose exec -T agent python -m compileall app scripts`, `python scripts\video_accuracy_batch.py --manifest logs\video_accuracy\stage6_ready_manifest.json --output-dir logs\video_accuracy\stage7_evidence_content_capture --timeout-sec 300`, `python scripts\reference_evidence_alignment_eval.py --reference-eval logs\video_accuracy\reference_guidance_eval_stage5.json --sample-dir logs\video_accuracy\stage7_evidence_content_capture --output logs\video_accuracy\reference_evidence_alignment_stage7.json`로 통과했다. 이번 단계는 OpenAI 프레임 분석을 새로 켜지 않았고, DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
+
 ### 2026-05-23 전문가 참고 의견 안내 품질 평가 도구
 
 `scripts/reference_guidance_eval.py`를 추가했다. 이 스크립트는 영상 정확도 배치 결과와 `lawyer_reference_manifest.json`의 `reference.evaluation_focus`를 결합해, 샘플별로 예상 과실 안내를 만들기 전에 필요한 사실/근거 검증 상태를 평가한다. 목적은 실제 판결 정답을 주입하는 것이 아니라, 전문가 참고 의견의 쟁점에 도달하기 위해 Agent가 어떤 fact, 영상 관찰값, KNIA/법령/판례/보험 근거를 더 확인해야 하는지 정리하는 것이다.
