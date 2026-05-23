@@ -1,0 +1,14 @@
+{
+  "case": {
+    "title": "Synthetic centerline obstacle and secondary rear collision",
+    "description": "A synthetic case for reference-hardening tests only.",
+    "structured_facts": {
+      "road_type": "two_lane_road",
+      "centerline_crossed": true,
+      "centerline_cross_reason": "parked_vehicle_obstacle",
+      "secondary_collision": true,
+      "opponent_behavior": "rear_collision",
+      "stopped": true
+    }
+  }
+}

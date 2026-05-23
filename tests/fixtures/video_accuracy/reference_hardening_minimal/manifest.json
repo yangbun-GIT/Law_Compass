@@ -1,0 +1,27 @@
+{
+  "description": "Minimal synthetic reference-hardening fixture. It contains no real video path, user secret, or lawyer opinion text.",
+  "samples": [
+    {
+      "name": "accident_1_centerline_obstacle_oncoming_secondary_rear",
+      "case_json": "cases/accident_1.json",
+      "reference": {
+        "expected_guidance_range": "Synthetic reference band: my 20~40 / other 60~80.",
+        "evaluation_focus": [
+          "centerline obstacle avoidance",
+          "secondary rear collision"
+        ]
+      }
+    },
+    {
+      "name": "accident_3_right_turn_crosswalk_rear_end",
+      "case_json": "cases/accident_3.json",
+      "reference": {
+        "expected_guidance_range": "Synthetic reference band: my 90~100 / other 0~10 after conflict resolution.",
+        "evaluation_focus": [
+          "rear-end default",
+          "front vehicle stop reason"
+        ]
+      }
+    }
+  ]
+}

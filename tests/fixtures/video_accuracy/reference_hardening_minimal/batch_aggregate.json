@@ -1,0 +1,142 @@
+{
+  "sample_count": 2,
+  "passed_count": 2,
+  "failed_count": 0,
+  "video_flow_summary": {
+    "sample_count": 2,
+    "total_frame_observation_count": 3,
+    "accepted_count": 1,
+    "uncertain_count": 0,
+    "supporting_count": 1,
+    "applied_count": 0,
+    "confirmed_count": 1,
+    "conflict_count": 1,
+    "conflict_rate": 0.333,
+    "uncertain_rate": 0.0
+  },
+  "question_priority_summary": {
+    "present_count": 2,
+    "missing_count": 0,
+    "top_label_counts": {
+      "인명피해 여부": 1,
+      "급정거 여부": 1
+    }
+  },
+  "samples": [
+    {
+      "name": "accident_1_centerline_obstacle_oncoming_secondary_rear",
+      "status": "passed",
+      "frame_observation_count": 2,
+      "agent_accepted_count": 1,
+      "agent_uncertain_count": 0,
+      "agent_supporting_count": 1,
+      "applied_count": 0,
+      "confirmed_count": 1,
+      "conflict_count": 0,
+      "field_metrics": [
+        {
+          "field": "stopped",
+          "from_observation": true,
+          "confirmed": true,
+          "conflict": false
+        },
+        {
+          "field": "collision_direction",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": false,
+          "conflict": false
+        }
+      ],
+      "missing_info_priority": {
+        "top_label": "인명피해 여부"
+      },
+      "expert_guidance": {
+        "present": true,
+        "status_label": "추가 확인 필요",
+        "fault_range_label": "내 책임 20~40% / 상대 60~80% 참고",
+        "legal_point_count": 2,
+        "insurance_step_count": 1,
+        "basis_count": 3,
+        "missing_item_count": 2,
+        "legal_limits": [
+          "확정 판정이 아니라 참고 범위입니다."
+        ],
+        "missing_items": [
+          "인명피해 여부 확인",
+          "신호 또는 상대 회피 가능성 확인"
+        ],
+        "basis": [
+          {
+            "family_label": "법률 근거",
+            "title": "Centerline obstacle avoidance legal duty guide",
+            "reason": "centerline obstacle avoidance, oncoming collision, stopped position, and secondary collision legal duty review."
+          },
+          {
+            "family_label": "KNIA 기준",
+            "title": "Centerline obstacle avoidance fault guide",
+            "reason": "centerline obstacle avoidance and oncoming secondary rear collision require separate fault assessment."
+          },
+          {
+            "family_label": "KNIA 기준",
+            "title": "Rear-end secondary collision guide",
+            "reason": "secondary rear collision and safe distance review."
+          }
+        ]
+      }
+    },
+    {
+      "name": "accident_3_right_turn_crosswalk_rear_end",
+      "status": "passed",
+      "frame_observation_count": 1,
+      "agent_accepted_count": 1,
+      "agent_uncertain_count": 0,
+      "agent_supporting_count": 0,
+      "applied_count": 0,
+      "confirmed_count": 0,
+      "conflict_count": 1,
+      "field_metrics": [
+        {
+          "field": "stopped",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": false,
+          "conflict": true
+        }
+      ],
+      "conflict_followup": {
+        "present": false
+      },
+      "missing_info_priority": {
+        "top_label": "급정거 여부"
+      },
+      "expert_guidance": {
+        "present": true,
+        "status_label": "추가 확인 필요",
+        "fault_range_label": "내 책임 90~100% / 상대 0~10% 참고",
+        "legal_point_count": 1,
+        "insurance_step_count": 1,
+        "basis_count": 2,
+        "missing_item_count": 1,
+        "legal_limits": [
+          "정차 사유 확인 전에는 참고 범위입니다."
+        ],
+        "missing_items": [
+          "앞차 정지 사유 확인"
+        ],
+        "basis": [
+          {
+            "family_label": "법률 근거",
+            "title": "Road Traffic Act safe distance guide",
+            "reason": "rear-end collision and safe distance review."
+          },
+          {
+            "family_label": "KNIA 기준",
+            "title": "Crosswalk front vehicle stop reason and rear-end fault guide",
+            "reason": "front vehicle stop reason, crosswalk, pedestrian signal, safe distance, and rear-end collision are directly relevant."
+          }
+        ]
+      }
+    }
+  ]
+}

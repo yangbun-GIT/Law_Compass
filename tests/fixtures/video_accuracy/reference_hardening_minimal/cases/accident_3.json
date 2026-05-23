@@ -1,0 +1,14 @@
+{
+  "case": {
+    "title": "Synthetic right-turn crosswalk rear-end conflict",
+    "description": "A synthetic conflict-gate case for reference-hardening tests only.",
+    "structured_facts": {
+      "accident_type": "rear_end_collision",
+      "crosswalk_nearby": true,
+      "front_vehicle_stop_reason": "crosswalk_stop",
+      "opponent_behavior": "front_vehicle_stopped",
+      "stopped": true,
+      "sudden_brake": "unknown"
+    }
+  }
+}

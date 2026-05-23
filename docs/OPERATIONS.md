@@ -292,6 +292,28 @@ python scripts/reference_guidance_calibration_eval.py \
 
 기대 결과는 근거 정합성 5개 통과, 충돌 해소 샘플 2개, 캘리브레이션 5개 통과입니다. 마지막 gate check에서는 충돌이 해소되지 않은 사고 3·5가 `blocked_by_reference_gate`로 남아야 합니다. 이 결과가 바뀌면 숫자 보정보다 먼저 충돌 보완 질문, `/reanalyze` 영상 메타데이터 유지, reference readiness 평가를 확인합니다.
 
+새 환경에서 `logs/` 산출물이 없을 때는 tracked synthetic fixture로 최소 평가 흐름을 먼저 확인합니다. 이 fixture는 실제 영상 경로, 사용자 정보, 실제 변호사 의견 원문을 포함하지 않으며, ready 샘플 1개와 reference gate에 막히는 충돌 샘플 1개만 담고 있습니다.
+
+```bash
+python scripts/reference_guidance_eval.py \
+  --manifest tests/fixtures/video_accuracy/reference_hardening_minimal/manifest.json \
+  --batch-output tests/fixtures/video_accuracy/reference_hardening_minimal/batch_aggregate.json \
+  --output logs/video_accuracy/reference_hardening_minimal_guidance_eval.json
+
+python scripts/reference_evidence_alignment_eval.py \
+  --reference-eval logs/video_accuracy/reference_hardening_minimal_guidance_eval.json \
+  --batch-output tests/fixtures/video_accuracy/reference_hardening_minimal/batch_aggregate.json \
+  --output logs/video_accuracy/reference_hardening_minimal_evidence_alignment.json
+
+python scripts/reference_guidance_calibration_eval.py \
+  --manifest tests/fixtures/video_accuracy/reference_hardening_minimal/manifest.json \
+  --batch-output tests/fixtures/video_accuracy/reference_hardening_minimal/batch_aggregate.json \
+  --reference-eval logs/video_accuracy/reference_hardening_minimal_guidance_eval.json \
+  --output logs/video_accuracy/reference_hardening_minimal_calibration_eval.json
+```
+
+기대 결과는 guidance readiness가 `ready_for_legal_knia_insurance_evidence_eval` 1개와 `needs_conflict_resolution_before_guidance` 1개, evidence alignment가 ready 1개, calibration이 `calibrated_for_user_flow` 1개와 `blocked_by_reference_gate` 1개입니다. 이 fixture는 실제 정확도 측정이 아니라 평가 스크립트와 gate 계약의 최소 재현성 확인용입니다.
+
 ## 3-3) 관리자용 Agent trace 진단
 일반 결과 화면에는 raw `agent_trace`와 `reflection_loop`를 노출하지 않습니다. 내부 점검이 필요할 때는 관리자 계정 또는 `x-admin-token`이 있는 로그인 세션으로 아래 API를 호출해 안전한 메타데이터 요약만 확인합니다.
 
