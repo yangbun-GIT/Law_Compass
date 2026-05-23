@@ -190,6 +190,22 @@ Stage 4의 실제 OpenAI 프레임 분석 배치 결과(`logs/video_accuracy/sta
 
 검증은 `python -m py_compile scripts/reference_guidance_eval.py`와 `python scripts/reference_guidance_eval.py --manifest logs/video_accuracy/lawyer_reference_manifest.json --batch-output logs/video_accuracy/stage4_openai_flow/aggregate.json --output logs/video_accuracy/reference_guidance_eval_stage5.json`로 통과했다. 이번 단계는 저장된 Stage 4 결과를 재평가한 것이므로 OpenAI API를 새로 호출하지 않았고, DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
 
+### 2026-05-23 정확도 고도화 6단계 완료
+
+5단계에서 근거 정합성 대조 대상으로 분류된 사고 1, 2, 4를 대상으로 `expert_guidance_card`의 법률/KNIA/보험 근거 family가 실제 전문가 참고 쟁점별로 갖춰지는지 평가했다. 초기 점검에서는 사고 1과 사고 4에서 KNIA 근거가 카드 슬롯을 먼저 채워 법률 근거가 사용자 화면의 `basis`에 보이지 않는 문제가 있었다. 전문가 안내 카드는 확정 판결이 아니라 참고 가이드이므로, 과실비율 기준만 보이는 상태보다 법률 근거와 KNIA 기준이 함께 노출되는 구조가 필요하다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/services/expert_guidance_sections.py` | `basis` 생성 시 들어온 순서대로 5개를 자르지 않고 법률, KNIA, 보험 family를 우선 균형 선택한다. 사용자 결과에는 `법률 근거`, `KNIA 기준`, `보험 처리 근거`처럼 안전한 family label만 남긴다. |
+| `apps/agent/app/services/static_legal_fallback.py` | 중앙선 회피·마주오던 차량 충돌, 야간 무등화 정차 차량 추돌에 대한 법률 fallback 근거를 추가했다. 속도·회피 가능성·형사/민사 분리 쟁점은 기존 정적 법률 근거와 함께 검색된다. |
+| `scripts/video_agent_e2e.py`, `scripts/video_accuracy_batch.py` | `expert_guidance_card`의 상세 법률 포인트, 보험 단계, 근거 목록, missing item을 로컬 평가 JSON에 보존한다. |
+| `scripts/reference_evidence_alignment_eval.py` | 5단계 reference 평가와 6단계 샘플 출력을 대조해 쟁점별 필수 family(`legal`, `knia`, `insurance`) 충족 여부를 판정한다. |
+| `apps/agent/tests/test_expert_guidance_sections.py` | KNIA 항목이 먼저 들어와도 법률 근거가 카드에 보존되는지와 복합 사고 정적 법률 fallback 검색을 회귀 테스트로 고정했다. |
+
+최종 6단계 로컬 평가는 사고 1, 2, 4 모두 pipeline 통과, `expert_guidance_card` 표시 통과, `reference_evidence_alignment_eval` 기준 13개 쟁점 전부 `evidence_alignment_ready`로 통과했다. 사고 1은 중앙선 회피 법률 근거와 KNIA 후방추돌/진로변경 기준을 함께 표시하고, 사고 4는 무등화 정차 차량 법률 근거와 KNIA 후방추돌 기준을 함께 표시한다. 사고 2는 신호 준수 법률 근거, 교차로 과실비율 기준, 신호 전환/CCTV 확인 근거를 함께 표시한다.
+
+검증은 `python -m py_compile ...`, `python -m pytest tests/test_expert_guidance_sections.py -q`, `docker compose up -d --build agent`, `docker compose exec -T agent python -m compileall app scripts`, `python scripts/video_accuracy_batch.py --manifest logs/video_accuracy/stage6_ready_manifest.json --output-dir logs/video_accuracy/stage6_evidence_capture --timeout-sec 300`, `python scripts/reference_evidence_alignment_eval.py --reference-eval logs/video_accuracy/reference_guidance_eval_stage5.json --sample-dir logs/video_accuracy/stage6_evidence_capture --output logs/video_accuracy/reference_evidence_alignment_stage6.json`로 통과했다. 이번 단계는 OpenAI 프레임 분석을 새로 켜지 않고 저장/전처리/Agent 카드 경로를 평가했으며, DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다.
+
 ### 2026-05-23 전문가 참고 의견 안내 품질 평가 도구
 
 `scripts/reference_guidance_eval.py`를 추가했다. 이 스크립트는 영상 정확도 배치 결과와 `lawyer_reference_manifest.json`의 `reference.evaluation_focus`를 결합해, 샘플별로 예상 과실 안내를 만들기 전에 필요한 사실/근거 검증 상태를 평가한다. 목적은 실제 판결 정답을 주입하는 것이 아니라, 전문가 참고 의견의 쟁점에 도달하기 위해 Agent가 어떤 fact, 영상 관찰값, KNIA/법령/판례/보험 근거를 더 확인해야 하는지 정리하는 것이다.

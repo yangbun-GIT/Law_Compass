@@ -1,4 +1,5 @@
 from app.services.expert_guidance_sections import build_expert_guidance_sections
+from app.services.static_legal_fallback import retrieve_static_legal_chunks
 
 
 def test_builds_user_safe_legal_and_insurance_guidance():
@@ -51,6 +52,49 @@ def test_builds_user_safe_legal_and_insurance_guidance():
     text = str(sections)
     assert "chunk_id" not in text
     assert "secret-internal-id" not in text
+
+
+def test_basis_summary_keeps_legal_basis_when_knia_items_are_first():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "parking_or_stopped_vehicle_accident"},
+        facts={},
+        legal_analysis={},
+        fault_ratio={"my": 30, "other": 70},
+        legal_liability={"criminal_risk_level": "medium"},
+        insurance_guide={},
+        evidence=[
+            {"source_type": "knia_reference", "title": "KNIA centerline reference"},
+            {"source_type": "knia_reference", "title": "KNIA stopped vehicle reference"},
+            {"source_type": "knia_reference", "title": "KNIA avoidability reference"},
+            {
+                "source_type": "legal_reference",
+                "title": "Centerline obstacle avoidance legal duty guide",
+                "law_name": "Road Traffic Act",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
+    assert "Centerline obstacle avoidance legal duty guide" in basis_titles[:4]
+    assert "KNIA centerline reference" in basis_titles[:4]
+
+
+def test_static_fallback_retrieves_legal_references_for_complex_reference_cases():
+    centerline_chunks = retrieve_static_legal_chunks(
+        "centerline obstacle avoidance oncoming vehicle collision parked vehicle",
+        limit=5,
+    )
+    unlit_chunks = retrieve_static_legal_chunks(
+        "unlit stopped vehicle night visibility speed limit avoidability analysis",
+        limit=5,
+    )
+
+    assert any(item.get("source_type") == "legal_reference" for item in centerline_chunks)
+    assert any(item.get("source_type") == "legal_reference" for item in unlit_chunks)
 
 
 def test_narrows_fault_range_when_evidence_is_supported():

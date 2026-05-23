@@ -223,6 +223,17 @@ python scripts/reference_guidance_eval.py \
 
 배치 측정 결과의 `expert_guidance_summary`는 샘플별 전문가 관점 결과 카드가 실제 사용자 화면 기준으로 표시 가능한지 집계합니다. `reference_guidance_eval.py`는 이 값을 다시 읽어 `expert_guidance_status_counts`를 생성합니다. `expert_guidance_ready_for_reference_review`는 법률/보험/근거 표시가 갖춰졌고 쟁점별 근거 대조로 넘어갈 수 있음을 뜻합니다. `expert_guidance_safe_with_pending_facts`는 카드가 표시되지만 충돌/보완 사실을 먼저 확인해야 함을 뜻합니다. `expert_guidance_needs_display_fix` 또는 `missing_expert_guidance_card`가 나오면 정확도 조정보다 결과 payload와 표시 계약을 먼저 고쳐야 합니다.
 
+전문가 안내 카드의 실제 근거 family가 전문가 참고 쟁점과 맞는지 보려면 `reference_evidence_alignment_eval.py`를 실행합니다. 이 평가는 `reference_guidance_eval.py`에서 `ready_for_legal_knia_insurance_evidence_eval`로 분류된 샘플만 기본 대상으로 삼고, 각 쟁점별로 법률 근거, KNIA 기준, 보험 처리 안내가 사용자 화면 근거 카드에 함께 준비됐는지 확인합니다.
+
+```bash
+python scripts/reference_evidence_alignment_eval.py \
+  --reference-eval logs/video_accuracy/reference_guidance_eval_stage5.json \
+  --sample-dir logs/video_accuracy/stage6_evidence_capture \
+  --output logs/video_accuracy/reference_evidence_alignment_stage6.json
+```
+
+`ready_for_manual_reference_evidence_review`는 법률/KNIA/보험 family가 모두 갖춰져 다음 단계에서 실제 근거 제목과 쟁점 내용의 적합성을 검토할 수 있음을 뜻합니다. `needs_evidence_family_retrieval`은 Agent 검색어 또는 fallback 근거를 보강해야 함을 뜻합니다. 이 스크립트는 `logs/` 아래 결과를 읽고 쓰므로 실제 영상 경로와 측정 결과가 Git에 포함되지 않습니다.
+
 ## 3-3) 관리자용 Agent trace 진단
 일반 결과 화면에는 raw `agent_trace`와 `reflection_loop`를 노출하지 않습니다. 내부 점검이 필요할 때는 관리자 계정 또는 `x-admin-token`이 있는 로그인 세션으로 아래 API를 호출해 안전한 메타데이터 요약만 확인합니다.
 

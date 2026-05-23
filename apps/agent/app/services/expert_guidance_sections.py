@@ -134,13 +134,14 @@ def _criminal_points(legal_liability: dict[str, Any]) -> list[str]:
 
 
 def _basis_summary(evidence: list[dict[str, Any]]) -> list[dict[str, str]]:
-    output: list[dict[str, str]] = []
+    candidates: list[dict[str, str]] = []
     seen: set[str] = set()
     for item in evidence:
         title = _safe_text(
             item.get("title") or item.get("article_title") or item.get("law_name") or item.get("chunk_summary"),
             "교통사고 관련 근거",
         )
+        family_key = _family_key(item)
         family = _family_label(item)
         reason = _safe_text(
             item.get("related_reason") or item.get("used_for") or item.get("plain_summary") or item.get("snippet"),
@@ -150,10 +151,34 @@ def _basis_summary(evidence: list[dict[str, Any]]) -> list[dict[str, str]]:
         if key in seen:
             continue
         seen.add(key)
-        output.append({"family_label": family, "title": title, "reason": reason})
-        if len(output) >= 5:
+        candidates.append({"_family_key": family_key, "family_label": family, "title": title, "reason": reason})
+    return _balanced_basis(candidates)
+
+
+def _balanced_basis(candidates: list[dict[str, str]]) -> list[dict[str, str]]:
+    selected: list[dict[str, str]] = []
+    selected_ids: set[int] = set()
+
+    for family_key in ("legal", "knia", "insurance"):
+        for index, item in enumerate(candidates):
+            if index in selected_ids or item.get("_family_key") != family_key:
+                continue
+            selected.append(item)
+            selected_ids.add(index)
             break
-    return output
+
+    for index, item in enumerate(candidates):
+        if index in selected_ids:
+            continue
+        selected.append(item)
+        selected_ids.add(index)
+        if len(selected) >= 5:
+            break
+
+    return [
+        {key: value for key, value in item.items() if key != "_family_key"}
+        for item in selected[:5]
+    ]
 
 
 def _missing_facts(
@@ -181,7 +206,18 @@ def _limits(status: str, missing_facts: list[str]) -> list[str]:
     return items
 
 
-def _family_label(item: dict[str, Any]) -> str:
+def _legacy_family_label(item: dict[str, Any]) -> str:
+    family_key = _family_key(item)
+    if family_key == "knia":
+        return "KNIA 湲곗?"
+    if family_key == "legal":
+        return "踰뺣쪧 洹쇨굅"
+    if family_key == "insurance":
+        return "蹂댄뿕 泥섎━ 洹쇨굅"
+    return "李멸퀬 洹쇨굅"
+
+
+def _legacy_family_key(item: dict[str, Any]) -> str:
     source_type = str(item.get("source_type") or "").lower()
     joined = " ".join(str(item.get(key) or "").lower() for key in ("source", "title", "source_url", "law_name"))
     if source_type.startswith("knia") or "knia" in joined or "과실비율" in joined:
@@ -189,6 +225,29 @@ def _family_label(item: dict[str, Any]) -> str:
     if item.get("law_name") or "law.go.kr" in joined or "법" in joined:
         return "법률 근거"
     return "참고 근거"
+
+
+def _family_key(item: dict[str, Any]) -> str:
+    source_type = str(item.get("source_type") or "").lower()
+    joined = " ".join(str(item.get(key) or "").lower() for key in ("source", "title", "source_url", "law_name"))
+    if source_type.startswith("knia") or "knia" in joined or "fault ratio" in joined or "\uacfc\uc2e4" in joined:
+        return "knia"
+    if source_type.startswith("insurance") or "insurance" in joined:
+        return "insurance"
+    if source_type.startswith("legal") or item.get("law_name") or "law.go.kr" in joined or "road traffic act" in joined:
+        return "legal"
+    return "general"
+
+
+def _family_label(item: dict[str, Any]) -> str:
+    family_key = _family_key(item)
+    if family_key == "knia":
+        return "KNIA \uae30\uc900"
+    if family_key == "legal":
+        return "\ubc95\ub960 \uadfc\uac70"
+    if family_key == "insurance":
+        return "\ubcf4\ud5d8 \ucc98\ub9ac \uadfc\uac70"
+    return "\ucc38\uace0 \uadfc\uac70"
 
 
 def _scenario_label(value: str) -> str:

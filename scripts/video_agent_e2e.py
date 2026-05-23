@@ -216,16 +216,36 @@ def assert_expert_guidance_card(report: dict):
     leaked = [token for token in forbidden_tokens if token in encoded]
     if leaked:
         raise E2EError(f"expert_guidance_card leaked internal tokens: {leaked}")
+    basis = [
+        {
+            "family_label": str(item.get("family_label") or ""),
+            "title": str(item.get("title") or ""),
+            "reason": str(item.get("reason") or ""),
+        }
+        for item in (card.get("basis") or [])
+        if isinstance(item, dict)
+    ][:4]
+    legal_points = [str(item) for item in (legal.get("points") or []) if item][:6]
+    legal_limits = [str(item) for item in (legal.get("limits") or []) if item][:4]
+    insurance_steps = [str(item) for item in (insurance.get("steps") or []) if item][:5]
+    insurance_documents = [str(item) for item in (insurance.get("documents") or []) if item][:6]
+    missing_items = [str(item) for item in (card.get("missing_items") or []) if item][:5]
     return {
         "status_label": card.get("status_label"),
         "summary": card.get("summary"),
         "fault_range_label": legal.get("fault_range_label"),
-        "legal_point_count": len(legal.get("points") or []),
-        "legal_limit_count": len(legal.get("limits") or []),
-        "insurance_step_count": len(insurance.get("steps") or []),
-        "insurance_document_count": len(insurance.get("documents") or []),
-        "basis_count": len(card.get("basis") or []),
-        "missing_item_count": len(card.get("missing_items") or []),
+        "legal_point_count": len(legal_points),
+        "legal_limit_count": len(legal_limits),
+        "insurance_step_count": len(insurance_steps),
+        "insurance_document_count": len(insurance_documents),
+        "basis_count": len(basis),
+        "missing_item_count": len(missing_items),
+        "legal_points": legal_points,
+        "legal_limits": legal_limits,
+        "insurance_steps": insurance_steps,
+        "insurance_documents": insurance_documents,
+        "basis": basis,
+        "missing_items": missing_items,
     }
 
 

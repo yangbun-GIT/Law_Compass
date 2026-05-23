@@ -175,6 +175,7 @@ def missing_priority_metrics(priority: dict[str, Any]) -> dict[str, Any]:
 def expert_guidance_metrics(card: dict[str, Any]) -> dict[str, Any]:
     if not card:
         return {"present": False}
+    basis = [item for item in (card.get("basis") or []) if isinstance(item, dict)]
     return {
         "present": True,
         "status_label": card.get("status_label"),
@@ -185,6 +186,13 @@ def expert_guidance_metrics(card: dict[str, Any]) -> dict[str, Any]:
         "insurance_document_count": int(card.get("insurance_document_count") or 0),
         "basis_count": int(card.get("basis_count") or 0),
         "missing_item_count": int(card.get("missing_item_count") or 0),
+        "legal_points": card.get("legal_points") if isinstance(card.get("legal_points"), list) else [],
+        "legal_limits": card.get("legal_limits") if isinstance(card.get("legal_limits"), list) else [],
+        "insurance_steps": card.get("insurance_steps") if isinstance(card.get("insurance_steps"), list) else [],
+        "insurance_documents": card.get("insurance_documents") if isinstance(card.get("insurance_documents"), list) else [],
+        "basis": basis,
+        "basis_family_counts": count_values(item.get("family_label") for item in basis),
+        "missing_items": card.get("missing_items") if isinstance(card.get("missing_items"), list) else [],
     }
 
 
