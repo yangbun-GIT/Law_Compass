@@ -9,6 +9,7 @@ import CaseResultView from "../views/CaseResultView.vue";
 import EvidenceDetailView from "../views/EvidenceDetailView.vue";
 import KniaRankingView from "../views/KniaRankingView.vue";
 import KniaChartView from "../views/KniaChartView.vue";
+import AdminAgentTestView from "../views/AdminAgentTestView.vue";
 import { pinia } from "../stores";
 import { useSessionStore } from "../stores/session";
 
@@ -26,7 +27,8 @@ export const router = createRouter({
     { path: "/knia/ranking", component: KniaRankingView, meta: { requiresAuth: true } },
     { path: "/knia/myaccident", redirect: "/knia/ranking", meta: { requiresAuth: true } },
     { path: "/knia/myaccident/:myaccidentNo", redirect: "/knia/ranking", meta: { requiresAuth: true } },
-    { path: "/knia/charts/:chartNo", component: KniaChartView, meta: { requiresAuth: true } }
+    { path: "/knia/charts/:chartNo", component: KniaChartView, meta: { requiresAuth: true } },
+    { path: "/admin/agent-test", component: AdminAgentTestView, meta: { requiresAuth: true, requiresAdmin: true } }
   ]
 });
 
@@ -35,6 +37,9 @@ router.beforeEach(async (to) => {
   await session.bootstrap();
   if (to.meta.requiresAuth && !session.user) {
     return { path: "/login", query: { redirect: to.fullPath } };
+  }
+  if (to.meta.requiresAdmin && session.user?.role !== "admin") {
+    return "/";
   }
   if ((to.path === "/login" || to.path === "/signup") && session.user) {
     return "/";

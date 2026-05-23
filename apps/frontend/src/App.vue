@@ -13,6 +13,7 @@
       <nav>
         <RouterLink to="/">대시보드</RouterLink>
         <RouterLink to="/knia/ranking">KNIA 검색순위</RouterLink>
+        <RouterLink v-if="session.user?.role === 'admin'" to="/admin/agent-test">관리자 테스트</RouterLink>
         <RouterLink v-if="!session.user" to="/login">로그인</RouterLink>
         <RouterLink v-if="!session.user" to="/signup">회원가입</RouterLink>
         <span v-else class="user-chip">{{ session.user.display_name }}</span>

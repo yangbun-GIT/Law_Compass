@@ -199,6 +199,7 @@ export const api = {
   getEasyReport: (caseId: string) => request<any>(`/api/v1/cases/${caseId}/easy-report`),
   getEvidence: (caseId: string) => request<{ evidence: any[]; trace_id: string }>(`/api/v1/cases/${caseId}/evidence`),
   getEvidenceChunk: (chunkId: string) => request<{ chunk: any; trace_id: string }>(`/api/v1/legal/evidence/${chunkId}`),
+  adminGetAgentTrace: (caseId: string) => request<any>(`/api/v1/admin/cases/${caseId}/agent-trace`),
 
   adminLegalIngest: () => request<any>("/api/v1/admin/legal/ingest", { method: "POST", headers: idempo() }),
   adminRebuildLegalEmbeddings: () => request<any>("/api/v1/admin/legal/rebuild-embeddings", { method: "POST", headers: idempo() }),
