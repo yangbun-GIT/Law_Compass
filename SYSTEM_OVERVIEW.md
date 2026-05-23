@@ -248,6 +248,17 @@ Stage 7 재생성 결과 사고 1, 2, 4 모두 `video_accuracy_batch` 통과, `r
 
 이 통합 보강은 실제 사고 판단 모델이 아니라 9단계 재분석 계약을 검증하기 위한 테스트 fixture다. DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키 변경은 없다. 10단계에서는 이 fixture와 실제 샘플을 이용해 사고 3·5 같은 충돌 케이스가 `확인 질문 -> 재분석 -> 근거 안내` 흐름으로 안정적으로 이어지는지 검증하면 된다.
 
+### 2026-05-23 정확도 고도화 10단계 완료
+
+충돌 보완 질문으로 영상-사용자 입력 충돌이 해소된 샘플이 다음 근거 대조 단계로 넘어갈 수 있도록 reference 평가 계층을 보강했다. 기존 `reference_guidance_eval.py`는 `field_metrics.conflict=true`만 보고 샘플을 계속 `needs_conflict_resolution_before_guidance`로 분류했기 때문에, 9단계에서 `/reanalyze`가 충돌을 해소해도 운영 평가에서는 사고 3·5 같은 샘플이 계속 보류로 남는 문제가 있었다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `scripts/reference_guidance_eval.py` | batch aggregate의 `conflict_followup`과 `conflict_followup_summary`를 읽는다. `latest_conflict_count=0`이면 해당 focus를 `conflict_resolved_ready_for_evidence_review`로 분류하고, 샘플은 `ready_for_legal_knia_insurance_evidence_eval`로 이동할 수 있게 했다. |
+| `docs/OPERATIONS.md` | `conflict_resolved_ready_for_evidence_review` 상태의 의미와, 충돌 해소 후에도 최종 판정이 아니라 KNIA/법령/판례/보험 근거 대조로 넘어가는 기준임을 문서화했다. |
+
+검증은 `python -m py_compile scripts/reference_guidance_eval.py`와 `logs/video_accuracy/stage10_eval_fixture/` 아래 synthetic batch를 이용한 `reference_guidance_eval.py` 실행으로 통과했다. 후속 확인이 없는 충돌 샘플은 기존처럼 `needs_conflict_resolution_before_guidance`로 남고, `conflict_followup.latest_conflict_count=0`인 샘플은 `conflict_resolved_ready_for_evidence_review` 및 `ready_for_legal_knia_insurance_evidence_eval`로 이동하는 것을 확인했다. 이번 단계는 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
+
 ### 2026-05-23 정확도 고도화 9단계 완료
 
 영상 관찰값과 사용자 입력이 충돌한 뒤 사용자가 보완 질문에 답하는 재분석 흐름을 보강했다. 기존 `/api/v1/cases/:caseId/reanalyze`는 보완 답변을 Agent text 분석으로만 넘겨 최신 업로드의 영상 메타데이터를 다시 전달하지 않았기 때문에, 재분석 이후 `fact_arbitration`에서 같은 영상 근거와 사용자 답변을 다시 대조하기 어려웠다. 이제 Gateway가 최신 업로드의 `metadata`, `file_name`, `status`, `preprocess_summary`를 재분석 요청에 포함하고, Agent의 text 분석 DTO도 `video_metadata`를 받을 수 있다.

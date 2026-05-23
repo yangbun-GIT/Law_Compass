@@ -324,6 +324,7 @@ def load_batch_context(paths: list[Path]) -> dict[str, Any]:
         "sources": [str(path) for path in paths],
         "video_flow_summary": {},
         "question_priority_summary": {},
+        "conflict_followup_summary": {},
         "calibration_recommendations": [],
     }
     for path in paths:
@@ -332,6 +333,8 @@ def load_batch_context(paths: list[Path]) -> dict[str, Any]:
             context["video_flow_summary"] = data["video_flow_summary"]
         if isinstance(data.get("question_priority_summary"), dict):
             context["question_priority_summary"] = data["question_priority_summary"]
+        if isinstance(data.get("conflict_followup_summary"), dict):
+            context["conflict_followup_summary"] = data["conflict_followup_summary"]
         recommendations = data.get("calibration_recommendations") or data.get("recommendations") or []
         if isinstance(recommendations, list):
             context["calibration_recommendations"].extend(str(item) for item in recommendations)
@@ -420,6 +423,18 @@ def sample_field_metrics(batch_sample: dict[str, Any]) -> dict[str, list[dict[st
     return by_field
 
 
+def conflict_followup(batch_sample: dict[str, Any]) -> dict[str, Any]:
+    followup = batch_sample.get("conflict_followup")
+    return followup if isinstance(followup, dict) else {}
+
+
+def conflict_followup_resolved(batch_sample: dict[str, Any]) -> bool:
+    followup = conflict_followup(batch_sample)
+    if not followup.get("present"):
+        return False
+    return int(followup.get("latest_conflict_count") or 0) == 0
+
+
 def evaluate_focus(
     *,
     focus: str,
@@ -428,6 +443,7 @@ def evaluate_focus(
     field_metrics: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
     criterion = select_criterion(focus)
+    followup_resolved = conflict_followup_resolved(batch_sample)
     case_fields_present = [field for field in criterion["case_fields"] if has_value(facts.get(field))]
     video_metrics = [
         metric
@@ -452,6 +468,7 @@ def evaluate_focus(
         video_fields_observed=video_fields_observed,
         video_fields_applied=video_fields_applied,
         conflicts=conflicts,
+        conflict_followup_resolved=followup_resolved,
         criterion=criterion,
     )
     return {
@@ -462,6 +479,7 @@ def evaluate_focus(
         "video_fields_observed": video_fields_observed,
         "video_fields_applied_or_confirmed": video_fields_applied,
         "video_conflict_fields": conflicts,
+        "conflict_followup_resolved": bool(conflicts and followup_resolved),
         "evidence_requirements": criterion["evidence_requirements"],
         "gap_note": criterion["gap"],
     }
@@ -486,11 +504,14 @@ def focus_status(
     video_fields_observed: list[str],
     video_fields_applied: list[str],
     conflicts: list[str],
+    conflict_followup_resolved: bool,
     criterion: dict[str, Any],
 ) -> str:
     if pipeline_status == "failed":
         return "pipeline_failed"
     if conflicts:
+        if conflict_followup_resolved:
+            return "conflict_resolved_ready_for_evidence_review"
         return "needs_user_video_conflict_resolution"
     if video_fields_applied:
         return "video_supported_ready_for_evidence_review"
@@ -542,6 +563,8 @@ def evaluate_sample(sample: dict[str, Any], manifest_path: Path, batch_sample: d
         "applied_count": batch_sample.get("applied_count"),
         "confirmed_count": batch_sample.get("confirmed_count"),
         "conflict_count": batch_sample.get("conflict_count"),
+        "conflict_followup": conflict_followup(batch_sample) or {"present": False},
+        "conflict_followup_resolved": conflict_followup_resolved(batch_sample),
         "supporting_count": batch_sample.get("agent_supporting_count"),
         "video_display": batch_sample.get("video_display") if isinstance(batch_sample.get("video_display"), dict) else {},
         "missing_info_priority": batch_sample.get("missing_info_priority") if isinstance(batch_sample.get("missing_info_priority"), dict) else {},
@@ -627,6 +650,7 @@ def reference_recommendations(
     *,
     readiness_counts: Counter,
     expert_counts: Counter,
+    focus_counts: Counter,
     batch_context: dict[str, Any],
 ) -> list[str]:
     recommendations: list[str] = []
@@ -640,6 +664,9 @@ def reference_recommendations(
         recommendations.append("준비 완료 샘플은 다음 단계에서 KNIA/법령/판례/보험 근거 카드의 실제 근거 정합성을 대조한다.")
     if expert_counts.get("missing_expert_guidance_card") or expert_counts.get("expert_guidance_needs_display_fix"):
         recommendations.append("전문가 안내 카드 누락 또는 표시 실패가 있으면 정확도 튜닝보다 Gateway/Frontend 표시 계약을 먼저 고친다.")
+
+    if focus_counts.get("conflict_resolved_ready_for_evidence_review"):
+        recommendations.append("영상-사용자 입력 충돌이 해소된 샘플은 충돌 대기열에 남기지 말고 KNIA/법령/판례/보험 근거 대조 단계로 넘긴다.")
 
     video_summary = batch_context.get("video_flow_summary") if isinstance(batch_context.get("video_flow_summary"), dict) else {}
     if video_summary:
@@ -672,10 +699,12 @@ def aggregate(samples: list[dict[str, Any]], batch_context: dict[str, Any] | Non
         "focus_status_counts": dict(sorted(focus_counts.items())),
         "batch_video_flow_summary": batch_context.get("video_flow_summary") or {},
         "batch_question_priority_summary": batch_context.get("question_priority_summary") or {},
+        "batch_conflict_followup_summary": batch_context.get("conflict_followup_summary") or {},
         "recurring_gaps": recurring_gaps,
         "recommendations": reference_recommendations(
             readiness_counts=readiness_counts,
             expert_counts=expert_counts,
+            focus_counts=focus_counts,
             batch_context=batch_context,
         ),
         "samples": samples,

@@ -233,6 +233,8 @@ python scripts/reference_guidance_eval.py \
 
 배치 manifest에서 `exercise_conflict_followup: true`를 지정하면 `video_accuracy_batch.py`가 샘플별 `conflict_followup`과 전체 `conflict_followup_summary`를 남깁니다. 이 값은 정답 판정이 아니라 “영상-사용자 충돌 질문에 답한 뒤 같은 영상 근거를 유지한 재분석이 가능한가”를 확인하는 운영 지표입니다.
 
+`reference_guidance_eval.py`는 `conflict_followup.latest_conflict_count=0`인 샘플을 `conflict_resolved_ready_for_evidence_review`로 분류합니다. 이 상태는 충돌이 완전히 사라져 바로 최종 판정한다는 뜻이 아니라, 같은 영상 근거를 유지한 재분석이 성공했으므로 다음 단계에서 KNIA 기준, 법령, 판례, 보험 처리 근거 대조로 넘어갈 수 있다는 뜻입니다. `latest_conflict_count`가 남아 있거나 `conflict_followup.present=false`이면 기존처럼 `needs_conflict_resolution_before_guidance`로 남겨 사용자 확인 질문 또는 관리자 진단을 먼저 진행합니다.
+
 배치 측정 결과의 `expert_guidance_summary`는 샘플별 전문가 관점 결과 카드가 실제 사용자 화면 기준으로 표시 가능한지 집계합니다. `reference_guidance_eval.py`는 이 값을 다시 읽어 `expert_guidance_status_counts`를 생성합니다. `expert_guidance_ready_for_reference_review`는 법률/보험/근거 표시가 갖춰졌고 쟁점별 근거 대조로 넘어갈 수 있음을 뜻합니다. `expert_guidance_safe_with_pending_facts`는 카드가 표시되지만 충돌/보완 사실을 먼저 확인해야 함을 뜻합니다. `expert_guidance_needs_display_fix` 또는 `missing_expert_guidance_card`가 나오면 정확도 조정보다 결과 payload와 표시 계약을 먼저 고쳐야 합니다.
 
 전문가 안내 카드의 실제 근거가 전문가 참고 쟁점과 맞는지 보려면 `reference_evidence_alignment_eval.py`를 실행합니다. 이 평가는 `reference_guidance_eval.py`에서 `ready_for_legal_knia_insurance_evidence_eval`로 분류된 샘플만 기본 대상으로 삼고, 각 쟁점별로 법률 근거, KNIA 기준, 보험 처리 안내가 사용자 화면 근거 카드에 함께 준비됐는지 확인합니다. 또한 근거 `title`과 `reason`이 쟁점별 필수 키워드 묶음과 내용상 맞는지 검사하고, 현재 사고 쟁점과 맞지 않는 추가 근거가 섞이면 `extra_basis_review`로 표시합니다.
