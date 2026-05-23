@@ -12,3 +12,8 @@ Expected checks:
 - `reference_guidance_eval.py`: 1 ready sample and 1 conflict-gated sample
 - `reference_evidence_alignment_eval.py`: 1 ready evidence-alignment sample
 - `reference_guidance_calibration_eval.py`: 1 calibrated sample and 1 `blocked_by_reference_gate` sample
+
+Resolved-conflict checks with `batch_aggregate_conflict_resolved.json`:
+- `reference_guidance_eval.py`: 2 ready samples, including 1 resolved conflict sample
+- `reference_evidence_alignment_eval.py`: 2 ready evidence-alignment samples
+- `reference_guidance_calibration_eval.py`: 2 calibrated samples

@@ -314,6 +314,26 @@ python scripts/reference_guidance_calibration_eval.py \
 
 기대 결과는 guidance readiness가 `ready_for_legal_knia_insurance_evidence_eval` 1개와 `needs_conflict_resolution_before_guidance` 1개, evidence alignment가 ready 1개, calibration이 `calibrated_for_user_flow` 1개와 `blocked_by_reference_gate` 1개입니다. 이 fixture는 실제 정확도 측정이 아니라 평가 스크립트와 gate 계약의 최소 재현성 확인용입니다.
 
+충돌 보완 답변 이후의 승격 흐름은 같은 fixture의 `batch_aggregate_conflict_resolved.json`으로 확인합니다. 이 파일은 실제 E2E 결과가 아니라 `conflict_followup.latest_conflict_count=0` 상태를 재현하는 synthetic aggregate입니다. 기대 결과는 guidance ready 2개, resolved conflict sample 1개, evidence alignment ready 2개, calibration 통과 2개입니다.
+
+```bash
+python scripts/reference_guidance_eval.py \
+  --manifest tests/fixtures/video_accuracy/reference_hardening_minimal/manifest.json \
+  --batch-output tests/fixtures/video_accuracy/reference_hardening_minimal/batch_aggregate_conflict_resolved.json \
+  --output logs/video_accuracy/reference_hardening_minimal_guidance_eval_resolved.json
+
+python scripts/reference_evidence_alignment_eval.py \
+  --reference-eval logs/video_accuracy/reference_hardening_minimal_guidance_eval_resolved.json \
+  --batch-output tests/fixtures/video_accuracy/reference_hardening_minimal/batch_aggregate_conflict_resolved.json \
+  --output logs/video_accuracy/reference_hardening_minimal_evidence_alignment_resolved.json
+
+python scripts/reference_guidance_calibration_eval.py \
+  --manifest tests/fixtures/video_accuracy/reference_hardening_minimal/manifest.json \
+  --batch-output tests/fixtures/video_accuracy/reference_hardening_minimal/batch_aggregate_conflict_resolved.json \
+  --reference-eval logs/video_accuracy/reference_hardening_minimal_guidance_eval_resolved.json \
+  --output logs/video_accuracy/reference_hardening_minimal_calibration_eval_resolved.json
+```
+
 ## 3-3) 관리자용 Agent trace 진단
 일반 결과 화면에는 raw `agent_trace`와 `reflection_loop`를 노출하지 않습니다. 내부 점검이 필요할 때는 관리자 계정 또는 `x-admin-token`이 있는 로그인 세션으로 아래 API를 호출해 안전한 메타데이터 요약만 확인합니다.
 
