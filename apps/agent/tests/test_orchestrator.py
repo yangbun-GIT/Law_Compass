@@ -38,6 +38,8 @@ def test_analyze_case_minimum_fields():
     assert result["agent_quality_packet"]["packet_contract"]["required_packets_present"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["safe_metadata_only"] is True
     assert result["agent_quality_packet"]["evidence_source_status"]["version"] == "evidence-source-status-v1"
+    assert result["expert_guidance_sections"]["version"] == "expert-guidance-sections-v1"
+    assert "expert_guidance_sections" in AnalysisOutput(**result).model_dump()
     assert result["model_info"]["agent_quality_packet_version"] == "agent-quality-packet-v1"
     assert result["model_info"]["evidence_source_status"]["version"] == "evidence-source-status-v1"
     assert result["reflection_loop"]["version"] == "agent-reflection-loop-v1"
@@ -68,8 +70,20 @@ def test_analyze_video_case_applies_video_input_contract():
                 "duration_sec": 9.2,
                 "representative_frames": ["/frames/1.jpg"],
                 "observations": [
-                    {"field": "stopped", "value": True, "confidence": 0.9, "source": "frame_analysis"},
-                    {"field": "impact_direction", "value": "rear", "confidence": 0.9, "source": "frame_analysis"},
+                    {
+                        "field": "stopped",
+                        "value": True,
+                        "confidence": 0.9,
+                        "source": "frame_analysis",
+                        "frame_refs": ["frame_1.jpg"],
+                    },
+                    {
+                        "field": "impact_direction",
+                        "value": "rear",
+                        "confidence": 0.9,
+                        "source": "frame_analysis",
+                        "frame_refs": ["frame_1.jpg"],
+                    },
                 ],
             }
         },
@@ -84,5 +98,7 @@ def test_analyze_video_case_applies_video_input_contract():
     assert trace_steps["input_normalization"]["packet"]["has_video_contract"] is True
     assert trace_steps["fact_arbitration"]["packet"]["video_observation_count"] == 2
     assert "requery_attempted" in trace_steps["reflection_loop"]["packet"]
+    assert result["expert_guidance_sections"]["version"] == "expert-guidance-sections-v1"
+    assert "expert_guidance_sections" in AnalysisOutput(**result).model_dump()
     AnalysisOutput(**result)
 

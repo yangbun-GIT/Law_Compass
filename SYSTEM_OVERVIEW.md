@@ -1756,3 +1756,19 @@ Agent가 산출한 법률 분석, 과실비율, 형사 리스크, 보험 처리 
 | `docs/OPERATIONS.md` | 실제 영상 E2E와 reference 평가에서 전문가 카드 검증 항목과 상태 의미를 문서화했다. |
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. 기존 측정 JSON의 로컬 저장 위치는 계속 `logs/`이며 Git에 포함하지 않는다.
+
+## 2026-05-23 전문가 안내 Agent 응답 DTO 노출 보강
+
+실제 OpenAI 프레임 분석 배치에서 Agent 내부 `expert_guidance_sections`는 생성됐지만, FastAPI `response_model=AnalysisOutput` 직렬화 과정에서 해당 필드가 DTO에 없어 Gateway로 전달되지 않는 문제가 확인됐다. 결과적으로 `/easy-report`의 `expert_guidance_card`가 누락되어 E2E가 실패할 수 있었다.
+
+| Path | 변경 내용 |
+| --- | --- |
+| `apps/agent/app/schemas.py` | `AnalysisOutput.expert_guidance_sections`를 정식 응답 필드로 추가해 Agent 내부 전문가 안내 payload가 Gateway까지 전달되도록 했다. |
+| `apps/agent/tests/test_orchestrator.py` | `AnalysisOutput.model_dump()` 후에도 `expert_guidance_sections`가 유지되는지 검증한다. 현재 영상 입력 계약에 맞춰 테스트 관찰값 fixture에 `frame_refs`도 포함했다. |
+
+검증 결과:
+- `powershell -ExecutionPolicy Bypass -File scripts/verify_agent_regression.ps1 -SkipDockerBuild` 통과.
+- Codex 번들 Python 3.12 환경에 Agent requirements와 `pytest`를 설치한 뒤 `apps/agent/tests/test_orchestrator.py`, `apps/agent/tests/test_expert_guidance_sections.py` 4개 테스트 통과.
+- 사고 영상 1~5 실제 OpenAI 프레임 분석 배치 재실행에서 4개 샘플은 통과했고, 1개 샘플은 OpenAI read timeout으로 실패했다. 동일 사고2 단일 재시도는 통과했으므로 DTO/카드 전달 문제는 해소된 것으로 본다.
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. 실제 OpenAI 검증 뒤에는 비용 방지를 위해 worker를 다시 `ENABLE_OPENAI_FRAME_ANALYSIS=0`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 복구해야 한다.
