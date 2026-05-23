@@ -269,6 +269,29 @@ python scripts/reference_guidance_calibration_eval.py \
 
 `--reference-eval`을 함께 넘기면 `ready_for_legal_knia_insurance_evidence_eval`이 아닌 샘플은 `blocked_by_reference_gate`로 남깁니다. 따라서 사고 3·5처럼 영상-사용자 충돌이 있었던 샘플은 확인 질문으로 충돌을 해소한 reference 평가 결과가 있어야 과실 범위/문구 캘리브레이션 대상이 됩니다. `calibrated_for_user_flow`는 과실 범위, 근거 문맥, 추가 확인 항목, 첫 보완 질문이 현재 reference 기준에서 사용자 흐름에 맞다는 뜻입니다. `needs_user_flow_calibration`이 나오면 숫자 튜닝보다 먼저 결과 화면 질문 순서와 Agent 입력 계약을 확인합니다. OpenAI 프레임 분석을 끈 상태에서 표시 계약만 확인하려면 로컬 검증 manifest에서 `require_frame_observations`를 끄고 배치를 실행할 수 있지만, 이 검증용 manifest와 결과는 반드시 `logs/` 아래에 두어 Git에 포함하지 않습니다.
 
+정확도 고도화 12단계처럼 전체 평가 흐름을 마감 점검할 때는 같은 batch 결과로 근거 정합성, 캘리브레이션, 미해소 gate를 함께 확인합니다. 아래 명령은 OpenAI를 새로 호출하지 않고 기존 batch 결과와 reference 평가 JSON만 사용합니다.
+
+```bash
+python scripts/reference_evidence_alignment_eval.py \
+  --reference-eval logs/video_accuracy/stage10_eval_fixture/reference_guidance_eval_stage11_resolved_3_5.json \
+  --batch-output logs/video_accuracy/stage11_guidance_capture/aggregate.json \
+  --output logs/video_accuracy/reference_evidence_alignment_stage12_final.json
+
+python scripts/reference_guidance_calibration_eval.py \
+  --manifest logs/video_accuracy/lawyer_reference_manifest.json \
+  --batch-output logs/video_accuracy/stage11_guidance_capture/aggregate.json \
+  --reference-eval logs/video_accuracy/stage10_eval_fixture/reference_guidance_eval_stage11_resolved_3_5.json \
+  --output logs/video_accuracy/reference_guidance_calibration_eval_stage12_final.json
+
+python scripts/reference_guidance_calibration_eval.py \
+  --manifest logs/video_accuracy/lawyer_reference_manifest.json \
+  --batch-output logs/video_accuracy/stage11_guidance_capture/aggregate.json \
+  --reference-eval logs/video_accuracy/reference_guidance_eval_stage10_check.json \
+  --output logs/video_accuracy/reference_guidance_calibration_eval_stage12_gate_check.json
+```
+
+기대 결과는 근거 정합성 5개 통과, 충돌 해소 샘플 2개, 캘리브레이션 5개 통과입니다. 마지막 gate check에서는 충돌이 해소되지 않은 사고 3·5가 `blocked_by_reference_gate`로 남아야 합니다. 이 결과가 바뀌면 숫자 보정보다 먼저 충돌 보완 질문, `/reanalyze` 영상 메타데이터 유지, reference readiness 평가를 확인합니다.
+
 ## 3-3) 관리자용 Agent trace 진단
 일반 결과 화면에는 raw `agent_trace`와 `reflection_loop`를 노출하지 않습니다. 내부 점검이 필요할 때는 관리자 계정 또는 `x-admin-token`이 있는 로그인 세션으로 아래 API를 호출해 안전한 메타데이터 요약만 확인합니다.
 

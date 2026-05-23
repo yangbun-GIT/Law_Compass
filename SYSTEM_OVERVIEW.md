@@ -274,6 +274,22 @@ Stage 7 재생성 결과 사고 1, 2, 4 모두 `video_accuracy_batch` 통과, `r
 
 검증은 `python -m py_compile ...`, `python -m pytest tests/test_expert_guidance_sections.py -q`, `docker compose up -d --build agent gateway`, OpenAI 프레임 분석 비활성 상태의 `python scripts/video_accuracy_batch.py --manifest logs/video_accuracy/lawyer_reference_manifest_stage8_no_frame_required.json --output-dir logs/video_accuracy/stage11_guidance_capture --timeout-sec 180`, `python scripts/reference_evidence_alignment_eval.py --reference-eval logs/video_accuracy/stage10_eval_fixture/reference_guidance_eval_stage11_resolved_3_5.json --batch-output logs/video_accuracy/stage11_guidance_capture/aggregate.json --output logs/video_accuracy/reference_evidence_alignment_stage11.json`, `python scripts/reference_guidance_calibration_eval.py --manifest logs/video_accuracy/lawyer_reference_manifest.json --batch-output logs/video_accuracy/stage11_guidance_capture/aggregate.json --reference-eval logs/video_accuracy/stage10_eval_fixture/reference_guidance_eval_stage11_resolved_3_5.json --output logs/video_accuracy/reference_guidance_calibration_eval_stage11.json`로 통과했다. 결과는 5개 샘플 모두 `ready_for_stage8_guidance_calibration`, resolved conflict sample 2개, calibration 5개 통과다. 실제 미해소 reference 결과를 gate로 넘기면 사고 3·5는 `blocked_by_reference_gate`로 남는 것도 확인했다. 이번 단계는 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
 
+### 2026-05-24 정확도 고도화 12단계 완료
+
+정확도 고도화 1~11단계에서 만든 평가 흐름을 최종 기준선으로 묶어 점검했다. 12단계는 새 기능 추가가 아니라, `reference_guidance_eval`의 readiness gate, `reference_evidence_alignment_eval`의 근거 정합성, `reference_guidance_calibration_eval`의 사용자 흐름 캘리브레이션이 같은 batch 결과와 충돌 해소 상태를 기준으로 일관되게 연결되는지 확인하는 마감 단계다.
+
+| 점검 축 | 최종 기준 |
+| --- | --- |
+| 충돌 해소 gate | 충돌 보완 재분석이 확인된 샘플만 `ready_for_legal_knia_insurance_evidence_eval` 이후 단계로 넘긴다. 미해소 샘플은 과실 범위/문구 튜닝 대상이 아니라 `blocked_by_reference_gate` 또는 충돌 보완 대상으로 남긴다. |
+| 근거 정합성 | 5개 전문가 reference 샘플 모두 근거 family와 쟁점 키워드가 맞아 `ready_for_stage8_guidance_calibration` 상태로 통과했다. 충돌 해소 샘플 수는 2개다. |
+| 사용자 흐름 캘리브레이션 | 충돌 해소 fixture 기준 5개 샘플 모두 `calibrated_for_user_flow`로 통과했다. 미해소 reference gate 기준으로는 사고 3·5가 계속 막히는 것을 재확인했다. |
+| 비용 안전 | 이번 최종 점검은 OpenAI 프레임 분석을 새로 호출하지 않았고, worker는 `ENABLE_OPENAI_FRAME_ANALYSIS=0` 상태다. |
+| 완료 범위 | 영상/Agent 정확도 고도화 12단계는 개발 기준선으로 완료한다. 이는 실제 제품 완성이 아니라, 이후 실제 OpenAI ON 검증과 운영 데이터 확장을 진행할 수 있는 평가 골격 완료를 의미한다. |
+
+검증은 `python -m py_compile scripts/reference_guidance_eval.py scripts/reference_evidence_alignment_eval.py scripts/reference_guidance_calibration_eval.py scripts/video_accuracy_batch.py scripts/video_agent_e2e.py`, `python -m pytest tests/test_expert_guidance_sections.py -q`, `npm test -- report-composer`, `npm run build`, `docker compose ps`, worker `ENABLE_OPENAI_FRAME_ANALYSIS=0` 확인으로 통과했다. 최종 평가 산출물은 `logs/video_accuracy/reference_evidence_alignment_stage12_final.json`, `logs/video_accuracy/reference_guidance_calibration_eval_stage12_final.json`, `logs/video_accuracy/reference_guidance_calibration_eval_stage12_gate_check.json`에 저장했다. `logs/`는 Git에서 제외되므로 실제 영상 경로와 평가 payload는 저장소에 포함되지 않는다.
+
+후속 작업은 프로젝트 구조 보강이 아니라 제품 완성 개발로 분류한다. 우선순위는 실제 OpenAI 프레임 분석 ON 상태에서 5개 이상 실제 영상 재측정, 더 많은 변호사/보험 reference 샘플 확보, KNIA/법령/판례 원문 데이터 확장, 비용 모니터링과 API 사용량 제한, S3 직접 업로드 전환, 사용자/관리자 UI 수용성 점검, 배포/보안 운영 점검 순서다. 이번 단계는 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다.
+
 ### 2026-05-23 정확도 고도화 9단계 완료
 
 영상 관찰값과 사용자 입력이 충돌한 뒤 사용자가 보완 질문에 답하는 재분석 흐름을 보강했다. 기존 `/api/v1/cases/:caseId/reanalyze`는 보완 답변을 Agent text 분석으로만 넘겨 최신 업로드의 영상 메타데이터를 다시 전달하지 않았기 때문에, 재분석 이후 `fact_arbitration`에서 같은 영상 근거와 사용자 답변을 다시 대조하기 어려웠다. 이제 Gateway가 최신 업로드의 `metadata`, `file_name`, `status`, `preprocess_summary`를 재분석 요청에 포함하고, Agent의 text 분석 DTO도 `video_metadata`를 받을 수 있다.
