@@ -192,6 +192,18 @@ python scripts/video_agent_e2e.py --video-path "C:/path/to/accident.mp4" --timeo
 
 여러 사고 영상 샘플을 같은 기준으로 반복 측정하려면 배치 측정 스크립트를 사용합니다. 이 스크립트는 `video_agent_e2e.py`를 샘플별로 실행하고, 각 결과와 `aggregate.json`을 `logs/video_accuracy/` 아래에 저장합니다. `logs/`는 Git에 올라가지 않으므로 실제 영상 측정 결과와 로컬 경로가 저장소에 노출되지 않습니다.
 
+실제 OpenAI 프레임 분석 배치를 실행하기 전에는 manifest preflight를 먼저 실행합니다. 이 검사는 OpenAI API를 호출하지 않고, 샘플 수, 중복 이름, 영상 파일 경로, `case_json`, `reference.purpose=evaluation_only_not_agent_input`, reference 정보가 case 입력에 섞였는지를 확인합니다.
+
+```bash
+python scripts/validate_video_accuracy_manifest.py \
+  --manifest logs/video_accuracy/lawyer_reference_manifest.json \
+  --min-samples 5 \
+  --require-reference \
+  --output logs/video_accuracy/manifest_preflight.json
+```
+
+문서 예시처럼 로컬 영상 파일이 없는 manifest의 구조만 확인하려면 `--allow-missing-files`를 추가합니다. 실제 측정 manifest에서는 이 옵션을 쓰지 않고 모든 영상과 case JSON이 존재하는 상태에서 통과시킵니다.
+
 ```bash
 python scripts/video_accuracy_batch.py --manifest config/video_accuracy_samples.example.json --output-dir logs/video_accuracy
 ```
