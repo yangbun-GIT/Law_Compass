@@ -1,5 +1,21 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-24 영상 관찰값 사고 객체 판별 보강
+
+사고 영상 테스트 1~5번에서 횡단보도·보행자·신호등 같은 환경 요소가 실제 충돌 대상보다 앞서 해석되어 차대차 사고가 차대사람 사고처럼 표시되거나, 영상만 제출한 경우 “근거가 더 필요”라는 일반 문구만 반환되는 문제가 확인됐다. 이번 보강은 영상 분석의 1차 목적을 “사고 대상, 충돌 지점, 원인 후보 관찰값 추출”로 다시 고정한다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Worker 프레임 분석 | OpenAI 프레임 분석 기본 프레임 수를 코드 기준 14장, 상한 18장으로 늘렸다. 프롬프트는 `front_vehicle_stopped`, `ego_turn_direction`, `intersection`, `opponent_signal_visible`, `signal_transition`, `pedestrian_signal`, `stopped_vehicle_without_lights`, `highway_or_expressway`를 추가 관찰값으로 요청한다. |
+| 오분류 방지 | `pedestrian_visible=false`를 더 이상 버리지 않는다. 횡단보도가 보여도 `collision_partner_type=vehicle`이면 차대차 사고로 유지하고, 보행자 신호나 횡단보도는 사고 환경 맥락으로만 사용한다. |
+| 신호 불확실성 | 사고 2처럼 상대 차량 신호가 영상에 보이지 않는 경우 `opponent_signal_visible=false`를 관찰값으로 남긴다. 상대 신호를 추측해 신호위반으로 확정하지 않고 CCTV/신호체계 확인 질문으로 넘긴다. |
+| 우회전 앞차 정차 | 사고 3처럼 우회전 중 횡단보도 앞 정차 차량을 추돌한 경우 `front_vehicle_stopped=true`, `ego_turn_direction=right`, `collision_partner_type=vehicle`을 우선 반영해 후방 추돌 차대차 맥락을 유지한다. 단, `ego_turn_direction`은 교차로·횡단보도·분기점 같은 명확한 회전 맥락이 없으면 확정 fact로 승격하지 않고 확인 후보로 남긴다. 곡선 도로 또는 카메라 yaw만으로 우회전 사고로 판단하지 않기 위한 안전장치다. |
+| 근거 랭킹 안전장치 | `pedestrian_visible=false`처럼 “보행자 충돌 대상 아님”을 뜻하는 부정 관찰값이 근거 랭킹 문맥에서 보행자 근거를 밀어 올리지 않도록 `expert_guidance_sections`의 fact context 생성을 분리했다. 차대차 영상에서 횡단보도/보행자 fallback 근거가 우선 노출되는 문제를 막는다. |
+| 고속도로 무등화 정차 | 사고 4처럼 속도 자체를 영상에서 산출할 수 없는 경우에도 `stopped_vehicle_without_lights`, `highway_or_expressway` 같은 확인 가능한 환경 fact만 추출하고, 속도는 사용자 보완 또는 별도 자료 확인 대상으로 남긴다. |
+| Agent/Gateway 연결 | Agent 입력 계약, 사실 중재, 시나리오 분류, 검색어 확장, 쉬운 결과 문구, Gateway 보완 질문 우선순위를 새 관찰값에 맞게 확장했다. 보완 질문은 사고 대상·충돌 지점·신호 가시성·앞차 정차를 상해 여부보다 먼저 묻는다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. 다만 실제 운영에서 `.env`의 `OPENAI_FRAME_ANALYSIS_MAX_FRAMES`가 10으로 고정되어 있으면 compose 실행 시 코드 기본값보다 `.env` 값이 우선한다. 영상 정확도 검증 시에는 14장 이상으로 재기동해 확인하는 것이 현재 기준이다.
+
 ## 2026-05-24 사고 대상 우선 영상 전처리 보강
 
 영상 분석 기준을 “사고 환경 탐지”가 아니라 “사고 대상과 실제 충돌 지점 식별” 우선으로 재정렬했다. 횡단보도, 중앙선, 신호, 주정차, 도로 장애물은 사고 대상을 대신하는 결론이 아니라 충돌 대상과 충돌 지점을 설명하는 보조 맥락으로만 사용한다.

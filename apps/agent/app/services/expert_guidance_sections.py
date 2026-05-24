@@ -234,7 +234,7 @@ def _guidance_context_text(
     ]
     parts.extend(_safe_list(legal_analysis.get("required_facts"), 10))
     parts.extend(_safe_list(fault_ratio.get("key_factors"), 10))
-    parts.extend(_flatten_values(facts))
+    parts.extend(_fact_context_values(facts))
     scenario_type = str(scenario.get("scenario_type") or "")
     if scenario_type == "intersection_signal_violation":
         parts.extend(["intersection", "signal", "신호", "교차로", "좌회전", "cctv"])
@@ -242,7 +242,7 @@ def _guidance_context_text(
         parts.extend(["rear", "stopped", "safe distance", "후방", "정차", "안전거리"])
     if scenario_type == "parking_or_stopped_vehicle_accident":
         parts.extend(["stopped vehicle", "정차"])
-    fact_text = " ".join(_flatten_values(facts)).lower()
+    fact_text = " ".join(_fact_context_values(facts)).lower()
     if facts.get("crosswalk_nearby") is True or "crosswalk" in fact_text:
         parts.extend(["crosswalk", "pedestrian", "pedestrian signal", "front vehicle", "stop reason"])
     if facts.get("front_vehicle_stopped") is True or "front_vehicle_stopped" in fact_text:
@@ -275,6 +275,42 @@ def _flatten_values(value: Any) -> list[str]:
     if value is None:
         return []
     return [str(value)]
+
+
+def _fact_context_values(facts: dict[str, Any]) -> list[str]:
+    output: list[str] = []
+    for key, value in facts.items():
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            if value is True:
+                output.append(str(key))
+                output.append("true")
+            elif key == "opponent_signal_visible":
+                output.extend(["opponent signal not visible", "cctv", "signal cycle"])
+            elif key == "pedestrian_visible":
+                output.extend(["vehicle collision partner", "no person collision target"])
+            continue
+        if isinstance(value, dict):
+            nested = _fact_context_values(value)
+            if nested:
+                output.append(str(key))
+                output.extend(nested)
+            continue
+        if isinstance(value, list):
+            nested_values: list[str] = []
+            for item in value:
+                if isinstance(item, dict):
+                    nested_values.extend(_fact_context_values(item))
+                elif item is not None and item is not False:
+                    nested_values.append(str(item))
+            if nested_values:
+                output.append(str(key))
+                output.extend(nested_values)
+            continue
+        output.append(str(key))
+        output.append(str(value))
+    return output
 
 
 def _relevance_score(content_text: str, context_text: str) -> int:

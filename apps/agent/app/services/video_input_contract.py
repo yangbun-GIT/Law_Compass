@@ -9,9 +9,13 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "stopped": 0.82,
     "opponent_behavior": 0.88,
     "lane_change_actor": 0.88,
+    "intersection": 0.82,
+    "opponent_signal_visible": 0.84,
     "opponent_signal_violation": 0.88,
+    "signal_transition": 0.82,
     "crosswalk_nearby": 0.85,
     "pedestrian_visible": 0.88,
+    "pedestrian_signal": 0.82,
     "school_zone": 0.85,
     "centerline_crossed": 0.86,
     "road_obstruction": 0.84,
@@ -24,6 +28,10 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "primary_collision_target": 0.78,
     "collision_point_visible": 0.84,
     "collision_point_location": 0.78,
+    "front_vehicle_stopped": 0.84,
+    "ego_turn_direction": 0.78,
+    "stopped_vehicle_without_lights": 0.88,
+    "highway_or_expressway": 0.82,
 }
 CONFIRMATION_FIELD_PRIORITIES = {
     "stopped": 10,
@@ -31,25 +39,33 @@ CONFIRMATION_FIELD_PRIORITIES = {
     "primary_collision_target": 30,
     "collision_point_visible": 40,
     "collision_point_location": 50,
-    "opponent_behavior": 60,
-    "centerline_crossed": 70,
-    "centerline_cross_reason": 80,
-    "road_obstruction": 90,
-    "illegal_parking_obstruction": 100,
-    "opposing_vehicle_present": 110,
-    "opposing_vehicle_did_not_stop": 120,
-    "secondary_collision": 130,
-    "lane_change_actor": 140,
-    "opponent_signal_violation": 150,
-    "user_signal": 160,
-    "opponent_signal": 170,
-    "sudden_brake": 180,
-    "turn_signal": 190,
-    "crosswalk_nearby": 200,
-    "pedestrian_visible": 210,
-    "school_zone": 220,
-    "injury": 230,
-    "damage_level": 240,
+    "front_vehicle_stopped": 60,
+    "ego_turn_direction": 70,
+    "opponent_behavior": 80,
+    "intersection": 90,
+    "user_signal": 100,
+    "opponent_signal_visible": 110,
+    "opponent_signal": 120,
+    "signal_transition": 130,
+    "opponent_signal_violation": 140,
+    "centerline_crossed": 150,
+    "centerline_cross_reason": 160,
+    "road_obstruction": 170,
+    "illegal_parking_obstruction": 180,
+    "opposing_vehicle_present": 190,
+    "opposing_vehicle_did_not_stop": 200,
+    "secondary_collision": 210,
+    "stopped_vehicle_without_lights": 220,
+    "highway_or_expressway": 230,
+    "lane_change_actor": 240,
+    "sudden_brake": 250,
+    "turn_signal": 260,
+    "crosswalk_nearby": 270,
+    "pedestrian_visible": 280,
+    "pedestrian_signal": 290,
+    "school_zone": 300,
+    "injury": 310,
+    "damage_level": 320,
 }
 
 FRAME_REF_REQUIRED_FACT_FIELDS = {
@@ -57,9 +73,13 @@ FRAME_REF_REQUIRED_FACT_FIELDS = {
     "sudden_brake",
     "opponent_behavior",
     "lane_change_actor",
+    "intersection",
+    "opponent_signal_visible",
     "opponent_signal_violation",
+    "signal_transition",
     "crosswalk_nearby",
     "pedestrian_visible",
+    "pedestrian_signal",
     "school_zone",
     "damage_level",
     "centerline_crossed",
@@ -73,6 +93,10 @@ FRAME_REF_REQUIRED_FACT_FIELDS = {
     "primary_collision_target",
     "collision_point_visible",
     "collision_point_location",
+    "front_vehicle_stopped",
+    "ego_turn_direction",
+    "stopped_vehicle_without_lights",
+    "highway_or_expressway",
 }
 
 FRAME_REF_REQUIRED_SOURCES = {
@@ -100,7 +124,10 @@ _FACT_FIELDS = {
     "turn_signal",
     "user_signal",
     "opponent_signal",
+    "opponent_signal_visible",
     "opponent_signal_violation",
+    "signal_transition",
+    "intersection",
     "crosswalk_nearby",
     "pedestrian_visible",
     "pedestrian_signal",
@@ -121,6 +148,10 @@ _FACT_FIELDS = {
     "primary_collision_target",
     "collision_point_visible",
     "collision_point_location",
+    "front_vehicle_stopped",
+    "ego_turn_direction",
+    "stopped_vehicle_without_lights",
+    "highway_or_expressway",
 }
 
 _SUPPORTING_OBSERVATION_FIELDS = {
@@ -144,9 +175,14 @@ _FIELD_ALIASES = {
     "signal_violation": "opponent_signal_violation",
     "traffic_light_user": "user_signal",
     "traffic_light_opponent": "opponent_signal",
+    "opponent_traffic_light_visible": "opponent_signal_visible",
+    "traffic_signal_transition": "signal_transition",
+    "signal_phase_transition": "signal_transition",
+    "intersection_visible": "intersection",
     "pedestrian_crosswalk": "crosswalk_nearby",
     "pedestrian_in_crosswalk": "pedestrian_visible",
     "visible_pedestrian": "pedestrian_visible",
+    "pedestrian_traffic_light": "pedestrian_signal",
     "child_victim": "victim_is_child",
     "crossed_centerline": "centerline_crossed",
     "yellow_centerline_crossed": "centerline_crossed",
@@ -163,6 +199,16 @@ _FIELD_ALIASES = {
     "collision_target": "primary_collision_target",
     "impact_point_visible": "collision_point_visible",
     "impact_location": "collision_point_location",
+    "lead_vehicle_stopped": "front_vehicle_stopped",
+    "front_car_stopped": "front_vehicle_stopped",
+    "vehicle_ahead_stopped": "front_vehicle_stopped",
+    "turn_direction": "ego_turn_direction",
+    "ego_turn": "ego_turn_direction",
+    "ego_direction": "ego_turn_direction",
+    "unlit_stopped_vehicle": "stopped_vehicle_without_lights",
+    "dark_stopped_vehicle": "stopped_vehicle_without_lights",
+    "expressway": "highway_or_expressway",
+    "highway": "highway_or_expressway",
 }
 
 _TECHNICAL_FIELDS = (
@@ -226,6 +272,7 @@ def normalize_video_input_contract(
         fact_patch[field] = value
         accepted.append({**observation, "value": value, "quality_gate": gate})
 
+    _demote_context_dependent_facts(fact_patch, accepted, uncertain)
     confirmation_candidates = _confirmation_candidates(uncertain)
     confirmation_groups = _confirmation_groups(accepted, confirmation_candidates)
     warnings: list[str] = []
@@ -265,6 +312,56 @@ def _technical_metadata(meta: dict[str, Any], nested: dict[str, Any]) -> dict[st
     if frames:
         technical["representative_frame_count"] = len(frames)
     return technical
+
+
+def _demote_context_dependent_facts(
+    fact_patch: dict[str, Any],
+    accepted: list[dict[str, Any]],
+    uncertain: list[dict[str, Any]],
+) -> None:
+    if fact_patch.get("ego_turn_direction") in {"left", "right", "u_turn"} and not any(
+        fact_patch.get(field) is True for field in ("intersection", "crosswalk_nearby")
+    ):
+        _move_accepted_to_uncertain(
+            "ego_turn_direction",
+            fact_patch,
+            accepted,
+            uncertain,
+            "turn_direction_requires_intersection_or_crosswalk_context",
+        )
+
+    if fact_patch.get("front_vehicle_stopped") is True:
+        location = str(fact_patch.get("collision_point_location") or "")
+        has_front_stop_context = (
+            fact_patch.get("crosswalk_nearby") is True
+            or fact_patch.get("intersection") is True
+            or location in {"front_rear", "rear", "rear_end"}
+        )
+        if not has_front_stop_context:
+            _move_accepted_to_uncertain(
+                "front_vehicle_stopped",
+                fact_patch,
+                accepted,
+                uncertain,
+                "front_vehicle_stop_requires_rear_end_or_crosswalk_context",
+            )
+
+
+def _move_accepted_to_uncertain(
+    field: str,
+    fact_patch: dict[str, Any],
+    accepted: list[dict[str, Any]],
+    uncertain: list[dict[str, Any]],
+    reason: str,
+) -> None:
+    fact_patch.pop(field, None)
+    remaining: list[dict[str, Any]] = []
+    for item in accepted:
+        if item.get("field") == field:
+            uncertain.append({**item, "reason": reason})
+        else:
+            remaining.append(item)
+    accepted[:] = remaining
 
 
 def _frame_list(value: dict[str, Any]) -> list[Any]:
@@ -525,11 +622,44 @@ def _normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
         if text in {"object", "fixed_object", "road_object", "obstacle"}:
             return "object"
         return None
-    if field in {"stopped", "sudden_brake", "opponent_signal_violation", "crosswalk_nearby", "pedestrian_visible", "school_zone", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "collision_point_visible"}:
+    if field in {"ego_turn_direction"}:
+        text = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+        if text in {"right", "right_turn", "turn_right"}:
+            return "right"
+        if text in {"left", "left_turn", "turn_left"}:
+            return "left"
+        if text in {"straight", "go_straight", "forward"}:
+            return "straight"
+        if text in {"u_turn", "uturn"}:
+            return "u_turn"
+        return None
+    if field in {"user_signal", "opponent_signal", "pedestrian_signal"}:
+        return _normalize_signal(value)
+    if field == "signal_transition":
+        text = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+        if text in {"green_to_yellow", "yellow_to_red", "red_to_green", "green_to_red", "flashing", "none"}:
+            return text
+        return text if text and text != "unknown" else None
+    if field in {"stopped", "sudden_brake", "opponent_signal_visible", "opponent_signal_violation", "intersection", "crosswalk_nearby", "pedestrian_visible", "school_zone", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "collision_point_visible", "front_vehicle_stopped", "stopped_vehicle_without_lights", "highway_or_expressway"}:
         return _as_bool(value)
     if isinstance(value, str):
         return value.strip() or None
     return value
+
+
+def _normalize_signal(value: Any) -> str | None:
+    text = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    if text in {"green", "go", "blue", "green_light", "blue_light"}:
+        return "green"
+    if text in {"yellow", "amber", "yellow_light"}:
+        return "yellow"
+    if text in {"red", "stop", "red_light"}:
+        return "red"
+    if text in {"flashing", "blink", "blinking"}:
+        return "flashing"
+    if text in {"none", "no_signal", "not_visible"}:
+        return "none"
+    return text if text and text != "unknown" else None
 
 
 def _as_bool(value: Any) -> bool | None:

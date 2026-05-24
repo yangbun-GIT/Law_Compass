@@ -155,6 +155,46 @@ def test_basis_summary_keeps_crosswalk_front_stop_rear_end_basis():
     assert "Crosswalk front vehicle stop reason and rear-end fault guide" in basis_titles
 
 
+def test_false_pedestrian_video_fact_does_not_boost_pedestrian_basis():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "general_collision", "accident_party_label": "vehicle collision"},
+        facts={
+            "collision_partner_type": "vehicle",
+            "primary_collision_target": "vehicle",
+            "pedestrian_visible": False,
+        },
+        legal_analysis={"legal_issue_summary": "vehicle collision facts and impact point are key"},
+        fault_ratio={"my": 40, "other": 60, "key_factors": ["vehicle collision", "impact point"]},
+        legal_liability={"criminal_risk_level": "low"},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "legal_reference",
+                "title": "Crosswalk pedestrian duty guide",
+                "related_reason": "pedestrian and crosswalk duty reference.",
+            },
+            {
+                "source_type": "legal_reference",
+                "title": "Vehicle collision impact point guide",
+                "related_reason": "vehicle collision and impact point reference.",
+            },
+            {
+                "source_type": "knia_reference",
+                "title": "Vehicle to vehicle fault guide",
+                "related_reason": "vehicle collision fault ratio reference.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
+    assert "Vehicle collision impact point guide" in basis_titles[:2]
+    assert "Crosswalk pedestrian duty guide" not in basis_titles[:2]
+
+
 def test_basis_summary_keeps_non_contact_bicycle_trigger_basis():
     sections = build_expert_guidance_sections(
         scenario={"scenario_type": "bicycle_collision", "accident_party_label": "bicycle trigger rear-end"},

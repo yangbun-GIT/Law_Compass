@@ -252,6 +252,9 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertIn("Do not mark stopped=false merely because the dashcam image changes", prompt_text)
         self.assertIn("centerline_crossed", prompt_text)
         self.assertIn("collision_partner_type", prompt_text)
+        self.assertIn("front_vehicle_stopped", prompt_text)
+        self.assertIn("opponent_signal_visible=false", prompt_text)
+        self.assertIn("highway_or_expressway", prompt_text)
         self.assertIn("pedestrian_visible", prompt_text)
         self.assertIn("never infer a pedestrian accident from crosswalk_nearby alone", prompt_text)
         self.assertEqual(result["observations"][0]["field"], "stopped")
@@ -259,7 +262,7 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(result["observations"][0]["confidence"], 0.81)
         self.assertEqual(result["observations"][0]["observation_quality"]["level"], "low")
 
-    def test_openai_normalizer_keeps_road_context_and_drops_absence_observations(self):
+    def test_openai_normalizer_keeps_road_context_and_target_absence_observations(self):
         with tempfile.TemporaryDirectory() as tmp:
             frame_path = Path(tmp) / "frame_001.jpg"
             frame_path.write_bytes(b"exists")
@@ -285,9 +288,11 @@ class FrameAnalysisContractTest(unittest.TestCase):
                 selected_frames,
             )
 
-        self.assertEqual(len(observations), 1)
+        self.assertEqual(len(observations), 2)
         self.assertEqual(observations[0]["field"], "centerline_crossed")
         self.assertEqual(observations[0]["value"], True)
+        self.assertEqual(observations[1]["field"], "pedestrian_visible")
+        self.assertEqual(observations[1]["value"], False)
 
     def test_openai_selection_prioritizes_accident_candidate_frames(self):
         with tempfile.TemporaryDirectory() as tmp:

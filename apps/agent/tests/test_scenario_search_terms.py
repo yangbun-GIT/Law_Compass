@@ -189,6 +189,79 @@ def test_collision_partner_type_drives_party_before_environment_context():
     assert pedestrian_party == "car_vs_person"
 
 
+def test_right_turn_crosswalk_front_vehicle_stop_stays_car_vs_car_rear_end():
+    scenario = classify_scenario(
+        "right turn near crosswalk, front vehicle stopped and ego hit the vehicle",
+        {
+            "collision_partner_type": "vehicle",
+            "crosswalk_nearby": True,
+            "pedestrian_visible": False,
+            "front_vehicle_stopped": True,
+            "ego_turn_direction": "right",
+            "pedestrian_signal": "red",
+        },
+        [],
+    )
+
+    assert scenario["accident_party_type"] == "car_vs_car"
+    assert scenario["scenario_type"] == "rear_end_collision"
+    assert "pedestrian" not in scenario["scenario_tags"]
+
+
+def test_signal_transition_without_opponent_signal_keeps_intersection_uncertainty():
+    scenario = classify_scenario(
+        "left turn intersection vehicle collision",
+        {
+            "collision_partner_type": "vehicle",
+            "intersection": True,
+            "ego_turn_direction": "left",
+            "user_signal": "yellow",
+            "opponent_signal_visible": False,
+            "signal_transition": "yellow_to_red",
+        },
+        [],
+    )
+
+    assert scenario["accident_party_type"] == "car_vs_car"
+    assert scenario["scenario_type"] == "intersection_signal_violation"
+    assert "opponent_signal_not_visible" in scenario["scenario_tags"]
+
+
+def test_visible_pedestrian_does_not_override_vehicle_collision_partner():
+    scenario = classify_scenario(
+        "intersection with crosswalk and people nearby, vehicle-to-vehicle collision",
+        {
+            "collision_partner_type": "vehicle",
+            "intersection": True,
+            "crosswalk_nearby": True,
+            "pedestrian_visible": True,
+            "user_signal": "yellow",
+            "opponent_signal_visible": False,
+        },
+        [],
+    )
+
+    assert scenario["accident_party_type"] == "car_vs_car"
+    assert scenario["scenario_type"] == "intersection_signal_violation"
+
+
+def test_crosswalk_vehicle_context_does_not_add_pedestrian_protection_terms():
+    terms = scenario_search_terms(
+        scenario_type="intersection_signal_violation",
+        scenario_tags=["intersection"],
+        facts={
+            "collision_partner_type": "vehicle",
+            "crosswalk_nearby": True,
+            "pedestrian_visible": False,
+        },
+        selected_keywords=[],
+        accident_party_type="car_vs_car",
+    )
+
+    assert "보행자 보호의무" not in terms
+    assert "crosswalk vehicle collision" in terms
+
+
 def test_unlit_stopped_vehicle_is_classified_as_stopped_vehicle_case():
     scenario = classify_scenario(
         "야간에 등화 없이 정차한 차량을 추돌했습니다.",
@@ -197,3 +270,15 @@ def test_unlit_stopped_vehicle_is_classified_as_stopped_vehicle_case():
     )
     assert scenario["scenario_type"] == "parking_or_stopped_vehicle_accident"
     assert "visibility" in scenario["scenario_tags"]
+
+
+def test_vehicle_collision_partner_sets_car_vs_car_party_even_when_scenario_is_general():
+    scenario = classify_scenario(
+        "video only calibration",
+        {"collision_partner_type": "vehicle", "primary_collision_target": "vehicle", "pedestrian_visible": False},
+        [],
+    )
+
+    assert scenario["scenario_type"] == "general_collision"
+    assert scenario["accident_party_type"] == "car_vs_car"
+    assert "pedestrian" not in scenario["scenario_tags"]

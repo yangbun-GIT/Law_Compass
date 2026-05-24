@@ -19,7 +19,7 @@ ENABLE_OPENAI_FRAME_ANALYSIS = os.getenv("ENABLE_OPENAI_FRAME_ANALYSIS", "0") ==
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
 OPENAI_TIMEOUT_SEC = float(os.getenv("OPENAI_TIMEOUT_SEC", "18"))
-OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(12, _int_env("OPENAI_FRAME_ANALYSIS_MAX_FRAMES", 10)))
+OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(18, _int_env("OPENAI_FRAME_ANALYSIS_MAX_FRAMES", 14)))
 OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS = max(300, min(1400, _int_env("OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS", 900)))
 OPENAI_FRAME_ANALYSIS_DETAIL = os.getenv("OPENAI_FRAME_ANALYSIS_DETAIL", "low").strip().lower()
 if OPENAI_FRAME_ANALYSIS_DETAIL not in {"low", "high", "auto"}:
@@ -56,20 +56,32 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "Use it only to prioritize which visual facts to inspect; never use it as visual evidence and never copy it into observations unless the frames support it. "
             "Allowed observation fields: stopped, sudden_brake, impact_direction, collision_direction, "
             "opponent_behavior, lane_change_actor, turn_signal, user_signal, opponent_signal, "
-            "opponent_signal_violation, crosswalk_nearby, pedestrian_visible, school_zone, damage_level, "
+            "opponent_signal_visible, opponent_signal_violation, signal_transition, intersection, "
+            "crosswalk_nearby, pedestrian_visible, pedestrian_signal, school_zone, damage_level, "
             "centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, "
             "opposing_vehicle_present, opposing_vehicle_did_not_stop, secondary_collision, "
             "collision_partner_type, primary_collision_target, collision_point_visible, collision_point_location, "
+            "front_vehicle_stopped, ego_turn_direction, stopped_vehicle_without_lights, highway_or_expressway, "
             "recaptured_screen, dashcam_screen_visible, screen_glare_or_reflection. "
             "Use collision_partner_type as one of vehicle, pedestrian, bicycle, motorcycle, object, unknown. "
+            "Use ego_turn_direction as one of right, left, straight, u_turn, unknown. "
             "Use primary_collision_target to describe the object actually struck or striking the ego vehicle; do not use road environment as the target unless the collision is with that object. "
             "For stopped, judge whether the ego/user vehicle was stationary at or immediately before the collision. "
             "Do not mark stopped=false merely because the dashcam image changes, the camera shakes, or surrounding vehicles move. "
             "Return stopped=false only when multiple frame_refs clearly show ego/user vehicle forward movement at the relevant moment; otherwise omit stopped or use unknown. "
             "crosswalk_nearby only means a crosswalk is visible or close to the conflict area; never infer a pedestrian accident from crosswalk_nearby alone. "
             "Use pedestrian_visible=true only when a pedestrian is actually visible in or near the collision path. "
+            "If a crosswalk or pedestrian signal is visible but the collision partner is a vehicle, keep collision_partner_type=vehicle and treat crosswalk_nearby/pedestrian_signal as road context only. "
+            "Use pedestrian_visible=false only when the selected frames clearly show no pedestrian in the collision path; this negative fact is allowed to prevent crosswalk-only car-vs-person mistakes. "
+            "For right-turn cases where a front/lead vehicle stops near a crosswalk and the ego vehicle hits that vehicle, set collision_partner_type=vehicle, front_vehicle_stopped=true, ego_turn_direction=right, and crosswalk_nearby=true when visible. "
+            "Use ego_turn_direction only for an intentional left/right/U-turn at an intersection, driveway, branch, or marked turn path; do not mark right or left only because the road curves or the camera yaws. "
+            "Use front_vehicle_stopped only for a lead vehicle in the same traffic stream that was stopped before impact, not for an oncoming or side vehicle after impact. "
+            "For signalized intersection crashes, distinguish visible ego signal from opponent signal. If the opponent signal head is not visible, set opponent_signal_visible=false instead of guessing opponent_signal or opponent_signal_violation. "
+            "If a signal changes across frames, use signal_transition to describe the observed sequence, for example green_to_yellow, yellow_to_red, red_to_green, or unknown. "
+            "For high-speed roads with a stopped dark/unlit vehicle, set stopped_vehicle_without_lights=true and highway_or_expressway=true only when visually supported; do not estimate speed from frames. "
             "For narrow two-way roads, yellow centerline encroachment, parked vehicles, roadside objects, lane-blocking obstacles, oncoming vehicles, failure of an oncoming vehicle to stop, and secondary impacts, return the corresponding road-context fields when visible. "
             "If centerline crossing appears caused by a parked vehicle or obstacle, set centerline_cross_reason to parked_vehicle_obstruction or road_obstruction with frame_refs. "
+            "When a vehicle crosses or straddles the centerline to pass an obstacle or parked vehicle, prefer centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, and opposing_vehicle_present over turn-direction labels. "
             "Do not infer injury status from frames. Do not infer absence facts such as no damage, no school zone, "
             "or no signal violation just because they are not visible. Omit fields that are not observable. "
             "Each observation must include field, value, confidence between 0 and 1, frame_refs, and reason. "
@@ -493,7 +505,6 @@ def _should_drop_openai_observation(field: str, value: Any) -> bool:
     if value is False and field in {
         "opponent_signal_violation",
         "crosswalk_nearby",
-        "pedestrian_visible",
         "school_zone",
         "turn_signal",
         "user_signal",
@@ -505,6 +516,11 @@ def _should_drop_openai_observation(field: str, value: Any) -> bool:
         "opposing_vehicle_did_not_stop",
         "secondary_collision",
         "collision_point_visible",
+        "front_vehicle_stopped",
+        "intersection",
+        "opponent_signal_visible",
+        "stopped_vehicle_without_lights",
+        "highway_or_expressway",
         "recaptured_screen",
         "dashcam_screen_visible",
         "screen_glare_or_reflection",

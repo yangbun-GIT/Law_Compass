@@ -308,6 +308,96 @@ def test_crosswalk_and_pedestrian_visibility_are_separate_video_facts():
     assert contract["fact_patch"]["pedestrian_visible"] is False
 
 
+def test_right_turn_front_vehicle_and_signal_visibility_video_facts():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "collision_partner_type",
+                        "value": "vehicle",
+                        "confidence": 0.91,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_4.jpg", "frame_5.jpg"],
+                    },
+                    {
+                        "field": "front_vehicle_stopped",
+                        "value": True,
+                        "confidence": 0.88,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_5.jpg"],
+                    },
+                    {
+                        "field": "crosswalk_nearby",
+                        "value": True,
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_4.jpg", "frame_5.jpg"],
+                    },
+                    {
+                        "field": "ego_turn_direction",
+                        "value": "right_turn",
+                        "confidence": 0.83,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_4.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_signal",
+                        "value": "red_light",
+                        "confidence": 0.86,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_4.jpg"],
+                    },
+                    {
+                        "field": "opponent_signal_visible",
+                        "value": False,
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_4.jpg", "frame_5.jpg"],
+                    },
+                    {
+                        "field": "signal_transition",
+                        "value": "yellow_to_red",
+                        "confidence": 0.84,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_3.jpg", "frame_5.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"]["collision_partner_type"] == "vehicle"
+    assert contract["fact_patch"]["front_vehicle_stopped"] is True
+    assert contract["fact_patch"]["crosswalk_nearby"] is True
+    assert contract["fact_patch"]["ego_turn_direction"] == "right"
+    assert contract["fact_patch"]["pedestrian_signal"] == "red"
+    assert contract["fact_patch"]["opponent_signal_visible"] is False
+    assert contract["fact_patch"]["signal_transition"] == "yellow_to_red"
+
+
+def test_turn_direction_without_intersection_or_crosswalk_context_needs_confirmation():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "ego_turn_direction",
+                        "value": "right",
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_4.jpg", "frame_5.jpg"],
+                    }
+                ]
+            }
+        }
+    )
+
+    assert "ego_turn_direction" not in contract["fact_patch"]
+    assert contract["accepted_observations"] == []
+    assert contract["uncertain_observations"][0]["reason"] == "turn_direction_requires_intersection_or_crosswalk_context"
+
+
 def test_technical_preprocess_metadata_does_not_create_accident_facts():
     contract = normalize_video_input_contract(
         {"metadata": {"duration_sec": 8.0, "width": 1920, "height": 1080, "representative_frames": ["/frames/1.jpg"]}},

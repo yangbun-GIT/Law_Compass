@@ -16,12 +16,30 @@ SAFE_QUESTION_FIELDS = {
     "crosswalk_nearby",
     "lane_change_actor",
     "turn_signal",
+    "intersection",
     "user_signal",
     "opponent_signal",
+    "opponent_signal_visible",
     "opponent_signal_violation",
+    "signal_transition",
     "pedestrian_signal",
     "bicycle_location",
     "bicycle_direction",
+    "collision_partner_type",
+    "primary_collision_target",
+    "collision_point_visible",
+    "collision_point_location",
+    "front_vehicle_stopped",
+    "ego_turn_direction",
+    "centerline_crossed",
+    "centerline_cross_reason",
+    "road_obstruction",
+    "illegal_parking_obstruction",
+    "opposing_vehicle_present",
+    "opposing_vehicle_did_not_stop",
+    "secondary_collision",
+    "stopped_vehicle_without_lights",
+    "highway_or_expressway",
 }
 
 class PlainLanguageAgent:
@@ -31,13 +49,18 @@ class PlainLanguageAgent:
         fault = result.get("fault_ratio", {}) or {}
         legal = result.get("legal_liability", {}) or {}
         if _needs_review(fault) or _needs_review(legal):
+            cautious = _cautious_headline_for_known_scenario(scenario, facts)
+            if cautious:
+                return cautious
             return "입력하신 사고는 근거가 더 필요해 과실과 신고 필요 여부를 조심스럽게 확인해야 합니다."
         if scenario == "school_zone_child_accident" or facts.get("school_zone"):
             return "어린이보호구역 사고로 보이며, 신고와 형사 문제를 꼭 확인해 보셔야 합니다."
         if scenario == "rear_end_collision":
             return "이번 사고는 정차 중 뒤차가 들이받은 사고로 보이며, 상대 차량 책임이 더 클 가능성이 높습니다."
         if scenario == "intersection_signal_violation":
-            return "교차로에서 상대 차량의 신호위반 여부가 핵심으로 보입니다."
+            if facts.get("opponent_signal_visible") is False:
+                return "교차로 차대차 사고로 보이며, 상대 차량 신호가 영상에 보이지 않아 신호체계나 CCTV 확인이 필요합니다."
+            return "교차로에서 각 차량의 신호와 진입 시점이 핵심으로 보입니다."
         if scenario == "lane_change_collision":
             return "상대 차량이 차선을 바꿀 때 충분히 조심했는지 확인해야 합니다."
         if scenario == "pedestrian_crosswalk_accident":
@@ -148,6 +171,25 @@ class PlainLanguageAgent:
 
 def _needs_review(section: dict[str, Any]) -> bool:
     return section.get("judgment_status") in {"needs_review", "unsupported"} or section.get("evidence_support_level") in {"partial", "insufficient"}
+
+
+def _cautious_headline_for_known_scenario(scenario: str | None, facts: dict[str, Any]) -> str | None:
+    if scenario == "rear_end_collision":
+        if facts.get("front_vehicle_stopped") or facts.get("ego_turn_direction") == "right":
+            return "우회전 또는 횡단보도 주변에서 앞차 정차와 후방 추돌이 결합된 차대차 사고로 보이며, 정차 사유와 안전거리 쟁점을 확인해야 합니다."
+        return "후방 추돌 사고로 보이며, 정차 여부와 급정거 사유를 더 확인해 과실 범위를 좁혀야 합니다."
+    if scenario == "intersection_signal_violation":
+        if facts.get("opponent_signal_visible") is False:
+            return "교차로 차대차 사고로 보이며, 상대 차량 신호가 영상에 보이지 않아 CCTV나 신호체계 확인이 필요합니다."
+        return "교차로 차대차 사고로 보이며, 각 차량의 신호와 진입 시점 확인이 필요합니다."
+    if scenario == "parking_or_stopped_vehicle_accident":
+        if facts.get("stopped_vehicle_without_lights"):
+            return "등화 없는 정차 차량과의 사고로 보이며, 도로 종류와 회피 가능성 확인이 필요합니다."
+        if facts.get("centerline_crossed"):
+            return "중앙선 침범 또는 장애물 회피가 얽힌 차대차 사고로 보이며, 침범 사유와 상대 회피 가능성을 확인해야 합니다."
+    if scenario == "bicycle_collision":
+        return "자전거가 사고 원인에 관여했을 가능성이 있어, 직접 충돌 여부와 후속 추돌 관계를 분리해 확인해야 합니다."
+    return None
 
 
 def _required_questions(result: dict[str, Any]) -> list[dict[str, Any]]:

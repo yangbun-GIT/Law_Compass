@@ -88,6 +88,28 @@ function applyAnswer(patch: AnyRecord, field: string, value: string) {
     patch.collision_point_location = value;
     return;
   }
+  if (field === "front_vehicle_stopped") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.front_vehicle_stopped = parsed;
+      return;
+    }
+    patch.front_vehicle_stopped = includesAny(value, ["앞차", "선행", "정차", "stopped"]);
+    return;
+  }
+  if (field === "ego_turn_direction") {
+    patch.ego_turn_direction = normalizeTurnDirection(value);
+    return;
+  }
+  if (field === "intersection") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.intersection = parsed;
+      return;
+    }
+    patch.intersection = includesAny(value, ["교차로", "intersection"]);
+    return;
+  }
   if (field === "sudden_brake") {
     const parsed = parseBooleanLike(value);
     if (parsed !== undefined) {
@@ -201,6 +223,24 @@ function applyAnswer(patch: AnyRecord, field: string, value: string) {
     patch.turn_signal = includesAny(value, ["켰음", "켰"]);
     return;
   }
+  if (field === "stopped_vehicle_without_lights") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.stopped_vehicle_without_lights = parsed;
+      return;
+    }
+    patch.stopped_vehicle_without_lights = includesAny(value, ["등화", "무등화", "스텔스", "unlit"]);
+    return;
+  }
+  if (field === "highway_or_expressway") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.highway_or_expressway = parsed;
+      return;
+    }
+    patch.highway_or_expressway = includesAny(value, ["고속도로", "자동차전용", "highway", "expressway"]);
+    return;
+  }
   if (field === "signal_state") {
     patch.signal_state = normalizeSignal(value);
     if (includesAny(value, ["상대 신호위반"])) patch.opponent_signal_violation = true;
@@ -216,6 +256,19 @@ function applyAnswer(patch: AnyRecord, field: string, value: string) {
     patch.opponent_signal = normalizeSignal(value);
     if (patch.opponent_signal === "red") patch.opponent_signal_violation = true;
     if (patch.opponent_signal === "green") patch.opponent_signal_violation = false;
+    return;
+  }
+  if (field === "opponent_signal_visible") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.opponent_signal_visible = parsed;
+      return;
+    }
+    patch.opponent_signal_visible = !includesAny(value, ["보이지", "안 보", "not visible"]);
+    return;
+  }
+  if (field === "signal_transition") {
+    patch.signal_transition = normalizeSignalTransition(value);
     return;
   }
   if (field === "pedestrian_signal") {
@@ -276,6 +329,24 @@ function normalizeSignal(value: string) {
   if (includesAny(value, ["적색", "빨간불"])) return "red";
   if (includesAny(value, ["비보호", "점멸"])) return "flashing";
   if (includesAny(value, ["신호등 없음"])) return "none";
+  return value;
+}
+
+function normalizeTurnDirection(value: string) {
+  const lowered = value.trim().toLowerCase();
+  if (["right", "right_turn", "turn_right"].includes(lowered) || includesAny(value, ["우회전"])) return "right";
+  if (["left", "left_turn", "turn_left"].includes(lowered) || includesAny(value, ["좌회전"])) return "left";
+  if (["straight", "forward", "go_straight"].includes(lowered) || includesAny(value, ["직진"])) return "straight";
+  if (["u_turn", "uturn"].includes(lowered) || includesAny(value, ["유턴"])) return "u_turn";
+  return value;
+}
+
+function normalizeSignalTransition(value: string) {
+  const lowered = value.trim().toLowerCase().replace(/[-\s]+/g, "_");
+  if (["green_to_yellow", "yellow_to_red", "red_to_green", "green_to_red"].includes(lowered)) return lowered;
+  if (includesAny(value, ["녹색", "초록"]) && includesAny(value, ["황색"])) return "green_to_yellow";
+  if (includesAny(value, ["황색"]) && includesAny(value, ["적색", "빨간"])) return "yellow_to_red";
+  if (includesAny(value, ["적색", "빨간"]) && includesAny(value, ["녹색", "초록"])) return "red_to_green";
   return value;
 }
 

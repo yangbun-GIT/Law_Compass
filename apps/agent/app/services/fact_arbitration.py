@@ -11,9 +11,12 @@ VIDEO_PRIMARY_FIELDS = {
     "opponent_behavior",
     "lane_change_actor",
     "turn_signal",
+    "intersection",
     "user_signal",
     "opponent_signal",
+    "opponent_signal_visible",
     "opponent_signal_violation",
+    "signal_transition",
     "crosswalk_nearby",
     "pedestrian_visible",
     "pedestrian_signal",
@@ -33,6 +36,10 @@ VIDEO_PRIMARY_FIELDS = {
     "primary_collision_target",
     "collision_point_visible",
     "collision_point_location",
+    "front_vehicle_stopped",
+    "ego_turn_direction",
+    "stopped_vehicle_without_lights",
+    "highway_or_expressway",
 }
 
 USER_PRIMARY_FIELDS = {

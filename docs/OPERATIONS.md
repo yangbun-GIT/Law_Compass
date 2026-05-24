@@ -9,7 +9,7 @@
   - `OPENAI_MODEL` (기본 `gpt-4.1-mini`)
   - `ENABLE_OPENAI_FRAME_ANALYSIS` (영상 프레임 GPT 분석 사용 시 `1`)
   - `OPENAI_VISION_MODEL` (기본 `gpt-4.1-mini`)
-  - `OPENAI_FRAME_ANALYSIS_MAX_FRAMES` (기본 `10`, 코드 상한 `12`)
+  - `OPENAI_FRAME_ANALYSIS_MAX_FRAMES` (코드 기본 `14`, 코드 상한 `18`; `.env`에 값이 있으면 해당 값이 우선)
   - `OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS` (기본 `900`, 코드 상한 `1400`)
   - `OPENAI_FRAME_ANALYSIS_DETAIL` (기본 `low`)
   - `OPENAI_FRAME_ANALYSIS_REASONING_EFFORT` (기본 `minimal`, GPT-5 계열 전용)

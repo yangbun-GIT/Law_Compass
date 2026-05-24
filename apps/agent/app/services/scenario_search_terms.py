@@ -88,7 +88,10 @@ def scenario_search_terms(
     if facts.get("intersection"):
         _extend_unique(terms, ("교차로", "우선권", "신호"))
     if facts.get("crosswalk_nearby"):
-        _extend_unique(terms, ("횡단보도", "보행자 보호의무"))
+        if facts.get("pedestrian_visible") is True or str(party or "") == "car_vs_person":
+            _extend_unique(terms, ("횡단보도", "보행자 보호의무"))
+        else:
+            _extend_unique(terms, ("횡단보도 앞 정차", "교차로 횡단보도 차대차", "crosswalk vehicle collision"))
     if facts.get("school_zone"):
         _extend_unique(terms, ("어린이보호구역", "제한속도"))
     _extend_unique(terms, _fact_value_terms(facts))
@@ -183,6 +186,20 @@ def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
         terms.extend(["적색신호", "신호대기", "교차로 신호"])
     if user_signal in {"green", "blue", "green_light"} and facts.get("opponent_signal_violation"):
         terms.extend(["정상 신호 직진", "신호 준수 차량"])
+    if facts.get("signal_transition") or facts.get("opponent_signal_visible") is False:
+        terms.extend([
+            "signal transition",
+            "yellow signal entry",
+            "opponent signal not visible",
+            "CCTV signal cycle verification",
+        ])
+    if facts.get("front_vehicle_stopped") or facts.get("ego_turn_direction") == "right":
+        terms.extend([
+            "right turn rear-end",
+            "front vehicle stopped before crosswalk",
+            "crosswalk stop reason",
+            "safe distance front vehicle stop",
+        ])
     if "bumper" in damage_level or "rear" in damage_level or "후미" in damage_level:
         terms.extend(["후방 범퍼 파손", "후미 추돌"])
     if facts.get("victim_is_child"):

@@ -234,6 +234,8 @@ def build_input_requirements(
     seen: set[str] = set()
 
     for field in missing_fields or []:
+        if _skip_base_missing_field(str(field), fact_map, scenario_type, accident_party_type):
+            continue
         spec = _base_spec_for_field(str(field), scenario_type)
         if _is_satisfied(str(field), fact_map, text, scenario_type):
             continue
@@ -321,6 +323,30 @@ def _base_spec_for_field(field: str, scenario_type: str) -> dict[str, Any]:
     if field == "damage_level":
         spec["blocks_decision"] = False
     return spec
+
+
+def _skip_base_missing_field(
+    field: str,
+    facts: dict[str, Any],
+    scenario_type: str,
+    accident_party_type: str | None,
+) -> bool:
+    if field == "injury" and accident_party_type == "car_vs_car":
+        return True
+    if field == "signal_state" and scenario_type not in SIGNAL_RELEVANT_SCENARIOS:
+        return True
+    if field == "opponent_behavior" and scenario_type == "parking_or_stopped_vehicle_accident":
+        return any(
+            not _is_empty(facts.get(candidate))
+            for candidate in (
+                "collision_partner_type",
+                "primary_collision_target",
+                "centerline_crossed",
+                "stopped_vehicle_without_lights",
+                "opposing_vehicle_present",
+            )
+        )
+    return False
 
 
 def _unknown_spec(field: str) -> dict[str, Any]:

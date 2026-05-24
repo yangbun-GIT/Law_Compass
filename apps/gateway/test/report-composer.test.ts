@@ -571,6 +571,30 @@ describe("report composer", () => {
     expect((enriched as any).video_fact_explanation_card.quality_summary.status_label).toBe("확인 필요");
   });
 
+  it("prioritizes accident target and signal visibility before injury followups", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({
+      headline: "report",
+      missing_info: {
+        questions: [
+          { field: "injury", label: "injury", question: "injury?", options: ["yes", "no"] },
+        ],
+      },
+    }), {
+      video_input_contract: {
+        uncertain_observations: [
+          { field: "opponent_signal_visible", value: false, confidence: 0.72, frame_refs: ["frame_3.jpg"] },
+          { field: "front_vehicle_stopped", value: true, confidence: 0.77, frame_refs: ["frame_4.jpg"] },
+          { field: "pedestrian_visible", value: false, confidence: 0.75, frame_refs: ["frame_4.jpg"] },
+        ],
+      },
+    });
+
+    const fields = (enriched as any).missing_info.questions.map((item: any) => item.field);
+    expect(fields.indexOf("front_vehicle_stopped")).toBeLessThan(fields.indexOf("opponent_signal_visible"));
+    expect(fields.indexOf("opponent_signal_visible")).toBeLessThan(fields.indexOf("pedestrian_visible"));
+    expect(fields.indexOf("pedestrian_visible")).toBeLessThan(fields.indexOf("injury"));
+  });
+
   it("shows video-confirmed fields separately from newly applied fields", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "confirmed" }), {
       video_input_contract: {
