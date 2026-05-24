@@ -54,10 +54,13 @@
           :placeholder="usesText ? '예: 정차 중 뒤 차량이 후미를 추돌했습니다.' : '영상만 테스트에서는 설명 입력이 필수가 아닙니다.'"
         />
       </label>
+      <p class="kv" v-if="!usesText">
+        영상만 모드에서는 사고 설명, 사고 유형, 체크박스 기본값을 Agent 입력으로 보내지 않습니다.
+      </p>
 
-      <div class="form-grid">
+      <div class="form-grid" :class="{ mutedBlock: !usesText }">
         <label>사고 유형
-          <select v-model="facts.accident_type">
+          <select v-model="facts.accident_type" :disabled="!usesText">
             <option value="">영상/설명 기준으로 판단</option>
             <option value="rear_end_collision">후방추돌</option>
             <option value="intersection_collision">교차로 충돌</option>
@@ -69,24 +72,24 @@
           </select>
         </label>
         <label>상대 차량 행동
-          <input v-model="facts.opponent_behavior" placeholder="예: 뒤에서 추돌, 좌측에서 직진" />
+          <input v-model="facts.opponent_behavior" :disabled="!usesText" placeholder="예: 뒤에서 추돌, 좌측에서 직진" />
         </label>
         <label>신호 상태
-          <input v-model="facts.signal_state" placeholder="예: 황색 전환, 적색 확인 필요" />
+          <input v-model="facts.signal_state" :disabled="!usesText" placeholder="예: 황색 전환, 적색 확인 필요" />
         </label>
         <label>손상/피해 정도
-          <input v-model="facts.damage_level" placeholder="예: 후방 범퍼 파손, 인명 피해 없음" />
+          <input v-model="facts.damage_level" :disabled="!usesText" placeholder="예: 후방 범퍼 파손, 인명 피해 없음" />
         </label>
       </div>
 
-      <div class="chips">
-        <label class="chip"><input v-model="facts.stopped" type="checkbox" /> 정차 중</label>
-        <label class="chip"><input v-model="facts.sudden_brake" type="checkbox" /> 급정거</label>
-        <label class="chip"><input v-model="facts.lane_change" type="checkbox" /> 차선변경</label>
-        <label class="chip"><input v-model="facts.intersection" type="checkbox" /> 교차로</label>
-        <label class="chip"><input v-model="facts.crosswalk_nearby" type="checkbox" /> 횡단보도 인접</label>
-        <label class="chip"><input v-model="facts.opponent_signal_violation" type="checkbox" /> 상대 신호위반 의심</label>
-        <label class="chip"><input v-model="facts.injury" type="checkbox" /> 다친 사람 있음</label>
+      <div class="chips" :class="{ mutedBlock: !usesText }">
+        <label class="chip"><input v-model="facts.stopped" :disabled="!usesText" type="checkbox" /> 정차 중</label>
+        <label class="chip"><input v-model="facts.sudden_brake" :disabled="!usesText" type="checkbox" /> 급정거</label>
+        <label class="chip"><input v-model="facts.lane_change" :disabled="!usesText" type="checkbox" /> 차선변경</label>
+        <label class="chip"><input v-model="facts.intersection" :disabled="!usesText" type="checkbox" /> 교차로</label>
+        <label class="chip"><input v-model="facts.crosswalk_nearby" :disabled="!usesText" type="checkbox" /> 횡단보도 인접</label>
+        <label class="chip"><input v-model="facts.opponent_signal_violation" :disabled="!usesText" type="checkbox" /> 상대 신호위반 의심</label>
+        <label class="chip"><input v-model="facts.injury" :disabled="!usesText" type="checkbox" /> 다친 사람 있음</label>
       </div>
 
       <label :class="{ mutedBlock: !usesVideo }">사고 영상
@@ -161,7 +164,7 @@ const modeOptions: { value: TestMode; label: string; description: string }[] = [
 
 const RUNNING_JOB_STATUSES = new Set(["queued", "running", "retrying", "processing", "analyzing"]);
 
-const mode = ref<TestMode>("both");
+const mode = ref<TestMode>("video");
 const title = ref("관리자 Agent 테스트");
 const description = ref("정차 중 뒤 차량이 후미를 추돌했습니다. 블랙박스 영상과 사용자 입력이 일치하는지 확인합니다.");
 const analysisMode = ref("quick_summary");
@@ -267,6 +270,14 @@ function resetOutputs() {
 }
 
 function buildAnalysisPayload() {
+  if (!usesText.value) {
+    return {
+      description_text: "",
+      structured_facts: {},
+      selected_keywords: [],
+      analysis_mode: analysisMode.value
+    };
+  }
   return {
     description_text: usesText.value ? description.value.trim() : "",
     structured_facts: compactFacts(facts),
