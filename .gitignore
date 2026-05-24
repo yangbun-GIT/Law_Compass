@@ -34,6 +34,22 @@ htmlcov/
 /logs/
 *.log
 
+# Local AI Hub / vision datasets. Keep folder guides only.
+/datasets/aihub/*
+!/datasets/aihub/README.md
+!/datasets/aihub/samples/
+!/datasets/aihub/raw/
+!/datasets/aihub/processed/
+!/datasets/aihub/models/
+/datasets/aihub/samples/*
+/datasets/aihub/raw/*
+/datasets/aihub/processed/*
+/datasets/aihub/models/*
+!/datasets/aihub/samples/README.md
+!/datasets/aihub/raw/README.md
+!/datasets/aihub/processed/README.md
+!/datasets/aihub/models/README.md
+
 # Local IDE and OS files
 .idea/
 .vscode/
