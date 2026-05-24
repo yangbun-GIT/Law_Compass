@@ -247,6 +247,13 @@ def _basis_focus_additions(context_text: str) -> list[dict[str, Any]]:
                 "note": "황색·적색 신호 전환 시점, 상대 차량 신호, CCTV·신호주기 확인 여부에 따라 조건별 과실 범위가 달라질 수 있습니다.",
             }
         )
+    if "front_vehicle_stop_focus" in context:
+        additions.append(
+            {
+                "topic_terms": ("앞차", "front vehicle", "정지", "stop reason", "횡단보도", "crosswalk", "후방", "rear"),
+                "note": "앞차 정지 사유, 횡단보도·보행자 신호 맥락, 급정거 여부, 뒤차의 안전거리와 정지 예견 가능성을 함께 봅니다.",
+            }
+        )
     if "unlit_visibility_focus" in context:
         additions.append(
             {
@@ -328,7 +335,17 @@ def _guidance_context_text(
         else:
             parts.extend(["crosswalk", "pedestrian", "pedestrian signal", "front vehicle", "stop reason"])
     if facts.get("front_vehicle_stopped") is True or "front_vehicle_stopped" in fact_text:
-        parts.extend(["front vehicle", "stop reason", "sudden braking", "safe distance"])
+        parts.extend(["front_vehicle_stop_focus", "front vehicle", "stop reason", "sudden braking", "safe distance", "앞차", "정지 사유"])
+    if (
+        scenario_type == "rear_end_collision"
+        and (
+            facts.get("crosswalk_nearby") is True
+            or facts.get("stopped") is True
+            or "crosswalk" in fact_text
+            or "횡단보도" in fact_text
+        )
+    ):
+        parts.extend(["front_vehicle_stop_focus", "front vehicle", "stop reason", "crosswalk", "pedestrian signal", "sudden braking"])
     if (
         facts.get("centerline_crossed") is True
         or "centerline" in fact_text

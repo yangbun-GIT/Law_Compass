@@ -70,6 +70,27 @@ def test_bicycle_trigger_expands_terms():
 
     assert "non-contact bicycle trigger" in terms
     assert "reaction time gap" in terms
+    assert "후방 버스 추돌" in terms
+    assert "트럭 정지 사유" in terms
+
+
+def test_rear_end_crosswalk_stop_expands_front_vehicle_focus_terms():
+    terms = scenario_search_terms(
+        scenario_type="rear_end_collision",
+        scenario_tags=["rear_end", "crosswalk"],
+        facts={
+            "stopped": True,
+            "crosswalk_nearby": True,
+            "front_vehicle_stopped": True,
+            "ego_turn_direction": "right",
+        },
+        selected_keywords=[],
+        max_terms=40,
+    )
+
+    assert "앞차 정지 사유" in terms
+    assert "횡단보도 앞 정차 후방추돌" in terms
+    assert "보행자 신호 정지 사유" in terms
 
 
 def test_lane_change_actor_expands_directional_terms():

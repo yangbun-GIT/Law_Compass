@@ -153,6 +153,9 @@ def test_basis_summary_keeps_crosswalk_front_stop_rear_end_basis():
 
     basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
     assert "Crosswalk front vehicle stop reason and rear-end fault guide" in basis_titles
+    basis_text = str(sections["legal_prediction"]["basis"])
+    assert "앞차 정지 사유" in basis_text
+    assert "정지 예견 가능성" in basis_text
 
 
 def test_false_pedestrian_video_fact_does_not_boost_pedestrian_basis():
@@ -375,9 +378,19 @@ def test_static_fallback_retrieves_legal_references_for_complex_reference_cases(
         "unlit stopped vehicle night visibility speed limit avoidability analysis",
         limit=5,
     )
+    front_stop_chunks = retrieve_static_legal_chunks(
+        "front vehicle stopped crosswalk stop reason sudden braking rear-end pedestrian signal",
+        limit=5,
+    )
+    bicycle_trigger_chunks = retrieve_static_legal_chunks(
+        "non-contact bicycle trigger truck stopped rear-end bus reaction time gap sudden braking",
+        limit=5,
+    )
 
     assert any(item.get("source_type") == "legal_reference" for item in centerline_chunks)
     assert any(item.get("source_type") == "legal_reference" for item in unlit_chunks)
+    assert any(item.get("chunk_id") == "static:legal:front-vehicle-stop-rear-end-duty" for item in front_stop_chunks)
+    assert any(item.get("chunk_id") == "static:legal:bicycle-trigger-rear-end-duty" for item in bicycle_trigger_chunks)
 
 
 def test_narrows_fault_range_when_evidence_is_supported():

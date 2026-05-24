@@ -68,3 +68,25 @@ def test_pedestrian_and_school_zone_static_support_have_direct_fault_guides():
     assert "family:knia" not in school_coverage["missing_requirements"]
     assert pedestrian_coverage["scenario_relevant_count"] >= 2
     assert school_coverage["scenario_relevant_count"] >= 2
+
+
+def test_static_support_returns_front_vehicle_stop_reference_for_crosswalk_rear_end():
+    items = retrieve_static_legal_chunks(
+        "우회전 중 횡단보도 앞 앞차 정지 사유 보행자 신호 후방추돌 급정거 안전거리",
+        limit=5,
+    )
+
+    ids = {item["chunk_id"] for item in items}
+    assert "static:legal:front-vehicle-stop-rear-end-duty" in ids
+    assert "static:fault-guide:crosswalk-front-stop-rear-end" in ids
+
+
+def test_static_support_returns_bicycle_trigger_legal_and_knia_reference():
+    items = retrieve_static_legal_chunks(
+        "자전거 비접촉 유발 트럭 정지 후방 버스 추돌 시간적 여유 급제동 안전거리",
+        limit=5,
+    )
+
+    ids = {item["chunk_id"] for item in items}
+    assert "static:legal:bicycle-trigger-rear-end-duty" in ids
+    assert "static:knia:bicycle-non-contact-trigger" in ids

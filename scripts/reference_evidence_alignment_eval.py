@@ -56,7 +56,7 @@ CONTENT_RULES: dict[str, list[list[str]]] = {
         ["stopped", "정차"],
     ],
     "speed_avoidability": [
-        ["speed", "speeding", "speed limit", "속도", "제한속도", "과속", "avoidability", "avoid"],
+        ["speed", "speeding", "speed limit", "속도", "제한속도", "과속", "avoidability", "avoid", "회피"],
     ],
     "criminal_civil_split": [
         ["criminal", "형사"],

@@ -2339,3 +2339,29 @@ Agent가 산출한 법률 분석, 과실비율, 형사 리스크, 보험 처리 
 잔여 리스크:
 
 - `reference_evidence_alignment_p1_basis_fit_final_20260525.json` 기준 일부 세부 focus는 아직 실제 원문 DB/KNIA 원문 coverage가 아니라 static fallback과 표시 보강에 기대고 있다. 다음 단계에서는 원문 기반 근거 DB coverage와 검색 결과의 실제 원문 적합도를 높이는 작업이 필요하다.
+
+## 2026-05-25 P2: 원문/근거 coverage 보강
+
+P1 이후 남아 있던 `needs_evidence_content_fit` 상태를 해소하기 위해 Agent 근거 후보군과 reference evidence alignment 평가 기준을 보강했다. 목적은 결과 문구만 다듬는 것이 아니라, 사고 focus와 실제 근거 카드의 제목/사유가 같은 쟁점을 가리키도록 검색 coverage를 넓히는 것이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Static legal/KNIA support | `static_legal_fallback.py`에 `앞차 정차 사유와 후방추돌 법률 검토 기준`, `자전거 비접촉 유발과 후방추돌 법률 검토 기준`을 추가했다. 기존 횡단보도 앞 정차 후 후방추돌, 자전거 비접촉 유발 KNIA fallback에는 한국어 검색어와 트럭·후방 버스·급제동·시간적 여유 키워드를 보강했다. |
+| 검색어 생성 | `scenario_search_terms.py`가 앞차 정지 사유, 횡단보도 앞 정차 후방추돌, 자전거 비접촉 유발, 후방 버스 추돌, 트럭 정지 사유, 급제동 대응 시간 같은 복합 사고 쟁점 검색어를 생성한다. |
+| KNIA match reason | `knia_matcher.py`가 `front_vehicle_stop_reason`, `non_contact_trigger`, `time_gap` 태그를 추출하고, 후방추돌 근거 사유를 일반 안전거리 문장으로만 만들지 않도록 좁혔다. |
+| 전문가 근거 카드 | `expert_guidance_sections.py`가 후방추돌 중 앞차 정지 사유·횡단보도·보행자 신호·급정거·정지 예견 가능성을 별도 focus로 보강한다. |
+| 평가 기준 | `reference_evidence_alignment_eval.py`의 `speed_avoidability` 키워드 그룹에 한국어 `회피`를 추가해 실제 사용자 화면의 한국어 근거 문장을 평가할 수 있게 했다. |
+
+검증:
+
+- `py -3.13 -m pytest tests\test_scenario_search_terms.py tests\test_static_scenario_support.py tests\test_expert_guidance_sections.py` 통과.
+- `py -3.13 -m py_compile scripts\reference_evidence_alignment_eval.py` 통과.
+- `powershell -ExecutionPolicy Bypass -File scripts\verify_agent_regression.ps1 -SkipDockerBuild` 통과.
+- 실제 사고 영상 1~5 batch: `logs/video_accuracy/p2_source_evidence_fit_20260525/aggregate.json`, 5개 샘플 pipeline 통과.
+- Reference guidance eval: `logs/video_accuracy/reference_guidance_eval_p2_source_evidence_fit_20260525.json`, 5개 샘플 모두 `ready_for_legal_knia_insurance_evidence_eval`.
+- Reference evidence alignment: `logs/video_accuracy/reference_evidence_alignment_p2_source_evidence_fit_20260525.json`, 5개 샘플 모두 `ready_for_stage8_guidance_calibration`, 22개 focus 모두 `evidence_content_ready`.
+- Reference guidance calibration: `logs/video_accuracy/reference_guidance_calibration_p2_source_evidence_fit_20260525.json`, 5개 샘플 모두 `calibrated_for_user_flow`.
+
+잔여 리스크:
+
+- P2는 실제 법령/판례/KNIA 원문 전체 수집을 완료한 단계가 아니라, 현재 DB와 static fallback coverage가 reference focus를 놓치지 않도록 보강한 단계다. 다음 단계에서는 실제 법령·판례·KNIA 원문 데이터셋 확장, 출처 URL 품질, 사용자 화면에서 fallback과 원문 근거의 구분 표시를 강화해야 한다.

@@ -55,7 +55,8 @@ TAG_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "visibility": ("unlit stopped vehicle", "night visibility", "avoidability analysis"),
     "speed": ("speeding", "speed limit", "avoidability analysis"),
     "fatality": ("fatal traffic accident", "criminal civil liability split", "criminal liability"),
-    "non_contact_trigger": ("non-contact bicycle trigger", "bicycle induced accident", "reaction time gap"),
+    "non_contact_trigger": ("non-contact bicycle trigger", "bicycle induced accident", "reaction time gap", "자전거 비접촉 유발", "후방 버스 추돌"),
+    "front_vehicle_stop_reason": ("front vehicle stopped", "stop reason", "앞차 정지 사유", "횡단보도 앞 정차"),
 }
 
 PARTY_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
@@ -87,7 +88,7 @@ def scenario_search_terms(
     if facts.get("injury"):
         _extend_unique(terms, ("부상", "진단서", "대인접수", "인명피해"))
     if facts.get("stopped"):
-        _extend_unique(terms, ("정차 중", "정차 차량", "후미추돌"))
+        _extend_unique(terms, ("정차 중", "정차 차량", "후미추돌", "앞차 정지", "정지 사유"))
     if facts.get("lane_change"):
         _extend_unique(terms, ("차선변경", "진로변경", "방향지시등"))
     if facts.get("intersection"):
@@ -206,6 +207,10 @@ def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
             "front vehicle stopped before crosswalk",
             "crosswalk stop reason",
             "safe distance front vehicle stop",
+            "앞차 정지 사유",
+            "횡단보도 앞 정차 후방추돌",
+            "보행자 신호 정지 사유",
+            "급정거 여부 안전거리",
         ])
     if "bumper" in damage_level or "rear" in damage_level or "후미" in damage_level:
         terms.extend(["후방 범퍼 파손", "후미 추돌"])
@@ -260,8 +265,12 @@ def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
             "non-contact bicycle trigger",
             "bicycle induced accident",
             "rear-end after bicycle avoidance",
+            "rear-end bus after bicycle trigger",
+            "truck stopped after bicycle trigger",
             "자전거 비접촉 유발",
             "자전거 회피 정지",
+            "후방 버스 추돌",
+            "트럭 정지 사유",
         ])
     if facts.get("time_gap_sec"):
         terms.extend([
@@ -270,6 +279,7 @@ def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
             "safe distance reaction time",
             "시간적 여유",
             "급제동 대응 시간",
+            "급정거 대응 시간",
         ])
     return tuple(terms)
 

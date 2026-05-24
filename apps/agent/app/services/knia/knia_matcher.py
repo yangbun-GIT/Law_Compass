@@ -95,6 +95,7 @@ def _tags_from_text(text: str, party: str | None = None) -> list[str]:
     tags: list[str] = []
     checks = [
         ("rear_end", ["후미", "뒤차", "추돌", "정차", "안전거리"]),
+        ("front_vehicle_stop_reason", ["앞차", "선행 차량", "정지 사유", "정차 사유", "횡단보도 앞", "front vehicle", "stop reason"]),
         ("lane_change", ["차선", "진로", "끼어", "방향지시등"]),
         ("centerline", ["중앙선", "황색 실선", "중앙선을", "centerline"]),
         ("oncoming_vehicle", ["마주오", "대향", "반대편", "oncoming"]),
@@ -103,6 +104,8 @@ def _tags_from_text(text: str, party: str | None = None) -> list[str]:
         ("signal_violation", ["신호", "빨간불", "적색"]),
         ("pedestrian", ["보행자", "횡단보도", "아이", "사람"]),
         ("bicycle", ["자전거"]),
+        ("non_contact_trigger", ["비접촉", "유발", "non contact", "non-contact", "trigger"]),
+        ("time_gap", ["시간적 여유", "4초", "반응 시간", "reaction time", "time gap", "급제동", "급정거"]),
         ("object", ["기물", "시설물", "가드레일", "전봇대", "중앙분리대", "기둥", "벽"]),
         ("single_vehicle", ["혼자", "단독", "미끄러", "전복", "빗길", "눈길"]),
         ("parking", ["주차", "정차"]),
@@ -284,6 +287,10 @@ def _scenario_chart_score_adjustment(row: dict[str, Any], tags: list[str], joine
 def _reason(row: dict[str, Any], tags: list[str], party: str | None = None) -> str:
     if "centerline" in tags or "oncoming_vehicle" in tags or "road_obstruction" in tags:
         return "중앙선 침범 사유, 도로 장애물, 대향 차량과의 충돌 구조를 함께 볼 수 있는 기준입니다."
+    if "rear_end" in tags and "non_contact_trigger" in tags:
+        return "자전거 비접촉 유발, 트럭·앞차 정지 사유, 후방 버스 추돌, 급제동 또는 반응 시간, 안전거리 책임을 함께 볼 수 있는 기준입니다."
+    if "rear_end" in tags and "front_vehicle_stop_reason" in tags:
+        return "앞차 정지 사유, 횡단보도·교차로 앞 정지, 급정거 여부, 뒤차 안전거리와 직접 관련된 기준입니다."
     if "rear_end" in tags:
         return "정차 또는 감속 중 뒤차가 추돌한 상황과 유사합니다."
     if "lane_change" in tags:
