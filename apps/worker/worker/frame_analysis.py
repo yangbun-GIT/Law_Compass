@@ -21,6 +21,8 @@ OPENAI_VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL",
 OPENAI_TIMEOUT_SEC = float(os.getenv("OPENAI_TIMEOUT_SEC", "45"))
 OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(18, _int_env("OPENAI_FRAME_ANALYSIS_MAX_FRAMES", 18)))
 OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS = max(600, min(3000, _int_env("OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS", 2200)))
+OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY = os.getenv("OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY", "1") == "1"
+OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = max(1, min(18, _int_env("OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES", 6)))
 OPENAI_FRAME_ANALYSIS_DETAIL = os.getenv("OPENAI_FRAME_ANALYSIS_DETAIL", "high").strip().lower()
 if OPENAI_FRAME_ANALYSIS_DETAIL not in {"low", "high", "auto"}:
     OPENAI_FRAME_ANALYSIS_DETAIL = "high"
@@ -44,73 +46,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
         return _fixture_frame_analysis(selected_frames, context, FRAME_ANALYSIS_FIXTURE_MODE, selection_metadata)
     if not OPENAI_API_KEY:
         return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "OPENAI_API_KEY is empty", **selection_metadata}
-    content: list[dict[str, Any]] = [{
-        "type": "input_text",
-        "text": (
-            "You are extracting observable traffic accident facts from dashcam frame sequence images. "
-            "Return JSON only. Do not decide legal liability, insurance responsibility, or fault ratio. "
-            "Use unknown and low confidence when a fact is not clearly visible. "
-            "Primary task: identify the accident target/object, collision point, and collision partner first. "
-            "Before writing observations, inspect every provided frame_ref in chronological order and identify the most likely actual impact/contact moment or immediate pre/post-impact window. "
-            "Do not treat the first risky scene, visible pedestrian, crosswalk, parked vehicle, signal, near miss, or lane conflict as the accident merely because it appears first. "
-            "If the selected sequence shows multiple possible event candidates, compare all candidates and base collision_partner_type, primary_collision_target, collision_point_visible, impact_direction, and opponent_behavior on the candidate with visible contact, abrupt impact evidence, or immediate aftermath. "
-            "If no contact, impact evidence, or immediate aftermath is visible in the selected frames, say so in uncertainties and do not confirm collision-target facts. "
-            "Road environment facts such as crosswalks, centerline, parked vehicles, obstacles, and signals are secondary context and must not replace collision-target identification. "
-            "The Context JSON may contain user-supplied accident type or structured facts. "
-            "Use it only to prioritize which visual facts to inspect; never use it as visual evidence and never copy it into observations unless the frames support it. "
-            "Allowed observation fields: stopped, sudden_brake, impact_direction, collision_direction, "
-            "opponent_behavior, lane_change_actor, turn_signal, user_signal, opponent_signal, "
-            "opponent_signal_visible, opponent_signal_violation, signal_transition, intersection, "
-            "crosswalk_nearby, pedestrian_visible, pedestrian_signal, school_zone, damage_level, "
-            "centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, "
-            "opposing_vehicle_present, opposing_vehicle_did_not_stop, secondary_collision, "
-            "collision_partner_type, primary_collision_target, collision_point_visible, collision_point_location, "
-            "front_vehicle_stopped, ego_turn_direction, stopped_vehicle_without_lights, highway_or_expressway, "
-            "recaptured_screen, dashcam_screen_visible, screen_glare_or_reflection. "
-            "Use collision_partner_type as one of vehicle, pedestrian, bicycle, motorcycle, object, unknown. "
-            "Use ego_turn_direction as one of right, left, straight, u_turn, unknown. "
-            "Use primary_collision_target to describe the object actually struck or striking the ego vehicle; do not use road environment as the target unless the collision is with that object. "
-            "For stopped, judge whether the ego/user vehicle was stationary at or immediately before the collision. "
-            "Do not mark stopped=false merely because the dashcam image changes, the camera shakes, or surrounding vehicles move. "
-            "Return stopped=false only when multiple frame_refs clearly show ego/user vehicle forward movement at the relevant moment; otherwise omit stopped or use unknown. "
-            "crosswalk_nearby only means a crosswalk is visible or close to the conflict area; never infer a pedestrian accident from crosswalk_nearby alone. "
-            "Use pedestrian_visible=true only when a pedestrian is actually visible in or near the collision path. "
-            "If a crosswalk or pedestrian signal is visible but the collision partner is a vehicle, keep collision_partner_type=vehicle and treat crosswalk_nearby/pedestrian_signal as road context only. "
-            "Use pedestrian_visible=false only when the selected frames clearly show no pedestrian in the collision path; this negative fact is allowed to prevent crosswalk-only car-vs-person mistakes. "
-            "For right-turn cases where a front/lead vehicle stops near a crosswalk and the ego vehicle hits that vehicle, set collision_partner_type=vehicle, front_vehicle_stopped=true, ego_turn_direction=right, and crosswalk_nearby=true when visible. "
-            "Use ego_turn_direction only for an intentional left/right/U-turn at an intersection, driveway, branch, or marked turn path; do not mark right or left only because the road curves or the camera yaws. "
-            "Use front_vehicle_stopped only for a lead vehicle in the same traffic stream that was stopped before impact, not for an oncoming or side vehicle after impact. "
-            "For signalized intersection crashes, distinguish visible ego signal from opponent signal. If the opponent signal head is not visible, set opponent_signal_visible=false instead of guessing opponent_signal or opponent_signal_violation. "
-            "If a signal changes across frames, use signal_transition to describe the observed sequence, for example green_to_yellow, yellow_to_red, red_to_green, or unknown. "
-            "For high-speed roads with a stopped dark/unlit vehicle, set stopped_vehicle_without_lights=true and highway_or_expressway=true only when visually supported; do not estimate speed from frames. "
-            "For narrow two-way roads, yellow centerline encroachment, parked vehicles, roadside objects, lane-blocking obstacles, oncoming vehicles, failure of an oncoming vehicle to stop, and secondary impacts, return the corresponding road-context fields when visible. "
-            "If centerline crossing appears caused by a parked vehicle or obstacle, set centerline_cross_reason to parked_vehicle_obstruction or road_obstruction with frame_refs. "
-            "When a vehicle crosses or straddles the centerline to pass an obstacle or parked vehicle, prefer centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, and opposing_vehicle_present over turn-direction labels. "
-            "Do not infer injury status from frames. Do not infer absence facts such as no damage, no school zone, "
-            "or no signal violation just because they are not visible. Omit fields that are not observable. "
-            "Each observation must include field, value, confidence between 0 and 1, frame_refs, and reason. "
-            "You may also include accident_event_summary with impact_visible, event_frame_refs, pre_impact_frame_refs, post_impact_frame_refs, and rationale; this metadata is for quality review and must not include legal conclusions. "
-            f"Context JSON: {json.dumps(_compact_context(context), ensure_ascii=False)}"
-        ),
-    }]
-    for frame in selected_frames:
-        content.append({
-            "type": "input_text",
-            "text": f"frame_ref={Path(frame['path']).name}, time_sec={frame.get('time_sec')}, role={frame.get('role')}",
-        })
-        content.append({
-            "type": "input_image",
-            "image_url": _image_data_url(Path(frame["path"])),
-            "detail": OPENAI_FRAME_ANALYSIS_DETAIL,
-        })
-    payload = {
-        "model": OPENAI_VISION_MODEL,
-        "max_output_tokens": OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS,
-        "store": False,
-        "text": _text_options_for_model(OPENAI_VISION_MODEL),
-        "input": [{"role": "user", "content": content}],
-    }
-    payload.update(_generation_controls_for_model(OPENAI_VISION_MODEL))
+    payload = _openai_frame_analysis_payload(selected_frames, context)
     try:
         data = _post_json(
             "https://api.openai.com/v1/responses",
@@ -120,6 +56,38 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
         )
         parsed = _safe_json_loads(_openai_output_text(data)) or {}
         observations = _normalize_openai_observations(parsed.get("observations") or parsed.get("detected_events") or [], selected_frames)
+        event_summary = _normalize_accident_event_summary(parsed.get("accident_event_summary"), selected_frames)
+        event_summary = event_summary or _derive_accident_event_summary_from_observations(observations, selected_frames)
+        attempts = [_analysis_attempt_summary("primary", data, observations, event_summary)]
+        retry_error = ""
+        retry_used = False
+        if _should_retry_zero_observation(observations, selected_frames):
+            retry_used = True
+            try:
+                retry_payload = _openai_frame_analysis_payload(selected_frames, context, fallback=True, prior_event_summary=event_summary)
+                retry_data = _post_json(
+                    "https://api.openai.com/v1/responses",
+                    retry_payload,
+                    headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+                    timeout=OPENAI_TIMEOUT_SEC,
+                )
+                retry_parsed = _safe_json_loads(_openai_output_text(retry_data)) or {}
+                retry_observations = _normalize_openai_observations(
+                    retry_parsed.get("observations") or retry_parsed.get("detected_events") or [],
+                    selected_frames,
+                )
+                retry_event_summary = _normalize_accident_event_summary(retry_parsed.get("accident_event_summary"), selected_frames)
+                retry_event_summary = retry_event_summary or _derive_accident_event_summary_from_observations(retry_observations, selected_frames)
+                attempts.append(_analysis_attempt_summary("zero_observation_retry", retry_data, retry_observations, retry_event_summary))
+                if retry_observations:
+                    data = retry_data
+                    parsed = retry_parsed
+                    observations = retry_observations
+                    event_summary = retry_event_summary or event_summary
+                elif retry_event_summary and not event_summary:
+                    event_summary = retry_event_summary
+            except Exception as exc:
+                retry_error = str(exc)
         result = {
             "version": FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": True,
@@ -130,10 +98,13 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "response_id": data.get("id"),
             "response_status": data.get("status"),
             "incomplete_details": data.get("incomplete_details"),
+            "zero_observation_retry_used": retry_used,
+            "zero_observation_retry_error": retry_error,
+            "analysis_attempts": attempts,
             **selection_metadata,
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "summary": parsed.get("summary") or parsed.get("scene_summary"),
-            "accident_event_summary": _normalize_accident_event_summary(parsed.get("accident_event_summary"), selected_frames),
+            "accident_event_summary": event_summary,
             "observations": observations,
             "observation_quality_summary": _observation_quality_summary(observations),
             "uncertainties": parsed.get("uncertainties") or _empty_output_uncertainty(data, observations),
@@ -280,6 +251,115 @@ def _generation_controls_for_model(model: str) -> dict[str, Any]:
     if _is_gpt5_family(model):
         return {"reasoning": {"effort": _normalized_reasoning_effort(model)}}
     return {"temperature": 0}
+
+
+def _openai_frame_analysis_payload(
+    selected_frames: list[dict[str, Any]],
+    context: dict[str, Any],
+    fallback: bool = False,
+    prior_event_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    content: list[dict[str, Any]] = [{
+        "type": "input_text",
+        "text": _openai_frame_analysis_prompt(context, fallback=fallback, prior_event_summary=prior_event_summary or {}),
+    }]
+    for frame in selected_frames:
+        content.append({
+            "type": "input_text",
+            "text": f"frame_ref={Path(frame['path']).name}, time_sec={frame.get('time_sec')}, role={frame.get('role')}",
+        })
+        content.append({
+            "type": "input_image",
+            "image_url": _image_data_url(Path(frame["path"])),
+            "detail": OPENAI_FRAME_ANALYSIS_DETAIL,
+        })
+    payload = {
+        "model": OPENAI_VISION_MODEL,
+        "max_output_tokens": OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS,
+        "store": False,
+        "text": _text_options_for_model(OPENAI_VISION_MODEL),
+        "input": [{"role": "user", "content": content}],
+    }
+    payload.update(_generation_controls_for_model(OPENAI_VISION_MODEL))
+    return payload
+
+
+def _openai_frame_analysis_prompt(context: dict[str, Any], fallback: bool = False, prior_event_summary: dict[str, Any] | None = None) -> str:
+    retry_intro = ""
+    if fallback:
+        retry_intro = (
+            "This is a bounded retry because the prior pass returned zero usable observations. "
+            "Focus on a small set of high-value facts that are visually supportable across the frame sequence. "
+            "Do not force a fact when it is not visible, but avoid returning zero observations if any accident target, collision partner, signal, centerline, stopped vehicle, road obstruction, crosswalk context, or visible absence of pedestrian-in-path can be supported. "
+            f"Prior accident_event_summary JSON: {json.dumps(prior_event_summary or {}, ensure_ascii=False)} "
+        )
+    return (
+        f"{retry_intro}"
+        "You are extracting observable traffic accident facts from dashcam frame sequence images. "
+        "Return JSON only. Do not decide legal liability, insurance responsibility, or fault ratio. "
+        "Use unknown and low confidence when a fact is not clearly visible. "
+        "Primary task: identify the accident target/object, collision point, and collision partner first. "
+        "Before writing observations, inspect every provided frame_ref in chronological order and identify the most likely actual impact/contact moment or immediate pre/post-impact window. "
+        "Do not treat the first risky scene, visible pedestrian, crosswalk, parked vehicle, signal, near miss, or lane conflict as the accident merely because it appears first. "
+        "If the selected sequence shows multiple possible event candidates, compare all candidates and base collision_partner_type, primary_collision_target, collision_point_visible, impact_direction, and opponent_behavior on the candidate with visible contact, abrupt impact evidence, or immediate aftermath. "
+        "If no contact, impact evidence, or immediate aftermath is visible in the selected frames, say so in uncertainties and do not confirm collision-target facts. "
+        "Road environment facts such as crosswalks, centerline, parked vehicles, obstacles, and signals are secondary context and must not replace collision-target identification. "
+        "The Context JSON may contain user-supplied accident type or structured facts. "
+        "Use it only to prioritize which visual facts to inspect; never use it as visual evidence and never copy it into observations unless the frames support it. "
+        "Allowed observation fields: stopped, sudden_brake, impact_direction, collision_direction, "
+        "opponent_behavior, lane_change_actor, turn_signal, user_signal, opponent_signal, "
+        "opponent_signal_visible, opponent_signal_violation, signal_transition, intersection, "
+        "crosswalk_nearby, pedestrian_visible, pedestrian_signal, school_zone, damage_level, "
+        "centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, "
+        "opposing_vehicle_present, opposing_vehicle_did_not_stop, secondary_collision, "
+        "collision_partner_type, primary_collision_target, collision_point_visible, collision_point_location, "
+        "front_vehicle_stopped, ego_turn_direction, stopped_vehicle_without_lights, highway_or_expressway, "
+        "recaptured_screen, dashcam_screen_visible, screen_glare_or_reflection. "
+        "Use collision_partner_type as one of vehicle, pedestrian, bicycle, motorcycle, object, unknown. "
+        "Use ego_turn_direction as one of right, left, straight, u_turn, unknown. "
+        "Use primary_collision_target to describe the object actually struck or striking the ego vehicle; do not use road environment as the target unless the collision is with that object. "
+        "For stopped, judge whether the ego/user vehicle was stationary at or immediately before the collision. "
+        "Do not mark stopped=false merely because the dashcam image changes, the camera shakes, or surrounding vehicles move. "
+        "Return stopped=false only when multiple frame_refs clearly show ego/user vehicle forward movement at the relevant moment; otherwise omit stopped or use unknown. "
+        "crosswalk_nearby only means a crosswalk is visible or close to the conflict area; never infer a pedestrian accident from crosswalk_nearby alone. "
+        "Use pedestrian_visible=true only when a pedestrian is actually visible in or near the collision path. "
+        "If a crosswalk or pedestrian signal is visible but the collision partner is a vehicle, keep collision_partner_type=vehicle and treat crosswalk_nearby/pedestrian_signal as road context only. "
+        "Use pedestrian_visible=false only when the selected frames clearly show no pedestrian in the collision path; this negative fact is allowed to prevent crosswalk-only car-vs-person mistakes. "
+        "For right-turn cases where a front/lead vehicle stops near a crosswalk and the ego vehicle hits that vehicle, set collision_partner_type=vehicle, front_vehicle_stopped=true, ego_turn_direction=right, and crosswalk_nearby=true when visible. "
+        "Use ego_turn_direction only for an intentional left/right/U-turn at an intersection, driveway, branch, or marked turn path; do not mark right or left only because the road curves or the camera yaws. "
+        "Use front_vehicle_stopped only for a lead vehicle in the same traffic stream that was stopped before impact, not for an oncoming or side vehicle after impact. "
+        "For signalized intersection crashes, distinguish visible ego signal from opponent signal. If the opponent signal head is not visible, set opponent_signal_visible=false instead of guessing opponent_signal or opponent_signal_violation. "
+        "If a signal changes across frames, use signal_transition to describe the observed sequence, for example green_to_yellow, yellow_to_red, red_to_green, or unknown. "
+        "For high-speed roads with a stopped dark/unlit vehicle, set stopped_vehicle_without_lights=true and highway_or_expressway=true only when visually supported; do not estimate speed from frames. "
+        "For narrow two-way roads, yellow centerline encroachment, parked vehicles, roadside objects, lane-blocking obstacles, oncoming vehicles, failure of an oncoming vehicle to stop, and secondary impacts, return the corresponding road-context fields when visible. "
+        "If centerline crossing appears caused by a parked vehicle or obstacle, set centerline_cross_reason to parked_vehicle_obstruction or road_obstruction with frame_refs. "
+        "When a vehicle crosses or straddles the centerline to pass an obstacle or parked vehicle, prefer centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, and opposing_vehicle_present over turn-direction labels. "
+        "Do not infer injury status from frames. Do not infer absence facts such as no damage, no school zone, "
+        "or no signal violation just because they are not visible. Omit fields that are not observable. "
+        "Each observation must include field, value, confidence between 0 and 1, frame_refs, and reason. "
+        "You may also include accident_event_summary with impact_visible, event_frame_refs, pre_impact_frame_refs, post_impact_frame_refs, and rationale; this metadata is for quality review and must not include legal conclusions. "
+        f"Context JSON: {json.dumps(_compact_context(context), ensure_ascii=False)}"
+    )
+
+
+def _should_retry_zero_observation(observations: list[dict[str, Any]], selected_frames: list[dict[str, Any]]) -> bool:
+    return (
+        OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY
+        and not observations
+        and len(selected_frames) >= OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES
+    )
+
+
+def _analysis_attempt_summary(label: str, data: dict[str, Any], observations: list[dict[str, Any]], event_summary: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "label": label,
+        "response_id": data.get("id"),
+        "response_status": data.get("status"),
+        "incomplete_details": data.get("incomplete_details"),
+        "observation_count": len(observations),
+        "event_frame_count": len(event_summary.get("event_frame_refs") or []) if isinstance(event_summary, dict) else 0,
+        "impact_visible": event_summary.get("impact_visible") if isinstance(event_summary, dict) else None,
+    }
 
 
 def _is_gpt5_family(model: str) -> bool:
@@ -481,6 +561,46 @@ def _normalize_accident_event_summary(value: Any, selected_frames: list[dict[str
         "rationale": str(value.get("rationale") or "")[:500],
     }
     return {key: item for key, item in output.items() if item not in (None, "", [])}
+
+
+def _derive_accident_event_summary_from_observations(observations: list[dict[str, Any]], selected_frames: list[dict[str, Any]]) -> dict[str, Any]:
+    event_fields = {
+        "collision_partner_type",
+        "primary_collision_target",
+        "collision_point_visible",
+        "collision_point_location",
+        "impact_direction",
+        "collision_direction",
+        "secondary_collision",
+    }
+    event_refs: list[str] = []
+    for item in observations:
+        if not isinstance(item, dict) or item.get("field") not in event_fields:
+            continue
+        confidence = _as_float(item.get("confidence"), 0.0)
+        if confidence < 0.75:
+            continue
+        for ref in item.get("frame_refs") or []:
+            text = str(ref)
+            if text not in event_refs:
+                event_refs.append(text)
+    if not event_refs:
+        return {}
+    frame_names = [Path(frame["path"]).name for frame in selected_frames]
+    event_refs = [ref for ref in event_refs if ref in frame_names]
+    if not event_refs:
+        return {}
+    first_index = min(frame_names.index(ref) for ref in event_refs)
+    last_index = max(frame_names.index(ref) for ref in event_refs)
+    pre_refs = frame_names[max(0, first_index - 2):first_index]
+    post_refs = frame_names[last_index + 1:last_index + 3]
+    return {
+        "impact_visible": True,
+        "event_frame_refs": event_refs,
+        "pre_impact_frame_refs": pre_refs,
+        "post_impact_frame_refs": post_refs,
+        "rationale": "Derived from high-confidence collision-related observations because the model omitted accident_event_summary.",
+    }
 
 
 def _normalize_observation_confidence(field: str, value: Any, confidence_value: Any, frame_refs: list[str]) -> float:

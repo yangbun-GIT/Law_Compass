@@ -13,6 +13,8 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self._model = frame_analysis.OPENAI_VISION_MODEL
         self._max_frames = frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_FRAMES
         self._max_output_tokens = frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS
+        self._zero_observation_retry = frame_analysis.OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY
+        self._retry_min_frames = frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES
         self._post_json = frame_analysis._post_json
 
     def tearDown(self):
@@ -22,6 +24,8 @@ class FrameAnalysisContractTest(unittest.TestCase):
         frame_analysis.OPENAI_VISION_MODEL = self._model
         frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_FRAMES = self._max_frames
         frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS = self._max_output_tokens
+        frame_analysis.OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY = self._zero_observation_retry
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = self._retry_min_frames
         frame_analysis._post_json = self._post_json
 
     def test_disabled_mode_reports_available_frames_without_analysis(self):
@@ -217,6 +221,90 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(frame_analysis._generation_controls_for_model("gpt-4.1-mini"), {"temperature": 0})
         self.assertNotIn("verbosity", frame_analysis._text_options_for_model("gpt-4.1-mini"))
 
+    def test_zero_observation_retry_runs_once_when_frames_are_sufficient(self):
+        calls = []
+
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            calls.append(payload)
+            if len(calls) == 1:
+                return {
+                    "id": "resp_primary",
+                    "status": "completed",
+                    "output_text": (
+                        '{"accident_event_summary":{"impact_visible":false,'
+                        '"pre_impact_frame_refs":["frame_001.jpg","frame_002.jpg"],'
+                        '"post_impact_frame_refs":["frame_006.jpg"],'
+                        '"rationale":"no visible contact in first pass"},'
+                        '"observations":[]}'
+                    ),
+                }
+            return {
+                "id": "resp_retry",
+                "status": "completed",
+                "output_text": (
+                    '{"accident_event_summary":{"impact_visible":true,'
+                    '"event_frame_refs":["frame_004.jpg","frame_005.jpg"],'
+                    '"pre_impact_frame_refs":["frame_003.jpg"],'
+                    '"post_impact_frame_refs":["frame_006.jpg"],'
+                    '"rationale":"retry found impact context"},'
+                    '"observations":['
+                    '{"field":"collision_partner_type","value":"vehicle","confidence":0.91,'
+                    '"frame_refs":["frame_004.jpg","frame_005.jpg"],"reason":"vehicle contact is visible"}]}'
+                ),
+            }
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_VISION_MODEL = "gpt-4.1-mini"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = 6
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 7):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        self.assertEqual(len(calls), 2)
+        retry_prompt = calls[1]["input"][0]["content"][0]["text"]
+        self.assertIn("bounded retry", retry_prompt)
+        self.assertTrue(result["zero_observation_retry_used"])
+        self.assertEqual(result["response_id"], "resp_retry")
+        self.assertEqual(result["observations"][0]["field"], "collision_partner_type")
+        self.assertEqual(result["accident_event_summary"]["event_frame_refs"], ["frame_004.jpg", "frame_005.jpg"])
+        self.assertEqual([item["label"] for item in result["analysis_attempts"]], ["primary", "zero_observation_retry"])
+
+    def test_zero_observation_retry_is_skipped_for_short_frame_sets(self):
+        calls = []
+
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            calls.append(payload)
+            return {"id": "resp_primary", "status": "completed", "output_text": '{"observations":[]}'}
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_VISION_MODEL = "gpt-4.1-mini"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = 6
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 4):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        self.assertEqual(len(calls), 1)
+        self.assertFalse(result["zero_observation_retry_used"])
+        self.assertEqual(result["observations"], [])
+
     def test_prompt_and_confidence_gate_reduce_negative_stopped_false_positives(self):
         captured = {}
 
@@ -303,6 +391,36 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(observations[0]["value"], True)
         self.assertEqual(observations[1]["field"], "pedestrian_visible")
         self.assertEqual(observations[1]["value"], False)
+
+    def test_event_summary_can_be_derived_from_collision_observations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 7):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+            summary = frame_analysis._derive_accident_event_summary_from_observations(
+                [
+                    {
+                        "field": "collision_partner_type",
+                        "value": "vehicle",
+                        "confidence": 0.91,
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": False,
+                        "confidence": 0.95,
+                        "frame_refs": ["frame_001.jpg", "frame_002.jpg"],
+                    },
+                ],
+                frames,
+            )
+
+        self.assertTrue(summary["impact_visible"])
+        self.assertEqual(summary["event_frame_refs"], ["frame_003.jpg", "frame_004.jpg"])
+        self.assertEqual(summary["pre_impact_frame_refs"], ["frame_001.jpg", "frame_002.jpg"])
+        self.assertEqual(summary["post_impact_frame_refs"], ["frame_005.jpg", "frame_006.jpg"])
 
     def test_openai_selection_prioritizes_accident_candidate_frames(self):
         with tempfile.TemporaryDirectory() as tmp:

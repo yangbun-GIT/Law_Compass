@@ -157,6 +157,9 @@ def frame_analysis_summary(upload: dict, require_observations: bool):
         "observation_count": len(observations),
         "observation_quality_summary": frame_analysis.get("observation_quality_summary"),
         "accident_event_summary": event_summary,
+        "zero_observation_retry_used": frame_analysis.get("zero_observation_retry_used"),
+        "zero_observation_retry_error": frame_analysis.get("zero_observation_retry_error"),
+        "analysis_attempts": frame_analysis.get("analysis_attempts") if isinstance(frame_analysis.get("analysis_attempts"), list) else [],
         "summary": frame_analysis.get("summary"),
         "observations": [
             {

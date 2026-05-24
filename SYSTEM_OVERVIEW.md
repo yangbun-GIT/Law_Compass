@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-25 영상 관찰값 0개 bounded retry 보강
+
+OpenAI 프레임 분석이 정상 응답을 받았지만 `observations`가 0개로 끝나는 경우, 대표 프레임이 충분하면 1회에 한해 재분석을 수행하도록 Worker를 보강했다. 목적은 사고 시점 후보나 프레임 문맥은 존재하지만 첫 응답이 지나치게 보수적으로 빈 관찰값을 반환하는 경우를 복구하는 것이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 재시도 조건 | `OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY=1`이고 선택 프레임 수가 `OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES` 이상이며, 1차 OpenAI 응답의 정규화 관찰값이 0개일 때만 1회 재시도한다. |
+| 재시도 프롬프트 | 재시도는 기존 사고 대상 우선 계약을 유지하되, “확실하지 않은 사실은 만들지 말고, 시각적으로 지지 가능한 사고 대상·충돌 파트너·신호·중앙선·정차 차량·도로 장애물·횡단보도 맥락·보행자 충돌 아님 여부가 있으면 빈 관찰값으로 끝내지 말라”는 복구 지시를 추가한다. |
+| 사고 후보 파생 | 모델이 `accident_event_summary`를 생략했지만 `collision_partner_type`, `primary_collision_target`, `collision_point_visible`, `impact_direction` 같은 고신뢰 충돌 관찰값이 있으면 해당 `frame_refs`로 사고 시점 후보를 파생한다. |
+| 결과 메타데이터 | Worker 결과에 `zero_observation_retry_used`, `zero_observation_retry_error`, `analysis_attempts`를 남긴다. 각 attempt는 response id/status, 관찰값 수, 사고 후보 프레임 수, impact visible 여부만 포함하며 prompt나 secret은 저장하지 않는다. |
+| Compose 기본값 | worker 환경변수 기본값으로 `OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY=1`, `OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES=6`을 추가했다. |
+| 검증 | Worker 단위 테스트가 관찰값 0개 + 충분한 프레임에서 재시도가 1회 실행되고, 짧은 프레임 세트에서는 재시도하지 않는지 확인한다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 종류를 변경하지 않는다. 기존 OpenAI 프레임 분석 경로 안에서 조건부 1회 재시도와 안전 메타데이터만 추가한다.
+
 ## 2026-05-25 OpenAI 프레임 분석 호출 예산 보강
 
 사고 영상 1~5번을 실제 OpenAI 프레임 분석 ON 상태로 재측정한 결과, 새 프레임 순서 기반 사고 시점 판별 프롬프트가 길어지면서 일부 응답이 `max_output_tokens` 부족으로 `incomplete` 처리되고, 일부 샘플은 18초 timeout으로 실패했다. 이 상태에서는 `observations`와 `accident_event_summary`가 비어 영상 기반 사실 반영 영역이 실질적으로 동작하지 않는다.
