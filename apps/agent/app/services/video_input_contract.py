@@ -11,21 +11,37 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "lane_change_actor": 0.88,
     "opponent_signal_violation": 0.88,
     "crosswalk_nearby": 0.85,
+    "pedestrian_visible": 0.88,
     "school_zone": 0.85,
+    "centerline_crossed": 0.86,
+    "road_obstruction": 0.84,
+    "illegal_parking_obstruction": 0.84,
+    "opposing_vehicle_present": 0.82,
+    "opposing_vehicle_did_not_stop": 0.88,
+    "secondary_collision": 0.84,
+    "centerline_cross_reason": 0.78,
 }
 CONFIRMATION_FIELD_PRIORITIES = {
     "stopped": 10,
     "opponent_behavior": 20,
-    "lane_change_actor": 30,
-    "opponent_signal_violation": 40,
-    "user_signal": 50,
-    "opponent_signal": 60,
-    "sudden_brake": 70,
-    "turn_signal": 80,
-    "crosswalk_nearby": 90,
-    "school_zone": 100,
-    "injury": 110,
-    "damage_level": 120,
+    "centerline_crossed": 30,
+    "centerline_cross_reason": 40,
+    "road_obstruction": 50,
+    "illegal_parking_obstruction": 60,
+    "opposing_vehicle_present": 70,
+    "opposing_vehicle_did_not_stop": 80,
+    "secondary_collision": 90,
+    "lane_change_actor": 100,
+    "opponent_signal_violation": 110,
+    "user_signal": 120,
+    "opponent_signal": 130,
+    "sudden_brake": 140,
+    "turn_signal": 150,
+    "crosswalk_nearby": 160,
+    "pedestrian_visible": 170,
+    "school_zone": 180,
+    "injury": 190,
+    "damage_level": 200,
 }
 
 FRAME_REF_REQUIRED_FACT_FIELDS = {
@@ -35,8 +51,16 @@ FRAME_REF_REQUIRED_FACT_FIELDS = {
     "lane_change_actor",
     "opponent_signal_violation",
     "crosswalk_nearby",
+    "pedestrian_visible",
     "school_zone",
     "damage_level",
+    "centerline_crossed",
+    "road_obstruction",
+    "illegal_parking_obstruction",
+    "opposing_vehicle_present",
+    "opposing_vehicle_did_not_stop",
+    "secondary_collision",
+    "centerline_cross_reason",
 }
 
 FRAME_REF_REQUIRED_SOURCES = {
@@ -66,6 +90,7 @@ _FACT_FIELDS = {
     "opponent_signal",
     "opponent_signal_violation",
     "crosswalk_nearby",
+    "pedestrian_visible",
     "pedestrian_signal",
     "school_zone",
     "victim_is_child",
@@ -73,6 +98,13 @@ _FACT_FIELDS = {
     "bicycle_direction",
     "injury",
     "damage_level",
+    "centerline_crossed",
+    "centerline_cross_reason",
+    "road_obstruction",
+    "illegal_parking_obstruction",
+    "opposing_vehicle_present",
+    "opposing_vehicle_did_not_stop",
+    "secondary_collision",
 }
 
 _SUPPORTING_OBSERVATION_FIELDS = {
@@ -94,7 +126,18 @@ _FIELD_ALIASES = {
     "traffic_light_user": "user_signal",
     "traffic_light_opponent": "opponent_signal",
     "pedestrian_crosswalk": "crosswalk_nearby",
+    "pedestrian_in_crosswalk": "pedestrian_visible",
+    "visible_pedestrian": "pedestrian_visible",
     "child_victim": "victim_is_child",
+    "crossed_centerline": "centerline_crossed",
+    "yellow_centerline_crossed": "centerline_crossed",
+    "centerline_reason": "centerline_cross_reason",
+    "obstruction": "road_obstruction",
+    "parked_vehicle_obstruction": "illegal_parking_obstruction",
+    "oncoming_vehicle": "opposing_vehicle_present",
+    "oncoming_vehicle_present": "opposing_vehicle_present",
+    "oncoming_vehicle_did_not_stop": "opposing_vehicle_did_not_stop",
+    "second_collision": "secondary_collision",
 }
 
 _TECHNICAL_FIELDS = (
@@ -444,7 +487,7 @@ def _normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
         if text in {"user", "ego", "self", "my_vehicle"}:
             return "user"
         return value if isinstance(value, str) and value.strip() else None
-    if field in {"stopped", "sudden_brake", "opponent_signal_violation", "crosswalk_nearby", "school_zone", "victim_is_child", "injury"}:
+    if field in {"stopped", "sudden_brake", "opponent_signal_violation", "crosswalk_nearby", "pedestrian_visible", "school_zone", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision"}:
         return _as_bool(value)
     if isinstance(value, str):
         return value.strip() or None

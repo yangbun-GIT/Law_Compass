@@ -198,6 +198,79 @@ def test_uncertain_rear_end_observations_are_grouped_for_confirmation():
     assert contract["observation_quality_summary"]["high_priority_uncertain_fields"] == ["stopped", "opponent_behavior"]
 
 
+def test_video_road_context_observations_become_agent_facts():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "centerline_crossed",
+                        "value": True,
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_3.jpg", "frame_4.jpg"],
+                    },
+                    {
+                        "field": "centerline_cross_reason",
+                        "value": "parked_vehicle_obstruction",
+                        "confidence": 0.82,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_3.jpg"],
+                    },
+                    {
+                        "field": "illegal_parking_obstruction",
+                        "value": True,
+                        "confidence": 0.86,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_2.jpg", "frame_3.jpg"],
+                    },
+                    {
+                        "field": "opposing_vehicle_present",
+                        "value": True,
+                        "confidence": 0.84,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_5.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"]["centerline_crossed"] is True
+    assert contract["fact_patch"]["centerline_cross_reason"] == "parked_vehicle_obstruction"
+    assert contract["fact_patch"]["illegal_parking_obstruction"] is True
+    assert contract["fact_patch"]["opposing_vehicle_present"] is True
+    assert contract["observation_quality_summary"]["accepted_count"] == 4
+
+
+def test_crosswalk_and_pedestrian_visibility_are_separate_video_facts():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "crosswalk_nearby",
+                        "value": True,
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_1.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": False,
+                        "confidence": 0.93,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_1.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"]["crosswalk_nearby"] is True
+    assert contract["fact_patch"]["pedestrian_visible"] is False
+
+
 def test_technical_preprocess_metadata_does_not_create_accident_facts():
     contract = normalize_video_input_contract(
         {"metadata": {"duration_sec": 8.0, "width": 1920, "height": 1080, "representative_frames": ["/frames/1.jpg"]}},

@@ -54,10 +54,16 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "Use it only to prioritize which visual facts to inspect; never use it as visual evidence and never copy it into observations unless the frames support it. "
             "Allowed observation fields: stopped, sudden_brake, impact_direction, collision_direction, "
             "opponent_behavior, lane_change_actor, turn_signal, user_signal, opponent_signal, "
-            "opponent_signal_violation, crosswalk_nearby, school_zone, damage_level. "
+            "opponent_signal_violation, crosswalk_nearby, pedestrian_visible, school_zone, damage_level, "
+            "centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, "
+            "opposing_vehicle_present, opposing_vehicle_did_not_stop, secondary_collision. "
             "For stopped, judge whether the ego/user vehicle was stationary at or immediately before the collision. "
             "Do not mark stopped=false merely because the dashcam image changes, the camera shakes, or surrounding vehicles move. "
             "Return stopped=false only when multiple frame_refs clearly show ego/user vehicle forward movement at the relevant moment; otherwise omit stopped or use unknown. "
+            "crosswalk_nearby only means a crosswalk is visible or close to the conflict area; never infer a pedestrian accident from crosswalk_nearby alone. "
+            "Use pedestrian_visible=true only when a pedestrian is actually visible in or near the collision path. "
+            "For narrow two-way roads, yellow centerline encroachment, parked vehicles, roadside objects, lane-blocking obstacles, oncoming vehicles, failure of an oncoming vehicle to stop, and secondary impacts, return the corresponding road-context fields when visible. "
+            "If centerline crossing appears caused by a parked vehicle or obstacle, set centerline_cross_reason to parked_vehicle_obstruction or road_obstruction with frame_refs. "
             "Do not infer injury status from frames. Do not infer absence facts such as no damage, no school zone, "
             "or no signal violation just because they are not visible. Omit fields that are not observable. "
             "Each observation must include field, value, confidence between 0 and 1, frame_refs, and reason. "
@@ -455,10 +461,17 @@ def _should_drop_openai_observation(field: str, value: Any) -> bool:
     if value is False and field in {
         "opponent_signal_violation",
         "crosswalk_nearby",
+        "pedestrian_visible",
         "school_zone",
         "turn_signal",
         "user_signal",
         "opponent_signal",
+        "centerline_crossed",
+        "road_obstruction",
+        "illegal_parking_obstruction",
+        "opposing_vehicle_present",
+        "opposing_vehicle_did_not_stop",
+        "secondary_collision",
     }:
         return True
     return False

@@ -103,6 +103,74 @@ function applyAnswer(patch: AnyRecord, field: string, value: string) {
     patch.crosswalk_nearby = !includesAny(value, ["아님"]);
     return;
   }
+  if (field === "pedestrian_visible") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.pedestrian_visible = parsed;
+      return;
+    }
+    patch.pedestrian_visible = includesAny(value, ["보행자", "사람", "보임", "있음"]);
+    return;
+  }
+  if (field === "centerline_crossed") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.centerline_crossed = parsed;
+      return;
+    }
+    patch.centerline_crossed = includesAny(value, ["중앙선", "황색", "넘", "침범", "물고"]);
+    return;
+  }
+  if (field === "centerline_cross_reason") {
+    patch.centerline_cross_reason = normalizeCenterlineReason(value);
+    if (patch.centerline_cross_reason) patch.centerline_crossed = true;
+    return;
+  }
+  if (field === "road_obstruction") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.road_obstruction = parsed;
+      return;
+    }
+    patch.road_obstruction = includesAny(value, ["장애", "사물", "차선 침범", "막고"]);
+    return;
+  }
+  if (field === "illegal_parking_obstruction") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.illegal_parking_obstruction = parsed;
+      return;
+    }
+    patch.illegal_parking_obstruction = includesAny(value, ["불법", "주정차", "주차"]);
+    return;
+  }
+  if (field === "opposing_vehicle_present") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.opposing_vehicle_present = parsed;
+      return;
+    }
+    patch.opposing_vehicle_present = includesAny(value, ["마주", "대향", "반대편", "상대 차량"]);
+    return;
+  }
+  if (field === "opposing_vehicle_did_not_stop") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.opposing_vehicle_did_not_stop = parsed;
+      return;
+    }
+    patch.opposing_vehicle_did_not_stop = includesAny(value, ["멈추지", "감속 안", "그대로", "정지 안"]);
+    return;
+  }
+  if (field === "secondary_collision") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.secondary_collision = parsed;
+      return;
+    }
+    patch.secondary_collision = includesAny(value, ["2차", "후속", "뒤차", "추가 충돌"]);
+    return;
+  }
   if (field === "turn_signal") {
     const parsed = parseBooleanLike(value);
     if (parsed !== undefined) {
@@ -219,6 +287,17 @@ function normalizeOpponentBehavior(value: string) {
   if (includesAny(value, ["뒤에서 추돌", "후미", "후방", "추돌"])) return "rear_collision";
   if (includesAny(value, ["차선 변경", "차선변경", "끼어들기"])) return "lane_change";
   if (includesAny(value, ["신호 위반", "신호위반"])) return "signal_violation";
+  return value;
+}
+
+function normalizeCenterlineReason(value: string) {
+  const lowered = value.trim().toLowerCase();
+  if (["parked_vehicle_obstruction", "illegal_parking_obstruction"].includes(lowered)) return "parked_vehicle_obstruction";
+  if (["road_obstruction", "obstacle"].includes(lowered)) return "road_obstruction";
+  if (lowered === "lane_departure") return "lane_departure";
+  if (includesAny(value, ["불법", "주정차", "주차"])) return "parked_vehicle_obstruction";
+  if (includesAny(value, ["장애", "사물", "막고", "침범"])) return "road_obstruction";
+  if (includesAny(value, ["이탈"])) return "lane_departure";
   return value;
 }
 

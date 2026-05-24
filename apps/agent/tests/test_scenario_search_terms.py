@@ -1,4 +1,5 @@
 from app.services.keyword_recommender import recommend_keywords, suggest_next_inputs
+from app.services.knia.taxonomy import infer_party_type_from_text
 from app.services.scenario_classifier import classify_scenario
 from app.services.scenario_search_terms import expand_query_text, scenario_search_terms
 
@@ -133,6 +134,45 @@ def test_crosswalk_rear_end_is_classified_as_rear_end():
     )
     assert scenario["scenario_type"] == "rear_end_collision"
     assert "crosswalk" in scenario["scenario_tags"]
+
+
+def test_intersection_crosswalk_without_pedestrian_stays_car_vs_car():
+    scenario = classify_scenario(
+        "intersection crosswalk area left-turn vehicle and straight vehicle collision",
+        {"crosswalk_nearby": True, "intersection": True, "pedestrian": False},
+        [],
+    )
+
+    assert scenario["accident_party_type"] == "car_vs_car"
+    assert scenario["scenario_type"] != "pedestrian_crosswalk_accident"
+    assert "crosswalk" in scenario["scenario_tags"]
+
+
+def test_centerline_obstruction_context_is_car_vs_car():
+    scenario = classify_scenario(
+        "two-way one-lane road, yellow centerline crossed because of illegally parked vehicle and oncoming car collision",
+        {
+            "centerline_crossed": True,
+            "centerline_cross_reason": "parked_vehicle_obstruction",
+            "illegal_parking_obstruction": True,
+            "opposing_vehicle_present": True,
+        },
+        [],
+    )
+
+    assert scenario["accident_party_type"] == "car_vs_car"
+    assert scenario["scenario_type"] == "parking_or_stopped_vehicle_accident"
+    assert "road_obstruction" in scenario["scenario_tags"]
+    assert "oncoming_vehicle" in scenario["scenario_tags"]
+
+
+def test_crosswalk_text_without_pedestrian_does_not_infer_car_vs_person():
+    party = infer_party_type_from_text(
+        "intersection crosswalk car-to-car crash",
+        {"crosswalk_nearby": True, "intersection": True},
+    )
+
+    assert party == "car_vs_car"
 
 
 def test_unlit_stopped_vehicle_is_classified_as_stopped_vehicle_case():

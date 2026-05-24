@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-24 영상 관찰값 계약 보강
+
+사고 영상 1·2번 점검에서 “횡단보도가 보인다”는 사실만으로 차대사람 사고로 분류될 수 있고, 중앙선 침범 사유·불법 주정차·도로 장애물·대향 차량 미정지처럼 일반 사용자가 선택하기 어려운 사실을 Agent 입력으로 충분히 전달하지 못하는 문제가 확인됐다.
+
+이번 보강은 영상 분석을 단순 사고 유형 추정기가 아니라 사용자 입력을 보조하는 객관적 관찰값 공급원으로 다루도록 계약을 확장한다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Worker 프레임 분석 | OpenAI 프레임 분석 허용 필드에 `pedestrian_visible`, `centerline_crossed`, `centerline_cross_reason`, `road_obstruction`, `illegal_parking_obstruction`, `opposing_vehicle_present`, `opposing_vehicle_did_not_stop`, `secondary_collision`을 추가했다. 프롬프트에는 `crosswalk_nearby`만으로 보행자 사고를 추론하지 말고, 보행자가 실제로 보일 때만 `pedestrian_visible=true`를 쓰도록 제한했다. |
+| Agent 입력 계약 | 새 영상 관찰 필드를 `video_input_contract`의 fact 후보로 추가하고, 프레임 근거와 confidence 기준을 통과한 경우에만 `fact_patch`로 반영한다. 중앙선/장애물/대향차/2차 충돌은 사용자 입력보다 영상이 보완할 수 있는 물리 사실로 `fact_arbitration`의 video-primary 필드에 포함했다. |
+| 시나리오 분류 | `crosswalk_nearby` 또는 “횡단보도” 텍스트만으로 `pedestrian_crosswalk_accident`나 `car_vs_person`을 선택하지 않는다. 보행자 존재가 명시되지 않은 교차로·횡단보도 주변 차대차 사고는 차대차 맥락을 유지한다. |
+| 사용자/관리자 표시 | Gateway 결과 구성과 보완 답변 정규화가 새 필드의 한국어 라벨, 질문 옵션, 우선순위, 답변 patch를 처리한다. “횡단보도 주변” 질문 사유도 보행자 보호 의무로 고정하지 않고 교차로/도로 위치 맥락으로 설명한다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. OpenAI 사용량 정책도 바꾸지 않으며, 기존 `ENABLE_OPENAI_FRAME_ANALYSIS` 설정에 따라 동일하게 동작한다.
+
 ## 2026-05-24 관리자 Agent 입력 테스트 화면
 
 관리자 계정에서 Agent 입력 경로를 빠르게 검증할 수 있도록 프론트엔드에 `/admin/agent-test` 라우트를 추가했다. 이 화면은 일반 사용자용 서비스 화면이 아니라 관리자 진단용 화면이며, 로그인된 사용자의 role이 `admin`인 경우에만 접근한다.

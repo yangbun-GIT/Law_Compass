@@ -14,7 +14,7 @@ PARTY_TYPES: dict[str, dict[str, Any]] = {
     "car_vs_person": {
         "label": "차대사람 사고",
         "description": "자동차와 보행자 사이의 사고입니다.",
-        "keywords": ["차대사람", "보행자", "횡단보도", "무단횡단", "어린이보호구역", "민식이법", "보행자 보호의무", "인명피해", "사람"],
+        "keywords": ["차대사람", "보행자", "무단횡단", "어린이보호구역", "민식이법", "보행자 보호의무", "인명피해", "사람"],
         "actions": ["먼저 다친 사람이 있는지 확인하세요.", "필요하면 119와 112에 신고하세요.", "보행자의 상태와 사고 위치를 기록하세요.", "블랙박스 원본과 현장 사진을 보관하세요."],
     },
     "car_vs_bicycle": {
@@ -108,7 +108,7 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
     hay = " ".join([text or "", str(facts)]).lower()
     if facts.get("accident_party_type") in PARTY_TYPES:
         return str(facts["accident_party_type"])
-    if facts.get("pedestrian") or facts.get("crosswalk_nearby") or facts.get("victim_is_child"):
+    if facts.get("pedestrian") or facts.get("pedestrian_visible") or facts.get("victim_is_child"):
         return "car_vs_person"
     if facts.get("accident_type") in {"pedestrian", "pedestrian_crosswalk_accident", "school_zone_child_accident"}:
         return "car_vs_person"
@@ -118,12 +118,14 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         return "car_vs_object"
     if facts.get("accident_type") == "single_vehicle_accident":
         return "single_vehicle"
+    if facts.get("intersection") or facts.get("centerline_crossed") or facts.get("opposing_vehicle_present"):
+        return "car_vs_car"
     checks = [
-        ("car_vs_person", ["차대사람", "보행자", "횡단보도", "무단횡단", "어린이보호구역", "민식이", "사람을", "사람과", "아이와", "인명피해"]),
+        ("car_vs_person", ["차대사람", "보행자", "무단횡단", "어린이보호구역", "민식이", "사람을", "사람과", "아이와", "인명피해"]),
         ("car_vs_bicycle", ["차대자전거", "자전거", "자전거도로", "자전거 운전자"]),
         ("car_vs_object", ["차대기물", "기물", "시설물", "가드레일", "전봇대", "중앙분리대", "주차장 기둥", "벽", "낙하물", "물체"]),
         ("single_vehicle", ["차량단독", "단독사고", "혼자", "미끄러", "빗길", "눈길", "졸음운전", "운전미숙", "전복", "도로 이탈"]),
-        ("car_vs_car", ["차대차", "후미", "뒤차", "차선변경", "진로변경", "교차로", "신호위반", "좌회전", "우회전", "직진", "끼어들", "차량"]),
+        ("car_vs_car", ["차대차", "후미", "뒤차", "차선변경", "진로변경", "교차로", "신호위반", "좌회전", "우회전", "직진", "끼어들", "차량", "car-to-car", "vehicle", "intersection", "left-turn", "straight vehicle"]),
     ]
     for party in PRIORITY:
         words = next((w for p, w in checks if p == party), [])

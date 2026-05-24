@@ -249,10 +249,43 @@ class FrameAnalysisContractTest(unittest.TestCase):
         prompt_text = captured["payload"]["input"][0]["content"][0]["text"]
         self.assertIn("Use it only to prioritize which visual facts to inspect", prompt_text)
         self.assertIn("Do not mark stopped=false merely because the dashcam image changes", prompt_text)
+        self.assertIn("centerline_crossed", prompt_text)
+        self.assertIn("pedestrian_visible", prompt_text)
+        self.assertIn("never infer a pedestrian accident from crosswalk_nearby alone", prompt_text)
         self.assertEqual(result["observations"][0]["field"], "stopped")
         self.assertEqual(result["observations"][0]["value"], False)
         self.assertEqual(result["observations"][0]["confidence"], 0.81)
         self.assertEqual(result["observations"][0]["observation_quality"]["level"], "low")
+
+    def test_openai_normalizer_keeps_road_context_and_drops_absence_observations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frame_path = Path(tmp) / "frame_001.jpg"
+            frame_path.write_bytes(b"exists")
+            selected_frames = [{"path": str(frame_path), "time_sec": 0.5, "role": "time_sequence"}]
+
+            observations = frame_analysis._normalize_openai_observations(
+                [
+                    {
+                        "field": "centerline_crossed",
+                        "value": True,
+                        "confidence": 0.91,
+                        "frame_refs": ["frame_001.jpg"],
+                        "reason": "yellow centerline crossed to pass a parked vehicle",
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": False,
+                        "confidence": 0.95,
+                        "frame_refs": ["frame_001.jpg"],
+                        "reason": "no pedestrian visible",
+                    },
+                ],
+                selected_frames,
+            )
+
+        self.assertEqual(len(observations), 1)
+        self.assertEqual(observations[0]["field"], "centerline_crossed")
+        self.assertEqual(observations[0]["value"], True)
 
 
 if __name__ == "__main__":

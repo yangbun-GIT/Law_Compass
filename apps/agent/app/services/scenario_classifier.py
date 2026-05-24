@@ -22,7 +22,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance", "stopped_vehicle", "crosswalk"])
-    elif facts.get("victim_is_child") or facts.get("pedestrian") or facts.get("crosswalk_nearby") or any(w in haystack for w in ["횡단보도", "보행자", "사람을", "사람과", "무단횡단"]):
+    elif facts.get("victim_is_child") or facts.get("pedestrian") or facts.get("pedestrian_visible") or any(w in haystack for w in ["보행자", "사람을", "사람과", "무단횡단"]):
         scenario_type = "pedestrian_crosswalk_accident"
         accident_party_type = "car_vs_person"
         tags.update(["pedestrian", "crosswalk", "injury"])
@@ -42,6 +42,10 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "intersection_signal_violation"
         accident_party_type = "car_vs_car"
         tags.update(["intersection", "signal_violation", "right_of_way"])
+    elif facts.get("centerline_crossed") and (facts.get("road_obstruction") or facts.get("illegal_parking_obstruction") or any(w in haystack for w in ["중앙선", "황색 실선", "불법 주정차", "주차 차량", "장애물"])):
+        scenario_type = "parking_or_stopped_vehicle_accident"
+        accident_party_type = "car_vs_car"
+        tags.update(["centerline", "road_obstruction", "oncoming_vehicle"])
     elif facts.get("lane_change") or any(w in haystack for w in ["차선변경", "진로변경", "끼어들", "방향지시등", "깜빡이"]):
         scenario_type = "lane_change_collision"
         accident_party_type = "car_vs_car"
@@ -73,6 +77,12 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         tags.add("secondary_collision")
     if facts.get("centerline_crossed"):
         tags.add("centerline")
+    if facts.get("crosswalk_nearby"):
+        tags.add("crosswalk")
+    if facts.get("road_obstruction") or facts.get("illegal_parking_obstruction"):
+        tags.add("road_obstruction")
+    if facts.get("opposing_vehicle_present"):
+        tags.add("oncoming_vehicle")
     if facts.get("bicycle_involved") or facts.get("possible_trigger_vehicle") == "bicycle":
         tags.add("bicycle")
         tags.add("non_contact_trigger")

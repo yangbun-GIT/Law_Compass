@@ -15,12 +15,20 @@ VIDEO_PRIMARY_FIELDS = {
     "opponent_signal",
     "opponent_signal_violation",
     "crosswalk_nearby",
+    "pedestrian_visible",
     "pedestrian_signal",
     "school_zone",
     "victim_is_child",
     "bicycle_location",
     "bicycle_direction",
     "damage_level",
+    "centerline_crossed",
+    "centerline_cross_reason",
+    "road_obstruction",
+    "illegal_parking_obstruction",
+    "opposing_vehicle_present",
+    "opposing_vehicle_did_not_stop",
+    "secondary_collision",
 }
 
 USER_PRIMARY_FIELDS = {
