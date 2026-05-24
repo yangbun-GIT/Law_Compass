@@ -13,6 +13,20 @@ AI Hub 교통사고/차량 인지 데이터셋 확인을 위해 저장소 루트
 
 AI Hub Shell은 `datasetkey`만으로 다운로드하면 전체 데이터셋을 받으므로 사용하지 않는다. 먼저 `list 모드`로 파일 목록과 `filekey`를 확인하고, 필요한 라벨/샘플 파일만 선택 다운로드한다. `.gitignore`는 위 하위 폴더의 실제 데이터와 Shell 산출물을 제외하고, 안내용 README만 추적하도록 설정한다. API key, 개인정보, 원본 대용량 데이터, 모델 가중치는 커밋하지 않는다.
 
+## 2026-05-25 YOLO 로컬 보조 관찰 PoC
+
+Ultralytics YOLO는 LawCompass 본 서비스의 사고 판단 모델이 아니라 차량, 사람, 신호등 같은 객체 위치를 안정적으로 뽑는 로컬 보조 관찰 모델로 취급한다. 프로젝트에는 재현 가능한 스크립트와 문서만 추가하고, 가상환경·모델 가중치·추론 산출물은 저장소 밖 또는 ignore 대상 경로에 둔다.
+
+| 범위 | 기준 |
+| --- | --- |
+| 설치 위치 | 로컬 검증 가상환경은 `C:/Users/yangbun/Documents/OSS/.venv-yolo`, 모델은 `C:/Users/yangbun/Documents/OSS/yolo-models`, 결과는 `C:/Users/yangbun/Documents/OSS/yolo-runs`를 사용한다. |
+| 프로젝트 파일 | `tools/yolo/requirements-yolo.txt`와 `tools/yolo/run_yolo_observation_smoke.py`가 팀원 재현용 진입점이다. |
+| 문서 | `docs/YOLO_LOCAL_SETUP.md`에 설치, GPU 확인, smoke test, 영상처리 연결 구조를 기록했다. `THIRD_PARTY_NOTICES.md`에 Ultralytics YOLO AGPL-3.0/Enterprise 라이선스 고지를 추가했다. |
+| 현재 검증 | RTX 5070 Ti에서 `torch 2.11.0+cu128`, `ultralytics 8.4.53`로 CUDA 사용 가능 상태를 확인했다. AI Hub `차량 및 사람 인지 영상` 샘플 이미지 1장에서 YOLO가 차량 2대와 트럭 1대를 감지했다. |
+| Agent 연결 원칙 | YOLO 탐지는 `vision_model:yolo` source의 객체 위치 후보일 뿐이다. 사람 객체가 보인다고 차대사람 사고로 승격하지 않고, 차량 객체가 보인다고 `collision_partner_type=vehicle`을 확정하지 않는다. 후보 관찰값은 `video_observations` 계약과 fact arbitration을 거친 뒤 수용/보류/충돌로 분리한다. |
+
+이 변경은 운영 Docker image, DB schema, Redis key, API route, 외부 API 계약을 변경하지 않는다. 실제 서비스 자동 파이프라인에 YOLO를 붙이기 전에는 라이선스, 리소스, provider adapter 경계를 다시 검토한다.
+
 ## 2026-05-25 영상 관찰값 0개 bounded retry 보강
 
 OpenAI 프레임 분석이 정상 응답을 받았지만 `observations`가 0개로 끝나는 경우, 대표 프레임이 충분하면 1회에 한해 재분석을 수행하도록 Worker를 보강했다. 목적은 사고 시점 후보나 프레임 문맥은 존재하지만 첫 응답이 지나치게 보수적으로 빈 관찰값을 반환하는 경우를 복구하는 것이다.
