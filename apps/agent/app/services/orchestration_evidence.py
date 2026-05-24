@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.services.knia.knia_fault_adjuster import estimate_knia_fault
-from app.services.knia.knia_matcher import match_knia_charts
+from app.services.knia.knia_matcher import _is_centerline_primary_mismatch, match_knia_charts
 from app.services.knia.knia_report_adapter import build_knia_evidence
 from app.services.knia.knia_repository import KniaRepository
 from app.services.orchestration_context import CaseContext
@@ -39,7 +39,8 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         accident_party_type=scenario.get("accident_party_type"),
         limit=5,
     )
-    knia_matches = knia_result.get("items") or []
+    scenario_tags = scenario.get("scenario_tags") or []
+    knia_matches = _filter_primary_knia_evidence(knia_result.get("items") or [], scenario_tags)
     evidence_query = evidence_query_payload(
         description_text=normalized["description_text"],
         facts=normalized["structured_facts"],
@@ -54,7 +55,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         scenario_type=scenario.get("scenario_type"),
         limit=5,
     )
-    knia_json_evidence = knia_json_result.get("items") or []
+    knia_json_evidence = _filter_primary_knia_evidence(knia_json_result.get("items") or [], scenario_tags)
     knia_fault_estimate: dict[str, Any] | None = None
     knia_reference_evidence: list[dict[str, Any]] = []
     if knia_matches:
@@ -90,6 +91,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         limit=8,
     )
     legal_evidence = normalize_evidence_items(retrieval["items"], default_source="법률 근거")
+    legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario_tags)
     return EvidenceBundle(
         knia_result=knia_result,
         knia_matches=knia_matches,
@@ -103,6 +105,10 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         legal_evidence=legal_evidence,
         evidence=[*knia_evidence, *legal_evidence],
     )
+
+
+def _filter_primary_knia_evidence(items: list[dict[str, Any]], scenario_tags: list[str]) -> list[dict[str, Any]]:
+    return [item for item in items if not _is_centerline_primary_mismatch(scenario_tags, item)]
 
 
 def normalize_evidence_items(items: list[dict[str, Any]], *, default_source: str) -> list[dict[str, Any]]:

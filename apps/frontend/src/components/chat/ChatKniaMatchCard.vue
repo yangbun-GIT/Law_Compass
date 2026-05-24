@@ -1,7 +1,6 @@
 ﻿<template>
   <article class="chat-card chat-knia-card">
     <p class="chat-card__eyebrow">비슷한 과실비율 인정기준</p>
-    <img v-if="match.thumbnail_url" :src="match.thumbnail_url" alt="과실비율 기준 썸네일" loading="lazy" />
     <div class="chat-mini-tags">
       <span v-if="match.accident_party_label">{{ text(match.accident_party_label) }}</span>
       <span v-for="tag in match.display_tags || []" :key="tag">{{ text(tag) }}</span>

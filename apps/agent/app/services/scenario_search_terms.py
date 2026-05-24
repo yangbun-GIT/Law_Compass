@@ -21,6 +21,12 @@ SCENARIO_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
 
 SCENARIO_SEARCH_TERMS["parking_or_stopped_vehicle_accident"] = (
     *SCENARIO_SEARCH_TERMS.get("parking_or_stopped_vehicle_accident", ()),
+    "중앙선 침범",
+    "황색 실선",
+    "도로 장애물",
+    "불법 주정차",
+    "대향 차량 충돌",
+    "마주오던 차량",
     "centerline obstacle avoidance",
     "unlit stopped vehicle",
     "avoidability analysis",

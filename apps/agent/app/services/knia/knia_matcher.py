@@ -26,7 +26,7 @@ SCENARIO_TO_TAGS = {
     "bicycle_collision": ["bicycle", "fault_ratio"],
     "object_collision": ["object", "single_vehicle"],
     "single_vehicle_accident": ["single_vehicle"],
-    "parking_or_stopped_vehicle_accident": ["parking", "rear_end"],
+    "parking_or_stopped_vehicle_accident": ["parking", "stopped_vehicle"],
 }
 
 
@@ -96,6 +96,9 @@ def _tags_from_text(text: str, party: str | None = None) -> list[str]:
     checks = [
         ("rear_end", ["후미", "뒤차", "추돌", "정차", "안전거리"]),
         ("lane_change", ["차선", "진로", "끼어", "방향지시등"]),
+        ("centerline", ["중앙선", "황색 실선", "중앙선을", "centerline"]),
+        ("oncoming_vehicle", ["마주오", "대향", "반대편", "oncoming"]),
+        ("road_obstruction", ["장애물", "불법 주정차", "주차 차량", "가구", "사물", "obstacle"]),
         ("intersection", ["교차로", "좌회전", "우회전"]),
         ("signal_violation", ["신호", "빨간불", "적색"]),
         ("pedestrian", ["보행자", "횡단보도", "아이", "사람"]),
@@ -186,11 +189,20 @@ def _hybrid_lookup(
         joined = " ".join([str(row.get("chart_no") or ""), str(row.get("title") or ""), str(row.get("accident_summary") or ""), str(row.get("basic_fault_text") or "")])
         if _is_strict_scenario_mismatch(scenario_type, row, joined):
             continue
+        if _is_centerline_primary_mismatch(tags, row):
+            continue
         if "rear_end" in tags:
             if row.get("chart_no") == "차41-1" or any(w in joined for w in ["후방 추돌", "뒤차", "안전거리"]):
                 score += 0.18
             if any(w in joined for w in ["진로 변경", "진로변경", "차로를 변경"]):
                 score -= 0.12
+        if "centerline" in tags or "oncoming_vehicle" in tags or "road_obstruction" in tags:
+            if row.get("chart_no") and str(row.get("chart_no")).startswith("차43"):
+                score += 0.34
+            if any(w in joined for w in ["진로 변경", "진로변경", "차로를 변경", "중앙선", "대향"]):
+                score += 0.22
+            if row.get("chart_no") and str(row.get("chart_no")).startswith(("차41", "차42")):
+                score -= 0.24
         if "bicycle" in tags and row.get("accident_party_type") == "car_vs_bicycle":
             score += 0.18
         if "pedestrian" in tags and row.get("accident_party_type") == "car_vs_person":
@@ -225,6 +237,23 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
     return False
 
 
+def _is_centerline_primary_mismatch(tags: list[str], row: dict[str, Any]) -> bool:
+    if not ("centerline" in tags or "oncoming_vehicle" in tags or "road_obstruction" in tags):
+        return False
+    chart_text = " ".join(
+        str(row.get(key) or "")
+        for key in ("chart_no", "title", "source_url", "source_detail_url")
+    )
+    party = _row_party_type(row)
+    if party == "car_vs_person":
+        return True
+    if re.search(r"(?:^|\s|/)보\d", chart_text):
+        return True
+    if any(token in chart_text for token in ("무등화", "스텔스", "후미추돌", "후방추돌", "횡단보도", "앞차 정차", "보행자")):
+        return True
+    return "차41" in chart_text or "차42" in chart_text
+
+
 def _scenario_chart_score_adjustment(row: dict[str, Any], tags: list[str], joined_text: str) -> float:
     chart_no = str(row.get("chart_no") or "")
     adjustment = 0.0
@@ -243,10 +272,18 @@ def _scenario_chart_score_adjustment(row: dict[str, Any], tags: list[str], joine
         if has_signal_terms and not has_lane_terms:
             adjustment -= 0.12
 
+    if "centerline" in tags or "oncoming_vehicle" in tags or "road_obstruction" in tags:
+        if chart_no.startswith("차43") or has_lane_terms:
+            adjustment += 0.24
+        if chart_no.startswith(("차41", "차42")):
+            adjustment -= 0.18
+
     return adjustment
 
 
 def _reason(row: dict[str, Any], tags: list[str], party: str | None = None) -> str:
+    if "centerline" in tags or "oncoming_vehicle" in tags or "road_obstruction" in tags:
+        return "중앙선 침범 사유, 도로 장애물, 대향 차량과의 충돌 구조를 함께 볼 수 있는 기준입니다."
     if "rear_end" in tags:
         return "정차 또는 감속 중 뒤차가 추돌한 상황과 유사합니다."
     if "lane_change" in tags:

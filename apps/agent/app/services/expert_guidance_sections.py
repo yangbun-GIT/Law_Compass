@@ -85,7 +85,7 @@ def _status(evidence_audit: dict[str, Any], claim_evidence: dict[str, Any], miss
 def _summary(status: str, scenario: dict[str, Any], fault_range: str) -> str:
     label = _safe_text(scenario.get("accident_party_label"), _scenario_label(str(scenario.get("scenario_type") or "")))
     if status == "needs_more_facts":
-        return f"{label}로 보이며, {fault_range}를 좁히려면 핵심 사실을 더 확인해야 합니다."
+        return f"{label}로 보이며, 현재 입력된 핵심 사실 기준으로는 {fault_range}를 우선 참고할 수 있습니다."
     if status == "evidence_supported_reference":
         return f"{label}에 대해 확인된 근거를 기준으로 {fault_range} 범위의 참고 판단을 제시합니다."
     return f"{label}에 대해 현재 근거로 가능한 {fault_range} 참고 범위를 제시합니다."
@@ -241,7 +241,7 @@ def _guidance_context_text(
     if scenario_type == "rear_end_collision":
         parts.extend(["rear", "stopped", "safe distance", "후방", "정차", "안전거리"])
     if scenario_type == "parking_or_stopped_vehicle_accident":
-        parts.extend(["stopped vehicle", "정차"])
+        parts.extend(["stopped vehicle", "정차", "centerline", "oncoming vehicle", "road obstruction", "parking obstacle"])
     fact_text = " ".join(_fact_context_values(facts)).lower()
     if facts.get("crosswalk_nearby") is True or "crosswalk" in fact_text:
         parts.extend(["crosswalk", "pedestrian", "pedestrian signal", "front vehicle", "stop reason"])
@@ -399,7 +399,7 @@ def _scenario_label(value: str) -> str:
         "lane_change_collision": "차선변경 사고",
         "pedestrian_crosswalk_accident": "보행자 사고",
         "bicycle_collision": "자전거 관련 사고",
-        "parking_or_stopped_vehicle_accident": "정차 차량 관련 사고",
+        "parking_or_stopped_vehicle_accident": "중앙선·정차 차량 관련 차대차 사고",
     }
     return labels.get(value, "교통사고")
 

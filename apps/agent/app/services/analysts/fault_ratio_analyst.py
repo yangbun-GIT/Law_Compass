@@ -34,8 +34,12 @@ def analyze_fault_ratio(
     user_vehicle_role = infer_user_vehicle_role(text, facts, scenario_type)
     key_factors = ["사고 유형", "신호·정차·차선변경 여부", "인명피해 여부", "관련 법규와 KNIA 기준"]
 
-    if _centerline_obstacle_stop_context(facts):
-        my, other, confidence = 30, 70, 0.66
+    centerline_context = _centerline_obstacle_context(facts, text)
+    if centerline_context:
+        stopped_or_nearly_stopped = centerline_context.get("stopped_or_nearly_stopped")
+        opposing_non_stop = centerline_context.get("opposing_non_stop")
+        my, other = (30, 70) if stopped_or_nearly_stopped and opposing_non_stop else (40, 60)
+        confidence = 0.68 if stopped_or_nearly_stopped and opposing_non_stop else 0.61
         key_factors = ["중앙선 침범 사유", "정차 여부", "상대 차량 회피 가능성", "후속 추돌 분리"]
         fault_estimate_source = "contextual_complex_case"
     elif _unlit_stopped_vehicle_context(facts):
@@ -104,11 +108,39 @@ def _normalize(data: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str
     return data
 
 
-def _centerline_obstacle_stop_context(facts: dict[str, Any]) -> bool:
-    reason = str(facts.get("centerline_cross_reason") or facts.get("analysis_uncertainty") or "")
-    return facts.get("centerline_crossed") is True and facts.get("stopped") is True and any(
-        token in reason for token in ("주차", "장애", "obstacle", "parking")
+def _centerline_obstacle_context(facts: dict[str, Any], text: str = "") -> dict[str, bool] | None:
+    haystack = " ".join(
+        [
+            text or "",
+            str(facts.get("accident_type") or ""),
+            str(facts.get("centerline_cross_reason") or ""),
+            str(facts.get("opponent_behavior") or ""),
+            str(facts.get("analysis_uncertainty") or ""),
+        ]
+    ).lower()
+    centerline = facts.get("centerline_crossed") is True or any(
+        token in haystack for token in ("중앙선", "황색 실선", "centerline", "yellow line")
     )
+    obstruction = (
+        facts.get("road_obstruction") is True
+        or facts.get("illegal_parking_obstruction") is True
+        or any(token in haystack for token in ("주차", "주정차", "불법", "장애", "가구", "사물", "obstacle", "parking"))
+    )
+    oncoming = facts.get("opposing_vehicle_present") is True or any(
+        token in haystack for token in ("마주오", "대향", "반대편", "상대차", "oncoming")
+    )
+    if not (centerline and obstruction and oncoming):
+        return None
+    stopped_or_nearly_stopped = facts.get("stopped") is True or any(
+        token in haystack for token in ("멈췄", "멈춘", "정차", "정지", "거의 멈", "감속")
+    )
+    opposing_non_stop = facts.get("opposing_vehicle_did_not_stop") is True or any(
+        token in haystack for token in ("그대로", "달려", "못봤", "못 봤", "멈추지", "감속하지")
+    )
+    return {
+        "stopped_or_nearly_stopped": stopped_or_nearly_stopped,
+        "opposing_non_stop": opposing_non_stop,
+    }
 
 
 def _unlit_stopped_vehicle_context(facts: dict[str, Any]) -> bool:

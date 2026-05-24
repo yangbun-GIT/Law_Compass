@@ -68,8 +68,8 @@ def test_basis_summary_keeps_legal_basis_when_knia_items_are_first():
             {"source_type": "knia_reference", "title": "KNIA avoidability reference"},
             {
                 "source_type": "legal_reference",
-                "title": "Centerline obstacle avoidance legal duty guide",
-                "law_name": "Road Traffic Act",
+                "title": "중앙선 장애물 회피 사고 법률 검토 기준",
+                "law_name": "도로교통법",
             },
         ],
         evidence_audit={},
@@ -79,7 +79,7 @@ def test_basis_summary_keeps_legal_basis_when_knia_items_are_first():
     )
 
     basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
-    assert "Centerline obstacle avoidance legal duty guide" in basis_titles[:4]
+    assert "중앙선 장애물 회피 사고 법률 검토 기준" in basis_titles[:4]
     assert "KNIA centerline reference" in basis_titles[:4]
 
 

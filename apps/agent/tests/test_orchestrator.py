@@ -127,13 +127,13 @@ def test_crosswalk_alias_rear_end_case_keeps_following_vehicle_fault():
 
 def test_reference_complex_contexts_use_contextual_fault_ranges():
     centerline = analyze_case(
-        "주차 차량을 피하려고 중앙선을 넘은 상태로 가다가 멈췄고 마주오던 차와 충돌했습니다.",
+        "주차 차량을 피하려고 중앙선을 넘은 상태로 가다가 멈췄고 마주오던 차가 그대로 와서 충돌했습니다.",
         structured_facts={
             "centerline_crossed": True,
             "centerline_cross_reason": "주차 차량 회피",
             "stopped": True,
             "secondary_collision": True,
-            "opponent_behavior": "마주오던 차량과 충돌 후 뒤차와도 충돌",
+            "opponent_behavior": "마주오던 차량이 그대로 진행해 충돌 후 뒤차와도 충돌",
         },
         selected_keywords=["중앙선", "주차 차량", "후속 추돌"],
         analysis_mode="fault_ratio",
@@ -167,6 +167,28 @@ def test_reference_complex_contexts_use_contextual_fault_ranges():
     assert centerline["fault_ratio"]["my"] == 30
     assert unlit["fault_ratio"]["my"] == 40
     assert bicycle["fault_ratio"]["my"] == 20
+
+
+def test_centerline_obstacle_context_uses_textual_stop_and_oncoming_nonstop_cues():
+    result = analyze_case(
+        "왕복 2차로 도로에서 주차 차량 때문에 중앙선을 넘은 채 가다가 멈췄는데 마주오던 차가 그대로 오면서 사고가 났고 뒤차와도 충돌했습니다.",
+        structured_facts={
+            "accident_party_type": "car_vs_car",
+            "accident_type": "centerline_obstacle_collision",
+            "centerline_crossed": True,
+            "road_obstruction": True,
+            "illegal_parking_obstruction": True,
+            "secondary_collision": True,
+        },
+        selected_keywords=["중앙선", "도로 장애물", "불법 주정차"],
+        analysis_mode="fault_ratio",
+    )
+
+    assert result["scenario_type"] == "parking_or_stopped_vehicle_accident"
+    assert result["fault_ratio"]["my"] == 30
+    assert result["fault_ratio"]["other"] == 70
+    assert result["fault_ratio"]["fault_estimate_source"] == "contextual_complex_case"
+    assert "상대 차량 회피 가능성" in result["fault_ratio"]["key_factors"]
 
 
 def test_contextual_complex_fault_estimate_is_not_overwritten_by_knia_base_fault():

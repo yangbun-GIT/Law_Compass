@@ -11,7 +11,7 @@ SCENARIO_LABELS = {
     "pedestrian_crosswalk_accident": "보행자 사고",
     "drunk_or_unlicensed_accident": "음주 또는 무면허 의심 사고",
     "hit_and_run_risk": "사고 후 미조치 의심 사고",
-    "parking_or_stopped_vehicle_accident": "주차 또는 정차 중 사고",
+    "parking_or_stopped_vehicle_accident": "중앙선·정차 차량 관련 차대차 사고",
     "general_vehicle_collision": "차량 충돌 사고",
 }
 

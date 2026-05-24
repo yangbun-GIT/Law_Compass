@@ -12,7 +12,7 @@ from app.services.analysts.insurance_analyst import analyze_insurance
 from app.services.analysts.traffic_law_analyst import analyze_traffic_law
 from app.services.claim_evidence_validator import apply_claim_evidence_audit, validate_claim_evidence
 from app.services.orchestration_context import CaseContext
-from app.services.orchestration_evidence import EvidenceBundle, merge_evidence_items, normalize_evidence_items
+from app.services.orchestration_evidence import EvidenceBundle, _filter_primary_knia_evidence, merge_evidence_items, normalize_evidence_items
 from app.services.rag_client import retrieve_for_scenario
 from app.services.reflection_loop import build_requery_plan
 
@@ -148,6 +148,7 @@ def run_reflection_requery_stage(
             *normalize_evidence_items(retry_retrieval["items"], default_source="법률 근거"),
         ]
     )
+    legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario.get("scenario_tags") or [])
     next_evidence_bundle = EvidenceBundle(
         **{
             **evidence_bundle.__dict__,

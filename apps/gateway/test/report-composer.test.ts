@@ -187,7 +187,7 @@ describe("report composer", () => {
   });
 
   it("maps raw required-input fields to safe Korean labels before prioritizing", () => {
-    const enriched = composeEasyFallback({
+    const enriched: any = composeEasyFallback({
       headline: "report",
       input_requirements: {
         questions: [
@@ -202,6 +202,33 @@ describe("report composer", () => {
     expect((enriched as any).missing_info.priority_items[0].label).toBe("정차 여부");
     expect(text).not.toContain("reported_speed_kmh");
     expect(text).not.toContain("\"label\":\"stopped\"");
+  });
+
+  it("uses centerline obstacle context instead of generic extra-facts wording", () => {
+    const enriched: any = composeEasyFallback({
+      scenario_type: "parking_or_stopped_vehicle_accident",
+      accident_summary: "중앙선 장애물 회피 중 대향 차량과 충돌한 사고",
+      structured_facts: {
+        accident_party_type: "car_vs_car",
+        accident_type: "centerline_obstacle_collision",
+        centerline_crossed: true,
+        road_obstruction: true,
+        illegal_parking_obstruction: true,
+        opponent_behavior: "마주오던 차량이 그대로 진행해 충돌",
+      },
+      fault_ratio: {
+        my: 30,
+        other: 70,
+        key_factors: ["중앙선 침범 사유", "상대 차량 회피 가능성"],
+      },
+    }, {});
+
+    expect(enriched.headline).toContain("중앙선");
+    expect(enriched.headline).toContain("대향 차량");
+    expect(enriched.headline).not.toContain("추가 사실");
+    expect(Number((enriched as any).fault_explanation.my_percent)).toBe(30);
+    expect(Number((enriched as any).fault_explanation.other_percent)).toBe(70);
+    expect((enriched as any).fault_explanation.easy_explanation).toContain("도로 장애물");
   });
 
   it("removes raw field tokens from missing-info priority text", () => {
