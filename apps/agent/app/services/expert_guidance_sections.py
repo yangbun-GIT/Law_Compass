@@ -145,8 +145,8 @@ def _criminal_points(legal_liability: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(items))[:5]
 
 
-def _basis_summary(evidence: list[dict[str, Any]], *, context_text: str = "") -> list[dict[str, str]]:
-    candidates: list[dict[str, str]] = []
+def _basis_summary(evidence: list[dict[str, Any]], *, context_text: str = "") -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
     seen: set[str] = set()
     for item in evidence:
         title = _safe_text(
@@ -164,6 +164,7 @@ def _basis_summary(evidence: list[dict[str, Any]], *, context_text: str = "") ->
             continue
         seen.add(key)
         content_text = f"{title} {reason} {item.get('source') or ''} {item.get('law_name') or ''}"
+        source_quality = _source_quality(item, family_key)
         candidates.append(
             {
                 "_family_key": family_key,
@@ -171,13 +172,18 @@ def _basis_summary(evidence: list[dict[str, Any]], *, context_text: str = "") ->
                 "family_label": family,
                 "title": title,
                 "reason": reason,
+                "source_quality": source_quality["key"],
+                "source_quality_label": source_quality["label"],
+                "source_review_note": source_quality["note"],
+                "needs_original_source_review": source_quality["needs_review"],
+                **({"source_url": source_quality["source_url"]} if source_quality["source_url"] else {}),
             }
         )
     return _augment_basis_focus_notes(_balanced_basis(candidates), context_text)
 
 
-def _balanced_basis(candidates: list[dict[str, str]]) -> list[dict[str, str]]:
-    selected: list[dict[str, str]] = []
+def _balanced_basis(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    selected: list[dict[str, Any]] = []
     selected_ids: set[int] = set()
 
     for family_key in ("legal", "knia", "insurance"):
@@ -214,7 +220,7 @@ def _balanced_basis(candidates: list[dict[str, str]]) -> list[dict[str, str]]:
     ]
 
 
-def _augment_basis_focus_notes(items: list[dict[str, str]], context_text: str) -> list[dict[str, str]]:
+def _augment_basis_focus_notes(items: list[dict[str, Any]], context_text: str) -> list[dict[str, Any]]:
     if not items:
         return items
 
@@ -274,7 +280,7 @@ def _basis_focus_additions(context_text: str) -> list[dict[str, Any]]:
     return additions
 
 
-def _basis_focus_target_index(items: list[dict[str, str]], topic_terms: tuple[str, ...]) -> int:
+def _basis_focus_target_index(items: list[dict[str, Any]], topic_terms: tuple[str, ...]) -> int:
     best_index = 0
     best_score = -1
     for index, item in enumerate(items):
@@ -302,6 +308,79 @@ def _has_any(text: str, terms: tuple[str, ...]) -> bool:
 def _has_core_basis(items: list[dict[str, str]]) -> bool:
     families = {item.get("_family_key") for item in items}
     return "legal" in families and "knia" in families
+
+
+def _source_quality(item: dict[str, Any], family_key: str) -> dict[str, Any]:
+    retrieval_note = str(item.get("retrieval_note") or "").lower()
+    chunk_id = str(item.get("chunk_id") or "").lower()
+    source_url = _safe_source_url(item)
+    joined = " ".join(
+        str(item.get(key) or "").lower()
+        for key in ("source", "source_type", "title", "law_name", "source_url", "source_detail_url")
+    )
+    is_static = retrieval_note.startswith("static") or chunk_id.startswith("static:")
+    if is_static:
+        return {
+            "key": "static_support",
+            "label": "보조 참고 근거",
+            "note": "원문 수집 근거가 부족할 때 사용하는 내부 보조 기준입니다. 실제 안내에서는 원문 확인을 우선해야 합니다.",
+            "needs_review": True,
+            "source_url": source_url,
+        }
+    if family_key == "knia":
+        if source_url and ("accident.knia.or.kr" in source_url or "과실비율" in joined):
+            return {
+                "key": "collected_original",
+                "label": "수집 KNIA 원문 기준",
+                "note": "과실비율정보포털 또는 수집된 KNIA 원문 링크가 있는 근거입니다.",
+                "needs_review": False,
+                "source_url": source_url,
+            }
+        return {
+            "key": "curated_reference",
+            "label": "KNIA 참고 기준",
+            "note": "원문 링크가 없는 KNIA 참고 기준입니다. 실제 사건 안내 전 원문 대조가 필요합니다.",
+            "needs_review": True,
+            "source_url": source_url,
+        }
+    if family_key == "legal":
+        if source_url:
+            return {
+                "key": "collected_original",
+                "label": "원문 법령/판례 근거",
+                "note": "원문 링크가 있는 법령 또는 판례 근거입니다.",
+                "needs_review": False,
+                "source_url": source_url,
+            }
+        return {
+            "key": "curated_reference",
+            "label": "법률 참고 기준",
+            "note": "원문 링크가 없는 법률 참고 기준입니다. 실제 사건 안내 전 원문 대조가 필요합니다.",
+            "needs_review": True,
+            "source_url": "",
+        }
+    if family_key == "insurance":
+        return {
+            "key": "practice_reference",
+            "label": "보험 처리 참고",
+            "note": "보험 처리 흐름을 설명하는 실무 참고 기준입니다.",
+            "needs_review": False,
+            "source_url": source_url,
+        }
+    return {
+        "key": "curated_reference",
+        "label": "참고 근거",
+        "note": "사고 판단을 보조하는 참고 근거입니다.",
+        "needs_review": not bool(source_url),
+        "source_url": source_url,
+    }
+
+
+def _safe_source_url(item: dict[str, Any]) -> str:
+    value = str(item.get("source_detail_url") or item.get("source_url") or "").strip()
+    if value.startswith("http://") or value.startswith("https://"):
+        return value
+    return ""
 
 
 def _guidance_context_text(

@@ -393,6 +393,45 @@ def test_static_fallback_retrieves_legal_references_for_complex_reference_cases(
     assert any(item.get("chunk_id") == "static:legal:bicycle-trigger-rear-end-duty" for item in bicycle_trigger_chunks)
 
 
+def test_basis_marks_collected_and_static_source_quality_without_leaking_ids():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "rear_end_collision"},
+        facts={"stopped": True},
+        legal_analysis={},
+        fault_ratio={"my": 10, "other": 90},
+        legal_liability={"criminal_risk_level": "low"},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "knia_fault_standard",
+                "title": "KNIA original reference",
+                "related_reason": "rear-end stopped vehicle reference.",
+                "source_url": "https://accident.knia.or.kr/myaccident-content?chartNo=car41-1",
+            },
+            {
+                "chunk_id": "static:legal:rear-end-duty",
+                "retrieval_note": "static_scenario_support",
+                "source_type": "legal_reference",
+                "title": "Static rear-end legal support",
+                "related_reason": "safe-distance duty support reference.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis = sections["legal_prediction"]["basis"]
+    assert any(item["source_quality"] == "collected_original" for item in basis)
+    assert any(item["source_quality"] == "static_support" for item in basis)
+    assert any(item.get("needs_original_source_review") is True for item in basis)
+    assert any(item.get("source_url", "").startswith("https://accident.knia.or.kr") for item in basis)
+    text = str(sections)
+    assert "chunk_id" not in text
+    assert "static:legal:rear-end-duty" not in text
+
+
 def test_narrows_fault_range_when_evidence_is_supported():
     sections = build_expert_guidance_sections(
         scenario={"scenario_type": "rear_end_collision"},

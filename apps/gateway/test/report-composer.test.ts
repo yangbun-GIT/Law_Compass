@@ -106,6 +106,43 @@ describe("report composer", () => {
     expect(reason).toContain("뒤차의 반응 시간");
   });
 
+  it("preserves expert basis source quality without exposing internal ids", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      expert_guidance_sections: {
+        status: "needs_more_facts",
+        legal_prediction: {
+          summary: "review",
+          fault_range_label: "my 10~30",
+          civil_points: ["safe distance"],
+          criminal_points: [],
+          basis: [
+            {
+              family_label: "KNIA 기준",
+              title: "Collected KNIA reference",
+              reason: "A collected source basis.",
+              source_quality: "collected_original",
+              source_quality_label: "수집 KNIA 원문 기준",
+              source_review_note: "원문 링크가 있는 근거입니다.",
+              source_url: "https://accident.knia.or.kr/myaccident-content?chartNo=car41-1",
+              needs_original_source_review: false,
+              chunk_id: "internal-knia-id",
+            },
+          ],
+        },
+        insurance_prediction: {},
+        missing_facts: { items: [] },
+      },
+    });
+
+    const card = (enriched as any).expert_guidance_card;
+    const text = JSON.stringify(card);
+    expect(card.basis[0].source_quality).toBe("collected_original");
+    expect(card.basis[0].source_quality_label).toBe("수집 KNIA 원문 기준");
+    expect(card.basis[0].source_url).toContain("https://accident.knia.or.kr");
+    expect(text).not.toContain("chunk_id");
+    expect(text).not.toContain("internal-knia-id");
+  });
+
   it("keeps user-safe missing-info questions usable after sanitizing", () => {
     const report = sanitizeEasyReport({
       missing_info: {

@@ -143,10 +143,15 @@ def evaluate_card(card: dict[str, Any]) -> dict[str, Any]:
     missing_items = card.get("missing_items") if isinstance(card.get("missing_items"), list) else []
 
     basis_families = Counter(family_key(item) for item in basis if isinstance(item, dict))
+    source_quality_counts = Counter(source_quality_key(item) for item in basis if isinstance(item, dict))
     basis_items = [
         {
             "family_key": family_key(item),
             "family_label": str(item.get("family_label") or ""),
+            "source_quality": source_quality_key(item),
+            "source_quality_label": str(item.get("source_quality_label") or ""),
+            "needs_original_source_review": bool(item.get("needs_original_source_review")),
+            "has_source_url": bool(item.get("source_url")),
             "title": str(item.get("title") or ""),
             "reason": str(item.get("reason") or ""),
             "content_text": basis_text(item),
@@ -165,6 +170,7 @@ def evaluate_card(card: dict[str, Any]) -> dict[str, Any]:
         "basis_count": int(card.get("basis_count") or len(basis) or 0),
         "missing_item_count": int(card.get("missing_item_count") or len(missing_items) or 0),
         "basis_family_counts": dict(sorted((key, value) for key, value in basis_families.items() if key)),
+        "source_quality_counts": dict(sorted((key, value) for key, value in source_quality_counts.items() if key)),
         "basis_titles": [
             str(item.get("title") or "")
             for item in basis
@@ -194,6 +200,24 @@ def family_key(value: Any) -> str:
         return "insurance"
     if text:
         return "general"
+    return ""
+
+
+def source_quality_key(value: Any) -> str:
+    if not isinstance(value, dict):
+        return ""
+    raw = str(value.get("source_quality") or "").strip()
+    if raw:
+        return raw
+    label = str(value.get("source_quality_label") or "").lower()
+    if "보조" in label or "static" in label:
+        return "static_support"
+    if "원문" in label or "수집" in label:
+        return "collected_original"
+    if "보험" in label:
+        return "practice_reference"
+    if label:
+        return "curated_reference"
     return ""
 
 
@@ -383,6 +407,9 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
     detail_gap_count = sum(1 for sample in samples if not sample["card_evaluation"].get("detail_available"))
     extra_basis_count = sum(int((sample.get("extra_basis_review") or {}).get("extra_basis_count") or 0) for sample in samples)
     resolved_conflict_count = sum(1 for sample in samples if sample.get("conflict_followup_resolved"))
+    source_quality_counts: Counter[str] = Counter()
+    for sample in samples:
+        source_quality_counts.update(sample["card_evaluation"].get("source_quality_counts") or {})
     return {
         "reference_evidence_alignment_eval": "completed",
         "sample_count": len(samples),
@@ -390,6 +417,9 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "focus_status_counts": dict(sorted(focus_counts.items())),
         "detail_capture_gap_count": detail_gap_count,
         "extra_basis_review_count": extra_basis_count,
+        "source_quality_counts": dict(sorted(source_quality_counts.items())),
+        "static_support_basis_count": int(source_quality_counts.get("static_support", 0)),
+        "original_or_collected_basis_count": int(source_quality_counts.get("collected_original", 0)),
         "resolved_conflict_sample_count": resolved_conflict_count,
         "ready_for_manual_reference_evidence_review_count": readiness_counts.get(
             "ready_for_manual_reference_evidence_review",

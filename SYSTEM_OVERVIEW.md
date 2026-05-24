@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-25 영상 P3: 근거 출처 품질 및 원문/보조 근거 구분
+
+전문가 안내 카드의 근거가 실제 수집 원문 근거인지, KNIA 수집 기준인지, static fallback 보조 근거인지 구분할 수 있도록 Agent-Gateway-Frontend 표시 계약을 보강했다. 목적은 특정 사고 영상에 맞춘 결과 보정이 아니라, 모든 사고 입력에서 “정확한 원문 기반 근거”와 “임시 보조 근거”를 사용자가 구분할 수 있게 만드는 것이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Agent 근거 payload | `expert_guidance_sections.py`가 각 basis item에 `source_quality`, `source_quality_label`, `source_review_note`, `needs_original_source_review`, `source_url`을 붙인다. `chunk_id`, cache key, 내부 retrieval id는 계속 노출하지 않는다. |
+| 출처 품질 분류 | `static_fallback`/`static_scenario_support` 또는 `static:` chunk는 `보조 참고 근거`로 표시한다. KNIA/법령/판례 원문 URL이 있는 근거는 `수집 KNIA 원문 기준` 또는 `원문 법령/판례 근거`로 표시한다. |
+| Gateway 표시 계약 | `report-composer.ts`가 Agent basis source quality와 원문 링크를 보존하되, 내부 ID는 필터링한다. 일반 easy-report의 전문가 카드에서 원문/보조 근거 구분이 유지된다. |
+| Frontend 표시 | `ExpertGuidanceCard.vue`가 근거 카드마다 출처 품질 배지를 표시하고, 원문 URL이 있는 경우 `원문 보기` 버튼을 제공한다. 원문 확인이 필요한 보조 근거는 별도 색상으로 표시한다. |
+| 평가 스크립트 | `reference_evidence_alignment_eval.py`가 `source_quality_counts`, `static_support_basis_count`, `original_or_collected_basis_count`를 집계한다. 이후 실제 원문 DB 확장이나 fallback 의존 감소 작업의 기준으로 사용한다. |
+| 검증 | Agent 전문가 안내 섹션 테스트, Gateway report composer 테스트, Frontend production build, 평가 스크립트 py_compile을 통과했다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 종류를 변경하지 않는다. 실제 법령·판례·KNIA 원문 데이터셋 확장은 다음 단계의 수집/색인 범위이며, 이번 P3는 현재 근거의 품질과 출처를 사용자와 평가 로그에서 구분 가능하게 만드는 구조 보강이다.
+
 ## 2026-05-25 영상 P0 검증: OpenAI+YOLO 실제 영상 1~5 회귀
 
 사고 영상 1~5번을 실제 OpenAI 프레임 분석 ON, YOLO 보조 관찰 ON, fixture OFF 상태에서 재측정했다. 결과 로그는 `logs/video_accuracy/p0_video_openai_yolo_final_20260525/` 아래 로컬 파일로만 남기며 Git에는 포함하지 않는다.

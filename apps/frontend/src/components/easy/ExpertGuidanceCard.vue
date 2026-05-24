@@ -35,9 +35,18 @@
       <h3>확인한 근거</h3>
       <div class="basis-list">
         <div v-for="item in card.basis" :key="`${item.family_label}-${item.title}`">
-          <span>{{ text(item.family_label) }}</span>
+          <div class="basis-meta">
+            <span>{{ text(item.family_label) }}</span>
+            <span class="source-badge" :class="{ review: item.needs_original_source_review }">
+              {{ text(item.source_quality_label || "근거 출처 확인 필요") }}
+            </span>
+          </div>
           <strong>{{ text(item.title) }}</strong>
           <p>{{ text(item.reason) }}</p>
+          <p v-if="item.source_review_note" class="source-note">{{ text(item.source_review_note) }}</p>
+          <a v-if="safeUrl(item.source_url)" class="source-link" :href="safeUrl(item.source_url)" target="_blank" rel="noreferrer">
+            원문 보기
+          </a>
         </div>
       </div>
     </section>
@@ -62,6 +71,11 @@ const card = computed(() => props.card);
 
 function text(value: unknown) {
   return sanitizeDisplayText(value);
+}
+
+function safeUrl(value: unknown) {
+  const url = String(value || "").trim();
+  return /^https?:\/\//i.test(url) ? url : "";
 }
 </script>
 
@@ -129,11 +143,32 @@ function text(value: unknown) {
   padding: 12px;
 }
 
+.basis-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .basis-list span {
   color: #6de3ef;
   display: block;
   font-size: 0.88rem;
   font-weight: 800;
+}
+
+.source-badge {
+  background: rgba(84, 226, 243, 0.12);
+  border: 1px solid rgba(84, 226, 243, 0.32);
+  border-radius: 999px;
+  color: #c8f8ff;
+  padding: 4px 8px;
+}
+
+.source-badge.review {
+  background: rgba(255, 213, 118, 0.12);
+  border-color: rgba(255, 213, 118, 0.42);
+  color: #ffe2a3;
 }
 
 .basis-list strong {
@@ -146,6 +181,29 @@ function text(value: unknown) {
   color: #cbd7e8;
   line-height: 1.55;
   margin-bottom: 0;
+}
+
+.source-note {
+  color: #aebbd0;
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+
+.source-link {
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  color: #f1f7ff;
+  display: inline-flex;
+  font-weight: 800;
+  margin-top: 10px;
+  padding: 7px 10px;
+  text-decoration: none;
+}
+
+.source-link:hover {
+  border-color: rgba(84, 226, 243, 0.55);
+  color: #7ae8f4;
 }
 
 @media (max-width: 760px) {

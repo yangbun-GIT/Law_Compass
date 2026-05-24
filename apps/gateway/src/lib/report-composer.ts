@@ -50,6 +50,11 @@ function cleanText(value: any, fallback = "확인이 필요합니다.") {
   text = text.replace(/\s+/g, " ").trim();
   return text || fallback;
 }
+function safeHttpUrl(value: any) {
+  const text = String(value ?? "").trim();
+  if (!/^https?:\/\//i.test(text)) return "";
+  return text;
+}
 function scenarioLabel(value: string) {
   const map: AnyRecord = { rear_end_collision: "후미추돌 사고", school_zone_child_accident: "어린이보호구역 사고", intersection_signal_violation: "교차로 신호위반 사고", lane_change_collision: "차선변경 사고", pedestrian_crosswalk_accident: "보행자 사고", parking_or_stopped_vehicle_accident: "중앙선·정차 차량 관련 차대차 사고", general_collision: "교통사고", general_vehicle_collision: "교통사고" };
   return map[value] ?? "교통사고";
@@ -462,6 +467,11 @@ function composeExpertGuidanceCard(result: AnyRecord = {}) {
       family_label: cleanText(item?.family_label, "참고 근거"),
       title: cleanText(item?.title, "교통사고 관련 근거"),
       reason: cleanText(item?.reason, "입력 사고와 연결해 참고할 수 있는 근거입니다."),
+      source_quality: typeof item?.source_quality === "string" ? item.source_quality : "",
+      source_quality_label: cleanText(item?.source_quality_label, "근거 출처 확인 필요"),
+      source_review_note: cleanText(item?.source_review_note, ""),
+      source_url: safeHttpUrl(item?.source_url),
+      needs_original_source_review: item?.needs_original_source_review === true,
     }))
     .filter((item) => item.title)
     .slice(0, 4), legalPoints);
