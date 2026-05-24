@@ -944,4 +944,52 @@ describe("report composer", () => {
     });
     expect(card?.stats.find((item: any) => item.label === "질문 변화")?.value).toBe("1개 감소");
   });
+
+  it("uses clear independent wording for video follow-up questions", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      video_input_contract: {
+        uncertain_observations: [
+          { field: "collision_point_visible", value: true, confidence: 0.62, frame_refs: ["frame_1.jpg"] },
+          { field: "user_signal", value: "yellow", confidence: 0.55, frame_refs: ["frame_2.jpg"] },
+          { field: "opponent_signal", value: "unknown", confidence: 0.2, frame_refs: [] },
+          { field: "damage_level", value: "moderate", confidence: 0.5, frame_refs: ["frame_3.jpg"] },
+        ],
+      },
+    });
+
+    const questions = (enriched as any).missing_info.questions;
+    const byField = Object.fromEntries(questions.map((item: any) => [item.field, item]));
+    expect(byField.collision_point_visible.question).toBe("영상에서 실제 충돌 지점이 보이나요?");
+    expect(byField.user_signal.question).toBe("내 차량이 교차로에 진입할 때 신호는 무엇이었나요?");
+    expect(byField.opponent_signal.question).toBe("상대 차량이 교차로에 진입할 때 신호는 무엇이었나요?");
+    expect(byField.damage_level.question).toBe("차량 파손 정도는 어느 정도인가요?");
+    expect(JSON.stringify(questions)).not.toContain("이(가)");
+    expect(new Set(questions.map((item: any) => item.field)).size).toBe(questions.length);
+  });
+
+  it("adds conditional signal guidance when opponent signal is unclear", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      scenario_type: "intersection_signal_violation",
+      accident_summary: "교차로 좌회전 중 상대 직진 차량과 충돌했습니다.",
+      structured_facts: {
+        accident_party_type: "car_vs_car",
+        intersection: true,
+        user_signal: "yellow",
+        opponent_signal_visible: false,
+      },
+      input_requirements: {
+        questions: [
+          { field: "opponent_signal", label: "상대 차량 신호", question: "상대 차량 신호는 무엇이었나요?" },
+        ],
+      },
+    });
+
+    const card = (enriched as any).conditional_outcome_card;
+    expect(card.title).toBe("신호 확인에 따라 달라지는 판단");
+    expect(card.cases).toHaveLength(2);
+    expect(card.cases[0].label).toContain("정상 진행 신호");
+    expect(card.cases[1].label).toContain("신호위반");
+    expect(card.needed_evidence).toContain("교차로 CCTV");
+    expect(JSON.stringify(card)).not.toContain("opponent_signal_visible");
+  });
 });

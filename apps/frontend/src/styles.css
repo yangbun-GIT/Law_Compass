@@ -225,6 +225,10 @@ textarea { resize: vertical; min-height: 96px; }
 .basis-card p {
   line-height: 1.65;
 }
+.accent-text {
+  color: #67e8f9;
+  font-weight: 800;
+}
 .reliability-card {
   background: linear-gradient(135deg, rgba(134, 239, 172, 0.1), rgba(103, 232, 249, 0.09));
 }

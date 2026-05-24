@@ -10,6 +10,26 @@
       :error="followupError"
       @submit="(answers) => emit('submitFollowup', answers)"
     />
+    <article v-if="safeReport.conditional_outcome_card" class="card easy-card wide-card conditional-outcome-card">
+      <p class="kv">{{ text(safeReport.conditional_outcome_card.title) }}</p>
+      <h2>상황별로 달라질 수 있는 판단</h2>
+      <p class="big-text">{{ text(safeReport.conditional_outcome_card.summary) }}</p>
+      <div class="basis-grid">
+        <div class="basis-card" v-for="item in safeReport.conditional_outcome_card.cases || []" :key="item.label">
+          <h3>{{ text(item.label) }}</h3>
+          <p class="accent-text">{{ text(item.likely_direction) }}</p>
+          <p>{{ text(item.explanation) }}</p>
+          <ul class="check-list">
+            <li v-for="point in item.check_points || []" :key="point">{{ text(point) }}</li>
+          </ul>
+        </div>
+      </div>
+      <h3>먼저 확보할 자료</h3>
+      <div class="chips">
+        <span class="chip" v-for="item in safeReport.conditional_outcome_card.needed_evidence || []" :key="item">{{ text(item) }}</span>
+      </div>
+      <p class="soft-warning">{{ text(safeReport.conditional_outcome_card.notice) }}</p>
+    </article>
     <ElderlyActionCard v-if="actionItems.length" :actions="actionItems" />
     <article class="card easy-card">
       <h2>{{ text(safeReport.insurance_explanation?.title || "보험 처리 안내") }}</h2>

@@ -21,13 +21,13 @@
 
     <form v-if="questions.length" class="followup-form" @submit.prevent="submit">
       <div class="followup-grid">
-        <label v-for="question in questions" :key="question.field || question.question">
+        <label v-for="question in questions" :key="question.answerKey">
           <span>{{ text(question.question || question.label) }}</span>
-          <select v-if="question.options?.length" v-model="answers[question.field]">
+          <select v-if="question.options?.length" v-model="answers[question.answerKey]">
             <option value="">선택</option>
             <option v-for="option in question.options" :key="option" :value="option">{{ text(option) }}</option>
           </select>
-          <input v-else v-model.trim="answers[question.field]" placeholder="확인한 내용을 입력해 주세요" />
+          <input v-else v-model.trim="answers[question.answerKey]" placeholder="확인한 내용을 입력해 주세요" />
           <small v-if="question.priority_reason">{{ text(question.priority_label || "확인 필요") }} · {{ text(question.priority_reason) }}</small>
         </label>
       </div>
@@ -44,6 +44,7 @@ import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 
 type MissingQuestion = {
   field: string;
+  answerKey: string;
   label?: string;
   question?: string;
   input_type?: string;
@@ -80,33 +81,39 @@ const questions = computed<MissingQuestion[]>(() => {
   const raw = Array.isArray(props.missing?.questions) ? props.missing.questions : [];
   return raw
     .filter((item: any) => item?.field && (item?.question || item?.label))
-    .map((item: any) => ({
-      field: String(item.field),
-      label: String(item.label || item.field),
-      question: String(item.question || item.label || item.field),
-      input_type: String(item.input_type || "text"),
-      options: Array.isArray(item.options) ? item.options.map(String).filter(Boolean) : [],
-      priority_label: String(item.priority_label || ""),
-      priority_reason: String(item.priority_reason || ""),
-    }));
+    .map((item: any, index: number) => {
+      const field = String(item.field);
+      const question = String(item.question || item.label || item.field);
+      return {
+        field,
+        answerKey: `${field}::${index}::${question}`,
+        label: String(item.label || item.field),
+        question,
+        input_type: String(item.input_type || "text"),
+        options: Array.isArray(item.options) ? item.options.map(String).filter(Boolean) : [],
+        priority_label: String(item.priority_label || ""),
+        priority_reason: String(item.priority_reason || ""),
+      };
+    });
 });
 const hasAnswers = computed(() => Object.values(answers).some((value) => String(value || "").trim()));
 
 watch(questions, (next) => {
-  const allowed = new Set(next.map((item) => item.field));
+  const allowed = new Set(next.map((item) => item.answerKey));
   for (const key of Object.keys(answers)) {
     if (!allowed.has(key)) delete answers[key];
   }
   for (const question of next) {
-    if (!(question.field in answers)) answers[question.field] = "";
+    if (!(question.answerKey in answers)) answers[question.answerKey] = "";
   }
 }, { immediate: true });
 
 function submit() {
   const payload: Record<string, string> = {};
-  for (const [field, value] of Object.entries(answers)) {
+  for (const question of questions.value) {
+    const value = answers[question.answerKey];
     const trimmed = String(value || "").trim();
-    if (trimmed) payload[field] = trimmed;
+    if (trimmed) payload[question.field] = trimmed;
   }
   if (Object.keys(payload).length) emit("submit", payload);
 }

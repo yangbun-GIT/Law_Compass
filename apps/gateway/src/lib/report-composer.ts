@@ -788,9 +788,41 @@ function videoQualityQuestionText(field: string, label: string, observedLabel: s
       ? `영상에서 상대 차량 행동이 ${observedLabel}처럼 보였지만, 신뢰도가 충분하지 않았습니다. 실제 상대 차량의 행동을 선택해 주세요.`
       : "영상만으로는 충돌 직전 상대 차량 행동을 충분히 확인하지 못했습니다. 실제 상황을 선택해 주세요.";
   }
-  return observedLabel && observedLabel !== "확인 필요"
-    ? `영상에서 ${label}이(가) ${observedLabel}처럼 보였지만, 신뢰도가 충분하지 않아 바로 반영하지 않았습니다. 실제 상황은 어느 쪽에 가깝나요?`
-    : `영상만으로는 ${label}을(를) 충분히 확인하지 못했습니다. 실제 상황을 선택해 주세요.`;
+  const fieldQuestions: Record<string, string> = {
+    accident_party_type: "실제 사고 대상은 어느 유형에 가깝나요?",
+    accident_type: "사고 유형은 어느 쪽에 가장 가깝나요?",
+    collision_partner_type: "실제로 충돌하거나 사고에 직접 관여한 대상은 무엇인가요?",
+    primary_collision_target: "주된 충돌 대상은 누구 또는 무엇인가요?",
+    collision_point_visible: "영상에서 실제 충돌 지점이 보이나요?",
+    collision_point_location: "주된 충돌 위치는 어디에 가깝나요?",
+    front_vehicle_stopped: "충돌 직전 앞차가 정차 중이었나요?",
+    ego_turn_direction: "내 차량은 사고 직전 어느 방향으로 진행했나요?",
+    intersection: "사고 지점이 교차로 또는 교차로 진입부인가요?",
+    user_signal: "내 차량이 교차로에 진입할 때 신호는 무엇이었나요?",
+    opponent_signal_visible: "영상이나 자료에서 상대 차량 신호를 확인할 수 있나요?",
+    opponent_signal: "상대 차량이 교차로에 진입할 때 신호는 무엇이었나요?",
+    signal_transition: "내 차량 진입부터 충돌 직전까지 신호 변화는 어느 쪽에 가깝나요?",
+    opponent_signal_violation: "상대 차량이 신호를 위반했다고 볼 자료가 있나요?",
+    damage_level: "차량 파손 정도는 어느 정도인가요?",
+    injury: "다친 사람이 있나요?",
+    crosswalk_nearby: "횡단보도는 사고 지점과 얼마나 가까웠나요?",
+    pedestrian_visible: "실제 사고 대상 또는 위험 대상으로 보행자가 보였나요?",
+    centerline_crossed: "내 차량 또는 상대 차량이 중앙선을 넘었나요?",
+    centerline_cross_reason: "중앙선을 넘은 이유는 무엇인가요?",
+    road_obstruction: "차로를 막은 장애물이나 주정차 차량이 있었나요?",
+    illegal_parking_obstruction: "불법 주정차 차량이 사고 경로에 영향을 줬나요?",
+    opposing_vehicle_present: "마주오던 차량이 있었나요?",
+    opposing_vehicle_did_not_stop: "마주오던 차량이 멈추거나 감속했나요?",
+    secondary_collision: "첫 충돌 뒤 후속 충돌이 있었나요?",
+    stopped_vehicle_without_lights: "상대 차량이 등화나 비상등 없이 정차해 있었나요?",
+    highway_or_expressway: "사고 장소가 고속도로 또는 자동차전용도로인가요?",
+  };
+  const directQuestion = fieldQuestions[field];
+  if (directQuestion) return directQuestion;
+  if (observedLabel && observedLabel !== "확인 필요" && observedLabel !== label) {
+    return `${label}은(는) 영상에서 ${observedLabel}처럼 보였지만 확정하기 어렵습니다. 실제 상황을 선택해 주세요.`;
+  }
+  return `${label}은(는) 영상만으로 충분히 확인하지 못했습니다. 실제 상황을 선택해 주세요.`;
 }
 
 function compareVideoObservationPriority(left: AnyRecord, right: AnyRecord) {
@@ -1222,11 +1254,64 @@ function frameCountLabel(value: any) {
   return count ? `대표 프레임 ${count}장` : "";
 }
 
+function composeConditionalOutcomeCard(result: AnyRecord = {}) {
+  const facts = result.structured_facts ?? {};
+  const contract = result.video_input_contract ?? result.model_info?.video_input_contract ?? {};
+  const questionFields = new Set(
+    [
+      ...asArray(result.required_input_questions ?? result.input_requirements?.questions),
+      ...asArray(result.missing_info?.questions),
+      ...asArray(contract.uncertain_observations),
+    ]
+      .map((item: AnyRecord) => String(item?.field ?? ""))
+      .filter(Boolean)
+  );
+  const text = [
+    result.scenario_type,
+    facts.accident_type,
+    facts.signal_state,
+    facts.opponent_behavior,
+    result.accident_summary,
+  ].map((value) => String(value ?? "")).join(" ");
+  const signalRelevant =
+    facts.intersection === true ||
+    /교차로|좌회전|우회전|직진|신호|황색|적색|녹색|intersection|signal/i.test(text) ||
+    ["user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "opponent_signal_violation"].some((field) => questionFields.has(field));
+  const opponentSignalUnclear =
+    facts.opponent_signal_visible === false ||
+    !facts.opponent_signal ||
+    String(facts.opponent_signal).toLowerCase() === "unknown" ||
+    questionFields.has("opponent_signal") ||
+    questionFields.has("opponent_signal_visible");
+  if (!signalRelevant || !opponentSignalUnclear) return undefined;
+  return {
+    title: "신호 확인에 따라 달라지는 판단",
+    summary: "상대 차량 신호나 진입 시점이 확인되지 않으면 한 가지 과실비율로 단정하기 어렵습니다. 아래 경우를 나눠 확인해야 합니다.",
+    cases: [
+      {
+        label: "상대 차량 신호가 정상 진행 신호였다면",
+        likely_direction: "내 차량의 진입 신호와 정지선 통과 시점이 더 큰 쟁점이 됩니다.",
+        explanation: "내 차량이 황색 또는 적색에 무리하게 진입한 것으로 평가되면 내 책임이 커질 수 있습니다.",
+        check_points: ["내 차량 정지선 통과 시점", "황색 전환 시점", "충돌 직전 신호 색상"],
+      },
+      {
+        label: "상대 차량도 적색 또는 신호위반이었다면",
+        likely_direction: "상대 차량의 신호위반과 전방주시 의무가 함께 검토됩니다.",
+        explanation: "상대 차량 진입 신호가 적색이거나 신호 변경 직후 주의의무 위반이 확인되면 상대 책임이 커질 수 있습니다.",
+        check_points: ["상대 차량 신호", "CCTV 또는 신호체계 자료", "상대 차량 진입 속도와 좌우 확인 가능성"],
+      },
+    ],
+    needed_evidence: ["교차로 CCTV", "신호 주기표 또는 신호체계 자료", "각 차량의 정지선 통과 시점", "블랙박스 원본 전체 구간"],
+    notice: "위 분기는 특정 영상에 맞춘 결론이 아니라, 신호가 보이지 않는 교차로 사고에서 공통으로 확인해야 하는 판단 구조입니다.",
+  };
+}
+
 export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {}) {
   const card = composeEvidenceReliabilityCard(result);
   const processCard = composeAgentProcessCard(result);
   const videoFactCard = composeVideoFactExplanationCard(result);
   const expertGuidanceCard = composeExpertGuidanceCard(result);
+  const conditionalOutcomeCard = composeConditionalOutcomeCard(result);
   const videoQuestions = combineVideoQuestions(
     composeVideoConflictQuestions(result),
     composeVideoQualityQuestions(result),
@@ -1238,6 +1323,7 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
     ...(processCard ? { agent_process_card: processCard } : {}),
     ...(videoFactCard ? { video_fact_explanation_card: videoFactCard } : {}),
     ...(expertGuidanceCard ? { expert_guidance_card: expertGuidanceCard } : {}),
+    ...(conditionalOutcomeCard ? { conditional_outcome_card: conditionalOutcomeCard } : {}),
   };
 }
 
