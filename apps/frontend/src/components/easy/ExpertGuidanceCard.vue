@@ -33,6 +33,7 @@
 
     <section v-if="card.basis?.length" class="expert-basis">
       <h3>확인한 근거</h3>
+      <p v-if="card.source_summary" class="source-summary">{{ text(card.source_summary) }}</p>
       <div class="basis-list">
         <div v-for="item in card.basis" :key="`${item.family_label}-${item.title}`">
           <div class="basis-meta">
@@ -43,7 +44,7 @@
           </div>
           <strong>{{ text(item.title) }}</strong>
           <p>{{ text(item.reason) }}</p>
-          <p v-if="item.source_review_note" class="source-note">{{ text(item.source_review_note) }}</p>
+          <p v-if="item.needs_original_source_review && item.source_review_note" class="source-note">{{ text(item.source_review_note) }}</p>
           <a v-if="safeUrl(item.source_url)" class="source-link" :href="safeUrl(item.source_url)" target="_blank" rel="noreferrer">
             원문 보기
           </a>
@@ -134,6 +135,11 @@ function safeUrl(value: unknown) {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.source-summary {
+  color: #dbe8f7;
+  margin-top: -4px;
 }
 
 .basis-list div {

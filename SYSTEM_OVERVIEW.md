@@ -1,5 +1,21 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-25 영상 P4~P8: 근거 품질, 운영 리스크, 최종 검증 보강
+
+P4~P8은 영상 처리 자체의 세부 튜닝보다 “분석 결과를 제품 수준으로 검증·운영할 수 있는 구조”를 닫는 작업으로 진행했다. 특정 사고 영상에 맞춘 출력 보정은 하지 않았고, 원문 근거 커버리지, static fallback 의존, 사용자 표시 문구, OpenAI 사용량 메타데이터, 최종 검증 재현성을 보강했다.
+
+| 단계 | 변경 내용 |
+| --- | --- |
+| P4 원문/보조 근거 커버리지 | `evidence_source_status.py`를 `evidence-source-status-v2`로 올리고, legal/KNIA 소스별 `source_quality_counts`, `original_or_collected_count`, `static_support_count`, `source_url_count`, `coverage_status`, 전체 `source_quality_totals`를 제공한다. 원문 근거 없이 보조 근거만 있는 경우 recovery action에 원문 수집 확장을 남긴다. |
+| P5 평가 기준 | `reference_evidence_alignment_eval.py`가 카드별 `source_quality_review`, aggregate `source_quality_status_counts`, 원문 대조 필요 개수, source URL 개수, source quality 누락 권고를 산출한다. 오래된 fixture처럼 출처 품질 필드가 없는 결과도 최종 근거 리뷰 전 재생성 대상으로 표시된다. |
+| P6 사용자 UX | Gateway 전문가 안내 카드에 `source_summary`를 추가하고, Frontend는 원문 대조 경고를 `needs_original_source_review=true`인 basis item에만 표시한다. 원문 링크가 있는 근거, 보조 기준, 원문 대조 필요 근거가 한 번 더 구분된다. |
+| P7 운영 리스크 | Worker OpenAI 프레임 분석 응답에 provider `usage`가 있으면 `input_tokens`, `output_tokens`, `total_tokens`만 안전 메타데이터로 보존한다. `scripts/summarize_operating_risk.py`는 reference 평가와 batch 결과를 묶어 token usage, static fallback, 원문 대조 필요, zero-observation 상태를 요약한다. |
+| P8 최종 검증 | `scripts/verify_final_readiness.ps1`를 추가해 Python compile, Agent source-status 테스트, reference hardening fixture, 운영 리스크 요약, Gateway 테스트/빌드, Frontend 빌드, 선택적 Docker/Agent 회귀 검증을 한 번에 재현한다. |
+
+검증은 `python -m py_compile`, Agent `pytest` 15개, `verify_reference_hardening_fixture.py`, `summarize_operating_risk.py`, Gateway `report-composer.test.ts` 32개, Gateway build, Frontend build, `verify_final_readiness.ps1 -SkipDockerChecks`를 통과했다. 이후 Docker 재빌드와 `/health` 확인으로 실행 상태를 검증한다.
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류를 변경하지 않는다. OpenAI/YOLO/AI Hub 키와 원본 데이터는 계속 Git에 올리지 않는다.
+
 ## 2026-05-25 영상 P3: 근거 출처 품질 및 원문/보조 근거 구분
 
 전문가 안내 카드의 근거가 실제 수집 원문 근거인지, KNIA 수집 기준인지, static fallback 보조 근거인지 구분할 수 있도록 Agent-Gateway-Frontend 표시 계약을 보강했다. 목적은 특정 사고 영상에 맞춘 결과 보정이 아니라, 모든 사고 입력에서 “정확한 원문 기반 근거”와 “임시 보조 근거”를 사용자가 구분할 수 있게 만드는 것이다.

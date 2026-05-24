@@ -119,7 +119,7 @@ python -m compileall worker tests
 - 모델: `gpt-4.1-mini`
 - 이미지 상세도: `high`
 - 최대 분석 프레임: `18`장, 코드 상한 `18`장
-- 최대 출력 토큰: `900`, 코드 상한 `1400`
+- 최대 출력 토큰: `2200`, 코드 상한 `3000`
 - 저장 정책: Responses API 요청에 `store=false`를 전달
 
 OpenAI 공식 문서 기준으로 `gpt-4.1-mini`는 이미지 입력을 지원하는 저비용 비추론 모델입니다. 이 프로젝트의 프레임 분석은 사고 법률 판단이 아니라 관찰 가능한 물리 사실을 JSON으로 짧게 추출하는 작업이므로, reasoning 토큰이 필요한 GPT-5 계열보다 비추론 모델을 기본으로 둡니다. 다만 교차로 신호·충돌 대상·상대 차량 진행 방향처럼 작은 화면 단서가 중요한 사고 영상 검증에서는 `detail=high`와 18장 프레임을 기본 검증값으로 사용합니다. 비용 제한이 더 중요할 때만 `OPENAI_FRAME_ANALYSIS_DETAIL=low` 또는 프레임 수 축소를 일시 적용합니다.
@@ -131,7 +131,7 @@ docker compose up -d --build worker
 docker compose logs worker --tail=100
 ```
 
-worker 로그의 `openai_frame_analysis` 항목에서 분석 모델, 프레임 수, `observations`를 확인할 수 있습니다. 이 출력에는 API 키를 포함하지 않습니다.
+worker 로그의 `openai_frame_analysis` 항목에서 분석 모델, 프레임 수, `observations`를 확인할 수 있습니다. 이 출력에는 API 키를 포함하지 않습니다. OpenAI 응답에 `usage`가 포함되면 worker 결과의 안전 메타데이터에 token usage가 함께 남습니다.
 
 프레임 분석 결과에는 `observation_quality_summary`가 함께 기록됩니다. 품질 확인 시 아래 값을 우선 봅니다.
 - `observation_count`: 모델/fixture가 반환한 관찰값 수

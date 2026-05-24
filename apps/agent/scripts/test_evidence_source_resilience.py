@@ -44,12 +44,15 @@ def main() -> None:
         evidence=retrieval["items"],
     )
     status = build_evidence_source_status(bundle)
-    assert status["version"] == "evidence-source-status-v1"
+    assert status["version"] == "evidence-source-status-v2"
     assert status["overall_status"] in {"partial", "degraded"}
+    assert status["static_support_count"] > 0
+    assert status["sources"]["legal_rag"]["coverage_status"] == "fallback_only"
     assert status["sources"]["legal_rag"]["status"] == "degraded_with_fallback"
     assert status["sources"]["knia_chart_match"]["status"] == "unavailable"
     assert status["sources"]["knia_json_detail"]["disabled_reason"] == "DATABASE_URL missing"
     assert "refresh_or_rebuild_legal_kb" in status["recovery_actions"]
+    assert "expand_original_source_collection" in status["recovery_actions"]
     assert "configure_database_url" in status["recovery_actions"]
     print("evidence_source_resilience=passed")
 

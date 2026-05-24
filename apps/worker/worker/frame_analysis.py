@@ -96,6 +96,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "error_retry_used": error_retry_used,
             "error_retry_error": error_retry_error,
             "analysis_attempts": attempts,
+            "usage": _aggregate_attempt_usage(attempts),
             **selection_metadata,
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "summary": parsed.get("summary") or parsed.get("scene_summary"),
@@ -143,6 +144,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                     "error_retry_used": True,
                     "error_retry_error": "",
                     "analysis_attempts": attempts,
+                    "usage": _aggregate_attempt_usage(attempts),
                     **selection_metadata,
                     "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
                     "summary": parsed.get("summary") or parsed.get("scene_summary"),
@@ -165,6 +167,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "error_retry_used": error_retry_used,
             "error_retry_error": error_retry_error,
             "analysis_attempts": attempts,
+            "usage": _aggregate_attempt_usage(attempts),
             **selection_metadata,
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "observations": [],
@@ -464,10 +467,49 @@ def _analysis_attempt_summary(label: str, data: dict[str, Any], observations: li
         "response_id": data.get("id"),
         "response_status": data.get("status"),
         "incomplete_details": data.get("incomplete_details"),
+        "usage": _openai_usage(data),
         "observation_count": len(observations),
         "event_frame_count": len(event_summary.get("event_frame_refs") or []) if isinstance(event_summary, dict) else 0,
         "impact_visible": event_summary.get("impact_visible") if isinstance(event_summary, dict) else None,
     }
+
+
+def _openai_usage(data: dict[str, Any]) -> dict[str, Any]:
+    raw = data.get("usage")
+    if not isinstance(raw, dict):
+        return {}
+    input_tokens = _usage_int(raw.get("input_tokens") or raw.get("prompt_tokens"))
+    output_tokens = _usage_int(raw.get("output_tokens") or raw.get("completion_tokens"))
+    total_tokens = _usage_int(raw.get("total_tokens"))
+    if not total_tokens:
+        total_tokens = input_tokens + output_tokens
+    output: dict[str, Any] = {}
+    if input_tokens:
+        output["input_tokens"] = input_tokens
+    if output_tokens:
+        output["output_tokens"] = output_tokens
+    if total_tokens:
+        output["total_tokens"] = total_tokens
+    return output
+
+
+def _aggregate_attempt_usage(attempts: list[dict[str, Any]]) -> dict[str, Any]:
+    totals = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    for attempt in attempts:
+        usage = attempt.get("usage") if isinstance(attempt, dict) else {}
+        if not isinstance(usage, dict):
+            continue
+        for key in totals:
+            totals[key] += _usage_int(usage.get(key))
+    return {key: value for key, value in totals.items() if value > 0}
+
+
+def _usage_int(value: Any) -> int:
+    try:
+        number = int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, number)
 
 
 def _analysis_error_attempt_summary(label: str, error: str) -> dict[str, Any]:

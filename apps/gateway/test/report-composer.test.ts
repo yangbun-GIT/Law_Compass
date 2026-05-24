@@ -138,6 +138,7 @@ describe("report composer", () => {
     const text = JSON.stringify(card);
     expect(card.basis[0].source_quality).toBe("collected_original");
     expect(card.basis[0].source_quality_label).toBe("수집 KNIA 원문 기준");
+    expect(card.source_summary).toBe("원문 링크가 있는 근거를 우선 표시했습니다.");
     expect(card.basis[0].source_url).toContain("https://accident.knia.or.kr");
     expect(text).not.toContain("chunk_id");
     expect(text).not.toContain("internal-knia-id");

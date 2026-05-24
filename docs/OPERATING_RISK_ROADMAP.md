@@ -99,3 +99,8 @@
 ## 이번 단계의 결론
 
 현재 코드는 비용 상한, 기본 비활성화, fallback 표시, 영상 reference 평가 골격까지 갖췄다. 그러나 제품 완성 기준에서는 OpenAI token/cost 영속 기록, 실제 KNIA/법령/판례 원문 coverage, S3 전환, API quota, UI 수용성 검증이 아직 후속 개발 항목이다. 다음 실제 개발은 비용/사용량 이벤트 계약을 Phase A로 맞추는 작업부터 시작하는 것이 가장 안전하다.
+## 2026-05-25 P7 운영 계측 보강
+
+- `apps/worker/worker/frame_analysis.py`는 OpenAI Responses API 응답에 `usage`가 포함될 경우 `input_tokens`, `output_tokens`, `total_tokens`만 안전 메타데이터로 보존한다. API key, raw prompt, raw user text는 저장하지 않는다.
+- `scripts/summarize_operating_risk.py`는 reference guidance/evidence/calibration 결과와 video batch 결과를 묶어 token usage, static fallback 의존, 원문 대조 필요 근거, zero-observation 영상 샘플을 제출 전 점검한다.
+- 이 단계는 비용 원화 계산이나 사용자별 과금 대시보드가 아니다. 실제 가격표 기반 비용 추정과 DB 영속화는 `ai_usage_events` Phase B 이후로 둔다.

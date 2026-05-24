@@ -502,9 +502,27 @@ function composeExpertGuidanceCard(result: AnyRecord = {}) {
       documents,
     },
     basis,
+    source_summary: expertBasisSourceSummary(basis),
     missing_items: missingItems,
     notice: cleanText(source.notice, "확정 판단이 아닌 참고용 예상입니다."),
   };
+}
+
+function expertBasisSourceSummary(basis: AnyRecord[]) {
+  if (!basis.length) return "";
+  const originalCount = basis.filter((item) => item.source_quality === "collected_original").length;
+  const staticCount = basis.filter((item) => item.source_quality === "static_support").length;
+  const reviewCount = basis.filter((item) => item.needs_original_source_review).length;
+  if (originalCount && !staticCount && !reviewCount) {
+    return "원문 링크가 있는 근거를 우선 표시했습니다.";
+  }
+  if (originalCount && (staticCount || reviewCount)) {
+    return "원문 근거와 보조 기준이 함께 표시됩니다. 보조 기준은 원문 대조가 필요합니다.";
+  }
+  if (staticCount || reviewCount) {
+    return "일부 근거는 보조 기준입니다. 실제 적용 전 원문 대조가 필요합니다.";
+  }
+  return "사고 유형과 관련된 참고 근거를 표시했습니다.";
 }
 
 function augmentExpertBasisReasons<T extends { title: string; reason: string }>(basis: T[], legalPoints: string[]): T[] {

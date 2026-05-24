@@ -177,6 +177,43 @@ def evaluate_card(card: dict[str, Any]) -> dict[str, Any]:
             if isinstance(item, dict) and item.get("title")
         ][:6],
         "basis_items": basis_items[:8],
+        "source_quality_review": source_quality_review(basis_items),
+    }
+
+
+def source_quality_review(basis_items: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = Counter(str(item.get("source_quality") or "") for item in basis_items)
+    counts.pop("", None)
+    basis_count = len(basis_items)
+    original_count = int(counts.get("collected_original") or 0)
+    static_count = int(counts.get("static_support") or 0)
+    curated_count = int(counts.get("curated_reference") or 0) + int(counts.get("practice_reference") or 0)
+    source_url_count = sum(1 for item in basis_items if item.get("has_source_url"))
+    needs_review_count = sum(1 for item in basis_items if item.get("needs_original_source_review"))
+    if basis_count <= 0:
+        status = "no_basis"
+    elif original_count > 0 and static_count == 0 and needs_review_count == 0:
+        status = "original_source_ready"
+    elif original_count > 0 and static_count > 0:
+        status = "mixed_with_static_support"
+    elif static_count > 0 and original_count == 0:
+        status = "fallback_heavy"
+    elif source_url_count > 0:
+        status = "linked_reference_needs_origin_review"
+    elif curated_count > 0:
+        status = "curated_reference_only"
+    else:
+        status = "source_quality_unknown"
+    return {
+        "status": status,
+        "basis_count": basis_count,
+        "source_quality_counts": dict(sorted(counts.items())),
+        "original_or_collected_count": original_count,
+        "static_support_count": static_count,
+        "curated_reference_count": curated_count,
+        "source_url_count": source_url_count,
+        "needs_original_source_review_count": needs_review_count,
+        "original_source_ratio": round(original_count / basis_count, 3) if basis_count else 0,
     }
 
 
@@ -360,6 +397,7 @@ def evaluate_sample(stage5_sample: dict[str, Any], sample_dir: Path | None, batc
         "card_evaluation": card_eval,
         "focus_alignment": focus_rows,
         "extra_basis_review": extra_basis_review(card_eval, focus_rows),
+        "source_quality_review": card_eval.get("source_quality_review") or {},
         "next_actions": next_actions(readiness),
     }
 
@@ -408,8 +446,15 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
     extra_basis_count = sum(int((sample.get("extra_basis_review") or {}).get("extra_basis_count") or 0) for sample in samples)
     resolved_conflict_count = sum(1 for sample in samples if sample.get("conflict_followup_resolved"))
     source_quality_counts: Counter[str] = Counter()
+    source_quality_status_counts: Counter[str] = Counter()
+    source_quality_needs_review_count = 0
+    source_url_count = 0
     for sample in samples:
         source_quality_counts.update(sample["card_evaluation"].get("source_quality_counts") or {})
+        review = sample.get("source_quality_review") or {}
+        source_quality_status_counts.update([str(review.get("status") or "unknown")])
+        source_quality_needs_review_count += int(review.get("needs_original_source_review_count") or 0)
+        source_url_count += int(review.get("source_url_count") or 0)
     return {
         "reference_evidence_alignment_eval": "completed",
         "sample_count": len(samples),
@@ -418,8 +463,11 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "detail_capture_gap_count": detail_gap_count,
         "extra_basis_review_count": extra_basis_count,
         "source_quality_counts": dict(sorted(source_quality_counts.items())),
+        "source_quality_status_counts": dict(sorted(source_quality_status_counts.items())),
         "static_support_basis_count": int(source_quality_counts.get("static_support", 0)),
         "original_or_collected_basis_count": int(source_quality_counts.get("collected_original", 0)),
+        "basis_source_url_count": source_url_count,
+        "basis_needs_original_source_review_count": source_quality_needs_review_count,
         "resolved_conflict_sample_count": resolved_conflict_count,
         "ready_for_manual_reference_evidence_review_count": readiness_counts.get(
             "ready_for_manual_reference_evidence_review",
@@ -429,12 +477,24 @@ def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
             "ready_for_stage8_guidance_calibration",
             0,
         ),
-        "recommendations": recommendations(readiness_counts, detail_gap_count),
+        "recommendations": recommendations(
+            readiness_counts,
+            detail_gap_count,
+            source_quality_counts,
+            source_quality_status_counts,
+            source_quality_needs_review_count,
+        ),
         "samples": samples,
     }
 
 
-def recommendations(readiness_counts: Counter, detail_gap_count: int) -> list[str]:
+def recommendations(
+    readiness_counts: Counter,
+    detail_gap_count: int,
+    source_quality_counts: Counter,
+    source_quality_status_counts: Counter,
+    source_quality_needs_review_count: int,
+) -> list[str]:
     output: list[str] = []
     if detail_gap_count:
         output.append("Detailed expert guidance card fields are missing. Regenerate E2E output before content-fit review.")
@@ -444,6 +504,14 @@ def recommendations(readiness_counts: Counter, detail_gap_count: int) -> list[st
         output.append("Some focus items lack content-fit evidence. Improve retrieval/fallback/basis selection before guidance calibration.")
     if readiness_counts.get("ready_for_stage8_guidance_calibration"):
         output.append("Evidence title/reason content fits the expert focus items. Proceed to guidance calibration.")
+    if source_quality_counts.get("static_support"):
+        output.append("Static support evidence is still present. Treat it as a safe fallback and keep expanding original KNIA/legal/case sources.")
+    if source_quality_status_counts.get("fallback_heavy") or source_quality_status_counts.get("curated_reference_only"):
+        output.append("Some samples rely on fallback or curated references without original-source coverage. Prioritize source import before final product claims.")
+    if source_quality_status_counts.get("source_quality_unknown"):
+        output.append("Some basis items do not carry source-quality metadata. Regenerate outputs through the current Gateway/Agent path before final evidence review.")
+    if source_quality_needs_review_count:
+        output.append("Some displayed basis items require original-source review. Keep the UI review note visible only for those items.")
     return output
 
 
