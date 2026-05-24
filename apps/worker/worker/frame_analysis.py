@@ -23,6 +23,7 @@ OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(18, _int_env("OPENAI_FRAME_ANALYSI
 OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS = max(600, min(3000, _int_env("OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS", 2200)))
 OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY = os.getenv("OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY", "1") == "1"
 OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = max(1, min(18, _int_env("OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES", 6)))
+OPENAI_FRAME_ANALYSIS_ERROR_RETRY = os.getenv("OPENAI_FRAME_ANALYSIS_ERROR_RETRY", "1") == "1"
 OPENAI_FRAME_ANALYSIS_DETAIL = os.getenv("OPENAI_FRAME_ANALYSIS_DETAIL", "high").strip().lower()
 if OPENAI_FRAME_ANALYSIS_DETAIL not in {"low", "high", "auto"}:
     OPENAI_FRAME_ANALYSIS_DETAIL = "high"
@@ -47,38 +48,28 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
     if not OPENAI_API_KEY:
         return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "OPENAI_API_KEY is empty", **selection_metadata}
     payload = _openai_frame_analysis_payload(selected_frames, context)
+    attempts: list[dict[str, Any]] = []
+    error_retry_used = False
+    error_retry_error = ""
     try:
-        data = _post_json(
-            "https://api.openai.com/v1/responses",
-            payload,
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
-            timeout=OPENAI_TIMEOUT_SEC,
-        )
-        parsed = _safe_json_loads(_openai_output_text(data)) or {}
-        observations = _normalize_openai_observations(parsed.get("observations") or parsed.get("detected_events") or [], selected_frames)
-        event_summary = _normalize_accident_event_summary(parsed.get("accident_event_summary"), selected_frames)
-        event_summary = event_summary or _derive_accident_event_summary_from_observations(observations, selected_frames)
-        attempts = [_analysis_attempt_summary("primary", data, observations, event_summary)]
+        attempt = _run_openai_analysis_attempt("primary", payload, selected_frames)
+        data = attempt["data"]
+        parsed = attempt["parsed"]
+        observations = attempt["observations"]
+        event_summary = attempt["event_summary"]
+        attempts.append(attempt["summary"])
         retry_error = ""
         retry_used = False
         if _should_retry_zero_observation(observations, selected_frames):
             retry_used = True
             try:
                 retry_payload = _openai_frame_analysis_payload(selected_frames, context, fallback=True, prior_event_summary=event_summary)
-                retry_data = _post_json(
-                    "https://api.openai.com/v1/responses",
-                    retry_payload,
-                    headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
-                    timeout=OPENAI_TIMEOUT_SEC,
-                )
-                retry_parsed = _safe_json_loads(_openai_output_text(retry_data)) or {}
-                retry_observations = _normalize_openai_observations(
-                    retry_parsed.get("observations") or retry_parsed.get("detected_events") or [],
-                    selected_frames,
-                )
-                retry_event_summary = _normalize_accident_event_summary(retry_parsed.get("accident_event_summary"), selected_frames)
-                retry_event_summary = retry_event_summary or _derive_accident_event_summary_from_observations(retry_observations, selected_frames)
-                attempts.append(_analysis_attempt_summary("zero_observation_retry", retry_data, retry_observations, retry_event_summary))
+                retry_attempt = _run_openai_analysis_attempt("zero_observation_retry", retry_payload, selected_frames)
+                retry_data = retry_attempt["data"]
+                retry_parsed = retry_attempt["parsed"]
+                retry_observations = retry_attempt["observations"]
+                retry_event_summary = retry_attempt["event_summary"]
+                attempts.append(retry_attempt["summary"])
                 if retry_observations:
                     data = retry_data
                     parsed = retry_parsed
@@ -88,6 +79,8 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                     event_summary = retry_event_summary
             except Exception as exc:
                 retry_error = str(exc)
+        if not observations:
+            observations = _fallback_limited_visual_observations(selected_frames, event_summary)
         result = {
             "version": FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": True,
@@ -100,6 +93,8 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "incomplete_details": data.get("incomplete_details"),
             "zero_observation_retry_used": retry_used,
             "zero_observation_retry_error": retry_error,
+            "error_retry_used": error_retry_used,
+            "error_retry_error": error_retry_error,
             "analysis_attempts": attempts,
             **selection_metadata,
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
@@ -119,13 +114,57 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
         }, ensure_ascii=False))
         return result
     except Exception as exc:
+        primary_error = str(exc)
+        attempts.append(_analysis_error_attempt_summary("primary", primary_error))
+        if _should_retry_openai_error(primary_error, selected_frames):
+            error_retry_used = True
+            try:
+                retry_payload = _openai_frame_analysis_payload(selected_frames, context, fallback=True, prior_event_summary={})
+                retry_attempt = _run_openai_analysis_attempt("error_retry", retry_payload, selected_frames)
+                data = retry_attempt["data"]
+                parsed = retry_attempt["parsed"]
+                observations = retry_attempt["observations"]
+                event_summary = retry_attempt["event_summary"]
+                attempts.append(retry_attempt["summary"])
+                if not observations:
+                    observations = _fallback_limited_visual_observations(selected_frames, event_summary)
+                return {
+                    "version": FRAME_ANALYSIS_CONTRACT_VERSION,
+                    "enabled": True,
+                    "provider": "openai",
+                    "model": OPENAI_VISION_MODEL,
+                    "detail": OPENAI_FRAME_ANALYSIS_DETAIL,
+                    "max_output_tokens": OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS,
+                    "response_id": data.get("id"),
+                    "response_status": data.get("status"),
+                    "incomplete_details": data.get("incomplete_details"),
+                    "zero_observation_retry_used": False,
+                    "zero_observation_retry_error": "",
+                    "error_retry_used": True,
+                    "error_retry_error": "",
+                    "analysis_attempts": attempts,
+                    **selection_metadata,
+                    "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
+                    "summary": parsed.get("summary") or parsed.get("scene_summary"),
+                    "accident_event_summary": event_summary,
+                    "observations": observations,
+                    "observation_quality_summary": _observation_quality_summary(observations),
+                    "uncertainties": parsed.get("uncertainties") or _empty_output_uncertainty(data, observations),
+                    "created_at": _now_iso(),
+                }
+            except Exception as retry_exc:
+                error_retry_error = str(retry_exc)
+                attempts.append(_analysis_error_attempt_summary("error_retry", error_retry_error))
         return {
             "version": FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": True,
             "provider": "openai",
             "model": OPENAI_VISION_MODEL,
             "detail": OPENAI_FRAME_ANALYSIS_DETAIL,
-            "error": str(exc),
+            "error": primary_error,
+            "error_retry_used": error_retry_used,
+            "error_retry_error": error_retry_error,
+            "analysis_attempts": attempts,
             **selection_metadata,
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "observations": [],
@@ -353,6 +392,72 @@ def _should_retry_zero_observation(observations: list[dict[str, Any]], selected_
     )
 
 
+def _should_retry_openai_error(error: str, selected_frames: list[dict[str, Any]]) -> bool:
+    if not OPENAI_FRAME_ANALYSIS_ERROR_RETRY or len(selected_frames) < OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES:
+        return False
+    text = error.lower()
+    transient_markers = (
+        "timed out",
+        "timeout",
+        "temporarily unavailable",
+        "connection reset",
+        "remote end closed",
+        "server disconnected",
+    )
+    return any(marker in text for marker in transient_markers)
+
+
+def _fallback_limited_visual_observations(selected_frames: list[dict[str, Any]], event_summary: dict[str, Any]) -> list[dict[str, Any]]:
+    if len(selected_frames) < OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES:
+        return []
+    frame_refs = [
+        Path(str(frame.get("path", ""))).name
+        for frame in selected_frames
+        if frame.get("path")
+    ]
+    event_refs = [
+        str(ref)
+        for ref in (event_summary.get("event_frame_refs") if isinstance(event_summary, dict) else []) or []
+        if str(ref) in frame_refs
+    ]
+    refs = event_refs or frame_refs[: min(len(frame_refs), 6)]
+    if not refs:
+        return []
+    return [{
+        "field": "visual_evidence_limited",
+        "value": True,
+        "confidence": 1.0,
+        "source": "frame_analysis:openai",
+        "detector": OPENAI_VISION_MODEL,
+        "frame_refs": refs,
+        "reason": (
+            "OpenAI completed the frame analysis and bounded retries, but no reliable physical accident facts "
+            "met the observation contract. Treat the video as available but visually insufficient for direct fact application."
+        ),
+        "observation_quality": _observation_quality("visual_evidence_limited", 1.0, refs),
+    }]
+
+
+def _run_openai_analysis_attempt(label: str, payload: dict[str, Any], selected_frames: list[dict[str, Any]]) -> dict[str, Any]:
+    data = _post_json(
+        "https://api.openai.com/v1/responses",
+        payload,
+        headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+        timeout=OPENAI_TIMEOUT_SEC,
+    )
+    parsed = _safe_json_loads(_openai_output_text(data)) or {}
+    observations = _normalize_openai_observations(parsed.get("observations") or parsed.get("detected_events") or [], selected_frames)
+    event_summary = _normalize_accident_event_summary(parsed.get("accident_event_summary"), selected_frames)
+    event_summary = event_summary or _derive_accident_event_summary_from_observations(observations, selected_frames)
+    return {
+        "data": data,
+        "parsed": parsed,
+        "observations": observations,
+        "event_summary": event_summary,
+        "summary": _analysis_attempt_summary(label, data, observations, event_summary),
+    }
+
+
 def _analysis_attempt_summary(label: str, data: dict[str, Any], observations: list[dict[str, Any]], event_summary: dict[str, Any]) -> dict[str, Any]:
     return {
         "label": label,
@@ -362,6 +467,17 @@ def _analysis_attempt_summary(label: str, data: dict[str, Any], observations: li
         "observation_count": len(observations),
         "event_frame_count": len(event_summary.get("event_frame_refs") or []) if isinstance(event_summary, dict) else 0,
         "impact_visible": event_summary.get("impact_visible") if isinstance(event_summary, dict) else None,
+    }
+
+
+def _analysis_error_attempt_summary(label: str, error: str) -> dict[str, Any]:
+    return {
+        "label": label,
+        "response_status": "error",
+        "error": error[:200],
+        "observation_count": 0,
+        "event_frame_count": 0,
+        "impact_visible": None,
     }
 
 

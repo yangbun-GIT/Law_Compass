@@ -9,8 +9,12 @@
   - `OPENAI_MODEL` (기본 `gpt-4.1-mini`)
   - `ENABLE_OPENAI_FRAME_ANALYSIS` (영상 프레임 GPT 분석 사용 시 `1`)
   - `OPENAI_VISION_MODEL` (기본 `gpt-4.1-mini`)
+  - `OPENAI_TIMEOUT_SEC` (영상 프레임 실제 분석 권장 `45`; 너무 낮으면 긴 프레임 묶음에서 read timeout 가능)
   - `OPENAI_FRAME_ANALYSIS_MAX_FRAMES` (코드 기본 `18`, 코드 상한 `18`; `.env`에 값이 있으면 해당 값이 우선)
-  - `OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS` (기본 `900`, 코드 상한 `1400`)
+  - `OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS` (기본 `2200`, 코드 상한 `3000`)
+  - `OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY` (기본 `1`; 프레임은 충분하지만 관찰값이 0개일 때 1회 재시도)
+  - `OPENAI_FRAME_ANALYSIS_ERROR_RETRY` (기본 `1`; timeout 같은 일시 오류에서 1회 재시도)
+  - `OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES` (기본 `6`; 재시도 최소 프레임 수)
   - `OPENAI_FRAME_ANALYSIS_DETAIL` (기본 `high`)
   - `OPENAI_FRAME_ANALYSIS_REASONING_EFFORT` (기본 `minimal`, GPT-5 계열 전용)
   - `LAW_API_OC`, `LAW_API_TARGETS`
@@ -213,6 +217,8 @@ python scripts/video_accuracy_batch.py --manifest config/video_accuracy_samples.
 실제 OpenAI 분석 기준으로 측정하려면 먼저 worker를 `ENABLE_OPENAI_FRAME_ANALYSIS=1`, `FRAME_ANALYSIS_FIXTURE_MODE=` 상태로 재시작해야 합니다. 기대값이 틀린 샘플도 측정 결과로 남기려면 기본 실행을 사용하고, 기대값 불일치를 실패로 처리하려면 `--fail-on-mismatch`를 추가합니다. 샘플별 입력 케이스는 `case_json`으로 지정할 수 있으며, 파일은 `case` 객체를 포함하거나 케이스 payload 자체를 포함할 수 있습니다.
 
 `aggregate.json`에는 전체 통과/불일치 수 외에 `video_flow_summary`, `question_priority_summary`, `field_summary`, `calibration_readiness`, `recommendations`가 포함됩니다. `video_flow_summary`는 전체 프레임 관찰값이 Agent에서 반영, 확인, 보류, 참고 관찰, 충돌 중 어디로 흘렀는지 비율로 보여줍니다. `question_priority_summary`는 결과 화면에서 가장 먼저 떠오른 보완 질문 라벨과 우선순위 분포를 보여줍니다. `field_summary`는 필드별 프레임 관찰 수, Agent fact 반영 수, 사용자 확인 수, 충돌 수, 기대값 통과율을 보여줍니다. `calibration_readiness=collect_more_samples`이면 threshold를 조정하지 말고 실제 사고 영상 샘플을 더 모아야 합니다. `keep_conservative_thresholds`, `prioritize_conflict_questions`, `review_conflict_gate`, `inspect_field_mismatch` 추천이 나오면 prompt나 threshold를 바꾸기 전에 원본 프레임, 사용자 입력, Agent 충돌 정책, 보완 질문 순서를 먼저 확인합니다.
+
+`visual_evidence_limited`가 참고 관찰로 표시되면 OpenAI가 프레임과 bounded retry를 실행했지만 직접 판단에 반영할 물리 사실을 충분히 찾지 못했다는 의미입니다. 이 값은 과실 판단 fact가 아니며, 어두운 야간 영상·충돌 순간 미포착·재촬영 화면처럼 추가 자료 또는 사용자 보완 입력이 필요한 경우를 표시하는 품질 신호로만 사용합니다.
 
 2026-05-24 최신 OpenAI ON 재측정은 아래 흐름으로 수행했다. 실제 OpenAI 호출 후에는 반드시 worker를 `ENABLE_OPENAI_FRAME_ANALYSIS=0`, `FRAME_ANALYSIS_FIXTURE_MODE=`로 되돌린다.
 

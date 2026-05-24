@@ -603,7 +603,9 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
       label: videoFactLabel(String(item?.field ?? "")),
       value: videoFactValueLabel(String(item?.field ?? ""), item?.value),
       confidence: confidenceLabel(item?.confidence),
-      explanation: "충돌 방향처럼 의미는 있지만 단독으로 과실 판단 사실이 되지는 않는 참고 관찰입니다.",
+      explanation: String(item?.field ?? "") === "visual_evidence_limited"
+        ? "프레임은 분석됐지만 직접 판단에 반영할 만큼 확실한 물리 사실은 확인되지 않았습니다."
+        : "충돌 방향처럼 의미는 있지만 단독으로 과실 판단 사실이 되지는 않는 참고 관찰입니다.",
     }))
     .filter((item) => item.label && item.value)
     .slice(0, 5);
@@ -1199,6 +1201,7 @@ function videoFactLabel(field: string) {
     rear_vehicle_collision: "후방 차량 추돌",
     stopped_vehicle_without_lights: "등화 없는 정차 차량",
     highway_or_expressway: "고속도로/자동차전용도로",
+    visual_evidence_limited: "영상 근거 제한",
     injury: "인명피해 여부",
     damage_level: "파손 정도",
   };
@@ -1255,6 +1258,7 @@ function videoFactValueLabel(field: string, value: any) {
       rear_vehicle_collision: ["후방 차량 추돌 있음", "후방 차량 추돌 없음"],
       stopped_vehicle_without_lights: ["등화 없는 정차 차량", "등화/표시 확인"],
       highway_or_expressway: ["고속도로/자동차전용도로", "일반도로"],
+      visual_evidence_limited: ["직접 반영할 영상 사실 부족", "영상 근거 충분"],
     };
     const labels = booleanLabels[field];
     if (labels) return value ? labels[0] : labels[1];

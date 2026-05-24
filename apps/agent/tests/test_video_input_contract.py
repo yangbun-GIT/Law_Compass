@@ -120,6 +120,31 @@ def test_impact_direction_rear_does_not_create_rear_collision_fact_by_itself():
     assert contract["confirmation_candidates"] == []
 
 
+def test_limited_visual_evidence_is_supporting_only():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "visual_evidence_limited",
+                        "value": True,
+                        "confidence": 1.0,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_1.jpg", "frame_2.jpg", "frame_3.jpg"],
+                    }
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"] == {}
+    assert contract["accepted_observations"] == []
+    assert contract["uncertain_observations"] == []
+    assert contract["supporting_observations"][0]["field"] == "visual_evidence_limited"
+    assert contract["observation_quality_summary"]["supporting_count"] == 1
+    assert contract["confirmation_candidates"] == []
+
+
 def test_signal_violation_uses_stricter_field_threshold():
     contract = normalize_video_input_contract(
         {

@@ -180,6 +180,7 @@ _SUPPORTING_OBSERVATION_FIELDS = {
     "recaptured_screen",
     "dashcam_screen_visible",
     "screen_glare_or_reflection",
+    "visual_evidence_limited",
 }
 
 _FIELD_ALIASES = {

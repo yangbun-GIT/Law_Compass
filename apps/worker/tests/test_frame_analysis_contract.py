@@ -15,6 +15,7 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self._max_output_tokens = frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS
         self._zero_observation_retry = frame_analysis.OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY
         self._retry_min_frames = frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES
+        self._error_retry = frame_analysis.OPENAI_FRAME_ANALYSIS_ERROR_RETRY
         self._post_json = frame_analysis._post_json
 
     def tearDown(self):
@@ -26,6 +27,7 @@ class FrameAnalysisContractTest(unittest.TestCase):
         frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS = self._max_output_tokens
         frame_analysis.OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY = self._zero_observation_retry
         frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = self._retry_min_frames
+        frame_analysis.OPENAI_FRAME_ANALYSIS_ERROR_RETRY = self._error_retry
         frame_analysis._post_json = self._post_json
 
     def test_disabled_mode_reports_available_frames_without_analysis(self):
@@ -304,6 +306,125 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertFalse(result["zero_observation_retry_used"])
         self.assertEqual(result["observations"], [])
+
+    def test_zero_observation_retry_falls_back_to_limited_visual_observation(self):
+        calls = []
+
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            calls.append(payload)
+            return {
+                "id": f"resp_{len(calls)}",
+                "status": "completed",
+                "output_text": (
+                    '{"accident_event_summary":{"impact_visible":false,'
+                    '"event_frame_refs":["frame_004.jpg"],'
+                    '"rationale":"dark frames with no reliable physical fact"},'
+                    '"observations":[]}'
+                ),
+            }
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_VISION_MODEL = "gpt-4.1-mini"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = 6
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 7):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(result["zero_observation_retry_used"])
+        self.assertEqual(result["observations"][0]["field"], "visual_evidence_limited")
+        self.assertEqual(result["observations"][0]["value"], True)
+        self.assertEqual(result["observations"][0]["frame_refs"], ["frame_004.jpg"])
+        self.assertEqual(result["observation_quality_summary"]["observation_count"], 1)
+
+    def test_transient_openai_timeout_runs_bounded_error_retry(self):
+        calls = []
+
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            calls.append(payload)
+            if len(calls) == 1:
+                raise TimeoutError("The read operation timed out")
+            return {
+                "id": "resp_retry_after_timeout",
+                "status": "completed",
+                "output_text": (
+                    '{"accident_event_summary":{"impact_visible":true,'
+                    '"event_frame_refs":["frame_004.jpg","frame_005.jpg"],'
+                    '"rationale":"retry found impact context"},'
+                    '"observations":['
+                    '{"field":"collision_partner_type","value":"vehicle","confidence":0.92,'
+                    '"frame_refs":["frame_004.jpg","frame_005.jpg"],"reason":"vehicle contact is visible"}]}'
+                ),
+            }
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_VISION_MODEL = "gpt-4.1-mini"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_ERROR_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = 6
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 7):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        self.assertEqual(len(calls), 2)
+        retry_prompt = calls[1]["input"][0]["content"][0]["text"]
+        self.assertIn("bounded retry", retry_prompt)
+        self.assertTrue(result["error_retry_used"])
+        self.assertEqual(result["error_retry_error"], "")
+        self.assertEqual(result["response_id"], "resp_retry_after_timeout")
+        self.assertEqual(result["observations"][0]["field"], "collision_partner_type")
+        self.assertEqual([item["label"] for item in result["analysis_attempts"]], ["primary", "error_retry"])
+        self.assertEqual(result["analysis_attempts"][0]["response_status"], "error")
+
+    def test_transient_openai_timeout_retry_can_fall_back_to_limited_visual_observation(self):
+        calls = []
+
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            calls.append(payload)
+            if len(calls) == 1:
+                raise TimeoutError("The read operation timed out")
+            return {
+                "id": "resp_retry_after_timeout",
+                "status": "completed",
+                "output_text": '{"observations":[]}',
+            }
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_VISION_MODEL = "gpt-4.1-mini"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_ERROR_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = 6
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 7):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(result["error_retry_used"])
+        self.assertEqual(result["observations"][0]["field"], "visual_evidence_limited")
+        self.assertEqual(result["analysis_attempts"][0]["response_status"], "error")
 
     def test_prompt_and_confidence_gate_reduce_negative_stopped_false_positives(self):
         captured = {}

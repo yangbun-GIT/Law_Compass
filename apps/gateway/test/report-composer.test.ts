@@ -657,6 +657,43 @@ describe("report composer", () => {
     expect(JSON.stringify(card)).not.toContain("frame_refs");
   });
 
+  it("shows limited visual evidence as a supporting item without creating questions", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "limited-video" }), {
+      video_input_contract: {
+        version: "agent-video-input-contract-v1",
+        technical_metadata: { representative_frame_count: 18 },
+        accepted_observations: [],
+        uncertain_observations: [],
+        supporting_observations: [
+          {
+            field: "visual_evidence_limited",
+            value: true,
+            confidence: 1,
+            source: "frame_analysis:openai",
+            frame_refs: ["frame_001.jpg", "frame_002.jpg"],
+          },
+        ],
+        ignored_observations: [],
+        observation_quality_summary: {
+          accepted_count: 0,
+          uncertain_count: 0,
+          supporting_count: 1,
+          ignored_count: 0,
+          uncertain_reasons: {},
+        },
+      },
+    });
+
+    const card = (enriched as any).video_fact_explanation_card;
+    expect(card.summary).toContain("참고 관찰값");
+    expect(card.supporting_items[0].label).toBe("영상 근거 제한");
+    expect(card.supporting_items[0].value).toBe("직접 반영할 영상 사실 부족");
+    expect(card.supporting_items[0].explanation).toContain("직접 판단에 반영");
+    expect((enriched as any).missing_info?.questions ?? []).toEqual([]);
+    expect(JSON.stringify(card)).not.toContain("frame_analysis:openai");
+    expect(JSON.stringify(card)).not.toContain("frame_refs");
+  });
+
   it("orders uncertain video questions by accident-flow priority", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
       video_input_contract: {
