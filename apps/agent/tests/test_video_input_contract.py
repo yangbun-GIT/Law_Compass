@@ -142,6 +142,29 @@ def test_signal_violation_uses_stricter_field_threshold():
     assert contract["uncertain_observations"][0]["quality_gate"]["min_confidence"] == 0.88
 
 
+def test_opponent_behavior_needs_stronger_video_confidence_before_fact_patch():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "opponent_behavior",
+                        "value": "lane_change",
+                        "confidence": 0.85,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_7.jpg", "frame_9.jpg", "frame_10.jpg"],
+                    }
+                ]
+            }
+        }
+    )
+
+    assert "opponent_behavior" not in contract["fact_patch"]
+    assert contract["uncertain_observations"][0]["reason"] == "confidence_below_field_threshold"
+    assert contract["uncertain_observations"][0]["quality_gate"]["min_confidence"] == 0.88
+    assert contract["confirmation_candidates"][0]["field"] == "opponent_behavior"
+
+
 def test_uncertain_rear_end_observations_are_grouped_for_confirmation():
     contract = normalize_video_input_contract(
         {

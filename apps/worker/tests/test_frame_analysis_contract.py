@@ -11,6 +11,7 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self._fixture = frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE
         self._api_key = frame_analysis.OPENAI_API_KEY
         self._model = frame_analysis.OPENAI_VISION_MODEL
+        self._max_frames = frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_FRAMES
         self._max_output_tokens = frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS
         self._post_json = frame_analysis._post_json
 
@@ -19,6 +20,7 @@ class FrameAnalysisContractTest(unittest.TestCase):
         frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = self._fixture
         frame_analysis.OPENAI_API_KEY = self._api_key
         frame_analysis.OPENAI_VISION_MODEL = self._model
+        frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_FRAMES = self._max_frames
         frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS = self._max_output_tokens
         frame_analysis._post_json = self._post_json
 
@@ -144,6 +146,31 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(metadata["frame_selection_strategy"], frame_analysis.FRAME_SELECTION_STRATEGY)
         self.assertEqual(metadata["available_frame_count"], 12)
         self.assertEqual(metadata["selected_frame_count"], 6)
+
+    def test_default_openai_frame_budget_can_cover_more_short_accident_context(self):
+        frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_FRAMES = 10
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 13):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index * 0.5, "role": "time_sequence"})
+
+            selected = frame_analysis._select_openai_frames(
+                frames,
+                frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_FRAMES,
+            )
+            metadata = frame_analysis._frame_selection_metadata(frames, selected)
+
+        refs = [Path(frame["path"]).name for frame in selected]
+        self.assertEqual(frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_FRAMES, 10)
+        self.assertEqual(refs[0], "frame_001.jpg")
+        self.assertEqual(refs[-1], "frame_012.jpg")
+        self.assertIn("frame_006.jpg", refs)
+        self.assertIn("frame_007.jpg", refs)
+        self.assertEqual(metadata["available_frame_count"], 12)
+        self.assertEqual(metadata["selected_frame_count"], 10)
 
     def test_gpt5_payload_uses_cost_controls_without_temperature(self):
         captured = {}

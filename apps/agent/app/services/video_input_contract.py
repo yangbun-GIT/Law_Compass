@@ -7,8 +7,8 @@ VERSION = "agent-video-input-contract-v1"
 MIN_FACT_CONFIDENCE = 0.75
 FIELD_CONFIDENCE_THRESHOLDS = {
     "stopped": 0.82,
-    "opponent_behavior": 0.82,
-    "lane_change_actor": 0.82,
+    "opponent_behavior": 0.88,
+    "lane_change_actor": 0.88,
     "opponent_signal_violation": 0.88,
     "crosswalk_nearby": 0.85,
     "school_zone": 0.85,

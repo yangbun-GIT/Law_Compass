@@ -39,16 +39,18 @@ def probe_video(storage_path: str) -> dict:
     }
 
 
-def frame_times_for_duration(duration_sec: float | None, max_frames: int = 12) -> list[float]:
+def frame_times_for_duration(duration_sec: float | None, max_frames: int = 18) -> list[float]:
     duration = max(0.5, float(duration_sec or 8.0))
     if duration <= 5:
-        interval = 0.5
+        interval = 0.35
     elif duration <= 10:
+        interval = 0.5
+    elif duration <= 15:
         interval = 0.75
     elif duration <= 30:
         interval = 1.0
     else:
-        interval = max(1.5, duration / 24)
+        interval = max(1.25, duration / 30)
     candidates = {0.0, max(0.0, duration - 0.1)}
     t = 0.2 if duration > 0.5 else 0.0
     while t < duration:
