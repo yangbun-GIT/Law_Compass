@@ -453,18 +453,18 @@ function composeExpertGuidanceCard(result: AnyRecord = {}) {
   const legal = source.legal_prediction ?? {};
   const insurance = source.insurance_prediction ?? {};
   const missing = source.missing_facts ?? {};
-  const basis = asArray(legal.basis ?? source.basis)
+  const legalPoints = [
+    ...asArray(legal.civil_points).map((item) => cleanText(item, "")),
+    ...asArray(legal.criminal_points).map((item) => cleanText(item, "")),
+  ].filter(Boolean).slice(0, 6);
+  const basis = augmentExpertBasisReasons(asArray(legal.basis ?? source.basis)
     .map((item: AnyRecord) => ({
       family_label: cleanText(item?.family_label, "참고 근거"),
       title: cleanText(item?.title, "교통사고 관련 근거"),
       reason: cleanText(item?.reason, "입력 사고와 연결해 참고할 수 있는 근거입니다."),
     }))
     .filter((item) => item.title)
-    .slice(0, 4);
-  const legalPoints = [
-    ...asArray(legal.civil_points).map((item) => cleanText(item, "")),
-    ...asArray(legal.criminal_points).map((item) => cleanText(item, "")),
-  ].filter(Boolean).slice(0, 6);
+    .slice(0, 4), legalPoints);
   const insuranceSteps = asArray(insurance.expected_steps).map((item) => cleanText(item, "")).filter(Boolean).slice(0, 5);
   const documents = asArray(insurance.documents).map((item) => cleanText(item, "")).filter(Boolean).slice(0, 6);
   const missingItems = asArray(missing.items).map((item) => cleanText(item, "")).filter(Boolean).slice(0, 5);
@@ -495,6 +495,53 @@ function composeExpertGuidanceCard(result: AnyRecord = {}) {
     missing_items: missingItems,
     notice: cleanText(source.notice, "확정 판단이 아닌 참고용 예상입니다."),
   };
+}
+
+function augmentExpertBasisReasons<T extends { title: string; reason: string }>(basis: T[], legalPoints: string[]): T[] {
+  const context = legalPoints.join(" ").toLowerCase();
+  const additions: string[] = [];
+  if (hasAny(context, ["자전거", "bicycle"]) && hasAny(context, ["비접촉", "유발", "후방", "시간", "안전거리"])) {
+    additions.push("자전거의 비접촉 유발 여부, 트럭·앞차 정지의 불가피성, 실제 충돌 상대가 후방 차량인지, 급차로변경·급제동 여부, 뒤차의 반응 시간과 안전거리 확보 가능성을 함께 봅니다.");
+  }
+  if (hasAny(context, ["중앙선", "대향", "마주", "2차", "후속"])) {
+    additions.push("중앙선 침범 사유, 도로 장애물·불법 주정차 영향, 마주오던 차량의 회피 가능성, 정차 후 2차 충돌 여부를 분리해 검토합니다.");
+  }
+  if (hasAny(context, ["무등화", "스텔스", "시인성"]) || (hasAny(context, ["속도위반", "제한속도", "과속"]) && hasAny(context, ["형사", "민사", "사망"]))) {
+    additions.push("야간 무등화 정차 차량의 시인성, 제한속도와 실제 속도, 회피 가능성, 사망 사고의 형사·민사 책임을 분리해 봅니다.");
+  }
+  if (!additions.length || !basis.length) return basis;
+
+  const copy = basis.map((item) => ({ ...item }));
+  for (const addition of additions) {
+    const index = basisTargetIndex(copy, addition);
+    copy[index].reason = appendUniqueSentence(copy[index].reason, addition);
+  }
+  return copy;
+}
+
+function basisTargetIndex<T extends { title: string; reason: string }>(basis: T[], note: string) {
+  const noteTerms = note.split(/[,\s·]+/).filter((term) => term.length >= 2);
+  let bestIndex = 0;
+  let bestScore = -1;
+  basis.forEach((item, index) => {
+    const text = `${item.title} ${item.reason}`.toLowerCase();
+    const score = noteTerms.reduce((count, term) => count + (text.includes(term.toLowerCase()) ? 1 : 0), 0);
+    if (score > bestScore) {
+      bestIndex = index;
+      bestScore = score;
+    }
+  });
+  return bestIndex;
+}
+
+function appendUniqueSentence(text: string, sentence: string) {
+  const current = cleanText(text, "");
+  if (current.includes(sentence)) return current;
+  return current.endsWith(".") || current.endsWith("다.") ? `${current} ${sentence}` : `${current}. ${sentence}`;
+}
+
+function hasAny(text: string, terms: string[]) {
+  return terms.some((term) => text.includes(term.toLowerCase()));
 }
 
 function expertGuidanceStatusLabel(value: any) {
@@ -1006,8 +1053,9 @@ function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []
 function prioritizeMissingInfo(report: AnyRecord = {}) {
   const missing = report.missing_info && typeof report.missing_info === "object" ? report.missing_info : undefined;
   if (!missing) return report;
+  const contextText = missingInfoContextText(report);
   const questions = asArray(missing.questions)
-    .map((item, index) => annotateMissingInfoQuestion(item, index))
+    .map((item, index) => annotateMissingInfoQuestion(item, index, contextText))
     .filter(Boolean)
     .sort((a: AnyRecord, b: AnyRecord) => toNumber(a.priority_order, 999) - toNumber(b.priority_order, 999))
     .slice(0, 8)
@@ -1037,14 +1085,14 @@ function prioritizeMissingInfo(report: AnyRecord = {}) {
   };
 }
 
-function annotateMissingInfoQuestion(value: any, index = 0) {
+function annotateMissingInfoQuestion(value: any, index = 0, contextText = "") {
   if (!value || typeof value !== "object") return undefined;
   const field = String(value.field ?? "");
   if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
   const label = safeInputQuestionLabel(field, value.label);
   const question = replaceRawFieldTokens(cleanText(value.question ?? label, ""));
   if (!question) return undefined;
-  const priority = missingInfoQuestionPriority(field);
+  const priority = missingInfoQuestionPriority(field, contextText);
   return {
     ...value,
     field,
@@ -1056,7 +1104,30 @@ function annotateMissingInfoQuestion(value: any, index = 0) {
   };
 }
 
-function missingInfoQuestionPriority(field: string) {
+function missingInfoContextText(report: AnyRecord = {}) {
+  return JSON.stringify({
+    headline: report.headline,
+    summary: report.summary,
+    missing_info: report.missing_info,
+    expert_guidance_card: report.expert_guidance_card,
+    conditional_outcome_card: report.conditional_outcome_card,
+  }).toLowerCase();
+}
+
+function missingInfoQuestionPriority(field: string, contextText = "") {
+  const signalContext = hasAny(contextText, ["신호", "교차로", "좌회전", "황색", "적색", "signal", "intersection"]);
+  if (signalContext) {
+    const signalOrder: AnyRecord = {
+      opponent_signal_visible: 1,
+      opponent_signal: 1,
+      opponent_signal_violation: 1,
+      user_signal: 2,
+      signal_transition: 2,
+      signal_state: 2,
+      intersection: 3,
+    };
+    if (signalOrder[field] !== undefined) return signalOrder[field];
+  }
   const order: AnyRecord = {
     accident_party_type: 1,
     collision_partner_type: 2,

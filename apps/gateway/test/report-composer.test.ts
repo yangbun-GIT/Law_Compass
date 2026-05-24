@@ -78,6 +78,34 @@ describe("report composer", () => {
     expect(text).not.toContain("internal-knia-id");
   });
 
+  it("adds case-focus notes to expert basis display from legal points", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      expert_guidance_sections: {
+        status: "needs_more_facts",
+        legal_prediction: {
+          summary: "후방 차량 안전거리와 비접촉 유발 가능성을 검토합니다.",
+          fault_range_label: "내 책임 10~30% / 상대 70~90% 참고",
+          civil_points: ["자전거 비접촉 유발", "후방 차량 안전거리", "시간적 여유"],
+          criminal_points: [],
+          basis: [
+            {
+              family_label: "법률 근거",
+              title: "도로교통법 안전거리 유지 의무",
+              reason: "정차 또는 감속 중 뒤에서 추돌된 사고와 직접 관련된 확인 기준입니다.",
+            },
+          ],
+          limits: ["확정 판단이 아닌 참고용 예상입니다."],
+        },
+        insurance_prediction: {},
+        missing_facts: { items: [] },
+      },
+    });
+
+    const reason = (enriched as any).expert_guidance_card.basis[0].reason;
+    expect(reason).toContain("자전거의 비접촉 유발 여부");
+    expect(reason).toContain("뒤차의 반응 시간");
+  });
+
   it("keeps user-safe missing-info questions usable after sanitizing", () => {
     const report = sanitizeEasyReport({
       missing_info: {
@@ -161,15 +189,15 @@ describe("report composer", () => {
     }), {});
 
     expect((enriched as any).missing_info.questions.map((item: any) => item.field)).toEqual([
-      "user_signal",
       "opponent_signal",
-      "injury",
       "signal_state",
+      "user_signal",
+      "injury",
     ]);
-    expect((enriched as any).missing_info.next_focus.label).toBe("내 차량 신호");
+    expect((enriched as any).missing_info.next_focus.label).toBe("상대 차량 신호");
   });
 
-  it("keeps generic signal-state follow-up behind injury when party signals are not requested", () => {
+  it("keeps signal-state follow-up ahead of injury in signal-context accidents", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({
       headline: "report",
       missing_info: {
@@ -181,8 +209,8 @@ describe("report composer", () => {
     }), {});
 
     expect((enriched as any).missing_info.questions.map((item: any) => item.field)).toEqual([
-      "injury",
       "signal_state",
+      "injury",
     ]);
   });
 
@@ -737,8 +765,8 @@ describe("report composer", () => {
     });
 
     const fields = (enriched as any).missing_info.questions.map((item: any) => item.field);
-    expect(fields.indexOf("front_vehicle_stopped")).toBeLessThan(fields.indexOf("opponent_signal_visible"));
-    expect(fields.indexOf("opponent_signal_visible")).toBeLessThan(fields.indexOf("pedestrian_visible"));
+    expect(fields.indexOf("opponent_signal_visible")).toBeLessThan(fields.indexOf("front_vehicle_stopped"));
+    expect(fields.indexOf("front_vehicle_stopped")).toBeLessThan(fields.indexOf("pedestrian_visible"));
     expect(fields.indexOf("pedestrian_visible")).toBeLessThan(fields.indexOf("injury"));
   });
 

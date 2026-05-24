@@ -2314,3 +2314,28 @@ Agent가 산출한 법률 분석, 과실비율, 형사 리스크, 보험 처리 
 - `powershell -ExecutionPolicy Bypass -File scripts/verify_agent_regression.ps1 -SkipDockerBuild` 통과.
 
 이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. 실제 OpenAI 프레임 분석 배치는 비용과 timeout 변동이 있으므로 이번 보정에서는 재호출하지 않았고, 다음 실제 영상 검증 시 동일 reference manifest로 재측정한다.
+
+## 2026-05-25 P1: 근거 검색/표시 적합도 보강
+
+영상 P0 이후 남은 문제였던 `basis_mentions_reference_focus_terms` 실패를 줄이기 위해 Agent 근거 검색어 우선순위와 사용자 표시용 근거 사유를 보강했다. 목적은 특정 사고 샘플에 맞춘 문구 고정이 아니라, 사고 쟁점과 근거 카드의 제목/사유가 서로 맞는지 사용자가 확인할 수 있게 만드는 것이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Agent 근거 검색 | `scenario_search_terms.py`가 구체적인 fact 기반 검색어를 일반 scenario/tag 검색어보다 먼저 유지한다. 중앙선 회피·대향 충돌·후속 추돌, 무등화 정차 차량, 비접촉 자전거 유발처럼 긴 복합 사고에서도 핵심 검색어가 `max_terms` 제한에 밀리지 않게 했다. |
+| Agent 근거 사유 | `expert_guidance_sections.py`가 중앙선/신호/무등화/자전거 비접촉 유발 쟁점에 대해 한국어 basis 사유를 보강한다. 신호나 무등화 문구가 다른 사고에 잘못 섞이지 않도록 시나리오 marker와 핵심 fact를 기준으로 제한한다. |
+| Gateway 표시 | `report-composer.ts`가 전문가 카드의 법률 포인트를 기준으로 basis reason을 한 번 더 보강한다. Agent가 보수적인 후방추돌 근거만 반환한 경우에도 자전거 비접촉 유발, 트럭·앞차 정지의 불가피성, 후방 차량 반응 시간, 급제동 여부 같은 표시 쟁점을 잃지 않는다. |
+| 보완 질문 우선순위 | 교차로·신호 전환 맥락에서는 `상대 차량 신호`, `상대 신호 확인 가능 여부`, `내 차량 신호`, `신호 전환` 질문을 일반 정차/파손 질문보다 먼저 보여준다. |
+| 평가 기준 | `reference_guidance_calibration_eval.py`가 영어 토큰 강제가 아니라 한국어 사용자 화면에 맞는 동의어 그룹으로 basis 적합도를 평가한다. |
+
+검증:
+
+- `py -3.13 -m pytest tests/test_expert_guidance_sections.py` 통과.
+- `npm test -- report-composer.test.ts` 통과.
+- `npm run build` in `apps/gateway` 통과.
+- `powershell -ExecutionPolicy Bypass -File scripts/verify_agent_regression.ps1 -SkipDockerBuild` 통과.
+- 실제 사고 영상 1~5 batch: `logs/video_accuracy/p1_basis_fit_final_pass_20260525/aggregate.json`, 5개 샘플 pipeline 통과.
+- Reference guidance calibration: `logs/video_accuracy/reference_guidance_calibration_p1_basis_fit_final_20260525.json`, 5개 샘플 모두 `calibrated_for_user_flow`.
+
+잔여 리스크:
+
+- `reference_evidence_alignment_p1_basis_fit_final_20260525.json` 기준 일부 세부 focus는 아직 실제 원문 DB/KNIA 원문 coverage가 아니라 static fallback과 표시 보강에 기대고 있다. 다음 단계에서는 원문 기반 근거 DB coverage와 검색 결과의 실제 원문 적합도를 높이는 작업이 필요하다.

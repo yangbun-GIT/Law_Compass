@@ -228,6 +228,142 @@ def test_basis_summary_keeps_non_contact_bicycle_trigger_basis():
 
     basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
     assert "Non-contact bicycle trigger and rear-end response guide" in basis_titles
+    basis_text = str(sections["legal_prediction"]["basis"])
+    assert "자전거의 비접촉 유발 여부" in basis_text
+    assert "뒤차의 반응 시간" in basis_text
+
+
+def test_basis_reasons_explain_centerline_oncoming_secondary_focus_in_korean():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "parking_or_stopped_vehicle_accident"},
+        facts={
+            "centerline_crossed": True,
+            "centerline_cross_reason": "parked vehicle obstacle avoidance",
+            "opponent_behavior": "oncoming vehicle did not stop",
+            "secondary_collision": True,
+        },
+        legal_analysis={"legal_issue_summary": "중앙선 침범 사유와 대향 차량 회피 가능성을 검토합니다."},
+        fault_ratio={"my": 30, "other": 70, "key_factors": ["중앙선", "대향 차량", "2차 충돌"]},
+        legal_liability={"criminal_risk_level": "medium"},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "legal_reference",
+                "title": "중앙선 장애물 회피 사고 법률 검토 기준",
+                "related_reason": "중앙선 침범 사고와 주차 차량 회피 가능성을 봅니다.",
+            },
+            {
+                "source_type": "knia_reference",
+                "title": "중앙선 장애물 회피 사고 과실비율 참고 기준",
+                "related_reason": "중앙선 침범 사고와 관련된 과실비율 참고 기준입니다.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_text = str(sections["legal_prediction"]["basis"])
+    assert "도로 장애물" in basis_text
+    assert "마주오던 차량" in basis_text
+    assert "2차 충돌" in basis_text
+
+
+def test_basis_reasons_explain_unlit_speed_criminal_civil_focus_in_korean():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "parking_or_stopped_vehicle_accident"},
+        facts={"stopped_vehicle_without_lights": True, "road_type": "highway", "speeding": True},
+        legal_analysis={"legal_issue_summary": "야간 스텔스 정차 차량의 회피 가능성과 형사 책임을 검토합니다."},
+        fault_ratio={"my": 40, "other": 60, "key_factors": ["무등화", "속도", "회피 가능성"]},
+        legal_liability={"criminal_risk_level": "high", "checklist": ["형사·민사 책임 분리"]},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "legal_reference",
+                "title": "야간 무등화 정차 차량 주의의무 기준",
+                "related_reason": "야간 정차 차량과 시인성을 검토합니다.",
+            },
+            {
+                "source_type": "knia_reference",
+                "title": "무등화 정차 차량 과실비율 참고 기준",
+                "related_reason": "정차 차량 추돌 사고의 과실비율 참고 기준입니다.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_text = str(sections["legal_prediction"]["basis"])
+    assert "제한속도" in basis_text
+    assert "회피 가능성" in basis_text
+    assert "형사·민사" in basis_text
+    assert "황색·적색 신호 전환" not in basis_text
+
+
+def test_basis_reasons_explain_signal_conditional_focus_in_korean():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "intersection_signal_violation"},
+        facts={"accident_type": "left_turn_signal_transition", "opponent_signal_visible": False},
+        legal_analysis={"legal_issue_summary": "교차로 좌회전 중 황색 신호 전환과 상대 신호 확인이 필요합니다."},
+        fault_ratio={"my": 80, "other": 20, "key_factors": ["신호 전환", "상대 신호", "CCTV"]},
+        legal_liability={"criminal_risk_level": "medium"},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "legal_reference",
+                "title": "교차로 신호 전환 판단 기준",
+                "related_reason": "신호 전환과 상대 차량 신호를 확인합니다.",
+            },
+            {
+                "source_type": "knia_reference",
+                "title": "교차로 신호 사고 과실비율 참고 기준",
+                "related_reason": "교차로 충돌 사고의 과실비율 참고 기준입니다.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_text = str(sections["legal_prediction"]["basis"])
+    assert "황색·적색 신호 전환" in basis_text
+    assert "상대 차량 신호" in basis_text
+    assert "CCTV·신호주기" in basis_text
+
+
+def test_basis_reasons_use_bicycle_fault_factors_even_when_raw_fact_is_missing():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "rear_end_collision"},
+        facts={"collision_partner_type": "vehicle", "rear_vehicle_collision": True},
+        legal_analysis={"legal_issue_summary": "후방 차량 안전거리와 비접촉 유발 가능성을 검토합니다."},
+        fault_ratio={"my": 20, "other": 80, "key_factors": ["자전거 비접촉 유발", "후방 차량 안전거리", "시간적 여유"]},
+        legal_liability={"criminal_risk_level": "low"},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "legal_reference",
+                "title": "도로교통법 안전거리 유지 의무",
+                "related_reason": "정차 또는 감속 중 뒤에서 추돌된 사고와 직접 관련된 확인 기준입니다.",
+            },
+            {
+                "source_type": "knia_reference",
+                "title": "후미추돌 과실비율 참고 기준",
+                "related_reason": "정차 또는 감속 중 뒤차가 추돌한 상황과 유사합니다.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_text = str(sections["legal_prediction"]["basis"])
+    assert "자전거의 비접촉 유발 여부" in basis_text
+    assert "안전거리 확보 가능성" in basis_text
 
 
 def test_static_fallback_retrieves_legal_references_for_complex_reference_cases():

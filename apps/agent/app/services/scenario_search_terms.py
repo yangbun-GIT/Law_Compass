@@ -78,9 +78,8 @@ def scenario_search_terms(
 ) -> list[str]:
     facts = facts or {}
     terms: list[str] = []
+    _extend_unique(terms, _fact_value_terms(facts))
     _extend_unique(terms, SCENARIO_SEARCH_TERMS.get(scenario_type or "", ()))
-    for tag in scenario_tags or []:
-        _extend_unique(terms, TAG_SEARCH_TERMS.get(str(tag), ()))
 
     party = accident_party_type or facts.get("accident_party_type") or facts.get("party_type")
     _extend_unique(terms, PARTY_SEARCH_TERMS.get(str(party or ""), ()))
@@ -100,11 +99,13 @@ def scenario_search_terms(
             _extend_unique(terms, ("횡단보도 앞 정차", "교차로 횡단보도 차대차", "crosswalk vehicle collision"))
     if facts.get("school_zone"):
         _extend_unique(terms, ("어린이보호구역", "제한속도"))
-    _extend_unique(terms, _fact_value_terms(facts))
 
     for keyword in selected_keywords or []:
         if isinstance(keyword, str) and keyword.strip():
             terms.append(keyword.strip())
+
+    for tag in scenario_tags or []:
+        _extend_unique(terms, TAG_SEARCH_TERMS.get(str(tag), ()))
 
     return _dedupe(terms)[:max_terms]
 

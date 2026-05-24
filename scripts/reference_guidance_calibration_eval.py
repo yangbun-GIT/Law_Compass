@@ -15,13 +15,20 @@ CALIBRATION_RULES: dict[str, dict[str, Any]] = {
     "accident_1_centerline_obstacle_oncoming_secondary_rear": {
         "expected_my_range": (20, 40),
         "expected_other_range": (60, 80),
-        "required_basis_terms": ("centerline", "oncoming", "secondary"),
+        "required_basis_terms": (
+            ("centerline", "중앙선"),
+            ("oncoming", "마주", "대향"),
+            ("secondary", "2차", "후속"),
+        ),
         "required_missing_terms": ("인명피해", "신호"),
     },
     "accident_2_left_turn_signal_transition": {
         "expected_my_range": (70, 90),
         "expected_other_range": (10, 30),
-        "required_basis_terms": ("signal", "cctv"),
+        "required_basis_terms": (
+            ("signal", "신호"),
+            ("cctv", "CCTV", "신호주기"),
+        ),
         "required_missing_terms": ("신호", "상대"),
         "preferred_next_focus_terms": ("신호", "상대"),
     },
@@ -32,13 +39,23 @@ CALIBRATION_RULES: dict[str, dict[str, Any]] = {
     "accident_4_stealth_stopped_vehicle_fatal": {
         "expected_my_range": (30, 50),
         "expected_other_range": (50, 70),
-        "required_basis_terms": ("unlit", "speed", "avoidability", "criminal", "civil"),
+        "required_basis_terms": (
+            ("unlit", "무등화", "스텔스"),
+            ("speed", "속도", "과속", "제한속도"),
+            ("avoidability", "회피 가능", "회피가능"),
+            ("criminal", "형사"),
+            ("civil", "민사"),
+        ),
         "required_limit_terms": ("확정", "참고", "바꿀 수"),
     },
     "accident_5_bicycle_trigger_truck_stopped_bus_rear_end": {
         "expected_my_range": (10, 30),
         "expected_other_range": (70, 90),
-        "required_basis_terms": ("bicycle", "rear", "time gap"),
+        "required_basis_terms": (
+            ("bicycle", "자전거"),
+            ("rear", "후방", "뒤차", "후미"),
+            ("time gap", "시간적 여유", "반응 시간", "시간"),
+        ),
     },
 }
 
@@ -116,8 +133,18 @@ def text_blob(values: Any) -> str:
     return json.dumps(values, ensure_ascii=False).lower()
 
 
-def term_ready(blob: str, terms: tuple[str, ...]) -> tuple[bool, list[str]]:
-    missing = [term for term in terms if term.lower() not in blob]
+TermSpec = str | tuple[str, ...]
+
+
+def term_ready(blob: str, terms: tuple[TermSpec, ...]) -> tuple[bool, list[str]]:
+    missing = []
+    for term in terms:
+        if isinstance(term, tuple):
+            if not any(option.lower() in blob for option in term):
+                missing.append("/".join(term))
+            continue
+        if term.lower() not in blob:
+            missing.append(term)
     return not missing, missing
 
 

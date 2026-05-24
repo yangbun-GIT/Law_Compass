@@ -173,7 +173,7 @@ def _basis_summary(evidence: list[dict[str, Any]], *, context_text: str = "") ->
                 "reason": reason,
             }
         )
-    return _balanced_basis(candidates)
+    return _augment_basis_focus_notes(_balanced_basis(candidates), context_text)
 
 
 def _balanced_basis(candidates: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -214,6 +214,84 @@ def _balanced_basis(candidates: list[dict[str, str]]) -> list[dict[str, str]]:
     ]
 
 
+def _augment_basis_focus_notes(items: list[dict[str, str]], context_text: str) -> list[dict[str, str]]:
+    if not items:
+        return items
+
+    additions = _basis_focus_additions(context_text)
+    if not additions:
+        return items
+
+    updated = [dict(item) for item in items]
+    for addition in additions:
+        target_index = _basis_focus_target_index(updated, addition["topic_terms"])
+        current_reason = updated[target_index].get("reason") or "입력 사고와 연결해 참고할 수 있는 근거입니다."
+        updated[target_index]["reason"] = _append_unique_sentence(current_reason, addition["note"])
+    return updated
+
+
+def _basis_focus_additions(context_text: str) -> list[dict[str, Any]]:
+    context = context_text.lower()
+    additions: list[dict[str, Any]] = []
+    if "centerline_obstacle_focus" in context:
+        additions.append(
+            {
+                "topic_terms": ("중앙선", "centerline", "대향", "마주", "oncoming", "장애", "obstacle"),
+                "note": "중앙선 침범 사유, 도로 장애물·불법 주정차 영향, 마주오던 차량의 회피 가능성, 정차 후 2차 충돌 여부를 분리해 검토합니다.",
+            }
+        )
+    if "intersection_signal_focus" in context:
+        additions.append(
+            {
+                "topic_terms": ("교차로", "intersection", "신호", "signal", "cctv", "좌회전"),
+                "note": "황색·적색 신호 전환 시점, 상대 차량 신호, CCTV·신호주기 확인 여부에 따라 조건별 과실 범위가 달라질 수 있습니다.",
+            }
+        )
+    if "unlit_visibility_focus" in context:
+        additions.append(
+            {
+                "topic_terms": ("무등", "unlit", "스텔스", "stealth", "속도", "speed", "회피", "avoid"),
+                "note": "야간 무등화 정차 차량의 시인성, 제한속도와 실제 속도, 회피 가능성, 사망 사고의 형사·민사 책임을 분리해 봅니다.",
+            }
+        )
+    if "bicycle_trigger_focus" in context or (
+        _has_any(context, ("자전거", "bicycle"))
+        and _has_any(context, ("비접촉", "non-contact", "유발", "trigger", "후방", "rear", "시간", "time gap"))
+    ):
+        additions.append(
+            {
+                "topic_terms": ("자전거", "bicycle", "비접촉", "non-contact", "후방", "rear", "시간", "time gap"),
+                "note": "자전거의 비접촉 유발 여부, 트럭·앞차 정지의 불가피성, 실제 충돌 상대가 후방 차량인지, 급차로변경·급제동 여부, 뒤차의 반응 시간과 안전거리 확보 가능성을 함께 봅니다.",
+            }
+        )
+    return additions
+
+
+def _basis_focus_target_index(items: list[dict[str, str]], topic_terms: tuple[str, ...]) -> int:
+    best_index = 0
+    best_score = -1
+    for index, item in enumerate(items):
+        text = f"{item.get('title') or ''} {item.get('reason') or ''}".lower()
+        score = sum(1 for term in topic_terms if term.lower() in text)
+        if score > best_score:
+            best_index = index
+            best_score = score
+    return best_index
+
+
+def _append_unique_sentence(text: str, sentence: str) -> str:
+    normalized = text.strip()
+    if sentence in normalized:
+        return normalized
+    if normalized.endswith((".", "다.", "요.", "니다.", "함.")):
+        return f"{normalized} {sentence}"
+    return f"{normalized}. {sentence}"
+
+
+def _has_any(text: str, terms: tuple[str, ...]) -> bool:
+    return any(term.lower() in text for term in terms)
+
+
 def _has_core_basis(items: list[dict[str, str]]) -> bool:
     families = {item.get("_family_key") for item in items}
     return "legal" in families and "knia" in families
@@ -237,11 +315,11 @@ def _guidance_context_text(
     parts.extend(_fact_context_values(facts))
     scenario_type = str(scenario.get("scenario_type") or "")
     if scenario_type == "intersection_signal_violation":
-        parts.extend(["intersection", "signal", "신호", "교차로", "좌회전", "cctv"])
+        parts.extend(["intersection_signal_focus", "intersection", "signal", "신호", "교차로", "좌회전", "cctv"])
     if scenario_type == "rear_end_collision":
         parts.extend(["rear", "stopped", "safe distance", "후방", "정차", "안전거리"])
     if scenario_type == "parking_or_stopped_vehicle_accident":
-        parts.extend(["stopped vehicle", "정차", "centerline", "oncoming vehicle", "road obstruction", "parking obstacle"])
+        parts.extend(["stopped vehicle", "정차"])
     fact_text = " ".join(_fact_context_values(facts)).lower()
     vehicle_collision_context = _is_vehicle_collision_context(facts, fact_text)
     if facts.get("crosswalk_nearby") is True or "crosswalk" in fact_text:
@@ -252,12 +330,23 @@ def _guidance_context_text(
     if facts.get("front_vehicle_stopped") is True or "front_vehicle_stopped" in fact_text:
         parts.extend(["front vehicle", "stop reason", "sudden braking", "safe distance"])
     if (
+        facts.get("centerline_crossed") is True
+        or "centerline" in fact_text
+        or "중앙선" in fact_text
+        or "oncoming" in fact_text
+        or "마주" in fact_text
+        or "대향" in fact_text
+    ):
+        parts.extend(["centerline_obstacle_focus", "centerline", "oncoming vehicle", "road obstruction", "parking obstacle"])
+    if (
         facts.get("bicycle_involved") is True
         or facts.get("possible_trigger_vehicle") == "bicycle"
         or facts.get("trigger_actor_type") == "bicycle"
+        or scenario_type == "bicycle_collision"
         or "bicycle" in fact_text
+        or "자전거" in fact_text
     ):
-        parts.extend(["bicycle", "non-contact", "trigger", "time gap", "rear-end bus", "sudden braking"])
+        parts.extend(["bicycle_trigger_focus", "bicycle", "non-contact", "trigger", "time gap", "rear-end bus", "sudden braking"])
     if (
         facts.get("stopped_vehicle_without_lights") is True
         or "without_lights" in fact_text
@@ -265,7 +354,7 @@ def _guidance_context_text(
         or "무등" in fact_text
         or "스텔스" in fact_text
     ):
-        parts.extend(["unlit", "visibility", "night", "무등화", "시인성", "야간"])
+        parts.extend(["unlit_visibility_focus", "unlit", "visibility", "night", "무등화", "시인성", "야간"])
     return " ".join(str(part or "") for part in parts).lower()
 
 
