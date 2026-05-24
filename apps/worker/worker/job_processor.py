@@ -22,6 +22,7 @@ except ModuleNotFoundError:
 
 from worker.frame_analysis import analyze_frames_with_openai
 from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION, extract_event_frames, probe_video, summarize_frame_selection
+from worker.yolo_frame_analysis import analyze_frames_with_yolo
 
 STREAM_KEY = os.getenv("REDIS_STREAM_KEY", "jobs:v1:stream")
 DB_URL = os.getenv("DATABASE_URL", "")
@@ -87,19 +88,22 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
         (row[1],),
     )
     case_inputs = cur.fetchone()
-    openai_frame_analysis = analyze_frames_with_openai(
-        frame_details,
-        build_frame_analysis_context(row, metadata, case_inputs),
-    )
+    frame_analysis_context = build_frame_analysis_context(row, metadata, case_inputs)
+    openai_frame_analysis = analyze_frames_with_openai(frame_details, frame_analysis_context)
+    yolo_frame_analysis = analyze_frames_with_yolo(frame_details, frame_analysis_context)
+    frame_observations = _merge_frame_observations(openai_frame_analysis, yolo_frame_analysis)
     metadata["representative_frames"] = frames
     metadata["representative_frame_details"] = frame_details
     metadata["frame_selection_summary"] = frame_selection_summary
     metadata["openai_frame_analysis"] = openai_frame_analysis
-    metadata["observations"] = openai_frame_analysis.get("observations") or []
+    metadata["yolo_frame_analysis"] = yolo_frame_analysis
+    metadata["observations"] = frame_observations
     metadata["preprocess_summary"] = (
         f"Local video verified. duration={metadata.get('duration_sec')}s, "
         f"resolution={metadata.get('width')}x{metadata.get('height')}, frames={len(frames)}, "
-        f"frame_observations={len(metadata['observations'])}."
+        f"frame_observations={len(frame_observations)}, "
+        f"openai_observations={len(openai_frame_analysis.get('observations') or [])}, "
+        f"yolo_observations={len(yolo_frame_analysis.get('observations') or [])}."
     )
     frame_dir = str(STORAGE_ROOT / "frames" / str(row[1]) / str(row[2]))
     artifacts = {
@@ -113,6 +117,8 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
         "representative_frame_details": frame_details,
         "frame_selection_summary": frame_selection_summary,
         "openai_frame_analysis": openai_frame_analysis,
+        "yolo_frame_analysis": yolo_frame_analysis,
+        "observations": frame_observations,
         "preprocess_summary": metadata["preprocess_summary"],
     }
     cur.execute(
@@ -130,6 +136,17 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
     cur.execute("UPDATE uploads SET status='ready', derived_path=%s WHERE id=%s", (frame_dir, row[2]))
     cur.execute("UPDATE jobs SET status='succeeded', artifacts=%s, finished_at=now() WHERE id=%s", (json.dumps(artifacts), row[0]))
     _enqueue_video_analyze_job(cur, row, payload, redis_client, case_inputs)
+
+
+def _merge_frame_observations(*analysis_payloads: dict[str, Any]) -> list[dict[str, Any]]:
+    observations: list[dict[str, Any]] = []
+    for payload in analysis_payloads:
+        if not isinstance(payload, dict):
+            continue
+        for item in payload.get("observations") or []:
+            if isinstance(item, dict):
+                observations.append(item)
+    return observations
 
 
 def _enqueue_video_analyze_job(

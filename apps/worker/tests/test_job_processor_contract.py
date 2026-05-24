@@ -5,6 +5,7 @@ from worker.job_processor import (
     build_analysis_result_values,
     build_frame_analysis_context,
     build_video_analyze_payload,
+    _merge_frame_observations,
 )
 from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION
 
@@ -96,6 +97,17 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
         self.assertIn("후방추돌", result["preprocessed_summary"])
         self.assertIn("rear_collision", result["preprocessed_summary"])
         self.assertIn("routing_reason:auto_after_local_preprocess", result["preprocessed_summary"])
+
+    def test_frame_observation_merge_preserves_openai_and_yolo_candidates(self):
+        result = _merge_frame_observations(
+            {"observations": [{"field": "collision_partner_type", "value": "vehicle", "source": "frame_analysis:openai"}]},
+            {"observations": [{"field": "primary_collision_target", "value": "vehicle_candidate", "source": "vision_model:yolo"}]},
+            {"observations": ["invalid"]},
+        )
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["source"], "frame_analysis:openai")
+        self.assertEqual(result[1]["source"], "vision_model:yolo")
 
     def test_analysis_result_values_keep_result_contract_fields(self):
         response = {

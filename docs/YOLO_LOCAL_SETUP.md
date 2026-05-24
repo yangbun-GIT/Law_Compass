@@ -93,6 +93,20 @@ YOLO는 충돌을 직접 판정하지 않는다. 예를 들어 사람 객체가 
 
 현재 스크립트는 YOLO 후보 confidence를 Agent의 확정 임계값보다 낮게 제한한다. 따라서 YOLO만으로는 `fact_patch`가 생성되지 않고, 사용자 입력 또는 OpenAI 프레임 문맥 분석과 결합된 뒤에만 판단에 반영된다.
 
-## 다음 통합 단계
+## Worker 통합 상태
 
-서비스 자동 파이프라인에 붙일 때는 `ENABLE_YOLO_FRAME_ANALYSIS=0` 같은 환경변수로 기본 비활성화하고, Worker provider adapter를 새로 둔다. adapter는 업로드 원본 영상을 직접 읽기보다 기존 ffmpeg가 추출한 대표 프레임 경로를 받아 분석하는 방식이 안전하다.
+Worker provider adapter는 `apps/worker/worker/yolo_frame_analysis.py`로 추가되어 있다. 기본값은 비활성화다.
+
+```powershell
+ENABLE_YOLO_FRAME_ANALYSIS=0
+YOLO_MODEL_PATH=
+YOLO_DEVICE=cpu
+YOLO_CONFIDENCE=0.25
+YOLO_FRAME_ANALYSIS_MAX_FRAMES=18
+YOLO_MAX_DETECTIONS=1000
+YOLO_MAX_FRAME_REFS=24
+```
+
+활성화하면 Worker는 업로드 원본 영상을 직접 다시 분석하지 않고, 기존 ffmpeg가 추출한 대표 프레임 경로를 YOLO에 넘긴다. 결과는 `metadata["yolo_frame_analysis"]`에 보존되고, OpenAI 프레임 분석 관찰값과 함께 `metadata["observations"]`로 병합되어 Agent의 `video_observations` 계약으로 전달된다.
+
+Docker 기본 worker image에는 Ultralytics를 필수 의존성으로 넣지 않았다. 기본 실행을 가볍게 유지하기 위한 결정이다. Docker에서 YOLO를 켜려면 worker image override 또는 로컬 worker 실행 환경에 `ultralytics`, CUDA PyTorch, 모델 가중치를 준비하고 `YOLO_MODEL_PATH`를 설정해야 한다.
