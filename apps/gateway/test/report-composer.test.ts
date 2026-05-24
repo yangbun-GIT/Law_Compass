@@ -527,6 +527,40 @@ describe("report composer", () => {
     expect(card.uncertain_items).toEqual([]);
   });
 
+  it("surfaces accident event candidate even when no frame observation passes fact gates", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      video_input_contract: {
+        version: "agent-video-input-contract-v1",
+        technical_metadata: {
+          representative_frame_count: 13,
+          accident_event_summary: {
+            impact_visible: true,
+            event_frame_count: 4,
+            pre_impact_frame_count: 2,
+            post_impact_frame_count: 2,
+          },
+        },
+        accepted_observations: [],
+        uncertain_observations: [],
+        ignored_observations: [],
+        observation_quality_summary: {
+          accepted_count: 0,
+          uncertain_count: 0,
+          ignored_count: 0,
+          uncertain_reasons: {},
+        },
+      },
+    });
+
+    const card = enriched.video_fact_explanation_card!;
+    expect(card.event_candidate).toBeTruthy();
+    expect(card.event_candidate!.status_label).toBe("충돌 구간 후보 확인");
+    expect(card.event_candidate!.frame_label).toBe("4장");
+    expect(card.summary).toContain("사고 발생 구간 후보");
+    expect(card.stats).toContainEqual({ label: "사고 시점 후보", value: "4장" });
+    expect(card.applied_items).toEqual([]);
+  });
+
   it("explains high-confidence video conflicts without applying them as final facts", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
       video_input_contract: {

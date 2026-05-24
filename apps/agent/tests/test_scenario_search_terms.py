@@ -227,6 +227,30 @@ def test_signal_transition_without_opponent_signal_keeps_intersection_uncertaint
     assert "opponent_signal_not_visible" in scenario["scenario_tags"]
 
 
+def test_left_turn_straight_signal_case_is_not_overridden_by_stopped_crosswalk_context():
+    scenario = classify_scenario(
+        "교차로에서 좌회전하던 중 왼쪽 1차로에서 직진해 온 차량과 사고가 났습니다.",
+        {
+            "accident_type": "좌회전 직진 충돌",
+            "turning": "left_turn",
+            "opponent_behavior": "좌측 1차로 직진 차량",
+            "intersection": True,
+            "signal_state": "황색에서 적색으로 변경",
+            "signal_transition": "yellow_to_red",
+            "signal_timing_uncertain": True,
+            "crosswalk_nearby": True,
+            "stopped": True,
+            "pedestrian_visible": False,
+        },
+        ["좌회전", "직진 차량", "교차로", "신호 변경"],
+    )
+
+    assert scenario["accident_party_type"] == "car_vs_car"
+    assert scenario["scenario_type"] == "intersection_signal_violation"
+    assert "intersection" in scenario["scenario_tags"]
+    assert "signal_transition" in scenario["scenario_tags"]
+
+
 def test_visible_pedestrian_does_not_override_vehicle_collision_partner():
     scenario = classify_scenario(
         "intersection with crosswalk and people nearby, vehicle-to-vehicle collision",

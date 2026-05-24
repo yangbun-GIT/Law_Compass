@@ -308,10 +308,37 @@ def _technical_metadata(meta: dict[str, Any], nested: dict[str, Any]) -> dict[st
             value = source.get(field) if isinstance(source, dict) else None
             if value not in (None, "", [], {}):
                 technical[field] = value
+    event_summary = _accident_event_summary(meta, nested)
+    if event_summary:
+        technical["accident_event_summary"] = event_summary
     frames = _frame_list(nested) or _frame_list(meta)
     if frames:
         technical["representative_frame_count"] = len(frames)
     return technical
+
+
+def _accident_event_summary(meta: dict[str, Any], nested: dict[str, Any]) -> dict[str, Any]:
+    for source in (nested, meta):
+        if not isinstance(source, dict):
+            continue
+        frame_analysis = source.get("openai_frame_analysis")
+        if not isinstance(frame_analysis, dict):
+            continue
+        event_summary = frame_analysis.get("accident_event_summary")
+        if not isinstance(event_summary, dict):
+            continue
+        output = {
+            "impact_visible": event_summary.get("impact_visible"),
+            "event_frame_count": _safe_len(event_summary.get("event_frame_refs")),
+            "pre_impact_frame_count": _safe_len(event_summary.get("pre_impact_frame_refs")),
+            "post_impact_frame_count": _safe_len(event_summary.get("post_impact_frame_refs")),
+        }
+        return {key: value for key, value in output.items() if value not in (None, "", [], {})}
+    return {}
+
+
+def _safe_len(value: Any) -> int:
+    return len(value) if isinstance(value, list) else 0
 
 
 def _demote_context_dependent_facts(

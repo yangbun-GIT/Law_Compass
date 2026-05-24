@@ -15,6 +15,23 @@
       </div>
     </div>
 
+    <section v-if="card.event_candidate" class="video-fact-section event-section">
+      <div>
+        <span class="item-label">{{ text(card.event_candidate.label) }}</span>
+        <strong>{{ text(card.event_candidate.status_label) }}</strong>
+      </div>
+      <p>{{ text(card.event_candidate.explanation) }}</p>
+      <div class="chips compact">
+        <span class="chip selected">{{ text(card.event_candidate.frame_label) }}</span>
+        <span v-if="card.event_candidate.pre_impact_frame_count" class="chip">
+          충돌 전 {{ card.event_candidate.pre_impact_frame_count }}장
+        </span>
+        <span v-if="card.event_candidate.post_impact_frame_count" class="chip">
+          충돌 후 {{ card.event_candidate.post_impact_frame_count }}장
+        </span>
+      </div>
+    </section>
+
     <section v-if="card.quality_summary" class="video-fact-section quality-section">
       <div class="quality-head">
         <div>
@@ -215,6 +232,18 @@ function text(value: unknown) {
   border: 1px solid rgba(76, 213, 226, 0.22);
   border-radius: 12px;
   padding: 14px;
+}
+
+.event-section {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(76, 213, 226, 0.22);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.event-section p {
+  color: #c5d0df;
+  margin: 8px 0 0;
 }
 
 .quality-head {

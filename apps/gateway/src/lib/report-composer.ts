@@ -515,10 +515,11 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   const supporting = asArray(contract.supporting_observations);
   const observedCount = accepted.length + uncertain.length + supporting.length + asArray(contract.ignored_observations).length;
   const representativeFrameCount = toNumber(technical.representative_frame_count, 0);
+  const eventCandidate = videoAccidentEventCandidate(technical.accident_event_summary);
   const appliedFields = asArray(arbitration.applied_video_fields).map((field) => String(field));
   const confirmedFields = asArray(arbitration.confirmed_fields).map((field) => String(field));
   const reviewItems = asArray(arbitration.conflicts);
-  const hasVideoFacts = accepted.length || uncertain.length || supporting.length || appliedFields.length || confirmedFields.length || reviewItems.length;
+  const hasVideoFacts = accepted.length || uncertain.length || supporting.length || appliedFields.length || confirmedFields.length || reviewItems.length || eventCandidate;
   const hasVideoProcessing = Boolean(contract.version) && (representativeFrameCount > 0 || Boolean(contract.observation_quality_summary));
   if (!hasVideoFacts && !hasVideoProcessing) return undefined;
   const qualitySummary = videoObservationQualitySummary(contract, representativeFrameCount);
@@ -617,6 +618,8 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
           ? "영상에서 사고 사실 후보를 찾았지만 바로 반영하지 않고 사용자 확인 질문으로 넘겼습니다."
           : supportingItems.length
             ? "영상에서 참고 관찰값은 확인했지만, 단독으로 판단 사실에 반영하지는 않았습니다."
+          : eventCandidate
+            ? "영상에서 사고 발생 구간 후보는 찾았지만, 바로 판단에 반영할 물리 사실 관찰값은 부족합니다."
           : representativeFrameCount
             ? "영상 프레임은 추출됐지만 현재 기준으로 바로 판단에 반영할 수 있는 물리 사실은 확인되지 않았습니다."
             : "영상 관찰값은 확인됐지만 기존 입력과 충돌하지 않았습니다.";
@@ -626,6 +629,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
     summary,
     stats: [
       ...(representativeFrameCount ? [{ label: "대표 프레임", value: `${representativeFrameCount}장` }] : []),
+      ...(eventCandidate ? [{ label: "사고 시점 후보", value: eventCandidate.frame_label }] : []),
       { label: "영상 관찰 후보", value: `${observedCount}개` },
       { label: "판단 반영", value: `${appliedItems.length}개` },
       { label: "영상 확인", value: `${confirmedItems.length}개` },
@@ -638,6 +642,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
     applied_items: appliedItems,
     confirmed_items: confirmedItems,
     review_items: conflictItems,
+    event_candidate: eventCandidate,
     uncertain_items: uncertainItems,
     supporting_items: supportingItems,
     notice: "영상 관찰값은 프레임에서 보이는 사실 후보입니다. 신뢰도와 프레임 근거가 충분한 물리 사실만 판단 입력에 반영합니다.",
@@ -692,6 +697,27 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
     multi_frame_count: multiFrameCount,
     hold_items: reasonEntries,
     notes,
+  };
+}
+
+function videoAccidentEventCandidate(value: any) {
+  if (!value || typeof value !== "object") return undefined;
+  const eventCount = toNumber(value.event_frame_count, 0);
+  const preCount = toNumber(value.pre_impact_frame_count, 0);
+  const postCount = toNumber(value.post_impact_frame_count, 0);
+  if (!eventCount && !preCount && !postCount) return undefined;
+  const impactVisible = value.impact_visible === true;
+  return {
+    label: "사고 발생 구간 후보",
+    status_label: impactVisible ? "충돌 구간 후보 확인" : "충돌 전후 문맥 후보",
+    frame_label: impactVisible ? `${eventCount}장` : `${preCount + postCount}장`,
+    explanation: impactVisible
+      ? "영상 전체 프레임 순서를 비교해 실제 충돌 또는 직후로 보이는 구간 후보를 찾았습니다. 이 정보는 품질 점검용이며, 개별 물리 사실은 별도 신뢰도 기준을 통과해야 판단에 반영됩니다."
+      : "영상에서 충돌 장면 자체는 명확하지 않지만, 충돌 전후로 보이는 문맥 후보를 찾았습니다. 이 경우 사용자 입력이나 추가 자료 확인이 더 중요합니다.",
+    impact_visible: impactVisible,
+    event_frame_count: eventCount,
+    pre_impact_frame_count: preCount,
+    post_impact_frame_count: postCount,
   };
 }
 

@@ -135,6 +135,7 @@ def frame_analysis_summary(upload: dict, require_observations: bool):
     metadata = upload.get("metadata") if isinstance(upload.get("metadata"), dict) else {}
     frame_analysis = metadata.get("openai_frame_analysis") if isinstance(metadata.get("openai_frame_analysis"), dict) else {}
     observations = frame_analysis.get("observations") if isinstance(frame_analysis.get("observations"), list) else []
+    event_summary = frame_analysis.get("accident_event_summary") if isinstance(frame_analysis.get("accident_event_summary"), dict) else {}
     error_text = str(frame_analysis.get("error") or "")
     if require_observations:
         if frame_analysis.get("enabled") is not True:
@@ -155,6 +156,7 @@ def frame_analysis_summary(upload: dict, require_observations: bool):
         "analyzed_frame_count": len(frame_analysis.get("analyzed_frames") or []),
         "observation_count": len(observations),
         "observation_quality_summary": frame_analysis.get("observation_quality_summary"),
+        "accident_event_summary": event_summary,
         "summary": frame_analysis.get("summary"),
         "observations": [
             {
@@ -379,6 +381,7 @@ def assert_video_fact_card(report: dict):
         "status_label": quality.get("status_label"),
         "representative_frame_count": quality.get("representative_frame_count"),
         "stats": stats,
+        "event_candidate": card.get("event_candidate") if isinstance(card.get("event_candidate"), dict) else None,
     }
 
 

@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-25 OpenAI 프레임 분석 호출 예산 보강
+
+사고 영상 1~5번을 실제 OpenAI 프레임 분석 ON 상태로 재측정한 결과, 새 프레임 순서 기반 사고 시점 판별 프롬프트가 길어지면서 일부 응답이 `max_output_tokens` 부족으로 `incomplete` 처리되고, 일부 샘플은 18초 timeout으로 실패했다. 이 상태에서는 `observations`와 `accident_event_summary`가 비어 영상 기반 사실 반영 영역이 실질적으로 동작하지 않는다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Worker 호출 예산 | `apps/worker/worker/frame_analysis.py`의 OpenAI 프레임 분석 기본 timeout을 45초로, 기본 `OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS`를 2200으로 올렸다. 코드 상한도 3000으로 늘려 실제 사고 시점 후보와 관찰값 JSON이 잘리지 않게 했다. |
+| Compose 기본값 | `compose.yaml`의 worker `OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS` 기본값을 2200, worker `OPENAI_TIMEOUT_SEC` 기본값을 45초로 맞췄다. Agent의 일반 OpenAI timeout 기본값은 그대로 18초다. |
+| 사고 시점 후보 표시 | `video_input_contract.py`가 OpenAI의 `accident_event_summary`를 안전한 frame count 메타데이터로 보존하고, Gateway/Frontend의 영상 기반 사실 반영 카드가 “사고 시점 후보”를 표시한다. 관찰값이 0개여도 실제 충돌 구간 후보가 잡혔는지 확인할 수 있다. |
+| 시나리오 우선순위 | `scenario_classifier.py`가 좌회전·직진 차량·교차로·신호전환/CCTV 필요 맥락을 후방추돌/횡단보도 정차 맥락보다 먼저 분류한다. 영상 일부 프레임에서 정차나 횡단보도가 보여도 사고 본질이 교차로 신호 사고라면 후방추돌 기준으로 덮지 않는다. |
+| 검증 로그 | `scripts/video_agent_e2e.py`가 `accident_event_summary`와 easy-report의 `event_candidate`를 결과 JSON에 남긴다. 이후 사고 영상 회귀 테스트에서 “사고 시점 후보”가 UI 카드까지 전달됐는지 로그만으로 확인할 수 있다. |
+| 적용 범위 | 사고 1~5 같은 실제 영상 검증 경로에서만 OpenAI 비용과 시간이 늘 수 있다. OpenAI 프레임 분석이 꺼진 기본 운영 경로(`ENABLE_OPENAI_FRAME_ANALYSIS=0`)에는 비용 영향이 없다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 종류를 변경하지 않는다. 기존 환경변수 키의 기본값만 영상 분석 안정성 기준에 맞게 조정한다.
+
 ## 2026-05-25 영상 프레임 전체 순서 기반 사고 시점 판별 보강
 
 영상 분석에서 먼저 등장하는 위험 장면, 횡단보도, 보행자, 정차 차량, 신호, 차선 갈등을 실제 사고로 오인할 수 있는 위험을 줄이기 위해 Worker 프레임 분석 기준을 보강했다. OpenAI 프레임 분석은 선택된 프레임 전체를 시간 순서대로 확인한 뒤 실제 충돌/접촉 또는 충돌 직전·직후 정황이 보이는 구간을 기준으로 사고 대상과 충돌 지점을 판단해야 한다.

@@ -409,6 +409,35 @@ def test_technical_preprocess_metadata_does_not_create_accident_facts():
     assert contract["technical_metadata"]["width"] == 1920
 
 
+def test_accident_event_summary_is_kept_as_safe_technical_metadata():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "representative_frames": ["/frames/1.jpg", "/frames/2.jpg"],
+                "openai_frame_analysis": {
+                    "accident_event_summary": {
+                        "impact_visible": True,
+                        "event_frame_refs": ["frame_8.jpg", "frame_9.jpg"],
+                        "pre_impact_frame_refs": ["frame_6.jpg"],
+                        "post_impact_frame_refs": ["frame_10.jpg"],
+                        "rationale": "not exposed through the video input contract",
+                    },
+                    "observations": [],
+                },
+            }
+        }
+    )
+
+    event_summary = contract["technical_metadata"]["accident_event_summary"]
+    assert event_summary == {
+        "impact_visible": True,
+        "event_frame_count": 2,
+        "pre_impact_frame_count": 1,
+        "post_impact_frame_count": 1,
+    }
+    assert contract["fact_patch"] == {}
+
+
 def test_video_physical_fact_overrides_conflicting_user_fact():
     normalized = normalize_analysis_input(
         "rear impact while stopped",

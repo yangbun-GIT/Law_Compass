@@ -37,6 +37,10 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "school_zone_child_accident"
         accident_party_type = "car_vs_person"
         tags.update(["school_zone", "child_protection", "injury", "speed_limit", "pedestrian"])
+    elif _is_intersection_signal_turning_conflict(facts, accident_type, haystack):
+        scenario_type = "intersection_signal_violation"
+        accident_party_type = "car_vs_car"
+        tags.update(["intersection", "signal_violation", "right_of_way"])
     elif accident_type == "right_turn_front_stop":
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
@@ -175,3 +179,24 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         "accident_party_label": party_label(accident_party_type),
         "confidence": confidence,
     }
+
+
+def _is_intersection_signal_turning_conflict(facts: dict[str, Any], accident_type: str, haystack: str) -> bool:
+    if not facts.get("intersection") and "교차로" not in haystack:
+        return False
+    turning_text = " ".join(str(facts.get(field) or "") for field in ("turning", "ego_turn_direction", "accident_type"))
+    signal_text = " ".join(str(facts.get(field) or "") for field in ("signal_state", "signal_transition", "accident_type", "analysis_uncertainty"))
+    opponent_text = str(facts.get("opponent_behavior") or "")
+    left_turn = any(token in turning_text.lower() for token in ("left_turn", "left")) or "좌회전" in haystack
+    straight_opponent = "직진" in opponent_text or "직진" in haystack
+    signal_context = (
+        bool(facts.get("signal_transition"))
+        or bool(facts.get("signal_timing_uncertain"))
+        or bool(facts.get("cctv_needed"))
+        or any(token in signal_text for token in ("황색", "적색", "빨간", "yellow", "red"))
+        or "신호" in haystack
+    )
+    declared_intersection = accident_type in {"intersection_collision", "intersection_signal_violation"} or (
+        "교차로" in haystack and ("좌회전" in haystack or "직진" in haystack)
+    )
+    return signal_context and (declared_intersection or (left_turn and straight_opponent))
