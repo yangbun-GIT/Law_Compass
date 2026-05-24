@@ -2,16 +2,16 @@
 
 ## 2026-05-25 AI Hub 로컬 데이터 폴더
 
-AI Hub 교통사고/차량 인지 데이터셋 확인을 위해 저장소 루트에 `datasets/aihub/` 로컬 작업 폴더를 추가했다. 이 폴더는 샘플 데이터 구조 확인, 원본 데이터 임시 보관, 라벨 변환, 로컬 비전 모델 실험을 위한 위치이며 실제 데이터 파일은 Git에 올리지 않는다.
+AI Hub 교통사고/차량 인지 데이터셋 확인을 위해 저장소 루트에 `datasets/aihub/` 로컬 작업 폴더를 둔다. 원본 전체 데이터는 테라 단위라 로컬에 받지 않는 것을 원칙으로 하고, 샘플 데이터와 AI Hub Shell의 파일 목록/선택 다운로드 결과만 데이터셋별 폴더에 보관한다. 실제 데이터 파일은 Git에 올리지 않는다.
 
 | 폴더 | 역할 |
 | --- | --- |
-| `datasets/aihub/samples/` | AI Hub `샘플(경량) 데이터`를 먼저 넣어 라벨 JSON과 영상/이미지 구조를 확인한다. |
-| `datasets/aihub/raw/` | 승인 후 받은 원본 대용량 데이터 또는 분할 압축 해제 결과를 둔다. |
-| `datasets/aihub/processed/` | LawCompass 영상 관찰값 계약에 맞게 변환한 라벨/프레임/메타데이터를 둔다. |
-| `datasets/aihub/models/` | 로컬 YOLO 등 비전 모델 가중치와 실험 산출물을 둔다. |
+| `datasets/aihub/traffic-accident-video/samples/` | AI Hub `교통사고 영상 데이터`의 샘플(경량) 데이터 위치 |
+| `datasets/aihub/traffic-accident-video/aihubshell/` | `교통사고 영상 데이터`의 AI Hub Shell 파일 목록, 선택 다운로드 결과, 실행 로그 위치 |
+| `datasets/aihub/vehicle-person-recognition/samples/` | AI Hub `차량 및 사람 인지 영상`의 샘플(경량) 데이터 위치 |
+| `datasets/aihub/vehicle-person-recognition/aihubshell/` | `차량 및 사람 인지 영상`의 AI Hub Shell 파일 목록, 선택 다운로드 결과, 실행 로그 위치 |
 
-`.gitignore`는 위 하위 폴더의 실제 데이터와 모델 파일을 제외하고, 안내용 README만 추적하도록 설정한다. AI Hub 이용약관, 개인정보 처리 조건, 모델 라이선스 검토 전에는 원본 데이터나 가중치를 커밋하지 않는다.
+AI Hub Shell은 `datasetkey`만으로 다운로드하면 전체 데이터셋을 받으므로 사용하지 않는다. 먼저 `list 모드`로 파일 목록과 `filekey`를 확인하고, 필요한 라벨/샘플 파일만 선택 다운로드한다. `.gitignore`는 위 하위 폴더의 실제 데이터와 Shell 산출물을 제외하고, 안내용 README만 추적하도록 설정한다. API key, 개인정보, 원본 대용량 데이터, 모델 가중치는 커밋하지 않는다.
 
 ## 2026-05-25 영상 관찰값 0개 bounded retry 보강
 

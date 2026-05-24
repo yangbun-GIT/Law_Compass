@@ -37,18 +37,24 @@ htmlcov/
 # Local AI Hub / vision datasets. Keep folder guides only.
 /datasets/aihub/*
 !/datasets/aihub/README.md
-!/datasets/aihub/samples/
-!/datasets/aihub/raw/
-!/datasets/aihub/processed/
-!/datasets/aihub/models/
-/datasets/aihub/samples/*
-/datasets/aihub/raw/*
-/datasets/aihub/processed/*
-/datasets/aihub/models/*
-!/datasets/aihub/samples/README.md
-!/datasets/aihub/raw/README.md
-!/datasets/aihub/processed/README.md
-!/datasets/aihub/models/README.md
+!/datasets/aihub/traffic-accident-video/
+!/datasets/aihub/vehicle-person-recognition/
+/datasets/aihub/traffic-accident-video/*
+/datasets/aihub/vehicle-person-recognition/*
+!/datasets/aihub/traffic-accident-video/README.md
+!/datasets/aihub/vehicle-person-recognition/README.md
+!/datasets/aihub/traffic-accident-video/samples/
+!/datasets/aihub/traffic-accident-video/aihubshell/
+!/datasets/aihub/vehicle-person-recognition/samples/
+!/datasets/aihub/vehicle-person-recognition/aihubshell/
+/datasets/aihub/traffic-accident-video/samples/*
+/datasets/aihub/traffic-accident-video/aihubshell/*
+/datasets/aihub/vehicle-person-recognition/samples/*
+/datasets/aihub/vehicle-person-recognition/aihubshell/*
+!/datasets/aihub/traffic-accident-video/samples/README.md
+!/datasets/aihub/traffic-accident-video/aihubshell/README.md
+!/datasets/aihub/vehicle-person-recognition/samples/README.md
+!/datasets/aihub/vehicle-person-recognition/aihubshell/README.md
 
 # Local IDE and OS files
 .idea/
