@@ -14,6 +14,8 @@
 
 화면은 기존 Gateway API client만 사용한다. 결과 조회는 `/api/v1/cases/:caseId/easy-report`, 관리자 진단은 `/api/v1/admin/cases/:caseId/agent-trace`를 사용한다. 이 변경은 Frontend route/API wrapper/UI만 추가하며 DB schema, Redis key, storage path, 외부 API 계약, 환경변수 키를 변경하지 않는다.
 
+영상 테스트는 업로드 완료 응답의 `video_preprocess` job만 보고 완료 처리하지 않고, Worker가 자동 생성한 `video_analyze` job이 `succeeded`가 될 때까지 polling한다. `video_preprocess`만 성공하고 `video_analyze`가 아직 생성 또는 완료되지 않은 중간 상태를 최종 결과 없음으로 오인하지 않기 위한 관리자 화면 전용 안전장치다.
+
 ## 2026-05-23 영상 처리 마감 기준
 
 오늘 기준 영상 처리 파이프라인은 “업로드된 사고 영상을 저장하고, ffprobe/ffmpeg로 대표 프레임을 추출한 뒤, 선택적으로 OpenAI 프레임 관찰값을 생성하고, Agent 입력 계약에서 사용자 입력과 영상 관찰값을 검증/보류/반영하는 구조”까지 완료 상태로 본다. 기본 운영값은 비용 방지를 위해 `ENABLE_OPENAI_FRAME_ANALYSIS=0`이며, 실제 OpenAI 프레임 분석은 검증 또는 운영 판단이 필요한 경우에만 명시적으로 켠다.

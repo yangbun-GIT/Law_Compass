@@ -162,7 +162,7 @@ const modeOptions: { value: TestMode; label: string; description: string }[] = [
   { value: "both", label: "입력+영상", description: "사용자 입력과 영상 관찰값 충돌/반영 확인" }
 ];
 
-const RUNNING_JOB_STATUSES = new Set(["queued", "running", "retrying", "processing", "analyzing"]);
+const FAILED_JOB_STATUSES = new Set(["failed", "cancelled"]);
 
 const mode = ref<TestMode>("video");
 const title = ref("관리자 Agent 테스트");
@@ -242,7 +242,8 @@ async function runTest() {
       uploadId.value = uploaded.upload_id;
       const queued = await api.completeUpload(uploaded.upload_id);
       analysisJobId.value = queued.job_id;
-      await pollJobsUntilSettled(created.case.id);
+      const finalVideoJob = await pollVideoPipelineUntilAnalyzed(created.case.id);
+      analysisJobId.value = finalVideoJob?.id || analysisJobId.value;
     } else {
       setMessage("텍스트 분석을 실행하고 있습니다.");
       await api.analyzeText(created.case.id, {
@@ -303,16 +304,24 @@ function buildKeywords() {
   return [...keywords];
 }
 
-async function pollJobsUntilSettled(caseId: string) {
+async function pollVideoPipelineUntilAnalyzed(caseId: string) {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     await sleep(attempt === 0 ? 600 : 2500);
     const response = await api.getJobs(caseId);
     jobs.value = response.items || [];
-    if (jobs.value.length && !jobs.value.some((job) => RUNNING_JOB_STATUSES.has(String(job.status)))) {
-      return;
+    const failedJob = jobs.value.find((job) => FAILED_JOB_STATUSES.has(String(job.status)));
+    if (failedJob) {
+      throw new Error(`${failedJob.type || "video job"} 작업이 실패했습니다. ${failedJob.last_error || ""}`.trim());
+    }
+    const videoAnalyzeJob = jobs.value.find((job) => String(job.type) === "video_analyze");
+    if (videoAnalyzeJob?.id) {
+      analysisJobId.value = videoAnalyzeJob.id;
+    }
+    if (String(videoAnalyzeJob?.status) === "succeeded") {
+      return videoAnalyzeJob;
     }
   }
-  setMessage("작업이 아직 끝나지 않았습니다. 잠시 후 결과/진단 새로고침을 눌러 확인해 주세요.", false);
+  throw new Error("영상 분석 작업이 아직 완료되지 않았습니다. 잠시 뒤 결과/진단 새로고침을 눌러 확인해 주세요.");
 }
 
 async function refreshOutputs() {
