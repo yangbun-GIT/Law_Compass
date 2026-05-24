@@ -231,6 +231,55 @@ describe("report composer", () => {
     expect((enriched as any).fault_explanation.easy_explanation).toContain("도로 장애물");
   });
 
+  it("shows conditional signal outcomes and hides pedestrian-target evidence for car-vs-car intersection crashes", () => {
+    const enriched: any = composeEasyFallback({
+      scenario_type: "intersection_signal_violation",
+      accident_summary: "좌회전 중 황색 신호 전환 후 직진 차량과 충돌",
+      structured_facts: {
+        accident_party_type: "car_vs_car",
+        collision_partner_type: "vehicle",
+        intersection: true,
+        ego_turn_direction: "left",
+        user_signal: "yellow",
+        signal_transition: "yellow_to_red",
+        opponent_signal_visible: false,
+        pedestrian_visible: true,
+      },
+      fault_ratio: {
+        my: 80,
+        other: 20,
+        key_factors: ["신호 전환 시점", "상대 차량 진입 신호"],
+        conditional_outcomes: [
+          {
+            label: "상대 차량 신호가 녹색 또는 정상 진행 신호인 경우",
+            my_range: "70~90%",
+            other_range: "10~30%",
+            explanation: "내 차량의 황색 진입과 좌회전 양보 의무가 중심 쟁점입니다.",
+            basis: ["내 차량 정지선 통과 시점", "상대 차량 신호"],
+          },
+          {
+            label: "상대 차량도 적색 또는 신호위반으로 진입한 경우",
+            my_range: "20~40%",
+            other_range: "60~80%",
+            explanation: "상대 차량 신호위반이 확인되면 상대 책임이 커질 수 있습니다.",
+            basis: ["상대 차량 신호", "CCTV"],
+          },
+        ],
+      },
+      evidence: [
+        { source_type: "legal", title: "신호 준수 의무", plain_summary: "교차로 신호와 진입 시점을 확인합니다." },
+        { source_type: "legal", title: "보행자 보호 의무", plain_summary: "보행자 사고 기준입니다." },
+      ],
+    }, {});
+
+    expect(enriched.headline).toContain("교차로");
+    expect(enriched.headline).not.toContain("추가 사실");
+    expect(enriched.conditional_outcome_card.cases).toHaveLength(2);
+    expect(JSON.stringify(enriched.conditional_outcome_card)).toContain("70~90%");
+    expect(JSON.stringify(enriched.legal_basis_cards)).toContain("교차로 신호");
+    expect(JSON.stringify(enriched.legal_basis_cards)).not.toContain("보행자 보호");
+  });
+
   it("removes raw field tokens from missing-info priority text", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({
       headline: "report",

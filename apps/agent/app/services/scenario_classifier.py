@@ -18,15 +18,19 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
     collision_partner_type = str(facts.get("collision_partner_type") or "").strip().lower()
     if accident_party_type == "unknown" and collision_partner_type == "vehicle":
         accident_party_type = "car_vs_car"
+    vehicle_collision_declared = accident_party_type == "car_vs_car" or collision_partner_type == "vehicle"
 
     pedestrian_context = (
-        collision_partner_type == "pedestrian"
-        or accident_party_type == "car_vs_person"
-        or accident_type == "pedestrian_crosswalk_accident"
-        or facts.get("victim_is_child")
-        or facts.get("pedestrian")
-        or facts.get("pedestrian_visible")
-        or any(w in haystack for w in ["보행자를", "사람을", "사람과", "무단횡단"])
+        not vehicle_collision_declared
+        and (
+            collision_partner_type == "pedestrian"
+            or accident_party_type == "car_vs_person"
+            or accident_type == "pedestrian_crosswalk_accident"
+            or facts.get("victim_is_child")
+            or facts.get("pedestrian")
+            or facts.get("pedestrian_visible")
+            or any(w in haystack for w in ["보행자를", "사람을", "사람과", "무단횡단"])
+        )
     )
 
     if pedestrian_context and (facts.get("school_zone") or "어린이보호구역" in haystack or "민식이" in haystack):
@@ -49,7 +53,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["non_contact_trigger", "safe_distance"])
-    elif accident_type == "intersection_collision":
+    elif accident_type in {"intersection_collision", "intersection_signal_violation"}:
         scenario_type = "intersection_signal_violation"
         accident_party_type = "car_vs_car"
         tags.update(["intersection", "right_of_way"])

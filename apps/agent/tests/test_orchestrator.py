@@ -191,6 +191,35 @@ def test_centerline_obstacle_context_uses_textual_stop_and_oncoming_nonstop_cues
     assert "상대 차량 회피 가능성" in result["fault_ratio"]["key_factors"]
 
 
+def test_left_turn_yellow_to_red_unknown_opponent_signal_gets_conditional_outcomes_without_pedestrian_basis():
+    result = analyze_case(
+        "블박차 좌회전하는데 좌측에서 1차로 직진해 온 상대차와 사고. 블박차 진입해서 황색불로 바뀌고 충돌할 때 빨간불로 변경. 상대 차량의 신호 정보는 확인 불가.",
+        structured_facts={
+            "accident_party_type": "car_vs_car",
+            "collision_partner_type": "vehicle",
+            "pedestrian_visible": True,
+        },
+        selected_keywords=["좌회전", "황색 신호", "상대 신호 확인 불가"],
+        analysis_mode="fault_ratio",
+    )
+
+    facts = result["structured_facts"]
+    assert facts["collision_partner_type"] == "vehicle"
+    assert facts["accident_party_type"] == "car_vs_car"
+    assert facts["intersection"] is True
+    assert facts["ego_turn_direction"] == "left"
+    assert facts["signal_transition"] == "yellow_to_red"
+    assert facts["opponent_signal_visible"] is False
+    assert result["scenario_type"] == "intersection_signal_violation"
+    assert result["accident_party_type"] == "car_vs_car"
+    assert result["fault_ratio"]["fault_estimate_source"] == "contextual_complex_case"
+    assert len(result["fault_ratio"].get("conditional_outcomes") or []) == 2
+    assert "pedestrian" not in result["structured_facts"]["scenario_tags"]
+    evidence_text = " ".join(str(ev) for ev in result["evidence"]).lower()
+    assert "pedestrian_crosswalk_accident" not in evidence_text
+    assert "school_zone_child_accident" not in evidence_text
+
+
 def test_contextual_complex_fault_estimate_is_not_overwritten_by_knia_base_fault():
     fault_ratio = {
         "my": 30,

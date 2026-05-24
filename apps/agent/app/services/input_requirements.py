@@ -335,6 +335,11 @@ def _skip_base_missing_field(
         return True
     if field == "signal_state" and scenario_type not in SIGNAL_RELEVANT_SCENARIOS:
         return True
+    if field == "signal_state" and scenario_type == "intersection_signal_violation":
+        return any(
+            not _is_empty(facts.get(candidate))
+            for candidate in ("user_signal", "opponent_signal", "signal_transition", "opponent_signal_visible")
+        )
     if field == "opponent_behavior" and scenario_type == "parking_or_stopped_vehicle_accident":
         return any(
             not _is_empty(facts.get(candidate))

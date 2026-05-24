@@ -83,13 +83,72 @@ def _normalize_fact_aliases(facts: dict[str, Any]) -> dict[str, Any]:
         normalized["opponent_signal_violation"] = normalized.get("other_signal_violation")
     return normalized
 
+def _contains_any(text: str, tokens: tuple[str, ...]) -> bool:
+    return any(token in text for token in tokens)
+
+def _set_if_empty(facts: dict[str, Any], key: str, value: Any) -> None:
+    if _is_empty(facts.get(key)):
+        facts[key] = value
+
+def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str, Any]:
+    """Fill broadly applicable traffic facts that the UI can express but users often write in free text."""
+    enriched = dict(facts)
+    hay = text.lower()
+    party = str(enriched.get("accident_party_type") or "").strip().lower()
+    partner = str(enriched.get("collision_partner_type") or "").strip().lower()
+    vehicle_declared = party == "car_vs_car" or partner in {"vehicle", "car", "truck", "bus", "van"}
+
+    if vehicle_declared:
+        _set_if_empty(enriched, "collision_partner_type", "vehicle")
+        # People or a crosswalk can be visible road context without being the accident target.
+        if enriched.get("pedestrian_visible") is True and not _contains_any(hay, ("보행자를", "사람을", "보행자와", "사람과", "pedestrian collision")):
+            enriched["pedestrian_context_only"] = True
+
+    if _contains_any(hay, ("교차로", "intersection")):
+        _set_if_empty(enriched, "intersection", True)
+    if _contains_any(hay, ("좌회전", "left turn", "left-turn")):
+        _set_if_empty(enriched, "ego_turn_direction", "left")
+    elif _contains_any(hay, ("우회전", "right turn", "right-turn")):
+        _set_if_empty(enriched, "ego_turn_direction", "right")
+
+    left_turn = enriched.get("ego_turn_direction") == "left"
+    straight_opponent = _contains_any(hay, ("직진", "straight"))
+    signal_text = _contains_any(hay, ("신호", "황색", "노란불", "적색", "빨간불", "yellow", "red", "signal"))
+    if left_turn and straight_opponent:
+        _set_if_empty(enriched, "opponent_behavior", "straight_from_left")
+        _set_if_empty(enriched, "collision_partner_type", "vehicle")
+        _set_if_empty(enriched, "accident_party_type", "car_vs_car")
+        if signal_text or enriched.get("intersection") is True:
+            _set_if_empty(enriched, "intersection", True)
+            _set_if_empty(enriched, "accident_type", "intersection_signal_violation")
+
+    if _contains_any(hay, ("황색", "노란불", "yellow")):
+        _set_if_empty(enriched, "user_signal", "yellow")
+    if _contains_any(hay, ("적색", "빨간불", "red")) and _contains_any(hay, ("변경", "바뀌", "전환", "changed", "turn")):
+        _set_if_empty(enriched, "signal_transition", "yellow_to_red")
+    if _contains_any(hay, ("황색", "노란불", "yellow")) and _contains_any(hay, ("적색", "빨간불", "red")):
+        _set_if_empty(enriched, "signal_transition", "yellow_to_red")
+        _set_if_empty(enriched, "signal_timing_uncertain", True)
+        _set_if_empty(enriched, "cctv_needed", True)
+
+    opponent_signal_unknown_text = _contains_any(
+        hay,
+        ("상대 신호 정보 없음", "상대 신호 모름", "상대 신호 확인 불가", "상대 신호가 안 보", "opponent signal unknown", "opponent signal not visible"),
+    )
+    if opponent_signal_unknown_text or (enriched.get("intersection") is True and enriched.get("signal_transition") and _is_empty(enriched.get("opponent_signal"))):
+        _set_if_empty(enriched, "opponent_signal_visible", False)
+        _set_if_empty(enriched, "signal_timing_uncertain", True)
+        _set_if_empty(enriched, "cctv_needed", True)
+    return enriched
+
 def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None) -> dict[str, Any]:
     clean_text, security_flags = sanitize_input(description_text or "")
     video_contract = normalize_video_input_contract(video_metadata, preprocessed_summary=clean_text)
     user_facts = _normalize_fact_aliases(_compact_for_analysis(structured_facts or {}))
+    user_facts = _enrich_textual_traffic_facts(user_facts, clean_text)
     arbitration = arbitrate_facts(user_facts=user_facts, video_contract=video_contract)
     fact_arbitration = arbitration["contract"]
-    facts = _compact_for_analysis(arbitration["facts"])
+    facts = _enrich_textual_traffic_facts(_compact_for_analysis(arbitration["facts"]), clean_text)
     keywords = [str(x).strip() for x in (selected_keywords or []) if str(x).strip()]
     missing_fields = [field for field in REQUIRED_FACTS if _is_empty(facts.get(field))]
     facts_display = clean_structured_facts_for_display(facts)

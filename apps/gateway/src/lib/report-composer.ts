@@ -1254,13 +1254,29 @@ function frameCountLabel(value: any) {
   return count ? `대표 프레임 ${count}장` : "";
 }
 
-function composeConditionalOutcomeCard(result: AnyRecord = {}) {
+function composeConditionalOutcomeCard(result: AnyRecord = {}, report: AnyRecord = {}) {
   const facts = result.structured_facts ?? {};
   const contract = result.video_input_contract ?? result.model_info?.video_input_contract ?? {};
+  const conditionalOutcomes = asArray(result.fault_ratio?.conditional_outcomes);
+  if (conditionalOutcomes.length) {
+    return {
+      title: "신호 확인에 따라 달라지는 판단",
+      summary: "상대 차량 신호나 진입 시점이 확인되지 않아 조건별로 과실 방향을 나눠 봐야 합니다.",
+      cases: conditionalOutcomes.slice(0, 3).map((item: AnyRecord) => ({
+        label: cleanText(item.label, "조건별 판단"),
+        likely_direction: `${cleanText(item.my_range, "확인 필요")} / ${cleanText(item.other_range, "확인 필요")} 참고`,
+        explanation: cleanText(item.explanation, "이 조건이 확인되면 과실 방향이 달라질 수 있습니다."),
+        check_points: asArray(item.basis).map((x) => cleanText(x, "")).filter(Boolean).slice(0, 5),
+      })),
+      needed_evidence: ["교차로 CCTV", "신호 주기표 또는 신호체계 자료", "각 차량의 정지선 통과 시점", "블랙박스 원본 전체 구간"],
+      notice: "조건부 결과는 특정 테스트 영상에 맞춘 답이 아니라, 상대 신호가 보이지 않는 교차로 사고에서 공통으로 적용하는 판단 구조입니다.",
+    };
+  }
   const questionFields = new Set(
     [
       ...asArray(result.required_input_questions ?? result.input_requirements?.questions),
       ...asArray(result.missing_info?.questions),
+      ...asArray(report.missing_info?.questions),
       ...asArray(contract.uncertain_observations),
     ]
       .map((item: AnyRecord) => String(item?.field ?? ""))
@@ -1272,6 +1288,8 @@ function composeConditionalOutcomeCard(result: AnyRecord = {}) {
     facts.signal_state,
     facts.opponent_behavior,
     result.accident_summary,
+    report.headline,
+    report.summary_for_user?.short_summary,
   ].map((value) => String(value ?? "")).join(" ");
   const signalRelevant =
     facts.intersection === true ||
@@ -1311,12 +1329,12 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
   const processCard = composeAgentProcessCard(result);
   const videoFactCard = composeVideoFactExplanationCard(result);
   const expertGuidanceCard = composeExpertGuidanceCard(result);
-  const conditionalOutcomeCard = composeConditionalOutcomeCard(result);
   const videoQuestions = combineVideoQuestions(
     composeVideoConflictQuestions(result),
     composeVideoQualityQuestions(result),
   );
   const mergedReport = prioritizeMissingInfo(mergeVideoQuestions(report, videoQuestions));
+  const conditionalOutcomeCard = composeConditionalOutcomeCard(result, mergedReport);
   return {
     ...mergedReport,
     ...(card ? { evidence_reliability_card: card } : {}),
@@ -1534,14 +1552,18 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
   const facts = result.structured_facts ?? context.case?.structured_facts ?? {};
   const scenario = result.scenario_type ?? facts.scenario_type ?? "general_collision";
   const evidence = asArray(result.evidence);
+  const displayEvidence = filterEvidenceForDisplay(evidence, facts, scenario);
   const requiredQuestions = requiredQuestionTexts(result);
   const missingQuestions = requiredQuestionsForReport(result);
   const fault = result.fault_ratio ?? {};
   const legal = result.legal_liability ?? {};
   const insurance = result.insurance_guide ?? {};
   const centerlineContext = isCenterlineObstacleContext(facts, result);
+  const signalUncertaintyContext = isSignalUncertaintyContext(facts, result);
   const headline = centerlineContext
     ? "중앙선·도로 장애물 회피 중 대향 차량과 충돌한 사고로 보이며, 회피 사유와 상대 차량의 감속 가능성을 함께 봐야 합니다."
+    : signalUncertaintyContext
+      ? "교차로에서 좌회전 차량과 직진 차량이 충돌한 차대차 사고로 보이며, 상대 신호 확인 여부에 따라 과실 방향이 달라질 수 있습니다."
     : scenario === "rear_end_collision"
       ? "이번 사고는 정차 중 뒤차가 들이받은 사고로 보이며, 상대 차량 책임이 더 클 가능성이 높습니다."
       : scenario === "school_zone_child_accident"
@@ -1551,11 +1573,15 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
   const other = typeof fault.other === "number" ? Math.round(fault.other) : 100 - my;
   const faultWhy = centerlineContext
     ? ["불법 주정차 또는 도로 장애물 때문에 중앙선을 넘은 사유", "마주오던 차량과의 충돌 구조", "내 차량의 정차 또는 감속 여부", "상대 차량의 전방주시·감속 가능성"]
+    : signalUncertaintyContext
+      ? ["내 차량이 교차로에 진입한 시점의 신호", "황색에서 적색으로 바뀐 정확한 시점", "상대 차량의 진행 신호가 보이지 않는 점", "좌회전 차량과 직진 차량의 충돌 구조"]
     : scenario === "rear_end_collision"
       ? ["내 차량이 정차 중이었다는 점", "상대 차량이 뒤에서 추돌했다는 점", "뒤차는 앞차와 안전거리를 유지해야 한다는 점"]
       : asArray(fault.key_factors).map((x) => cleanText(x)).slice(0, 4);
   const faultEasyExplanation = centerlineContext
     ? "주차 차량이나 도로 장애물 때문에 중앙선을 넘은 뒤 대향 차량과 충돌한 사고는 중앙선 침범 자체만이 아니라 회피 불가피성, 정차 위치, 상대 차량의 전방주시·감속 가능성을 함께 봅니다."
+    : signalUncertaintyContext
+      ? "황색에서 적색으로 바뀌는 교차로 진입 사고는 내 차량의 정지선 통과 시점과 상대 차량의 신호가 핵심입니다. 상대 신호가 정상 진행 신호였는지, 상대도 신호위반이었는지에 따라 과실 범위가 크게 달라질 수 있습니다."
     : scenario === "rear_end_collision"
       ? "정차 중 뒤에서 추돌당한 사고라면 일반적으로 뒤차의 책임이 더 크게 볼 수 있습니다."
       : "입력하신 사고 내용과 근거를 바탕으로 참고용 과실비율을 추정했습니다.";
@@ -1567,12 +1593,12 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
       { order: 2, title: facts.injury ? "병원 진료 확인" : "사고 관련 자료 정리", description: facts.injury ? "통증이 있으면 병원 진료를 받고 진단서 또는 진료확인서를 받아두세요." : "차량 파손 사진, 사고 현장 사진, 수리 견적서를 모아두세요.", importance: "중요" },
       { order: 3, title: "보험사 사고 접수", description: "보험사에 사고를 접수하고 사고접수번호를 기록하세요.", importance: "중요" }
     ],
-    fault_explanation: { title: "과실비율 참고 추정", my_label: "내 책임", other_label: "상대방 책임", my_percent: my, other_percent: other, easy_explanation: faultEasyExplanation, why: faultWhy, caution: centerlineContext ? "중앙선을 넘은 사유, 정차 위치, 상대 차량의 시야와 감속 가능성, 후속 추돌의 원인 분리에 따라 비율이 조정될 수 있습니다." : "급정거 여부, 충돌 직전 움직임, 도로 상황이 확인되면 비율이 조정될 수 있습니다." },
+    fault_explanation: { title: "과실비율 참고 추정", my_label: "내 책임", other_label: "상대방 책임", my_percent: my, other_percent: other, easy_explanation: faultEasyExplanation, why: faultWhy, caution: centerlineContext ? "중앙선을 넘은 사유, 정차 위치, 상대 차량의 시야와 감속 가능성, 후속 추돌의 원인 분리에 따라 비율이 조정될 수 있습니다." : signalUncertaintyContext ? "상대 차량 신호, CCTV, 신호 주기표가 확인되면 조건별 과실 범위 중 어느 쪽에 가까운지 다시 좁혀야 합니다." : "급정거 여부, 충돌 직전 움직임, 도로 상황이 확인되면 비율이 조정될 수 있습니다." },
     insurance_explanation: { title: "보험 처리 안내", simple_summary: cleanText(insurance.summary, "대물 접수와 대인 접수 여부를 확인해야 합니다."), steps: asArray(insurance.steps).map((x) => cleanText(x)).slice(0, 6), documents: asArray(insurance.required_documents).map((x) => cleanText(x)).slice(0, 8) },
     legal_explanation: { title: "법률상 확인할 점", simple_summary: legal.reporting_required ? "신고나 형사 문제를 확인해 볼 필요가 있습니다." : "인명피해가 있거나 큰 위반이 의심되면 신고 여부를 확인해야 합니다.", risk_label: legal.criminal_risk_level === "high" ? "높음" : legal.criminal_risk_level === "low" ? "낮음" : "보통", checklist: asArray(legal.checklist).map((x) => cleanText(x)).slice(0, 7), caution: "형사책임 여부는 경찰이나 법원의 판단이 필요합니다." },
-    legal_basis_cards: evidence.slice(0, 6).map((ev: AnyRecord) => ({ law_name: cleanText(ev.law_name ?? "교통사고 관련 기준"), easy_title: cleanText(ev.article_title ?? ev.chunk_summary ?? "교통사고 관련 확인 사항"), easy_explanation: cleanText(ev.plain_summary ?? ev.snippet, "이 사고에서 확인해야 할 법률상 기준입니다."), related_to_this_case: cleanText(ev.related_reason ?? ev.used_for, "입력하신 사고 사실과 연결해서 참고할 수 있는 근거입니다."), confidence_label: "관련성이 있는 근거입니다.", source_label: cleanText(ev.source ?? "교통사고 법률 설명 자료") })),
+    legal_basis_cards: displayEvidence.slice(0, 6).map((ev: AnyRecord) => ({ law_name: cleanText(ev.law_name ?? "교통사고 관련 기준"), easy_title: cleanText(ev.article_title ?? ev.chunk_summary ?? "교통사고 관련 확인 사항"), easy_explanation: cleanText(ev.plain_summary ?? ev.snippet, "이 사고에서 확인해야 할 법률상 기준입니다."), related_to_this_case: cleanText(ev.related_reason ?? ev.used_for, "입력하신 사고 사실과 연결해서 참고할 수 있는 근거입니다."), confidence_label: "관련성이 있는 근거입니다.", source_label: cleanText(ev.source ?? "교통사고 법률 설명 자료") })),
     missing_info: { title: "더 정확한 분석을 위해 필요한 정보", items: Array.from(new Set([...requiredQuestions, ...(requiredQuestions.length ? [] : detectMissingFields(facts)), ...asArray(result.suggested_next_inputs).map((x) => cleanText(x)), ...asArray(result.followup_questions).map((x) => cleanText(x))])).slice(0, 6), questions: missingQuestions },
-    detail_sections: { evidence_summaries: safeEvidenceSummaries(evidence) }
+    detail_sections: { evidence_summaries: safeEvidenceSummaries(displayEvidence) }
   }), result);
 }
 
@@ -1588,6 +1614,50 @@ function isCenterlineObstacleContext(facts: AnyRecord = {}, result: AnyRecord = 
   const obstruction = facts.road_obstruction === true || facts.illegal_parking_obstruction === true || /장애|주차|주정차|가구|사물|obstacle|parking/i.test(text);
   const oncoming = facts.opposing_vehicle_present === true || /마주오|대향|상대차|oncoming/i.test(text);
   return centerline && obstruction && oncoming;
+}
+
+function isSignalUncertaintyContext(facts: AnyRecord = {}, result: AnyRecord = {}) {
+  const text = [
+    facts.accident_type,
+    facts.signal_state,
+    facts.user_signal,
+    facts.opponent_signal,
+    facts.opponent_behavior,
+    facts.signal_transition,
+    result.accident_summary,
+    result.scenario_type,
+  ].map((value) => String(value ?? "")).join(" ");
+  return (
+    result.scenario_type === "intersection_signal_violation" &&
+    (facts.opponent_signal_visible === false || !facts.opponent_signal || /상대.*신호|opponent.*signal|unknown|확인/i.test(text)) &&
+    (facts.intersection === true || /교차로|intersection|좌회전|직진/i.test(text)) &&
+    (/황색|노란불|적색|빨간불|yellow|red|signal_transition/i.test(text) || Boolean(facts.user_signal))
+  );
+}
+
+function filterEvidenceForDisplay(evidence: any[] = [], facts: AnyRecord = {}, scenario: any = "") {
+  const scenarioText = String(scenario ?? "");
+  const vehicleContext =
+    facts.accident_party_type === "car_vs_car" ||
+    facts.collision_partner_type === "vehicle" ||
+    /intersection_signal_violation|rear_end_collision|lane_change_collision|parking_or_stopped_vehicle_accident/.test(scenarioText);
+  if (!vehicleContext) return evidence;
+  return evidence.filter((ev: AnyRecord) => {
+    const text = [
+      ev.source_type,
+      ev.title,
+      ev.article_title,
+      ev.law_name,
+      ev.plain_summary,
+      ev.related_reason,
+      ev.used_for,
+      ev.accident_party_type,
+      ...(asArray(ev.scenario_tags)),
+      ...(asArray(ev.display_tags)),
+    ].map((value) => String(value ?? "").toLowerCase()).join(" ");
+    const pedestrianTarget = /pedestrian_crosswalk_accident|school_zone_child_accident|보행자 사고|보행자 보호|pedestrian protection|child protection/.test(text);
+    return !pedestrianTarget;
+  });
 }
 export function composeClientReport(result: AnyRecord = {}, context: AnyRecord = {}) {
   return composeEasyFallback(result, context);

@@ -9,9 +9,9 @@
   - `OPENAI_MODEL` (기본 `gpt-4.1-mini`)
   - `ENABLE_OPENAI_FRAME_ANALYSIS` (영상 프레임 GPT 분석 사용 시 `1`)
   - `OPENAI_VISION_MODEL` (기본 `gpt-4.1-mini`)
-  - `OPENAI_FRAME_ANALYSIS_MAX_FRAMES` (코드 기본 `14`, 코드 상한 `18`; `.env`에 값이 있으면 해당 값이 우선)
+  - `OPENAI_FRAME_ANALYSIS_MAX_FRAMES` (코드 기본 `18`, 코드 상한 `18`; `.env`에 값이 있으면 해당 값이 우선)
   - `OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS` (기본 `900`, 코드 상한 `1400`)
-  - `OPENAI_FRAME_ANALYSIS_DETAIL` (기본 `low`)
+  - `OPENAI_FRAME_ANALYSIS_DETAIL` (기본 `high`)
   - `OPENAI_FRAME_ANALYSIS_REASONING_EFFORT` (기본 `minimal`, GPT-5 계열 전용)
   - `LAW_API_OC`, `LAW_API_TARGETS`
   - `DATA_GO_SERVICE_KEY`, `DATA_GO_TRAFFIC_URL`
@@ -113,12 +113,12 @@ python -m compileall worker tests
 
 현재 기본 비용 정책:
 - 모델: `gpt-4.1-mini`
-- 이미지 상세도: `low`
-- 최대 분석 프레임: `6`장, 코드 상한 `8`장
+- 이미지 상세도: `high`
+- 최대 분석 프레임: `18`장, 코드 상한 `18`장
 - 최대 출력 토큰: `900`, 코드 상한 `1400`
 - 저장 정책: Responses API 요청에 `store=false`를 전달
 
-OpenAI 공식 문서 기준으로 `gpt-4.1-mini`는 이미지 입력을 지원하는 저비용 비추론 모델입니다. 이 프로젝트의 프레임 분석은 사고 법률 판단이 아니라 관찰 가능한 물리 사실을 JSON으로 짧게 추출하는 작업이므로, reasoning 토큰이 필요한 GPT-5 계열보다 비추론 모델을 기본으로 둡니다. 이미지 입력은 `detail=low`일 때 프레임당 고정 저해상도 토큰 예산을 사용하므로 짧은 사고 영상의 관찰값 추출 검증에는 이 설정을 우선 사용합니다. 품질 비교가 필요할 때만 `OPENAI_VISION_MODEL=gpt-5-mini` 또는 `OPENAI_FRAME_ANALYSIS_DETAIL=high`로 일시 상향합니다.
+OpenAI 공식 문서 기준으로 `gpt-4.1-mini`는 이미지 입력을 지원하는 저비용 비추론 모델입니다. 이 프로젝트의 프레임 분석은 사고 법률 판단이 아니라 관찰 가능한 물리 사실을 JSON으로 짧게 추출하는 작업이므로, reasoning 토큰이 필요한 GPT-5 계열보다 비추론 모델을 기본으로 둡니다. 다만 교차로 신호·충돌 대상·상대 차량 진행 방향처럼 작은 화면 단서가 중요한 사고 영상 검증에서는 `detail=high`와 18장 프레임을 기본 검증값으로 사용합니다. 비용 제한이 더 중요할 때만 `OPENAI_FRAME_ANALYSIS_DETAIL=low` 또는 프레임 수 축소를 일시 적용합니다.
 
 2026-05-22 로컬 검증에서는 같은 영상/프레임 조건에서 `gpt-5-nano`는 관찰값을 반환하지 않았고, `gpt-5-mini`는 출력 토큰 한도에서 중단되었습니다. `gpt-4.1-mini`는 관찰값 생성 및 Agent 영상 사실 반영 E2E를 통과했으므로 현재 기본값으로 유지합니다.
 
