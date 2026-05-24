@@ -14,7 +14,7 @@ def _int_env(name: str, default: int) -> int:
 
 
 FRAME_ANALYSIS_CONTRACT_VERSION = "openai-frame-analysis-v1"
-FRAME_SELECTION_STRATEGY = "start-end-context-plus-midpoint-sequence"
+FRAME_SELECTION_STRATEGY = "full-sequence-event-spread-plus-impact-context"
 ENABLE_OPENAI_FRAME_ANALYSIS = os.getenv("ENABLE_OPENAI_FRAME_ANALYSIS", "0") == "1"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
@@ -51,6 +51,10 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "Return JSON only. Do not decide legal liability, insurance responsibility, or fault ratio. "
             "Use unknown and low confidence when a fact is not clearly visible. "
             "Primary task: identify the accident target/object, collision point, and collision partner first. "
+            "Before writing observations, inspect every provided frame_ref in chronological order and identify the most likely actual impact/contact moment or immediate pre/post-impact window. "
+            "Do not treat the first risky scene, visible pedestrian, crosswalk, parked vehicle, signal, near miss, or lane conflict as the accident merely because it appears first. "
+            "If the selected sequence shows multiple possible event candidates, compare all candidates and base collision_partner_type, primary_collision_target, collision_point_visible, impact_direction, and opponent_behavior on the candidate with visible contact, abrupt impact evidence, or immediate aftermath. "
+            "If no contact, impact evidence, or immediate aftermath is visible in the selected frames, say so in uncertainties and do not confirm collision-target facts. "
             "Road environment facts such as crosswalks, centerline, parked vehicles, obstacles, and signals are secondary context and must not replace collision-target identification. "
             "The Context JSON may contain user-supplied accident type or structured facts. "
             "Use it only to prioritize which visual facts to inspect; never use it as visual evidence and never copy it into observations unless the frames support it. "
@@ -85,6 +89,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "Do not infer injury status from frames. Do not infer absence facts such as no damage, no school zone, "
             "or no signal violation just because they are not visible. Omit fields that are not observable. "
             "Each observation must include field, value, confidence between 0 and 1, frame_refs, and reason. "
+            "You may also include accident_event_summary with impact_visible, event_frame_refs, pre_impact_frame_refs, post_impact_frame_refs, and rationale; this metadata is for quality review and must not include legal conclusions. "
             f"Context JSON: {json.dumps(_compact_context(context), ensure_ascii=False)}"
         ),
     }]
@@ -128,6 +133,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             **selection_metadata,
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "summary": parsed.get("summary") or parsed.get("scene_summary"),
+            "accident_event_summary": _normalize_accident_event_summary(parsed.get("accident_event_summary"), selected_frames),
             "observations": observations,
             "observation_quality_summary": _observation_quality_summary(observations),
             "uncertainties": parsed.get("uncertainties") or _empty_output_uncertainty(data, observations),
@@ -177,19 +183,47 @@ def _object_first_frame_indexes(frames: list[dict[str, Any]], max_frames: int) -
     if not event_indexes:
         return []
     selected: list[int] = []
-    for index in [0, len(frames) - 1, *event_indexes]:
-        for candidate in (index - 1, index, index + 1):
-            clamped = max(0, min(len(frames) - 1, candidate))
-            if clamped not in selected:
-                selected.append(clamped)
+
+    def add(index: int) -> None:
+        if len(selected) >= max_frames:
+            return
+        clamped = max(0, min(len(frames) - 1, index))
+        if clamped not in selected:
+            selected.append(clamped)
+
+    add(0)
+    add(len(frames) - 1)
+    event_budget = max(1, max_frames - len(selected))
+    distributed_events = _spread_indexes(event_indexes, min(len(event_indexes), event_budget))
+    for index in distributed_events:
+        add(index)
+    for offset in (-1, 1, -2, 2):
+        for index in distributed_events:
+            add(index + offset)
             if len(selected) >= max_frames:
                 return sorted(selected)
     for index in _event_focused_frame_indexes(len(frames), max_frames):
-        if index not in selected:
-            selected.append(index)
+        add(index)
         if len(selected) >= max_frames:
             break
     return sorted(selected)
+
+
+def _spread_indexes(indexes: list[int], count: int) -> list[int]:
+    if count <= 0:
+        return []
+    values = sorted(dict.fromkeys(indexes))
+    if count >= len(values):
+        return values
+    if count == 1:
+        return [values[len(values) // 2]]
+    selected: list[int] = []
+    for step in range(count):
+        pos = round(step * (len(values) - 1) / (count - 1))
+        value = values[pos]
+        if value not in selected:
+            selected.append(value)
+    return selected
 
 
 def _event_focused_frame_indexes(frame_count: int, max_frames: int) -> list[int]:
@@ -429,6 +463,24 @@ def _normalize_openai_observations(raw_observations: Any, selected_frames: list[
             "observation_quality": _observation_quality(field, confidence, frame_refs),
         })
     return observations
+
+
+def _normalize_accident_event_summary(value: Any, selected_frames: list[dict[str, Any]]) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    allowed_frame_refs = {Path(frame["path"]).name for frame in selected_frames}
+
+    def refs(name: str) -> list[str]:
+        return [str(ref) for ref in value.get(name) or [] if str(ref) in allowed_frame_refs]
+
+    output: dict[str, Any] = {
+        "impact_visible": bool(value.get("impact_visible")) if value.get("impact_visible") is not None else None,
+        "event_frame_refs": refs("event_frame_refs"),
+        "pre_impact_frame_refs": refs("pre_impact_frame_refs"),
+        "post_impact_frame_refs": refs("post_impact_frame_refs"),
+        "rationale": str(value.get("rationale") or "")[:500],
+    }
+    return {key: item for key, item in output.items() if item not in (None, "", [])}
 
 
 def _normalize_observation_confidence(field: str, value: Any, confidence_value: Any, frame_refs: list[str]) -> float:

@@ -225,7 +225,12 @@ class FrameAnalysisContractTest(unittest.TestCase):
             return {
                 "id": "resp_stopped_false",
                 "output_text": (
-                    '{"observations":['
+                    '{"accident_event_summary":{"impact_visible":true,'
+                    '"event_frame_refs":["frame_002.jpg"],'
+                    '"pre_impact_frame_refs":["frame_001.jpg"],'
+                    '"post_impact_frame_refs":["frame_003.jpg"],'
+                    '"rationale":"impact evidence appears after the initial frame"},'
+                    '"observations":['
                     '{"field":"stopped","value":false,"confidence":0.95,'
                     '"frame_refs":["frame_001.jpg","frame_002.jpg","frame_003.jpg"],'
                     '"reason":"dashcam scene changes across frames"}]}'
@@ -249,6 +254,10 @@ class FrameAnalysisContractTest(unittest.TestCase):
         prompt_text = captured["payload"]["input"][0]["content"][0]["text"]
         self.assertIn("Use it only to prioritize which visual facts to inspect", prompt_text)
         self.assertIn("identify the accident target/object, collision point, and collision partner first", prompt_text)
+        self.assertIn("inspect every provided frame_ref in chronological order", prompt_text)
+        self.assertIn("Do not treat the first risky scene", prompt_text)
+        self.assertIn("multiple possible event candidates", prompt_text)
+        self.assertIn("accident_event_summary", prompt_text)
         self.assertIn("Do not mark stopped=false merely because the dashcam image changes", prompt_text)
         self.assertIn("centerline_crossed", prompt_text)
         self.assertIn("collision_partner_type", prompt_text)
@@ -261,6 +270,7 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(result["observations"][0]["value"], False)
         self.assertEqual(result["observations"][0]["confidence"], 0.81)
         self.assertEqual(result["observations"][0]["observation_quality"]["level"], "low")
+        self.assertEqual(result["accident_event_summary"]["event_frame_refs"], ["frame_002.jpg"])
 
     def test_openai_normalizer_keeps_road_context_and_target_absence_observations(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -313,6 +323,27 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertIn("frame_012.jpg", refs)
         self.assertIn("frame_001.jpg", refs)
         self.assertIn("frame_018.jpg", refs)
+
+    def test_openai_selection_spreads_multiple_event_candidates_across_sequence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 31):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "accident_candidate" if index in {3, 4, 12, 13, 26, 27} else "time_sequence",
+                })
+
+            selected = frame_analysis._select_openai_frames(frames, 8)
+
+        refs = [Path(frame["path"]).name for frame in selected]
+        self.assertIn("frame_001.jpg", refs)
+        self.assertIn("frame_030.jpg", refs)
+        self.assertTrue({"frame_003.jpg", "frame_004.jpg"} & set(refs))
+        self.assertTrue({"frame_012.jpg", "frame_013.jpg"} & set(refs))
+        self.assertTrue({"frame_026.jpg", "frame_027.jpg"} & set(refs))
 
 
 if __name__ == "__main__":
