@@ -248,8 +248,10 @@ class FrameAnalysisContractTest(unittest.TestCase):
 
         prompt_text = captured["payload"]["input"][0]["content"][0]["text"]
         self.assertIn("Use it only to prioritize which visual facts to inspect", prompt_text)
+        self.assertIn("identify the accident target/object, collision point, and collision partner first", prompt_text)
         self.assertIn("Do not mark stopped=false merely because the dashcam image changes", prompt_text)
         self.assertIn("centerline_crossed", prompt_text)
+        self.assertIn("collision_partner_type", prompt_text)
         self.assertIn("pedestrian_visible", prompt_text)
         self.assertIn("never infer a pedestrian accident from crosswalk_nearby alone", prompt_text)
         self.assertEqual(result["observations"][0]["field"], "stopped")
@@ -286,6 +288,26 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(len(observations), 1)
         self.assertEqual(observations[0]["field"], "centerline_crossed")
         self.assertEqual(observations[0]["value"], True)
+
+    def test_openai_selection_prioritizes_accident_candidate_frames(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 19):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "accident_candidate" if index in {11, 12} else "time_sequence",
+                })
+
+            selected = frame_analysis._select_openai_frames(frames, 8)
+
+        refs = [Path(frame["path"]).name for frame in selected]
+        self.assertIn("frame_011.jpg", refs)
+        self.assertIn("frame_012.jpg", refs)
+        self.assertIn("frame_001.jpg", refs)
+        self.assertIn("frame_018.jpg", refs)
 
 
 if __name__ == "__main__":

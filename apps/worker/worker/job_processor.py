@@ -21,7 +21,7 @@ except ModuleNotFoundError:
         return None
 
 from worker.frame_analysis import analyze_frames_with_openai
-from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION, extract_event_frames, probe_video
+from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION, extract_event_frames, probe_video, summarize_frame_selection
 
 STREAM_KEY = os.getenv("REDIS_STREAM_KEY", "jobs:v1:stream")
 DB_URL = os.getenv("DATABASE_URL", "")
@@ -78,6 +78,7 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
     metadata = probe_video(storage_path)
     frame_details = extract_event_frames(storage_path, str(row[1]), str(row[2]), metadata.get("duration_sec"), STORAGE_ROOT)
     frames = [item["path"] for item in frame_details]
+    frame_selection_summary = summarize_frame_selection(frame_details)
     cur.execute(
         """
         SELECT c.structured_facts, c.selected_keywords, c.analysis_mode
@@ -92,6 +93,7 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
     )
     metadata["representative_frames"] = frames
     metadata["representative_frame_details"] = frame_details
+    metadata["frame_selection_summary"] = frame_selection_summary
     metadata["openai_frame_analysis"] = openai_frame_analysis
     metadata["observations"] = openai_frame_analysis.get("observations") or []
     metadata["preprocess_summary"] = (
@@ -109,6 +111,7 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
         "codec": metadata.get("codec"),
         "extracted_frame_paths": frames,
         "representative_frame_details": frame_details,
+        "frame_selection_summary": frame_selection_summary,
         "openai_frame_analysis": openai_frame_analysis,
         "preprocess_summary": metadata["preprocess_summary"],
     }

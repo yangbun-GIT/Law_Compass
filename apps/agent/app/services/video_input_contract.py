@@ -20,28 +20,36 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "opposing_vehicle_did_not_stop": 0.88,
     "secondary_collision": 0.84,
     "centerline_cross_reason": 0.78,
+    "collision_partner_type": 0.82,
+    "primary_collision_target": 0.78,
+    "collision_point_visible": 0.84,
+    "collision_point_location": 0.78,
 }
 CONFIRMATION_FIELD_PRIORITIES = {
     "stopped": 10,
-    "opponent_behavior": 20,
-    "centerline_crossed": 30,
-    "centerline_cross_reason": 40,
-    "road_obstruction": 50,
-    "illegal_parking_obstruction": 60,
-    "opposing_vehicle_present": 70,
-    "opposing_vehicle_did_not_stop": 80,
-    "secondary_collision": 90,
-    "lane_change_actor": 100,
-    "opponent_signal_violation": 110,
-    "user_signal": 120,
-    "opponent_signal": 130,
-    "sudden_brake": 140,
-    "turn_signal": 150,
-    "crosswalk_nearby": 160,
-    "pedestrian_visible": 170,
-    "school_zone": 180,
-    "injury": 190,
-    "damage_level": 200,
+    "collision_partner_type": 20,
+    "primary_collision_target": 30,
+    "collision_point_visible": 40,
+    "collision_point_location": 50,
+    "opponent_behavior": 60,
+    "centerline_crossed": 70,
+    "centerline_cross_reason": 80,
+    "road_obstruction": 90,
+    "illegal_parking_obstruction": 100,
+    "opposing_vehicle_present": 110,
+    "opposing_vehicle_did_not_stop": 120,
+    "secondary_collision": 130,
+    "lane_change_actor": 140,
+    "opponent_signal_violation": 150,
+    "user_signal": 160,
+    "opponent_signal": 170,
+    "sudden_brake": 180,
+    "turn_signal": 190,
+    "crosswalk_nearby": 200,
+    "pedestrian_visible": 210,
+    "school_zone": 220,
+    "injury": 230,
+    "damage_level": 240,
 }
 
 FRAME_REF_REQUIRED_FACT_FIELDS = {
@@ -61,6 +69,10 @@ FRAME_REF_REQUIRED_FACT_FIELDS = {
     "opposing_vehicle_did_not_stop",
     "secondary_collision",
     "centerline_cross_reason",
+    "collision_partner_type",
+    "primary_collision_target",
+    "collision_point_visible",
+    "collision_point_location",
 }
 
 FRAME_REF_REQUIRED_SOURCES = {
@@ -105,11 +117,18 @@ _FACT_FIELDS = {
     "opposing_vehicle_present",
     "opposing_vehicle_did_not_stop",
     "secondary_collision",
+    "collision_partner_type",
+    "primary_collision_target",
+    "collision_point_visible",
+    "collision_point_location",
 }
 
 _SUPPORTING_OBSERVATION_FIELDS = {
     "impact_direction",
     "collision_direction",
+    "recaptured_screen",
+    "dashcam_screen_visible",
+    "screen_glare_or_reflection",
 }
 
 _FIELD_ALIASES = {
@@ -138,6 +157,12 @@ _FIELD_ALIASES = {
     "oncoming_vehicle_present": "opposing_vehicle_present",
     "oncoming_vehicle_did_not_stop": "opposing_vehicle_did_not_stop",
     "second_collision": "secondary_collision",
+    "collision_object_type": "collision_partner_type",
+    "collision_target_type": "collision_partner_type",
+    "collision_object": "primary_collision_target",
+    "collision_target": "primary_collision_target",
+    "impact_point_visible": "collision_point_visible",
+    "impact_location": "collision_point_location",
 }
 
 _TECHNICAL_FIELDS = (
@@ -487,7 +512,20 @@ def _normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
         if text in {"user", "ego", "self", "my_vehicle"}:
             return "user"
         return value if isinstance(value, str) and value.strip() else None
-    if field in {"stopped", "sudden_brake", "opponent_signal_violation", "crosswalk_nearby", "pedestrian_visible", "school_zone", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision"}:
+    if field == "collision_partner_type":
+        text = str(value).strip().lower()
+        if text in {"vehicle", "car", "truck", "bus", "van", "motor_vehicle", "other_vehicle"}:
+            return "vehicle"
+        if text in {"pedestrian", "person"}:
+            return "pedestrian"
+        if text in {"bicycle", "bike", "cyclist"}:
+            return "bicycle"
+        if text in {"motorcycle", "two_wheeler", "two-wheeler"}:
+            return "motorcycle"
+        if text in {"object", "fixed_object", "road_object", "obstacle"}:
+            return "object"
+        return None
+    if field in {"stopped", "sudden_brake", "opponent_signal_violation", "crosswalk_nearby", "pedestrian_visible", "school_zone", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "collision_point_visible"}:
         return _as_bool(value)
     if isinstance(value, str):
         return value.strip() or None

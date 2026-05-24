@@ -29,6 +29,10 @@ VIDEO_PRIMARY_FIELDS = {
     "opposing_vehicle_present",
     "opposing_vehicle_did_not_stop",
     "secondary_collision",
+    "collision_partner_type",
+    "primary_collision_target",
+    "collision_point_visible",
+    "collision_point_location",
 }
 
 USER_PRIMARY_FIELDS = {

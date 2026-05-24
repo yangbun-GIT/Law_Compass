@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-24 사고 대상 우선 영상 전처리 보강
+
+영상 분석 기준을 “사고 환경 탐지”가 아니라 “사고 대상과 실제 충돌 지점 식별” 우선으로 재정렬했다. 횡단보도, 중앙선, 신호, 주정차, 도로 장애물은 사고 대상을 대신하는 결론이 아니라 충돌 대상과 충돌 지점을 설명하는 보조 맥락으로만 사용한다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 긴 영상 대응 | Worker가 `ffmpeg` scene-change 신호를 읽어 긴 영상에서도 후보 사고 구간 주변 프레임을 우선 추출한다. 후보 구간이 잡히면 충돌 전후 `accident_candidate`/`event_context` 프레임을 우선 배치하고, 시작/끝 프레임은 문맥으로 유지한다. |
+| 휴대폰 재촬영 대응 | VLM 관찰 계약에 `recaptured_screen`, `dashcam_screen_visible`, `screen_glare_or_reflection`을 supporting observation으로 추가했다. 이는 사고 사실로 직접 반영하지 않고 영상 품질/화면 인식 리스크 판단에만 사용한다. |
+| 사고 대상 우선 계약 | Worker OpenAI 프레임 분석 프롬프트에 `collision_partner_type`, `primary_collision_target`, `collision_point_visible`, `collision_point_location`을 추가했다. 프롬프트는 사고 대상·충돌 지점·상대 객체를 먼저 식별하고 도로 환경은 보조 맥락으로만 쓰도록 제한한다. |
+| Agent 연결 | `video_input_contract`, `fact_arbitration`, KNIA taxonomy, scenario classifier가 `collision_partner_type`을 우선 반영한다. 예를 들어 횡단보도가 보여도 `collision_partner_type=vehicle`이면 차대차 맥락을 유지한다. |
+| 표시/보완 질문 | Gateway 결과 구성과 follow-up 정규화가 사고 대상 유형, 주 충돌 대상, 충돌 지점 보임 여부, 충돌 지점 위치를 우선 질문으로 처리한다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 계약, 환경변수 키를 변경하지 않는다. 외부 YOLO/NVIDIA/Gemini Provider를 즉시 추가하지 않고, 현재 OpenAI 프레임 분석 앞단의 프레임 선별과 사고 대상 우선 계약을 먼저 강화한다.
+
 ## 2026-05-24 영상 관찰값 계약 보강
 
 사고 영상 1·2번 점검에서 “횡단보도가 보인다”는 사실만으로 차대사람 사고로 분류될 수 있고, 중앙선 침범 사유·불법 주정차·도로 장애물·대향 차량 미정지처럼 일반 사용자가 선택하기 어려운 사실을 Agent 입력으로 충분히 전달하지 못하는 문제가 확인됐다.

@@ -50,13 +50,19 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "You are extracting observable traffic accident facts from dashcam frame sequence images. "
             "Return JSON only. Do not decide legal liability, insurance responsibility, or fault ratio. "
             "Use unknown and low confidence when a fact is not clearly visible. "
+            "Primary task: identify the accident target/object, collision point, and collision partner first. "
+            "Road environment facts such as crosswalks, centerline, parked vehicles, obstacles, and signals are secondary context and must not replace collision-target identification. "
             "The Context JSON may contain user-supplied accident type or structured facts. "
             "Use it only to prioritize which visual facts to inspect; never use it as visual evidence and never copy it into observations unless the frames support it. "
             "Allowed observation fields: stopped, sudden_brake, impact_direction, collision_direction, "
             "opponent_behavior, lane_change_actor, turn_signal, user_signal, opponent_signal, "
             "opponent_signal_violation, crosswalk_nearby, pedestrian_visible, school_zone, damage_level, "
             "centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, "
-            "opposing_vehicle_present, opposing_vehicle_did_not_stop, secondary_collision. "
+            "opposing_vehicle_present, opposing_vehicle_did_not_stop, secondary_collision, "
+            "collision_partner_type, primary_collision_target, collision_point_visible, collision_point_location, "
+            "recaptured_screen, dashcam_screen_visible, screen_glare_or_reflection. "
+            "Use collision_partner_type as one of vehicle, pedestrian, bicycle, motorcycle, object, unknown. "
+            "Use primary_collision_target to describe the object actually struck or striking the ego vehicle; do not use road environment as the target unless the collision is with that object. "
             "For stopped, judge whether the ego/user vehicle was stationary at or immediately before the collision. "
             "Do not mark stopped=false merely because the dashcam image changes, the camera shakes, or surrounding vehicles move. "
             "Return stopped=false only when multiple frame_refs clearly show ego/user vehicle forward movement at the relevant moment; otherwise omit stopped or use unknown. "
@@ -145,7 +151,33 @@ def _select_openai_frames(frame_details: list[dict[str, Any]], max_frames: int) 
         return frames
     if max_frames == 1:
         return [frames[len(frames) // 2]]
+    object_first = _object_first_frame_indexes(frames, max_frames)
+    if object_first:
+        return [frames[index] for index in object_first]
     return [frames[index] for index in _event_focused_frame_indexes(len(frames), max_frames)]
+
+
+def _object_first_frame_indexes(frames: list[dict[str, Any]], max_frames: int) -> list[int]:
+    event_indexes = [
+        index for index, frame in enumerate(frames)
+        if frame.get("role") in {"accident_candidate", "event_context"}
+    ]
+    if not event_indexes:
+        return []
+    selected: list[int] = []
+    for index in [0, len(frames) - 1, *event_indexes]:
+        for candidate in (index - 1, index, index + 1):
+            clamped = max(0, min(len(frames) - 1, candidate))
+            if clamped not in selected:
+                selected.append(clamped)
+            if len(selected) >= max_frames:
+                return sorted(selected)
+    for index in _event_focused_frame_indexes(len(frames), max_frames):
+        if index not in selected:
+            selected.append(index)
+        if len(selected) >= max_frames:
+            break
+    return sorted(selected)
 
 
 def _event_focused_frame_indexes(frame_count: int, max_frames: int) -> list[int]:
@@ -472,6 +504,10 @@ def _should_drop_openai_observation(field: str, value: Any) -> bool:
         "opposing_vehicle_present",
         "opposing_vehicle_did_not_stop",
         "secondary_collision",
+        "collision_point_visible",
+        "recaptured_screen",
+        "dashcam_screen_visible",
+        "screen_glare_or_reflection",
     }:
         return True
     return False

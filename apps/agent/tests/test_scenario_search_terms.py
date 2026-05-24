@@ -175,6 +175,20 @@ def test_crosswalk_text_without_pedestrian_does_not_infer_car_vs_person():
     assert party == "car_vs_car"
 
 
+def test_collision_partner_type_drives_party_before_environment_context():
+    vehicle_party = infer_party_type_from_text(
+        "crosswalk is visible near intersection",
+        {"crosswalk_nearby": True, "collision_partner_type": "vehicle"},
+    )
+    pedestrian_party = infer_party_type_from_text(
+        "intersection area",
+        {"collision_partner_type": "pedestrian"},
+    )
+
+    assert vehicle_party == "car_vs_car"
+    assert pedestrian_party == "car_vs_person"
+
+
 def test_unlit_stopped_vehicle_is_classified_as_stopped_vehicle_case():
     scenario = classify_scenario(
         "야간에 등화 없이 정차한 차량을 추돌했습니다.",

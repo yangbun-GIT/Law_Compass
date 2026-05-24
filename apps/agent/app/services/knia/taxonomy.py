@@ -118,6 +118,15 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         return "car_vs_object"
     if facts.get("accident_type") == "single_vehicle_accident":
         return "single_vehicle"
+    partner_type = str(facts.get("collision_partner_type") or "").strip().lower()
+    if partner_type in {"pedestrian", "person"}:
+        return "car_vs_person"
+    if partner_type in {"bicycle", "bike", "cyclist", "motorcycle", "two_wheeler"}:
+        return "car_vs_bicycle"
+    if partner_type in {"object", "fixed_object", "road_object", "obstacle"}:
+        return "car_vs_object"
+    if partner_type in {"vehicle", "car", "truck", "bus", "van", "motor_vehicle", "other_vehicle"}:
+        return "car_vs_car"
     if facts.get("intersection") or facts.get("centerline_crossed") or facts.get("opposing_vehicle_present"):
         return "car_vs_car"
     checks = [

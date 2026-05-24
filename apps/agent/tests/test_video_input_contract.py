@@ -243,6 +243,43 @@ def test_video_road_context_observations_become_agent_facts():
     assert contract["observation_quality_summary"]["accepted_count"] == 4
 
 
+def test_collision_target_observations_are_prioritized_agent_facts():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "collision_partner_type",
+                        "value": "car",
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_6.jpg", "frame_7.jpg"],
+                    },
+                    {
+                        "field": "primary_collision_target",
+                        "value": "oncoming vehicle",
+                        "confidence": 0.83,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_7.jpg"],
+                    },
+                    {
+                        "field": "collision_point_visible",
+                        "value": True,
+                        "confidence": 0.86,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_7.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"]["collision_partner_type"] == "vehicle"
+    assert contract["fact_patch"]["primary_collision_target"] == "oncoming vehicle"
+    assert contract["fact_patch"]["collision_point_visible"] is True
+    assert contract["observation_quality_summary"]["accepted_count"] == 3
+
+
 def test_crosswalk_and_pedestrian_visibility_are_separate_video_facts():
     contract = normalize_video_input_contract(
         {

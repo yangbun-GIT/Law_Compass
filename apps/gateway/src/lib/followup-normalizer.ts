@@ -67,6 +67,27 @@ function applyAnswer(patch: AnyRecord, field: string, value: string) {
     else if (patch.stopped) patch.sudden_brake = false;
     return;
   }
+  if (field === "collision_partner_type") {
+    patch.collision_partner_type = normalizeCollisionPartnerType(value);
+    return;
+  }
+  if (field === "primary_collision_target") {
+    patch.primary_collision_target = value;
+    return;
+  }
+  if (field === "collision_point_visible") {
+    const parsed = parseBooleanLike(value);
+    if (parsed !== undefined) {
+      patch.collision_point_visible = parsed;
+      return;
+    }
+    patch.collision_point_visible = !includesAny(value, ["불명확", "안 보", "없음"]);
+    return;
+  }
+  if (field === "collision_point_location") {
+    patch.collision_point_location = value;
+    return;
+  }
   if (field === "sudden_brake") {
     const parsed = parseBooleanLike(value);
     if (parsed !== undefined) {
@@ -287,6 +308,21 @@ function normalizeOpponentBehavior(value: string) {
   if (includesAny(value, ["뒤에서 추돌", "후미", "후방", "추돌"])) return "rear_collision";
   if (includesAny(value, ["차선 변경", "차선변경", "끼어들기"])) return "lane_change";
   if (includesAny(value, ["신호 위반", "신호위반"])) return "signal_violation";
+  return value;
+}
+
+function normalizeCollisionPartnerType(value: string) {
+  const lowered = value.trim().toLowerCase();
+  if (["vehicle", "car", "truck", "bus", "van", "motor_vehicle", "other_vehicle"].includes(lowered)) return "vehicle";
+  if (["pedestrian", "person"].includes(lowered)) return "pedestrian";
+  if (["bicycle", "bike", "cyclist"].includes(lowered)) return "bicycle";
+  if (["motorcycle", "two_wheeler", "two-wheeler"].includes(lowered)) return "motorcycle";
+  if (["object", "fixed_object", "road_object", "obstacle"].includes(lowered)) return "object";
+  if (includesAny(value, ["차량", "승용", "트럭", "버스"])) return "vehicle";
+  if (includesAny(value, ["보행자", "사람"])) return "pedestrian";
+  if (includesAny(value, ["자전거"])) return "bicycle";
+  if (includesAny(value, ["오토바이", "이륜"])) return "motorcycle";
+  if (includesAny(value, ["물체", "시설물", "장애물"])) return "object";
   return value;
 }
 
