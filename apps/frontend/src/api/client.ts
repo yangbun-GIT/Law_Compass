@@ -7,10 +7,19 @@ export type User = {
 
 export type AccidentFacts = {
   accident_type?: string;
+  accident_party_type?: string;
+  scenario_hint?: string;
+  collision_partner_type?: string;
+  primary_collision_target?: string;
+  collision_point_visible?: boolean;
+  collision_point_location?: string;
   school_zone?: boolean;
   victim_is_child?: boolean;
   crosswalk_nearby?: boolean;
+  pedestrian_visible?: boolean;
   opponent_signal_violation?: boolean;
+  opponent_signal_visible?: boolean;
+  signal_transition?: string;
   turn_signal?: boolean;
   side_collision?: boolean;
   signal_state?: string;
@@ -29,6 +38,19 @@ export type AccidentFacts = {
   user_signal?: string;
   opponent_signal?: string;
   pedestrian_signal?: string;
+  front_vehicle_stopped?: boolean;
+  ego_turn_direction?: string;
+  centerline_crossed?: boolean;
+  centerline_cross_reason?: string;
+  road_obstruction?: boolean;
+  illegal_parking_obstruction?: boolean;
+  opposing_vehicle_present?: boolean;
+  opposing_vehicle_did_not_stop?: boolean;
+  secondary_collision?: boolean;
+  stopped_vehicle_without_lights?: boolean;
+  highway_or_expressway?: boolean;
+  bicycle_involved?: boolean;
+  possible_trigger_vehicle?: string;
   bicycle_location?: string;
   bicycle_direction?: string;
 };

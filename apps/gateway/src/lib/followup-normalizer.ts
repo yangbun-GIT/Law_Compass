@@ -71,6 +71,10 @@ function applyAnswer(patch: AnyRecord, field: string, value: string) {
     patch.collision_partner_type = normalizeCollisionPartnerType(value);
     return;
   }
+  if (field === "accident_party_type") {
+    patch.accident_party_type = normalizeAccidentPartyType(value);
+    return;
+  }
   if (field === "primary_collision_target") {
     patch.primary_collision_target = value;
     return;
@@ -354,20 +358,43 @@ function mapAccidentType(value: string) {
   const lowered = value.trim().toLowerCase();
   if ([
     "rear_end_collision",
+    "right_turn_front_stop",
+    "intersection_collision",
     "lane_change_collision",
     "intersection_signal_violation",
+    "centerline_obstacle_collision",
+    "stopped_vehicle_collision",
+    "non_contact_trigger",
     "pedestrian_crosswalk_accident",
     "bicycle_collision",
     "object_collision",
     "single_vehicle_accident",
+    "parking_or_stopped_vehicle_accident",
+    "general_collision",
   ].includes(lowered)) return lowered;
-  if (includesAny(value, ["후미"])) return "rear_end_collision";
-  if (includesAny(value, ["차선"])) return "lane_change_collision";
-  if (includesAny(value, ["교차"])) return "intersection_signal_violation";
+  if (includesAny(value, ["우회전"]) && includesAny(value, ["앞차", "정차"])) return "right_turn_front_stop";
+  if (includesAny(value, ["후미", "뒤에서", "후방", "앞뒤"])) return "rear_end_collision";
+  if (includesAny(value, ["중앙선", "황색", "장애물", "주정차"])) return "centerline_obstacle_collision";
+  if (includesAny(value, ["무등화", "스텔스", "정차 차량"])) return "stopped_vehicle_collision";
+  if (includesAny(value, ["비접촉", "유발"])) return "non_contact_trigger";
+  if (includesAny(value, ["차선", "진로변경"])) return "lane_change_collision";
+  if (includesAny(value, ["교차"]) && includesAny(value, ["신호"])) return "intersection_signal_violation";
+  if (includesAny(value, ["교차"])) return "intersection_collision";
   if (includesAny(value, ["보행"])) return "pedestrian_crosswalk_accident";
   if (includesAny(value, ["자전거"])) return "bicycle_collision";
-  if (includesAny(value, ["시설물"])) return "object_collision";
+  if (includesAny(value, ["시설물", "물체", "기물"])) return "object_collision";
   if (includesAny(value, ["단독"])) return "single_vehicle_accident";
+  return value;
+}
+
+function normalizeAccidentPartyType(value: string) {
+  const lowered = value.trim().toLowerCase();
+  if (["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_object", "single_vehicle", "unknown"].includes(lowered)) return lowered;
+  if (includesAny(value, ["차 대 차", "차대차", "차량"])) return "car_vs_car";
+  if (includesAny(value, ["차 대 사람", "차대사람", "보행자", "사람"])) return "car_vs_person";
+  if (includesAny(value, ["자전거", "이륜", "오토바이"])) return "car_vs_bicycle";
+  if (includesAny(value, ["물체", "시설물", "기물", "장애물"])) return "car_vs_object";
+  if (includesAny(value, ["단독"])) return "single_vehicle";
   return value;
 }
 

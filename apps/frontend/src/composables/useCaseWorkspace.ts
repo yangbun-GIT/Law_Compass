@@ -11,7 +11,7 @@ type JobItem = {
   attempt?: number;
 };
 
-const DEFAULT_KEYWORDS = ["후미추돌", "안전거리", "블랙박스", "과실비율"];
+const DEFAULT_KEYWORDS = ["블랙박스", "과실비율", "교통사고", "보험처리"];
 const RUNNING_JOB_STATUSES = ["queued", "running", "retrying", "processing", "analyzing"];
 
 export const caseKeywordPool = [
@@ -63,7 +63,7 @@ export function statusClass(status?: string) {
 export function useCaseWorkspace(caseId: string) {
   const caseData = ref<CaseItem | null>(null);
   const descriptionText = ref("");
-  const facts = ref<AccidentFacts>({ accident_type: "rear_end_collision", stopped: true, injury: null });
+  const facts = ref<AccidentFacts>({ injury: null });
   const analysisMode = ref("quick_summary");
   const selectedKeywords = ref<string[]>([...DEFAULT_KEYWORDS]);
   const file = ref<File | null>(null);
@@ -76,6 +76,8 @@ export function useCaseWorkspace(caseId: string) {
   const messageOk = ref(true);
   const initialLoading = ref(false);
   const loadError = ref("");
+  const followupError = ref("");
+  const reanalyzing = ref(false);
   const busy = ref<CaseWorkspaceBusyState>("");
   let pollTimer: number | null = null;
 
@@ -101,25 +103,6 @@ export function useCaseWorkspace(caseId: string) {
     selectedKeywords.value = selectedKeywords.value.includes(kw)
       ? selectedKeywords.value.filter((x) => x !== kw)
       : [...selectedKeywords.value, kw];
-  }
-
-  function applyPreset() {
-    if (analysisMode.value === "rear-end-focused") {
-      facts.value = { ...facts.value, accident_type: "rear_end_collision", stopped: true };
-      selectedKeywords.value = ["후미추돌", "안전거리", "대인접수", "진단서"];
-    }
-    if (analysisMode.value === "lane-change-focused") {
-      facts.value = { ...facts.value, accident_type: "lane_change_collision", lane_change: true };
-      selectedKeywords.value = ["차선변경", "방향지시등", "측면충돌"];
-    }
-    if (analysisMode.value === "intersection-signal-focused") {
-      facts.value = { ...facts.value, accident_type: "intersection_collision", intersection: true, opponent_signal_violation: true };
-      selectedKeywords.value = ["신호위반", "교차로", "과실비율"];
-    }
-    if (analysisMode.value === "school-zone-focused") {
-      facts.value = { ...facts.value, accident_type: "pedestrian_crosswalk_accident", school_zone: true, victim_is_child: true, injury: true };
-      selectedKeywords.value = ["민식이법", "어린이보호구역", "보행자", "형사책임"];
-    }
   }
 
   function payload() {
@@ -254,6 +237,24 @@ export function useCaseWorkspace(caseId: string) {
     }
   }
 
+  async function submitFollowup(answers: Record<string, string>) {
+    followupError.value = "";
+    reanalyzing.value = true;
+    try {
+      const response = await api.reanalyzeText(caseId, {
+        ...payload(),
+        followup_answers: answers
+      });
+      report.value = response.report || response.result || report.value;
+      await Promise.all([loadCase(), loadReport()]);
+      showMessage("보완 답변을 반영해 재분석했습니다.");
+    } catch (e: any) {
+      followupError.value = formatApiError(e, "보완 답변을 반영해 재분석하지 못했습니다.");
+    } finally {
+      reanalyzing.value = false;
+    }
+  }
+
   async function loadJobs() {
     try {
       jobs.value = (await api.getJobs(caseId)).items || [];
@@ -321,8 +322,9 @@ export function useCaseWorkspace(caseId: string) {
     messageOk,
     initialLoading,
     loadError,
+    followupError,
+    reanalyzing,
     busy,
-    applyPreset,
     analyzeText,
     analyzeVideo,
     completeUpload,
@@ -338,6 +340,7 @@ export function useCaseWorkspace(caseId: string) {
     saveCaseInputs,
     statusClass,
     statusLabel,
+    submitFollowup,
     toggleKeyword,
     uploadLocal
   };

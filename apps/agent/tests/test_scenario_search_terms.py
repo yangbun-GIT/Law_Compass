@@ -282,3 +282,34 @@ def test_vehicle_collision_partner_sets_car_vs_car_party_even_when_scenario_is_g
     assert scenario["scenario_type"] == "general_collision"
     assert scenario["accident_party_type"] == "car_vs_car"
     assert "pedestrian" not in scenario["scenario_tags"]
+
+
+def test_output_mode_text_does_not_force_rear_end_when_facts_are_empty():
+    scenario = classify_scenario(
+        "빠른 요약",
+        {},
+        [],
+    )
+
+    assert scenario["scenario_type"] == "general_collision"
+    assert scenario["accident_party_type"] == "unknown"
+
+
+def test_broad_vehicle_accident_types_map_to_generalizable_scenarios():
+    centerline = classify_scenario(
+        "중앙선 침범과 도로 장애물이 있는 대향 차량 충돌",
+        {"accident_party_type": "car_vs_car", "accident_type": "centerline_obstacle_collision"},
+        [],
+    )
+    right_turn = classify_scenario(
+        "우회전 중 앞차 정차 후 추돌",
+        {"accident_party_type": "car_vs_car", "accident_type": "right_turn_front_stop", "crosswalk_nearby": True},
+        [],
+    )
+
+    assert centerline["accident_party_type"] == "car_vs_car"
+    assert centerline["scenario_type"] == "parking_or_stopped_vehicle_accident"
+    assert "centerline" in centerline["scenario_tags"]
+    assert right_turn["accident_party_type"] == "car_vs_car"
+    assert right_turn["scenario_type"] == "rear_end_collision"
+    assert "front_vehicle_stopped" in right_turn["scenario_tags"]

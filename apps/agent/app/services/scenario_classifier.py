@@ -12,16 +12,51 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
 
     scenario_type = "general_collision"
     tags: set[str] = set()
+    accident_type = str(facts.get("accident_type") or "").strip().lower()
     accident_party_type = infer_party_type_from_text(haystack, facts)
 
     collision_partner_type = str(facts.get("collision_partner_type") or "").strip().lower()
     if accident_party_type == "unknown" and collision_partner_type == "vehicle":
         accident_party_type = "car_vs_car"
 
-    if facts.get("school_zone") or "어린이보호구역" in haystack or "민식이" in haystack:
+    pedestrian_context = (
+        collision_partner_type == "pedestrian"
+        or accident_party_type == "car_vs_person"
+        or accident_type == "pedestrian_crosswalk_accident"
+        or facts.get("victim_is_child")
+        or facts.get("pedestrian")
+        or facts.get("pedestrian_visible")
+        or any(w in haystack for w in ["보행자를", "사람을", "사람과", "무단횡단"])
+    )
+
+    if pedestrian_context and (facts.get("school_zone") or "어린이보호구역" in haystack or "민식이" in haystack):
         scenario_type = "school_zone_child_accident"
         accident_party_type = "car_vs_person"
         tags.update(["school_zone", "child_protection", "injury", "speed_limit", "pedestrian"])
+    elif accident_type == "right_turn_front_stop":
+        scenario_type = "rear_end_collision"
+        accident_party_type = "car_vs_car"
+        tags.update(["rear_end", "safe_distance", "front_vehicle_stopped", "right_turn", "crosswalk"])
+    elif accident_type == "centerline_obstacle_collision":
+        scenario_type = "parking_or_stopped_vehicle_accident"
+        accident_party_type = "car_vs_car"
+        tags.update(["centerline", "road_obstruction", "oncoming_vehicle"])
+    elif accident_type == "stopped_vehicle_collision":
+        scenario_type = "parking_or_stopped_vehicle_accident"
+        accident_party_type = "car_vs_car"
+        tags.update(["stopped_vehicle", "visibility", "rear_end"])
+    elif accident_type == "non_contact_trigger":
+        scenario_type = "rear_end_collision"
+        accident_party_type = "car_vs_car"
+        tags.update(["non_contact_trigger", "safe_distance"])
+    elif accident_type == "intersection_collision":
+        scenario_type = "intersection_signal_violation"
+        accident_party_type = "car_vs_car"
+        tags.update(["intersection", "right_of_way"])
+    elif accident_type == "rear_end_collision":
+        scenario_type = "rear_end_collision"
+        accident_party_type = "car_vs_car"
+        tags.update(["rear_end", "safe_distance"])
     elif (
         collision_partner_type == "vehicle"
         and facts.get("front_vehicle_stopped")
@@ -34,19 +69,19 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance", "stopped_vehicle", "crosswalk"])
-    elif collision_partner_type != "vehicle" and (collision_partner_type == "pedestrian" or facts.get("victim_is_child") or facts.get("pedestrian") or facts.get("pedestrian_visible") or any(w in haystack for w in ["보행자", "사람을", "사람과", "무단횡단"])):
+    elif collision_partner_type != "vehicle" and pedestrian_context:
         scenario_type = "pedestrian_crosswalk_accident"
         accident_party_type = "car_vs_person"
         tags.update(["pedestrian", "crosswalk", "injury"])
-    elif collision_partner_type in {"bicycle", "motorcycle"} or facts.get("accident_type") == "bicycle_collision" or "자전거" in haystack:
+    elif collision_partner_type in {"bicycle", "motorcycle"} or accident_type == "bicycle_collision" or "자전거" in haystack:
         scenario_type = "bicycle_collision"
         accident_party_type = "car_vs_bicycle"
         tags.update(["bicycle", "vulnerable_road_user", "injury"])
-    elif collision_partner_type == "object" or facts.get("accident_type") == "object_collision" or any(w in haystack for w in ["가드레일", "전봇대", "중앙분리대", "시설물", "기물", "기둥", "벽"]):
+    elif collision_partner_type == "object" or accident_type == "object_collision" or any(w in haystack for w in ["가드레일", "전봇대", "중앙분리대", "시설물", "기물", "기둥", "벽"]):
         scenario_type = "object_collision"
         accident_party_type = "car_vs_object"
         tags.update(["object", "property_damage", "single_vehicle"])
-    elif facts.get("accident_type") == "single_vehicle_accident" or any(w in haystack for w in ["혼자", "단독", "전복", "미끄러", "빗길", "눈길", "도로 이탈"]):
+    elif accident_type == "single_vehicle_accident" or any(w in haystack for w in ["혼자", "단독", "전복", "미끄러", "빗길", "눈길", "도로 이탈"]):
         scenario_type = "single_vehicle_accident"
         accident_party_type = "single_vehicle"
         tags.update(["single_vehicle", "road_condition"])

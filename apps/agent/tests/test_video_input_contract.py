@@ -458,3 +458,15 @@ def test_user_context_fact_remains_primary_over_video_observation():
     assert normalized["structured_facts"]["injury"] is False
     assert normalized["fact_arbitration"]["conflicts"][0]["field"] == "injury"
     assert normalized["fact_arbitration"]["conflicts"][0]["winner"] == "user"
+
+
+def test_analysis_mode_does_not_become_scenario_text():
+    normalized = normalize_analysis_input(
+        "",
+        structured_facts={},
+        selected_keywords=[],
+        analysis_mode="rear-end-focused",
+    )
+
+    assert normalized["analysis_mode"] == "rear-end-focused"
+    assert "rear-end-focused" not in normalized["merged_text"]

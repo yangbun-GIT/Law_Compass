@@ -15,6 +15,7 @@
 | 업로드 저장소 | `apps/gateway/src/storage/provider.ts` | 로컬 저장소가 실제 동작 경로이고 `S3StorageProvider`는 `S3_STORAGE_NOT_ENABLED`로 비활성이다 | 대용량 영상/협업/배포 환경에서는 직접 업로드와 lifecycle 관리가 필요하다 |
 | API 사용량 제한 | `apps/gateway/src/main.ts`, `apps/gateway/src/lib/internal-client.ts` | Gateway rate limit, 내부 호출 timeout/retry, Agent/Worker의 bounded 실행 정책이 있다 | 사용자/기능별 quota, OpenAI 월간 예산 cap, 관리자 알림은 없다 |
 | UI 수용성 | `apps/frontend/src/components/easy/*`, `apps/gateway/src/lib/report-composer.ts` | 원시 trace/token/내부 키를 숨기고 영상 상태, 보완 질문, 전문가 안내 카드를 표시한다 | 일반 사용자 기준에서 경고 문구 과다, 판단 보류 이해도, 모바일 흐름 수용성 검증이 더 필요하다 |
+| 전문 CV 모델 도입 | `apps/worker/worker/frame_analysis.py`, 향후 provider adapter | 현재는 ffmpeg 프레임 추출 후 OpenAI 프레임 관찰값을 구조화한다 | 사고 대상 추적, 상대 속도/궤적, 차선/신호/객체 tracking은 전용 object detection/tracking 모델 또는 외부 Video Intelligence API가 필요하다 |
 
 ## 리스크별 제품 완성 로드맵
 
@@ -25,6 +26,7 @@
 | P1 | 실제 KNIA/법령/판례 원문 DB 부족 | 대표 사고 유형별로 직접 관련 KNIA/법령/판례 원문 coverage를 측정하고 부족 유형을 backlog로 남긴다 | 영상 reference manifest와 별도 evidence coverage manifest를 만들어 검색 품질을 반복 측정한다 |
 | P1 | API 사용량 제한 | 사용자/관리자/외부 API/OpenAI 경로별 rate limit과 timeout이 운영 문서에 정리되고, 초과 시 안전한 오류를 반환한다 | 현재 Gateway rate limit과 OpenAI bounded env를 기준으로 사용자별 quota 설계를 추가한다 |
 | P1 | UI 수용성 | 일반 사용자가 “예상/참고/보류/추가 확인”의 차이를 이해하고 다음 행동을 할 수 있다 | 5개 reference 샘플 easy-report를 기준으로 문구 중복과 경고 과다 여부를 점검한다 |
+| P1 | 전문 CV 모델 후보 검증 | OpenAI 프레임 VLM이 놓치는 차량/자전거/보행자/신호/차선 객체를 별도 detection/tracking 결과로 보강한다 | YOLO/ByteTrack 계열 로컬 PoC와 Roboflow 또는 Google Video Intelligence API PoC 중 하나를 provider adapter로 비교한다 |
 | P2 | S3 직접 업로드 전환 | 서버 메모리를 거치지 않는 직접 업로드, signed URL, lifecycle, 접근권한, 비용 관리가 문서와 코드로 정리된다 | `S3StorageProvider` 구현 전에 local/S3 공통 metadata 계약과 migration 필요 여부를 확정한다 |
 | P2 | 비용/사용량 대시보드 | 관리자 화면에서 일/월 사용량, 실패율, fallback율, OpenAI ON/OFF 상태를 볼 수 있다 | usage event 저장 이후 aggregate endpoint와 관리자 카드로 확장한다 |
 
@@ -58,6 +60,19 @@
 2. Phase B: PostgreSQL에 `ai_usage_events` 테이블을 추가해 분석 단위 사용량을 누적한다. 저장값은 safe metadata로 제한한다.
 3. Phase C: 관리자 API와 관리자 테스트 화면에 일/월 집계, 실패율, fallback율, OpenAI ON/OFF 상태를 표시한다.
 4. Phase D: 공식 가격표 확인 후 비용 추정 레이어를 추가한다. 가격표 변경 가능성을 고려해 모델별 단가 설정은 환경값 또는 관리 테이블로 분리한다.
+
+## 전문 CV 모델 도입 기준
+
+현재 OpenAI 프레임 분석은 장면 설명과 구조화 관찰값 추출에는 유용하지만, 블랙박스 사고의 핵심인 “객체가 몇 초 동안 어디서 와서 어디에 충돌했는가”를 안정적으로 추적하는 모델은 아니다. 영상 완성도를 높이려면 OpenAI VLM을 단독 판단기로 쓰지 말고, 아래 순서로 provider를 붙인다.
+
+| 후보 | 적용 방식 | 장점 | 주의점 |
+| --- | --- | --- | --- |
+| Ultralytics YOLO + ByteTrack/BoT-SORT | Worker에서 로컬 또는 별도 GPU 환경으로 차량, 버스, 트럭, 자전거, 보행자, 신호등 객체를 탐지/추적하고 time offset별 track을 생성한다 | API 키 없이 PoC 가능, 긴 영상도 streaming 처리 가능, 추적 ID로 충돌 전후 움직임을 만들 수 있다 | 2GB 서버에서는 무거울 수 있어 로컬 CPU 모델은 검증용, 운영은 별도 worker/GPU 또는 경량 모델 필요. 라이선스/상용 사용 조건 확인 필요 |
+| Roboflow Hosted/Inference | fine-tuned object detection 모델을 Hosted API 또는 self-hosted Inference로 호출한다 | 교통사고 객체 데이터셋을 만들고 빠르게 모델을 배포/교체할 수 있다 | Roboflow 계정/API key와 모델 학습/배포가 필요하며, 무료/요금/라이선스 조건을 확인해야 한다 |
+| Google Cloud Video Intelligence | Cloud Storage 영상에 대해 object tracking을 요청하고 object label, bounding box, time offset을 받는다 | 영상 단위 object tracking API가 있어 프레임별 수동 호출보다 구조화가 쉽다 | GCP 프로젝트, Cloud Storage, service account, 과금 설정이 필요하고 교통사고 특화 판단은 별도 후처리가 필요하다 |
+| NVIDIA VILA/Video VLM 계열 | 영상 또는 프레임 묶음에 대한 설명/요약을 보조 관찰값으로 받는다 | OpenAI 대체 VLM 후보로 비교 가능 | 교통사고 물리 추적 모델은 아니므로 detector/tracker 결과를 대체하지 말고 설명 보조로 사용한다 |
+
+도입 시 Agent 입력 계약은 그대로 유지한다. 새 provider는 `video_observations`에 객체 track, time offset, confidence, frame refs를 추가하고, `fact_arbitration`이 기존 사용자 입력·OpenAI 관찰값·전문 CV 관찰값을 같은 기준으로 반영/보류/충돌 처리해야 한다. 특정 사고 샘플의 정답을 맞추기 위한 규칙은 금지하고, 사고 대상, 충돌 지점, 진행 방향, 신호 가시성, 차선/중앙선/도로 장애물 같은 보편 필드로만 승격한다.
 
 ## 운영 체크리스트
 

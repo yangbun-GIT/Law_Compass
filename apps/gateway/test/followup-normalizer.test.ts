@@ -83,4 +83,21 @@ describe("followup normalizer", () => {
       "injury",
     ]);
   });
+
+  it("normalizes broader accident party and scenario answers", () => {
+    const result = normalizeFollowupAnswers(
+      {
+        accident_party_type: "차 대 차",
+        accident_type: "중앙선/장애물 회피 중 대향 충돌",
+        centerline_crossed: "중앙선을 물고 진행",
+        illegal_parking_obstruction: "불법 주정차 영향 있음",
+      },
+      {}
+    );
+
+    expect(result.patch.accident_party_type).toBe("car_vs_car");
+    expect(result.patch.accident_type).toBe("centerline_obstacle_collision");
+    expect(result.patch.centerline_crossed).toBe(true);
+    expect(result.patch.illegal_parking_obstruction).toBe(true);
+  });
 });

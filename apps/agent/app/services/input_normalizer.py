@@ -114,7 +114,6 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "분석용 선택 키워드: " + ", ".join(keywords),
         "분석용 영상 입력 계약: " + json.dumps(video_contract_for_text, ensure_ascii=False, separators=(",", ":")),
         "분석용 사실 중재 계약: " + json.dumps(arbitration_for_text, ensure_ascii=False, separators=(",", ":")),
-        "분석 모드: " + (analysis_mode or "quick_summary"),
     ])
     return {
         "description_text": clean_text,

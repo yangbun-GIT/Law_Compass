@@ -36,12 +36,9 @@
         </label>
         <label>분석 모드
           <select v-model="analysisMode">
-            <option value="quick_summary">빠른 요약</option>
-            <option value="rear-end-focused">후방추돌</option>
-            <option value="intersection-signal-focused">교차로 신호위반</option>
-            <option value="lane-change-focused">차선변경</option>
-            <option value="school-zone-focused">어린이보호구역</option>
-            <option value="insurance-focused">보험/대응 중심</option>
+            <option v-for="option in analysisModeOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
           </select>
         </label>
       </div>
@@ -59,16 +56,18 @@
       </p>
 
       <div class="form-grid" :class="{ mutedBlock: !usesText }">
+        <label>사고 대분류
+          <select v-model="facts.accident_party_type" :disabled="!usesText">
+            <option v-for="option in partyTypeOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
         <label>사고 유형
           <select v-model="facts.accident_type" :disabled="!usesText">
-            <option value="">영상/설명 기준으로 판단</option>
-            <option value="rear_end_collision">후방추돌</option>
-            <option value="intersection_collision">교차로 충돌</option>
-            <option value="lane_change_collision">차선변경 충돌</option>
-            <option value="pedestrian_crosswalk_accident">보행자 사고</option>
-            <option value="parking_or_stopped_vehicle_accident">주차/정차 중 사고</option>
-            <option value="bicycle_collision">자전거 사고</option>
-            <option value="general_collision">기타</option>
+            <option v-for="option in accidentTypeOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
           </select>
         </label>
         <label>상대 차량 행동
@@ -88,6 +87,14 @@
         <label class="chip"><input v-model="facts.lane_change" :disabled="!usesText" type="checkbox" /> 차선변경</label>
         <label class="chip"><input v-model="facts.intersection" :disabled="!usesText" type="checkbox" /> 교차로</label>
         <label class="chip"><input v-model="facts.crosswalk_nearby" :disabled="!usesText" type="checkbox" /> 횡단보도 인접</label>
+        <label class="chip"><input v-model="facts.front_vehicle_stopped" :disabled="!usesText" type="checkbox" /> 앞차 정차</label>
+        <label class="chip"><input v-model="facts.centerline_crossed" :disabled="!usesText" type="checkbox" /> 중앙선 침범</label>
+        <label class="chip"><input v-model="facts.road_obstruction" :disabled="!usesText" type="checkbox" /> 도로 장애물</label>
+        <label class="chip"><input v-model="facts.illegal_parking_obstruction" :disabled="!usesText" type="checkbox" /> 불법 주정차 영향</label>
+        <label class="chip"><input v-model="facts.opposing_vehicle_present" :disabled="!usesText" type="checkbox" /> 대향 차량</label>
+        <label class="chip"><input v-model="facts.stopped_vehicle_without_lights" :disabled="!usesText" type="checkbox" /> 무등화 정차 차량</label>
+        <label class="chip"><input v-model="facts.highway_or_expressway" :disabled="!usesText" type="checkbox" /> 고속도로/전용도로</label>
+        <label class="chip"><input v-model="facts.bicycle_involved" :disabled="!usesText" type="checkbox" /> 자전거 관련</label>
         <label class="chip"><input v-model="facts.opponent_signal_violation" :disabled="!usesText" type="checkbox" /> 상대 신호위반 의심</label>
         <label class="chip"><input v-model="facts.injury" :disabled="!usesText" type="checkbox" /> 다친 사람 있음</label>
       </div>
@@ -138,7 +145,13 @@
       <p v-else class="kv">아직 등록된 작업이 없습니다.</p>
     </article>
 
-    <EasyReportView v-if="report" :report="report" />
+    <EasyReportView
+      v-if="report"
+      :report="report"
+      :followup-submitting="reanalyzing"
+      :followup-error="followupError"
+      @submit-followup="submitFollowup"
+    />
 
     <article v-if="traceDiagnostic" class="card diagnostic-panel">
       <h3>관리자 Agent 진단</h3>
@@ -162,19 +175,49 @@ const modeOptions: { value: TestMode; label: string; description: string }[] = [
   { value: "both", label: "입력+영상", description: "사용자 입력과 영상 관찰값 충돌/반영 확인" }
 ];
 
+const analysisModeOptions = [
+  { value: "quick_summary", label: "빠른 요약" },
+  { value: "fault-focused", label: "과실비율 중심" },
+  { value: "legal-focused", label: "법률/판례 근거 중심" },
+  { value: "criminal-liability-focused", label: "형사 리스크 중심" },
+  { value: "insurance-focused", label: "보험/대응 중심" },
+  { value: "evidence-review", label: "증거 보강 중심" }
+];
+
+const partyTypeOptions = [
+  { value: "", label: "영상/설명 기준으로 판단" },
+  { value: "car_vs_car", label: "차 대 차" },
+  { value: "car_vs_person", label: "차 대 사람" },
+  { value: "car_vs_bicycle", label: "차 대 자전거/이륜" },
+  { value: "car_vs_object", label: "차 대 물체/시설물" },
+  { value: "single_vehicle", label: "단독 사고" },
+  { value: "unknown", label: "확인 필요" }
+];
+
+const accidentTypeOptions = [
+  { value: "", label: "영상/설명 기준으로 판단" },
+  { value: "rear_end_collision", label: "후방추돌/앞뒤 충돌" },
+  { value: "right_turn_front_stop", label: "우회전 중 앞차 정차 추돌" },
+  { value: "intersection_collision", label: "교차로 충돌" },
+  { value: "intersection_signal_violation", label: "교차로 신호 쟁점" },
+  { value: "lane_change_collision", label: "차선변경/진로변경 충돌" },
+  { value: "centerline_obstacle_collision", label: "중앙선/장애물 회피 중 대향 충돌" },
+  { value: "stopped_vehicle_collision", label: "정차 차량/무등화 차량 추돌" },
+  { value: "non_contact_trigger", label: "비접촉 유발/급정지 유발" },
+  { value: "pedestrian_crosswalk_accident", label: "보행자 사고" },
+  { value: "bicycle_collision", label: "자전거 사고" },
+  { value: "object_collision", label: "물체/시설물 충돌" },
+  { value: "single_vehicle_accident", label: "단독 사고" },
+  { value: "general_collision", label: "기타/불명확" }
+];
+
 const FAILED_JOB_STATUSES = new Set(["failed", "cancelled"]);
 
 const mode = ref<TestMode>("video");
 const title = ref("관리자 Agent 테스트");
-const description = ref("정차 중 뒤 차량이 후미를 추돌했습니다. 블랙박스 영상과 사용자 입력이 일치하는지 확인합니다.");
+const description = ref("");
 const analysisMode = ref("quick_summary");
-const facts = reactive<AccidentFacts>({
-  accident_type: "rear_end_collision",
-  stopped: true,
-  injury: false,
-  signal_state: "unknown",
-  opponent_behavior: "rear_collision"
-});
+const facts = reactive<AccidentFacts>({});
 const file = ref<File | null>(null);
 const currentCaseId = ref("");
 const uploadId = ref("");
@@ -185,6 +228,8 @@ const traceDiagnostic = ref<any>(null);
 const busy = ref(false);
 const message = ref("");
 const messageOk = ref(true);
+const reanalyzing = ref(false);
+const followupError = ref("");
 
 const usesText = computed(() => mode.value === "text" || mode.value === "both");
 const usesVideo = computed(() => mode.value === "video" || mode.value === "both");
@@ -268,6 +313,7 @@ function resetOutputs() {
   jobs.value = [];
   report.value = null;
   traceDiagnostic.value = null;
+  followupError.value = "";
 }
 
 function buildAnalysisPayload() {
@@ -295,13 +341,44 @@ function compactFacts(input: AccidentFacts): AccidentFacts {
 
 function buildKeywords() {
   const keywords = new Set<string>();
+  if (facts.accident_party_type === "car_vs_car") keywords.add("차대차");
+  if (facts.accident_party_type === "car_vs_person") keywords.add("보행자");
+  if (facts.accident_party_type === "car_vs_bicycle") keywords.add("자전거");
   if (facts.accident_type === "rear_end_collision") keywords.add("후미추돌");
-  if (facts.accident_type === "intersection_collision" || facts.intersection) keywords.add("교차로");
+  if (facts.accident_type === "right_turn_front_stop") keywords.add("우회전");
+  if (facts.accident_type === "centerline_obstacle_collision" || facts.centerline_crossed) keywords.add("중앙선");
+  if (facts.accident_type === "stopped_vehicle_collision" || facts.stopped_vehicle_without_lights) keywords.add("정차 차량");
+  if (facts.accident_type === "non_contact_trigger") keywords.add("비접촉 유발");
+  if (facts.accident_type === "intersection_collision" || facts.accident_type === "intersection_signal_violation" || facts.intersection) keywords.add("교차로");
   if (facts.lane_change) keywords.add("차선변경");
-  if (facts.opponent_signal_violation || facts.signal_state) keywords.add("신호");
+  if (facts.opponent_signal_violation || (facts.signal_state && facts.signal_state !== "unknown")) keywords.add("신호");
+  if (facts.road_obstruction || facts.illegal_parking_obstruction) keywords.add("도로 장애물");
   keywords.add("과실비율");
   keywords.add("블랙박스");
   return [...keywords];
+}
+
+async function submitFollowup(answers: Record<string, string>) {
+  if (!currentCaseId.value) return;
+  followupError.value = "";
+  reanalyzing.value = true;
+  try {
+    const payload = buildAnalysisPayload();
+    const response = await api.reanalyzeText(currentCaseId.value, {
+      description_text: usesText.value ? description.value.trim() : undefined,
+      structured_facts: usesText.value ? payload.structured_facts : undefined,
+      selected_keywords: usesText.value ? payload.selected_keywords : [],
+      analysis_mode: analysisMode.value,
+      followup_answers: answers
+    });
+    report.value = response.report || response.result || report.value;
+    await refreshOutputs();
+    setMessage("보완 답변을 반영해 재분석했습니다.");
+  } catch (error: any) {
+    followupError.value = formatApiError(error, "보완 답변을 반영해 재분석하지 못했습니다.");
+  } finally {
+    reanalyzing.value = false;
+  }
 }
 
 async function pollVideoPipelineUntilAnalyzed(caseId: string) {

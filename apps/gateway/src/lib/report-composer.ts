@@ -19,7 +19,7 @@ const TECHNICAL_KEYS = new Set([
   "expert_guidance_sections"
 ]);
 const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi];
-const SAFE_INPUT_FIELDS = new Set(["accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "pedestrian_visible", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "pedestrian_signal", "bicycle_location", "bicycle_direction", "centerline_crossed", "centerline_cross_reason", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "collision_partner_type", "primary_collision_target", "collision_point_visible", "collision_point_location", "front_vehicle_stopped", "ego_turn_direction", "intersection", "stopped_vehicle_without_lights", "highway_or_expressway"]);
+const SAFE_INPUT_FIELDS = new Set(["accident_party_type", "accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "pedestrian_visible", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "pedestrian_signal", "bicycle_location", "bicycle_direction", "centerline_crossed", "centerline_cross_reason", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "collision_partner_type", "primary_collision_target", "collision_point_visible", "collision_point_location", "front_vehicle_stopped", "ego_turn_direction", "intersection", "stopped_vehicle_without_lights", "highway_or_expressway"]);
 function asArray(value: any): any[] { return Array.isArray(value) ? value : []; }
 function unique(values: any[]) {
   return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
@@ -805,8 +805,9 @@ function compareVideoObservationPriority(left: AnyRecord, right: AnyRecord) {
 
 function videoQuestionPriority(field: string) {
   const order: AnyRecord = {
-    stopped: 10,
-    collision_partner_type: 20,
+    accident_party_type: 5,
+    collision_partner_type: 10,
+    stopped: 20,
     primary_collision_target: 30,
     collision_point_visible: 40,
     collision_point_location: 50,
@@ -861,6 +862,7 @@ function videoFactQuestionOptions(field: string, observedValue: any) {
   const observedLabel = videoFactValueLabel(field, observedValue);
   const optionMap: AnyRecord = {
     stopped: ["정차 중", "주행 중", "확인 필요"],
+    accident_party_type: ["차 대 차", "차 대 사람", "차 대 자전거/이륜", "차 대 물체/시설물", "단독 사고", "확인 필요"],
     collision_partner_type: ["차량", "보행자", "자전거", "물체", "확인 필요"],
     primary_collision_target: ["상대 차량", "보행자/자전거", "시설물/장애물", "확인 필요"],
     collision_point_visible: ["충돌 지점 보임", "충돌 지점 불명확", "확인 필요"],
@@ -981,9 +983,10 @@ function annotateMissingInfoQuestion(value: any, index = 0) {
 
 function missingInfoQuestionPriority(field: string) {
   const order: AnyRecord = {
-    accident_type: 1,
-    stopped: 2,
-    collision_partner_type: 3,
+    accident_party_type: 1,
+    collision_partner_type: 2,
+    accident_type: 3,
+    stopped: 4,
     primary_collision_target: 4,
     collision_point_visible: 5,
     collision_point_location: 6,
@@ -1030,6 +1033,7 @@ function missingInfoPriorityLabel(priority: number) {
 
 function missingInfoPriorityReason(field: string) {
   const labels: AnyRecord = {
+    accident_party_type: "사고 대분류가 정해져야 차대차, 차대사람, 자전거, 기물 사고의 근거군을 안전하게 좁힐 수 있습니다.",
     accident_type: "사고 유형이 정해져야 적용할 KNIA 기준과 법률 근거를 좁힐 수 있습니다.",
     stopped: "정차 여부는 후방 추돌과 급정거 쟁점의 출발점입니다.",
     collision_partner_type: "사고 대상을 먼저 확인해야 차대차, 차대사람, 자전거, 기물 사고를 구분할 수 있습니다.",
@@ -1069,6 +1073,7 @@ function missingInfoPriorityReason(field: string) {
 
 function videoFactLabel(field: string) {
   const labels: AnyRecord = {
+    accident_party_type: "사고 대분류",
     accident_type: "사고 유형",
     signal_state: "신호 상태",
     stopped: "정차 여부",

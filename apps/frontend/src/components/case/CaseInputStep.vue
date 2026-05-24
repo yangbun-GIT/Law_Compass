@@ -21,20 +21,40 @@
       <label>분석 모드
         <select :value="analysisMode" @change="updateAnalysisMode">
           <option value="quick_summary">빠른 요약</option>
-          <option value="rear-end-focused">후방추돌</option>
-          <option value="intersection-signal-focused">교차로 신호위반</option>
-          <option value="lane-change-focused">차선변경</option>
-          <option value="school-zone-focused">어린이보호구역</option>
+          <option value="fault-focused">과실비율 중심</option>
+          <option value="legal-focused">법률/판례 근거 중심</option>
+          <option value="criminal-liability-focused">형사 리스크 중심</option>
+          <option value="insurance-focused">보험/대응 중심</option>
+          <option value="evidence-review">증거 보강 중심</option>
+        </select>
+      </label>
+      <label>사고 대분류
+        <select :value="facts.accident_party_type || ''" @change="updateFact('accident_party_type', eventValue($event))">
+          <option value="">영상/설명 기준으로 판단</option>
+          <option value="car_vs_car">차 대 차</option>
+          <option value="car_vs_person">차 대 사람</option>
+          <option value="car_vs_bicycle">차 대 자전거/이륜</option>
+          <option value="car_vs_object">차 대 물체/시설물</option>
+          <option value="single_vehicle">단독 사고</option>
+          <option value="unknown">확인 필요</option>
         </select>
       </label>
       <label>사고 유형
         <select :value="facts.accident_type" @change="updateFact('accident_type', eventValue($event))">
-          <option value="rear_end_collision">후방추돌</option>
+          <option value="">영상/설명 기준으로 판단</option>
+          <option value="rear_end_collision">후방추돌/앞뒤 충돌</option>
+          <option value="right_turn_front_stop">우회전 중 앞차 정차 추돌</option>
           <option value="intersection_collision">교차로 충돌</option>
-          <option value="lane_change_collision">차선변경 충돌</option>
+          <option value="intersection_signal_violation">교차로 신호 쟁점</option>
+          <option value="lane_change_collision">차선변경/진로변경 충돌</option>
+          <option value="centerline_obstacle_collision">중앙선/장애물 회피 중 대향 충돌</option>
+          <option value="stopped_vehicle_collision">정차 차량/무등화 차량 추돌</option>
+          <option value="non_contact_trigger">비접촉 유발/급정지 유발</option>
           <option value="pedestrian_crosswalk_accident">보행자 사고</option>
-          <option value="parking_or_stopped_vehicle_accident">주차/정차 중 사고</option>
-          <option value="general_collision">기타</option>
+          <option value="bicycle_collision">자전거 사고</option>
+          <option value="object_collision">물체/시설물 충돌</option>
+          <option value="single_vehicle_accident">단독 사고</option>
+          <option value="general_collision">기타/불명확</option>
         </select>
       </label>
       <label>상대 차량 행동

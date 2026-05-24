@@ -72,7 +72,13 @@
       @load-report="loadReport"
     />
 
-    <EasyReportView v-if="report" :report="report" />
+    <EasyReportView
+      v-if="report"
+      :report="report"
+      :followup-submitting="reanalyzing"
+      :followup-error="followupError"
+      @submit-followup="submitFollowup"
+    />
   </section>
 </template>
 
@@ -106,8 +112,9 @@ const {
   messageOk,
   initialLoading,
   loadError,
+  followupError,
+  reanalyzing,
   busy,
-  applyPreset,
   analyzeText,
   analyzeVideo,
   completeUpload,
@@ -123,6 +130,7 @@ const {
   saveCaseInputs,
   statusClass,
   statusLabel,
+  submitFollowup,
   toggleKeyword,
   uploadLocal
 } = useCaseWorkspace(caseId);
@@ -133,7 +141,6 @@ function updateDescriptionText(value: string) {
 
 function updateAnalysisMode(value: string) {
   analysisMode.value = value;
-  applyPreset();
 }
 
 function updateFacts(value: AccidentFacts) {
