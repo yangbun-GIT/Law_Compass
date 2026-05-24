@@ -19,7 +19,7 @@ const TECHNICAL_KEYS = new Set([
   "expert_guidance_sections"
 ]);
 const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi];
-const SAFE_INPUT_FIELDS = new Set(["accident_party_type", "accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "pedestrian_visible", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "pedestrian_signal", "bicycle_location", "bicycle_direction", "centerline_crossed", "centerline_cross_reason", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "collision_partner_type", "primary_collision_target", "collision_point_visible", "collision_point_location", "front_vehicle_stopped", "ego_turn_direction", "intersection", "stopped_vehicle_without_lights", "highway_or_expressway"]);
+const SAFE_INPUT_FIELDS = new Set(["accident_party_type", "accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "pedestrian_visible", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "pedestrian_signal", "bicycle_location", "bicycle_direction", "centerline_crossed", "centerline_cross_reason", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "non_contact_trigger", "trigger_actor_type", "trigger_actor_behavior", "direct_collision_partner_type", "rear_vehicle_collision", "collision_partner_type", "primary_collision_target", "collision_point_visible", "collision_point_location", "front_vehicle_stopped", "ego_turn_direction", "intersection", "stopped_vehicle_without_lights", "highway_or_expressway"]);
 function asArray(value: any): any[] { return Array.isArray(value) ? value : []; }
 function unique(values: any[]) {
   return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
@@ -840,6 +840,11 @@ function videoQualityQuestionText(field: string, label: string, observedLabel: s
     opposing_vehicle_present: "마주오던 차량이 있었나요?",
     opposing_vehicle_did_not_stop: "마주오던 차량이 멈추거나 감속했나요?",
     secondary_collision: "첫 충돌 뒤 후속 충돌이 있었나요?",
+    non_contact_trigger: "직접 부딪히지 않았지만 사고를 유발한 대상이 있었나요?",
+    trigger_actor_type: "사고를 유발한 대상은 무엇인가요?",
+    trigger_actor_behavior: "사고 유발 대상은 어떻게 움직였나요?",
+    direct_collision_partner_type: "실제로 접촉한 상대는 무엇인가요?",
+    rear_vehicle_collision: "뒤에서 온 차량이 후방을 추돌했나요?",
     stopped_vehicle_without_lights: "상대 차량이 등화나 비상등 없이 정차해 있었나요?",
     highway_or_expressway: "사고 장소가 고속도로 또는 자동차전용도로인가요?",
   };
@@ -885,17 +890,22 @@ function videoQuestionPriority(field: string) {
     opposing_vehicle_present: 190,
     opposing_vehicle_did_not_stop: 200,
     secondary_collision: 210,
-    stopped_vehicle_without_lights: 220,
-    highway_or_expressway: 230,
-    sudden_brake: 240,
-    lane_change_actor: 250,
-    turn_signal: 260,
-    crosswalk_nearby: 270,
-    pedestrian_visible: 280,
-    pedestrian_signal: 290,
-    school_zone: 300,
-    injury: 310,
-    damage_level: 320,
+    non_contact_trigger: 220,
+    trigger_actor_type: 230,
+    trigger_actor_behavior: 240,
+    direct_collision_partner_type: 250,
+    rear_vehicle_collision: 260,
+    stopped_vehicle_without_lights: 270,
+    highway_or_expressway: 280,
+    sudden_brake: 290,
+    lane_change_actor: 300,
+    turn_signal: 310,
+    crosswalk_nearby: 320,
+    pedestrian_visible: 330,
+    pedestrian_signal: 340,
+    school_zone: 350,
+    injury: 360,
+    damage_level: 370,
   };
   return toNumber(order[field], 999);
 }
@@ -946,6 +956,11 @@ function videoFactQuestionOptions(field: string, observedValue: any) {
     opposing_vehicle_present: ["마주오던 차량 있음", "마주오던 차량 없음", "확인 필요"],
     opposing_vehicle_did_not_stop: ["상대가 멈추지 않음", "상대가 멈춤/감속", "확인 필요"],
     secondary_collision: ["2차 충돌 있음", "2차 충돌 없음", "확인 필요"],
+    non_contact_trigger: ["비접촉 유발 요인 있음", "비접촉 유발 요인 없음", "확인 필요"],
+    trigger_actor_type: ["자전거", "보행자", "차량", "물체/장애물", "확인 필요"],
+    trigger_actor_behavior: ["역주행/역방향", "갑작스러운 진입", "정차/장애물", "확인 필요"],
+    direct_collision_partner_type: ["차량", "보행자", "자전거", "물체", "확인 필요"],
+    rear_vehicle_collision: ["후방 차량 추돌 있음", "후방 차량 추돌 없음", "확인 필요"],
     stopped_vehicle_without_lights: ["등화 없는 정차 차량", "등화/표시 확인", "확인 필요"],
     highway_or_expressway: ["고속도로/자동차전용도로", "일반도로", "확인 필요"],
     school_zone: ["어린이보호구역 맞음", "어린이보호구역 아님", "확인 필요"],
@@ -1064,21 +1079,26 @@ function missingInfoQuestionPriority(field: string) {
     opposing_vehicle_present: 20,
     opposing_vehicle_did_not_stop: 21,
     secondary_collision: 22,
-    stopped_vehicle_without_lights: 23,
-    highway_or_expressway: 24,
-    sudden_brake: 25,
-    lane_change_actor: 26,
-    bicycle_location: 27,
-    bicycle_direction: 28,
-    crosswalk_nearby: 29,
-    pedestrian_visible: 30,
-    pedestrian_signal: 31,
-    school_zone: 32,
-    victim_is_child: 33,
-    injury: 34,
-    damage_level: 35,
-    signal_state: 36,
-    turn_signal: 37,
+    non_contact_trigger: 23,
+    trigger_actor_type: 24,
+    trigger_actor_behavior: 25,
+    direct_collision_partner_type: 26,
+    rear_vehicle_collision: 27,
+    stopped_vehicle_without_lights: 28,
+    highway_or_expressway: 29,
+    sudden_brake: 30,
+    lane_change_actor: 31,
+    bicycle_location: 32,
+    bicycle_direction: 33,
+    crosswalk_nearby: 34,
+    pedestrian_visible: 35,
+    pedestrian_signal: 36,
+    school_zone: 37,
+    victim_is_child: 38,
+    injury: 39,
+    damage_level: 40,
+    signal_state: 41,
+    turn_signal: 42,
   };
   return toNumber(order[field], 99);
 }
@@ -1118,6 +1138,11 @@ function missingInfoPriorityReason(field: string) {
     opposing_vehicle_present: "마주오던 차량 존재는 대향 차로 사고 구조를 확인하는 기준입니다.",
     opposing_vehicle_did_not_stop: "상대 차량의 정지 또는 감속 여부는 회피 가능성 판단에 필요합니다.",
     secondary_collision: "2차 충돌 여부는 사고 원인과 후속 책임을 분리하는 데 필요합니다.",
+    non_contact_trigger: "직접 부딪히지 않은 유발 요인이 있는지 확인해야 실제 충돌 상대와 원인을 분리할 수 있습니다.",
+    trigger_actor_type: "사고를 유발한 객체와 실제 충돌 상대를 분리해야 자전거·보행자·차량 사고를 오분류하지 않습니다.",
+    trigger_actor_behavior: "유발 객체의 움직임은 급정지나 회피가 불가피했는지 판단하는 기준입니다.",
+    direct_collision_partner_type: "실제로 접촉한 상대를 확인해야 과실 기준과 근거군을 안전하게 좁힐 수 있습니다.",
+    rear_vehicle_collision: "후방 차량의 추돌 여부는 안전거리와 후속 책임 판단의 핵심입니다.",
     stopped_vehicle_without_lights: "등화 없는 정차 차량은 야간·고속도로 사고의 회피 가능성 판단에 필요합니다.",
     highway_or_expressway: "고속도로 또는 자동차전용도로 여부는 정차 차량 사고와 속도 쟁점 판단에 필요합니다.",
     school_zone: "어린이보호구역 여부는 법적 위험과 처리 절차에 영향을 줍니다.",
@@ -1167,6 +1192,11 @@ function videoFactLabel(field: string) {
     opposing_vehicle_present: "마주오던 차량",
     opposing_vehicle_did_not_stop: "상대 차량 미정지",
     secondary_collision: "2차 충돌",
+    non_contact_trigger: "비접촉 유발 요인",
+    trigger_actor_type: "사고 유발 대상",
+    trigger_actor_behavior: "유발 대상 행동",
+    direct_collision_partner_type: "실제 충돌 상대",
+    rear_vehicle_collision: "후방 차량 추돌",
     stopped_vehicle_without_lights: "등화 없는 정차 차량",
     highway_or_expressway: "고속도로/자동차전용도로",
     injury: "인명피해 여부",
@@ -1221,6 +1251,8 @@ function videoFactValueLabel(field: string, value: any) {
       opposing_vehicle_present: ["마주오던 차량 있음", "마주오던 차량 없음"],
       opposing_vehicle_did_not_stop: ["상대가 멈추지 않음", "상대가 멈춤/감속"],
       secondary_collision: ["2차 충돌 있음", "2차 충돌 없음"],
+      non_contact_trigger: ["비접촉 유발 요인 있음", "비접촉 유발 요인 없음"],
+      rear_vehicle_collision: ["후방 차량 추돌 있음", "후방 차량 추돌 없음"],
       stopped_vehicle_without_lights: ["등화 없는 정차 차량", "등화/표시 확인"],
       highway_or_expressway: ["고속도로/자동차전용도로", "일반도로"],
     };
@@ -1666,6 +1698,7 @@ function filterEvidenceForDisplay(evidence: any[] = [], facts: AnyRecord = {}, s
   const vehicleContext =
     facts.accident_party_type === "car_vs_car" ||
     facts.collision_partner_type === "vehicle" ||
+    facts.direct_collision_partner_type === "vehicle" ||
     /intersection_signal_violation|rear_end_collision|lane_change_collision|parking_or_stopped_vehicle_accident/.test(scenarioText);
   if (!vehicleContext) return evidence;
   return evidence.filter((ev: AnyRecord) => {

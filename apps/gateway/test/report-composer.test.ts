@@ -1075,4 +1075,23 @@ describe("report composer", () => {
     expect(card.needed_evidence).toContain("교차로 CCTV");
     expect(JSON.stringify(card)).not.toContain("opponent_signal_visible");
   });
+
+  it("prioritizes non-contact trigger questions before pedestrian context details", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      video_input_contract: {
+        uncertain_observations: [
+          { field: "pedestrian_visible", value: false, confidence: 0.74, frame_refs: ["frame_3.jpg"] },
+          { field: "trigger_actor_type", value: "bicycle", confidence: 0.74, frame_refs: ["frame_8.jpg", "frame_9.jpg"] },
+          { field: "direct_collision_partner_type", value: "vehicle", confidence: 0.8, frame_refs: ["frame_12.jpg", "frame_13.jpg"] },
+          { field: "rear_vehicle_collision", value: true, confidence: 0.8, frame_refs: ["frame_12.jpg", "frame_13.jpg"] },
+        ],
+      },
+    });
+
+    const fields = (enriched as any).missing_info.questions.map((item: any) => item.field);
+    expect(fields.indexOf("trigger_actor_type")).toBeLessThan(fields.indexOf("pedestrian_visible"));
+    expect(fields.indexOf("direct_collision_partner_type")).toBeLessThan(fields.indexOf("pedestrian_visible"));
+    expect(fields.indexOf("rear_vehicle_collision")).toBeLessThan(fields.indexOf("pedestrian_visible"));
+    expect((enriched as any).missing_info.next_focus.label).toBe("사고 유발 대상");
+  });
 });

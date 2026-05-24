@@ -251,7 +251,12 @@ def _guidance_context_text(
             parts.extend(["crosswalk", "pedestrian", "pedestrian signal", "front vehicle", "stop reason"])
     if facts.get("front_vehicle_stopped") is True or "front_vehicle_stopped" in fact_text:
         parts.extend(["front vehicle", "stop reason", "sudden braking", "safe distance"])
-    if facts.get("bicycle_involved") is True or facts.get("possible_trigger_vehicle") == "bicycle" or "bicycle" in fact_text:
+    if (
+        facts.get("bicycle_involved") is True
+        or facts.get("possible_trigger_vehicle") == "bicycle"
+        or facts.get("trigger_actor_type") == "bicycle"
+        or "bicycle" in fact_text
+    ):
         parts.extend(["bicycle", "non-contact", "trigger", "time gap", "rear-end bus", "sudden braking"])
     if (
         facts.get("stopped_vehicle_without_lights") is True
@@ -341,10 +346,12 @@ def _is_vehicle_collision_context(facts: dict[str, Any], fact_text: str = "") ->
     party = str(facts.get("accident_party_type") or "").strip().lower()
     partner = str(facts.get("collision_partner_type") or "").strip().lower()
     target = str(facts.get("primary_collision_target") or "").strip().lower()
+    direct_partner = str(facts.get("direct_collision_partner_type") or "").strip().lower()
     text = " ".join([fact_text, party, partner, target]).lower()
     return (
         party == "car_vs_car"
         or partner in {"vehicle", "car", "truck", "bus", "van"}
+        or direct_partner in {"vehicle", "car", "truck", "bus", "van"}
         or target in {"vehicle", "car", "truck", "bus", "van"}
         or "vehicle collision partner" in text
     )

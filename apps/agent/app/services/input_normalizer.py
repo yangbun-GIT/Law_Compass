@@ -139,6 +139,19 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
         _set_if_empty(enriched, "opponent_signal_visible", False)
         _set_if_empty(enriched, "signal_timing_uncertain", True)
         _set_if_empty(enriched, "cctv_needed", True)
+    bicycle_trigger_text = _contains_any(hay, ("자전거", "bicycle", "cyclist"))
+    rear_vehicle_text = _contains_any(hay, ("뒤에서", "후방", "뒤차", "후미", "후속", "버스가", "bus", "rear"))
+    stop_or_avoid_text = _contains_any(hay, ("멈췄", "정지", "급정거", "피하", "avoid", "stopped"))
+    direct_bicycle_collision_text = _contains_any(hay, ("자전거를 쳤", "자전거와 충돌", "자전거 추돌", "hit bicycle", "collided with bicycle"))
+    if bicycle_trigger_text and rear_vehicle_text and stop_or_avoid_text and not direct_bicycle_collision_text:
+        _set_if_empty(enriched, "non_contact_trigger", True)
+        _set_if_empty(enriched, "trigger_actor_type", "bicycle")
+        _set_if_empty(enriched, "possible_trigger_vehicle", "bicycle")
+        _set_if_empty(enriched, "rear_vehicle_collision", True)
+        _set_if_empty(enriched, "collision_partner_type", "vehicle")
+        _set_if_empty(enriched, "direct_collision_partner_type", "vehicle")
+        _set_if_empty(enriched, "accident_party_type", "car_vs_car")
+        _set_if_empty(enriched, "accident_type", "non_contact_trigger")
     return enriched
 
 def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None) -> dict[str, Any]:

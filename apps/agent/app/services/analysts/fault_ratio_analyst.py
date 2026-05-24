@@ -173,10 +173,19 @@ def _unlit_stopped_vehicle_context(facts: dict[str, Any]) -> bool:
 
 
 def _bicycle_trigger_rear_end_context(facts: dict[str, Any]) -> bool:
-    trigger = str(facts.get("possible_trigger_vehicle") or facts.get("bicycle_behavior") or "").lower()
+    trigger = str(facts.get("trigger_actor_type") or facts.get("possible_trigger_vehicle") or facts.get("bicycle_behavior") or "").lower()
     return (
-        (facts.get("bicycle_involved") is True or "bicycle" in trigger or "자전거" in trigger)
-        and (facts.get("rear_vehicle_collision") is True or facts.get("stopped") is True)
+        (
+            facts.get("non_contact_trigger") is True
+            or facts.get("bicycle_involved") is True
+            or "bicycle" in trigger
+            or "자전거" in trigger
+        )
+        and (
+            facts.get("rear_vehicle_collision") is True
+            or facts.get("direct_collision_partner_type") == "vehicle"
+            or facts.get("stopped") is True
+        )
     )
 
 

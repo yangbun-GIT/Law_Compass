@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-25 영상 P0: 비접촉 유발자와 실제 충돌 상대 분리
+
+영상 분석 결과가 사고 판단에 반영될 때 자전거, 보행자, 횡단보도, 신호등처럼 영상에 등장한 객체가 실제 충돌 대상처럼 오분류되는 문제를 줄이기 위해 Agent 영상 입력 계약을 확장했다. 목적은 특정 테스트 영상에 맞춘 보정이 아니라, 실제 사고 전반에서 “사고 유발 요인”과 “물리적으로 접촉한 상대”를 분리하는 것이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Worker 프레임 분석 | OpenAI 프레임 분석 허용 관찰값에 `non_contact_trigger`, `trigger_actor_type`, `trigger_actor_behavior`, `direct_collision_partner_type`, `rear_vehicle_collision`을 추가했다. 프롬프트는 비접촉 유발 사고에서 유발 객체와 실제 충돌 상대를 분리하도록 지시한다. |
+| Agent 입력 계약 | `video_input_contract.py`가 새 관찰값을 fact 후보로 수용하고 confidence/frame reference 기준을 적용한다. `fact_arbitration.py`도 새 필드를 video-primary 물리 사실로 취급한다. |
+| 사고 분류 | `scenario_classifier.py`와 `input_normalizer.py`가 자전거가 사고를 유발했지만 실제 접촉은 후방 차량과 발생한 경우를 `car_vs_bicycle` 직접 충돌이 아니라 `car_vs_car` 후방추돌/비접촉 유발 맥락으로 분류한다. |
+| 과실/근거 판단 | `fault_ratio_analyst.py`, `expert_guidance_sections.py`, `orchestration_evidence.py`가 새 필드를 반영해 비접촉 자전거 유발, 후방 차량 안전거리, 실제 충돌 상대를 분리해서 근거를 고른다. |
+| 사용자 표시 | Gateway easy-report가 새 필드의 라벨, 질문, 옵션, 우선순위를 제공한다. 보완 질문은 보행자/횡단보도 맥락보다 유발 객체, 실제 충돌 상대, 후방 추돌 여부를 먼저 확인하도록 정렬한다. |
+| 검증 | Agent 영상 입력 계약/분류 테스트, Gateway report composer 테스트, Worker 프레임 분석/job processor 계약 테스트를 추가 또는 갱신했다. |
+
+이 변경은 DB schema, Redis key, storage path, API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. 기존 OpenAI/YOLO provider adapter가 생성하는 관찰값을 더 명확한 Agent 입력 계약으로 받아들이는 구조 보강이다.
+
 ## 2026-05-25 AI Hub 로컬 데이터 폴더
 
 AI Hub 교통사고/차량 인지 데이터셋 확인을 위해 저장소 루트에 `datasets/aihub/` 로컬 작업 폴더를 둔다. 원본 전체 데이터는 테라 단위라 로컬에 받지 않는 것을 원칙으로 하고, 샘플 데이터와 AI Hub Shell의 파일 목록/선택 다운로드 결과만 데이터셋별 폴더에 보관한다. 실제 데이터 파일은 Git에 올리지 않는다.

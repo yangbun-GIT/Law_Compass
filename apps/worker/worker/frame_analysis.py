@@ -312,12 +312,15 @@ def _openai_frame_analysis_prompt(context: dict[str, Any], fallback: bool = Fals
         "crosswalk_nearby, pedestrian_visible, pedestrian_signal, school_zone, damage_level, "
         "centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, "
         "opposing_vehicle_present, opposing_vehicle_did_not_stop, secondary_collision, "
+        "non_contact_trigger, trigger_actor_type, trigger_actor_behavior, direct_collision_partner_type, rear_vehicle_collision, "
         "collision_partner_type, primary_collision_target, collision_point_visible, collision_point_location, "
         "front_vehicle_stopped, ego_turn_direction, stopped_vehicle_without_lights, highway_or_expressway, "
         "recaptured_screen, dashcam_screen_visible, screen_glare_or_reflection. "
         "Use collision_partner_type as one of vehicle, pedestrian, bicycle, motorcycle, object, unknown. "
         "Use ego_turn_direction as one of right, left, straight, u_turn, unknown. "
         "Use primary_collision_target to describe the object actually struck or striking the ego vehicle; do not use road environment as the target unless the collision is with that object. "
+        "For non-contact trigger crashes, separate trigger_actor_type/trigger_actor_behavior from direct_collision_partner_type. For example, a bicycle that caused braking is a trigger actor, while a rear bus or following vehicle that physically hit the ego vehicle is the direct collision partner. "
+        "Do not set collision_partner_type=bicycle merely because a bicycle appears when the visible contact is vehicle-to-vehicle or rear-end. "
         "For stopped, judge whether the ego/user vehicle was stationary at or immediately before the collision. "
         "Do not mark stopped=false merely because the dashcam image changes, the camera shakes, or surrounding vehicles move. "
         "Return stopped=false only when multiple frame_refs clearly show ego/user vehicle forward movement at the relevant moment; otherwise omit stopped or use unknown. "
@@ -572,6 +575,9 @@ def _derive_accident_event_summary_from_observations(observations: list[dict[str
         "impact_direction",
         "collision_direction",
         "secondary_collision",
+        "non_contact_trigger",
+        "direct_collision_partner_type",
+        "rear_vehicle_collision",
     }
     event_refs: list[str] = []
     for item in observations:
@@ -687,6 +693,8 @@ def _should_drop_openai_observation(field: str, value: Any) -> bool:
         "opposing_vehicle_present",
         "opposing_vehicle_did_not_stop",
         "secondary_collision",
+        "non_contact_trigger",
+        "rear_vehicle_collision",
         "collision_point_visible",
         "front_vehicle_stopped",
         "intersection",

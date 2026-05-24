@@ -57,6 +57,10 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["non_contact_trigger", "safe_distance"])
+        if facts.get("trigger_actor_type") == "bicycle" or facts.get("possible_trigger_vehicle") == "bicycle":
+            tags.add("bicycle")
+        if facts.get("rear_vehicle_collision"):
+            tags.add("rear_end")
     elif accident_type in {"intersection_collision", "intersection_signal_violation"}:
         scenario_type = "intersection_signal_violation"
         accident_party_type = "car_vs_car"
@@ -81,7 +85,11 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "pedestrian_crosswalk_accident"
         accident_party_type = "car_vs_person"
         tags.update(["pedestrian", "crosswalk", "injury"])
-    elif collision_partner_type in {"bicycle", "motorcycle"} or accident_type == "bicycle_collision" or "자전거" in haystack:
+    elif _is_non_contact_trigger_context(facts, haystack):
+        scenario_type = "rear_end_collision"
+        accident_party_type = "car_vs_car"
+        tags.update(["non_contact_trigger", "safe_distance", "rear_end", "bicycle"])
+    elif collision_partner_type in {"bicycle", "motorcycle"} or accident_type == "bicycle_collision" or ("자전거" in haystack and facts.get("non_contact_trigger") is not True):
         scenario_type = "bicycle_collision"
         accident_party_type = "car_vs_bicycle"
         tags.update(["bicycle", "vulnerable_road_user", "injury"])
@@ -155,6 +163,12 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
     if facts.get("bicycle_involved") or facts.get("possible_trigger_vehicle") == "bicycle":
         tags.add("bicycle")
         tags.add("non_contact_trigger")
+    if facts.get("trigger_actor_type") == "bicycle":
+        tags.add("bicycle")
+        if facts.get("non_contact_trigger"):
+            tags.add("non_contact_trigger")
+    if facts.get("rear_vehicle_collision"):
+        tags.add("rear_end")
     if facts.get("reported_speed_kmh") or facts.get("speed_limit_kmh"):
         tags.add("speed")
     if facts.get("fatality"):
@@ -200,3 +214,18 @@ def _is_intersection_signal_turning_conflict(facts: dict[str, Any], accident_typ
         "교차로" in haystack and ("좌회전" in haystack or "직진" in haystack)
     )
     return signal_context and (declared_intersection or (left_turn and straight_opponent))
+
+
+def _is_non_contact_trigger_context(facts: dict[str, Any], haystack: str) -> bool:
+    trigger = str(facts.get("trigger_actor_type") or facts.get("possible_trigger_vehicle") or "").strip().lower()
+    return (
+        facts.get("non_contact_trigger") is True
+        or (
+            trigger == "bicycle"
+            and (
+                facts.get("rear_vehicle_collision") is True
+                or facts.get("stopped") is True
+                or any(token in haystack for token in ("뒤에서", "후방", "뒤차", "후미", "rear", "bus"))
+            )
+        )
+    )

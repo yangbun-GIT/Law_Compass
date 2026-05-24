@@ -23,6 +23,11 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "opposing_vehicle_present": 0.82,
     "opposing_vehicle_did_not_stop": 0.88,
     "secondary_collision": 0.84,
+    "non_contact_trigger": 0.82,
+    "trigger_actor_type": 0.78,
+    "trigger_actor_behavior": 0.78,
+    "direct_collision_partner_type": 0.82,
+    "rear_vehicle_collision": 0.84,
     "centerline_cross_reason": 0.78,
     "collision_partner_type": 0.82,
     "primary_collision_target": 0.78,
@@ -55,17 +60,22 @@ CONFIRMATION_FIELD_PRIORITIES = {
     "opposing_vehicle_present": 190,
     "opposing_vehicle_did_not_stop": 200,
     "secondary_collision": 210,
-    "stopped_vehicle_without_lights": 220,
-    "highway_or_expressway": 230,
-    "lane_change_actor": 240,
-    "sudden_brake": 250,
-    "turn_signal": 260,
-    "crosswalk_nearby": 270,
-    "pedestrian_visible": 280,
-    "pedestrian_signal": 290,
-    "school_zone": 300,
-    "injury": 310,
-    "damage_level": 320,
+    "non_contact_trigger": 220,
+    "trigger_actor_type": 230,
+    "trigger_actor_behavior": 240,
+    "direct_collision_partner_type": 250,
+    "rear_vehicle_collision": 260,
+    "stopped_vehicle_without_lights": 270,
+    "highway_or_expressway": 280,
+    "lane_change_actor": 290,
+    "sudden_brake": 300,
+    "turn_signal": 310,
+    "crosswalk_nearby": 320,
+    "pedestrian_visible": 330,
+    "pedestrian_signal": 340,
+    "school_zone": 350,
+    "injury": 360,
+    "damage_level": 370,
 }
 
 FRAME_REF_REQUIRED_FACT_FIELDS = {
@@ -88,6 +98,11 @@ FRAME_REF_REQUIRED_FACT_FIELDS = {
     "opposing_vehicle_present",
     "opposing_vehicle_did_not_stop",
     "secondary_collision",
+    "non_contact_trigger",
+    "trigger_actor_type",
+    "trigger_actor_behavior",
+    "direct_collision_partner_type",
+    "rear_vehicle_collision",
     "centerline_cross_reason",
     "collision_partner_type",
     "primary_collision_target",
@@ -144,6 +159,11 @@ _FACT_FIELDS = {
     "opposing_vehicle_present",
     "opposing_vehicle_did_not_stop",
     "secondary_collision",
+    "non_contact_trigger",
+    "trigger_actor_type",
+    "trigger_actor_behavior",
+    "direct_collision_partner_type",
+    "rear_vehicle_collision",
     "collision_partner_type",
     "primary_collision_target",
     "collision_point_visible",
@@ -193,6 +213,16 @@ _FIELD_ALIASES = {
     "oncoming_vehicle_present": "opposing_vehicle_present",
     "oncoming_vehicle_did_not_stop": "opposing_vehicle_did_not_stop",
     "second_collision": "secondary_collision",
+    "noncontact_trigger": "non_contact_trigger",
+    "non_contact_cause": "non_contact_trigger",
+    "trigger_actor": "trigger_actor_type",
+    "trigger_object": "trigger_actor_type",
+    "trigger_vehicle": "trigger_actor_type",
+    "trigger_actor_motion": "trigger_actor_behavior",
+    "actual_collision_partner": "direct_collision_partner_type",
+    "direct_collision_partner": "direct_collision_partner_type",
+    "rear_vehicle_impact": "rear_vehicle_collision",
+    "rear_bus_collision": "rear_vehicle_collision",
     "collision_object_type": "collision_partner_type",
     "collision_target_type": "collision_partner_type",
     "collision_object": "primary_collision_target",
@@ -637,17 +667,19 @@ def _normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
             return "user"
         return value if isinstance(value, str) and value.strip() else None
     if field == "collision_partner_type":
-        text = str(value).strip().lower()
-        if text in {"vehicle", "car", "truck", "bus", "van", "motor_vehicle", "other_vehicle"}:
-            return "vehicle"
-        if text in {"pedestrian", "person"}:
-            return "pedestrian"
-        if text in {"bicycle", "bike", "cyclist"}:
-            return "bicycle"
-        if text in {"motorcycle", "two_wheeler", "two-wheeler"}:
-            return "motorcycle"
-        if text in {"object", "fixed_object", "road_object", "obstacle"}:
-            return "object"
+        return _normalize_actor_type(value)
+    if field in {"trigger_actor_type", "direct_collision_partner_type"}:
+        return _normalize_actor_type(value)
+    if field == "trigger_actor_behavior":
+        text = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+        if text in {"wrong_way", "reverse_direction", "opposite_direction", "sudden_entry", "sudden_appearance", "cut_in", "obstacle_avoidance", "stopped_obstruction"}:
+            return text
+        if any(token in text for token in ("wrong", "reverse", "opposite", "역주행", "역방향")):
+            return "wrong_way"
+        if any(token in text for token in ("sudden", "갑자기", "튀어나", "진입")):
+            return "sudden_entry"
+        if text and text != "unknown":
+            return text
         return None
     if field in {"ego_turn_direction"}:
         text = str(value).strip().lower().replace("-", "_").replace(" ", "_")
@@ -667,7 +699,7 @@ def _normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
         if text in {"green_to_yellow", "yellow_to_red", "red_to_green", "green_to_red", "flashing", "none"}:
             return text
         return text if text and text != "unknown" else None
-    if field in {"stopped", "sudden_brake", "opponent_signal_visible", "opponent_signal_violation", "intersection", "crosswalk_nearby", "pedestrian_visible", "school_zone", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "collision_point_visible", "front_vehicle_stopped", "stopped_vehicle_without_lights", "highway_or_expressway"}:
+    if field in {"stopped", "sudden_brake", "opponent_signal_visible", "opponent_signal_violation", "intersection", "crosswalk_nearby", "pedestrian_visible", "school_zone", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "non_contact_trigger", "rear_vehicle_collision", "collision_point_visible", "front_vehicle_stopped", "stopped_vehicle_without_lights", "highway_or_expressway"}:
         return _as_bool(value)
     if isinstance(value, str):
         return value.strip() or None
@@ -687,6 +719,21 @@ def _normalize_signal(value: Any) -> str | None:
     if text in {"none", "no_signal", "not_visible"}:
         return "none"
     return text if text and text != "unknown" else None
+
+
+def _normalize_actor_type(value: Any) -> str | None:
+    text = str(value).strip().lower()
+    if text in {"vehicle", "car", "truck", "bus", "van", "motor_vehicle", "other_vehicle"}:
+        return "vehicle"
+    if text in {"pedestrian", "person"}:
+        return "pedestrian"
+    if text in {"bicycle", "bike", "cyclist"}:
+        return "bicycle"
+    if text in {"motorcycle", "two_wheeler", "two-wheeler", "motorbike"}:
+        return "motorcycle"
+    if text in {"object", "fixed_object", "road_object", "obstacle"}:
+        return "object"
+    return None
 
 
 def _as_bool(value: Any) -> bool | None:

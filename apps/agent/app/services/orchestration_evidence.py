@@ -121,7 +121,8 @@ def _filter_pedestrian_target_mismatch(
     accident_party_type: str | None,
 ) -> list[dict[str, Any]]:
     partner = str(facts.get("collision_partner_type") or "").strip().lower()
-    vehicle_context = accident_party_type == "car_vs_car" or partner in {"vehicle", "car", "truck", "bus", "van"}
+    direct_partner = str(facts.get("direct_collision_partner_type") or "").strip().lower()
+    vehicle_context = accident_party_type == "car_vs_car" or partner in {"vehicle", "car", "truck", "bus", "van"} or direct_partner in {"vehicle", "car", "truck", "bus", "van"}
     if not vehicle_context:
         return items
     filtered: list[dict[str, Any]] = []

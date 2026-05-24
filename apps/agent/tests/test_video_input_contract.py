@@ -280,6 +280,51 @@ def test_collision_target_observations_are_prioritized_agent_facts():
     assert contract["observation_quality_summary"]["accepted_count"] == 3
 
 
+def test_non_contact_trigger_keeps_trigger_actor_separate_from_direct_collision_partner():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "non_contact_trigger",
+                        "value": True,
+                        "confidence": 0.86,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_10.jpg", "frame_11.jpg"],
+                    },
+                    {
+                        "field": "trigger_actor_type",
+                        "value": "bicycle",
+                        "confidence": 0.84,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_10.jpg", "frame_11.jpg"],
+                    },
+                    {
+                        "field": "direct_collision_partner_type",
+                        "value": "bus",
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_13.jpg", "frame_14.jpg"],
+                    },
+                    {
+                        "field": "rear_vehicle_collision",
+                        "value": True,
+                        "confidence": 0.88,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_13.jpg", "frame_14.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"]["non_contact_trigger"] is True
+    assert contract["fact_patch"]["trigger_actor_type"] == "bicycle"
+    assert contract["fact_patch"]["direct_collision_partner_type"] == "vehicle"
+    assert contract["fact_patch"]["rear_vehicle_collision"] is True
+    assert contract["observation_quality_summary"]["accepted_count"] == 4
+
+
 def test_crosswalk_and_pedestrian_visibility_are_separate_video_facts():
     contract = normalize_video_input_contract(
         {
@@ -499,3 +544,19 @@ def test_analysis_mode_does_not_become_scenario_text():
 
     assert normalized["analysis_mode"] == "rear-end-focused"
     assert "rear-end-focused" not in normalized["merged_text"]
+
+
+def test_text_non_contact_bicycle_trigger_is_normalized_as_vehicle_rear_collision():
+    normalized = normalize_analysis_input(
+        "트럭이 자전거를 보고 정지했는데 뒤에서 오던 버스가 후방을 추돌했습니다.",
+        structured_facts={},
+    )
+
+    facts = normalized["structured_facts"]
+    assert facts["non_contact_trigger"] is True
+    assert facts["trigger_actor_type"] == "bicycle"
+    assert facts["possible_trigger_vehicle"] == "bicycle"
+    assert facts["rear_vehicle_collision"] is True
+    assert facts["collision_partner_type"] == "vehicle"
+    assert facts["direct_collision_partner_type"] == "vehicle"
+    assert facts["accident_type"] == "non_contact_trigger"
