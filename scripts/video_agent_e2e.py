@@ -383,6 +383,8 @@ def assert_video_fact_card(report: dict):
         "summary": card.get("summary"),
         "status_label": quality.get("status_label"),
         "representative_frame_count": quality.get("representative_frame_count"),
+        "quality_notes": quality.get("notes") if isinstance(quality.get("notes"), list) else [],
+        "recovery_actions": quality.get("recovery_actions") if isinstance(quality.get("recovery_actions"), list) else [],
         "stats": stats,
         "event_candidate": card.get("event_candidate") if isinstance(card.get("event_candidate"), dict) else None,
     }
@@ -420,6 +422,7 @@ def video_accuracy_metrics(frame_summary: dict, agent_video_summary: dict, video
         "uncertain_rate": round(uncertain / observed, 3) if observed else 0,
         "supporting_rate": round(supporting / observed, 3) if observed else 0,
         "conflict_rate": round(conflicts / accepted, 3) if accepted else 0,
+        "recovery_action_count": len(video_card.get("recovery_actions") or []),
         "display_stats": stats,
     }
 

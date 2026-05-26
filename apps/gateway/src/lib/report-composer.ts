@@ -743,6 +743,13 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
     }))
     .filter((item) => item.label && item.count > 0)
     .slice(0, 5);
+  const recoveryActions = asArray(summary.recovery_actions)
+    .map((item: AnyRecord) => ({
+      label: cleanText(item?.label, ""),
+      reason: cleanText(item?.reason, ""),
+    }))
+    .filter((item) => item.label)
+    .slice(0, 4);
   const notes = [
     !acceptedCount && !uncertainCount && !ignoredCount && !supportingCount && representativeFrameCount
       ? `대표 프레임 ${representativeFrameCount}장을 확인했지만 확정 가능한 사고 사실 관찰값은 만들지 않았습니다.`
@@ -762,6 +769,9 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
     supportingCount
       ? `충돌 방향 등 참고 관찰값 ${supportingCount}개는 사용자 확인이나 다른 사실과 함께만 해석합니다.`
       : "",
+    recoveryActions.length
+      ? "프레임은 충분하지만 판단 반영값이 부족해 재시도 또는 보조 분석이 필요합니다."
+      : "",
   ].filter(Boolean);
   return {
     status_label: videoObservationQualityStatus(acceptedCount, uncertainCount, ignoredCount, representativeFrameCount),
@@ -774,6 +784,7 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
     multi_frame_count: multiFrameCount,
     hold_items: reasonEntries,
     notes,
+    recovery_actions: recoveryActions,
   };
 }
 
@@ -1445,21 +1456,37 @@ function composeConditionalOutcomeCard(result: AnyRecord = {}, report: AnyRecord
   );
   const text = [
     result.scenario_type,
+    facts.accident_party_type,
     facts.accident_type,
+    facts.collision_partner_type,
+    facts.primary_collision_target,
+    facts.intersection,
+    facts.ego_turn_direction,
     facts.signal_state,
+    facts.user_signal,
+    facts.opponent_signal,
+    facts.signal_transition,
+    facts.opponent_signal_visible,
+    facts.opponent_signal_violation,
     facts.opponent_behavior,
     result.accident_summary,
     report.headline,
+    report.summary,
     report.summary_for_user?.short_summary,
+    report.missing_info,
   ].map((value) => String(value ?? "")).join(" ");
   const signalRelevant =
+    result.scenario_type === "intersection_signal_violation" ||
     facts.intersection === true ||
+    Boolean(facts.user_signal) ||
+    Boolean(facts.signal_transition) ||
+    facts.opponent_signal_visible === false ||
     /교차로|좌회전|우회전|직진|신호|황색|적색|녹색|intersection|signal/i.test(text) ||
     ["user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "opponent_signal_violation"].some((field) => questionFields.has(field));
   const opponentSignalUnclear =
     facts.opponent_signal_visible === false ||
     !facts.opponent_signal ||
-    String(facts.opponent_signal).toLowerCase() === "unknown" ||
+    ["unknown", "unclear", "확인 필요", "미확인", "모름"].includes(String(facts.opponent_signal).toLowerCase()) ||
     questionFields.has("opponent_signal") ||
     questionFields.has("opponent_signal_visible");
   if (!signalRelevant || !opponentSignalUnclear) return undefined;
@@ -1469,15 +1496,15 @@ function composeConditionalOutcomeCard(result: AnyRecord = {}, report: AnyRecord
     cases: [
       {
         label: "상대 차량 신호가 정상 진행 신호였다면",
-        likely_direction: "내 차량의 진입 신호와 정지선 통과 시점이 더 큰 쟁점이 됩니다.",
-        explanation: "내 차량이 황색 또는 적색에 무리하게 진입한 것으로 평가되면 내 책임이 커질 수 있습니다.",
-        check_points: ["내 차량 정지선 통과 시점", "황색 전환 시점", "충돌 직전 신호 색상"],
+        likely_direction: "내 차량의 책임 비율이 더 높아질 수 있습니다.",
+        explanation: "내 차량이 황색 또는 적색 전환 구간에 교차로에 진입했고 상대 차량은 정상 신호에 직진한 것으로 확인되면, 신호 준수와 정지선 통과 시점이 내 차량에게 불리한 핵심 근거가 됩니다.",
+        check_points: ["내 차량 정지선 통과 시점", "내 차량 진입 당시 신호", "황색 전환 시점", "충돌 직전 신호 색상"],
       },
       {
         label: "상대 차량도 적색 또는 신호위반이었다면",
-        likely_direction: "상대 차량의 신호위반과 전방주시 의무가 함께 검토됩니다.",
-        explanation: "상대 차량 진입 신호가 적색이거나 신호 변경 직후 주의의무 위반이 확인되면 상대 책임이 커질 수 있습니다.",
-        check_points: ["상대 차량 신호", "CCTV 또는 신호체계 자료", "상대 차량 진입 속도와 좌우 확인 가능성"],
+        likely_direction: "상대 차량의 책임 비율이 더 높아질 수 있습니다.",
+        explanation: "상대 차량이 적색 또는 진입 금지 신호에 들어온 사실이 확인되면, 상대 차량의 신호위반과 전방주시 의무 위반이 더 큰 과실 근거가 됩니다.",
+        check_points: ["상대 차량 진입 당시 신호", "CCTV 또는 신호체계 자료", "상대 차량 정지선 통과 시점", "상대 차량 진입 속도와 좌우 확인 가능성"],
       },
     ],
     needed_evidence: ["교차로 CCTV", "신호 주기표 또는 신호체계 자료", "각 차량의 정지선 통과 시점", "블랙박스 원본 전체 구간"],
@@ -1496,8 +1523,11 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
   );
   const mergedReport = prioritizeMissingInfo(mergeVideoQuestions(report, videoQuestions));
   const conditionalOutcomeCard = composeConditionalOutcomeCard(result, mergedReport);
+  const reportWithConditionalOutcome = conditionalOutcomeCard
+    ? prioritizeMissingInfo({ ...mergedReport, conditional_outcome_card: conditionalOutcomeCard })
+    : mergedReport;
   return {
-    ...mergedReport,
+    ...reportWithConditionalOutcome,
     ...(card ? { evidence_reliability_card: card } : {}),
     ...(processCard ? { agent_process_card: processCard } : {}),
     ...(videoFactCard ? { video_fact_explanation_card: videoFactCard } : {}),

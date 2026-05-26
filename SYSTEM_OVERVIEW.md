@@ -1,5 +1,55 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-26 P3: 실제 OpenAI 영상 회귀 재측정 및 실행 진입점 보강
+
+P3는 실제 OpenAI 프레임 분석을 켠 상태에서 사고 영상 1~5번 reference set을 다시 측정하고, P1/P2에서 보강한 보완 질문·fallback 흐름이 실제 batch 로그에서도 유지되는지 확인한 작업이다. 특정 사고 영상에 맞춘 판단 규칙을 추가하지 않고, 현재 영상 처리 파이프라인의 실행 안정성과 관찰값 품질 리스크를 분리해 기록했다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Docker 실행 보강 | `apps/gateway/Dockerfile`과 `apps/gateway/package.json`의 production start 경로를 TypeScript build 산출물 위치인 `dist/src/main.js`로 맞췄다. `apps/frontend/Dockerfile`은 `vite preview` 실행 전 `npm run build`를 수행하도록 수정했다. |
+| 실제 OpenAI batch | `storage/reference-videos/edited/`의 사고 영상 1~5번을 `ENABLE_OPENAI_FRAME_ANALYSIS=1`, fixture OFF 상태에서 측정했다. 1차 batch는 4/5 통과했고, 사고 4번은 OpenAI read timeout으로 실패했다. |
+| Timeout 재시도 | 사고 4번은 worker를 `OPENAI_TIMEOUT_SEC=90`으로 재시작한 뒤 단일 재시도에서 통과했다. 통합 aggregate는 사고 4번 timeout 결과를 재시도 성공 결과로 대체해 5/5 pipeline 통과로 평가한다. |
+| 회귀 측정 표시 | `scripts/video_agent_e2e.py`와 `scripts/video_accuracy_batch.py`가 영상 사실 카드의 `quality_notes`, `recovery_actions`, recovery action count를 향후 batch aggregate에 포함하도록 보강했다. 이번 P3의 기존 batch JSON은 패치 전 산출물이므로 recovery action count는 0으로 남아 있을 수 있다. |
+| P1/P2 확인 | 사고 2번은 `상대 차량 신호`가 최우선 보완 질문으로 유지됐다. 프레임은 충분하지만 확정 관찰값이 부족한 경우 `visual_evidence_limited` 상태와 Agent 입력 계약의 recovery action이 생성되는 것을 확인했다. |
+| 평가 결과 | 통합 aggregate 기준 `reference_guidance_eval`, `reference_evidence_alignment_eval`, `reference_guidance_calibration_eval` 모두 5개 샘플 통과. Calibration은 5/5 `calibrated_for_user_flow`, evidence alignment는 22개 focus 모두 `evidence_content_ready`로 평가됐다. |
+
+P3 기준 영상 flow 통합 요약은 대표 프레임 관찰값 13개, Agent accepted 8개, supporting 5개, 판단 반영 4개, 사용자 입력 확인 3개, 충돌 1개다. 사용자 표시 상태는 `확정 사실 없음` 4개, `반영 가능` 1개로, OpenAI가 실제 사고 장면을 항상 충분히 구조화하지 못하는 리스크가 아직 크다.
+
+잔여 리스크:
+
+- 실제 OpenAI 프레임 분석은 어두운 영상이나 난도가 높은 영상에서 timeout이 발생할 수 있다. 비용 방지를 위해 측정 후 worker는 기본적으로 `ENABLE_OPENAI_FRAME_ANALYSIS=0` 상태로 복구한다.
+- `확정 사실 없음` 비율이 높으므로 다음 단계는 과실 숫자 튜닝보다 영상 관찰 품질 보강이 우선이다. YOLO 보조 관찰, OpenAI 재시도 조건, 사고 시점 후보 추출, 충돌 대상 확인 fallback을 함께 다뤄야 한다.
+- 통합 평가의 근거 품질은 현재 batch payload에 source quality metadata가 부족해 `source_quality_unknown` 경고가 남는다. 최종 제품 수준에서는 실제 Gateway/Agent 최신 경로로 근거 출처 품질 필드를 포함해 재생성해야 한다.
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류를 변경하지 않는다. OpenAI 실행 로그와 reference manifest/current aggregate는 `logs/` 아래 로컬 산출물이며 Git에 포함하지 않는다.
+
+## 2026-05-26 P2: 프레임 충분·관찰값 부족 fallback 표시 보강
+
+P2는 “대표 프레임은 충분히 추출됐지만 분석 관찰값이 0개이거나 판단 반영값이 없는 상태”를 실패처럼 방치하지 않고, 안전한 fallback 상태와 다음 조치를 명확히 남기는 작업이다. 특정 사고 영상에 맞춘 보정이 아니라, 영상 입력 전반에서 재시도/보조 분석/사용자 보완 입력 흐름이 끊기지 않도록 Agent-Gateway-Frontend 계약을 보강했다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Agent 영상 입력 계약 | `apps/agent/app/services/video_input_contract.py`가 대표 프레임 6장 이상이고 OpenAI/YOLO 분석이 실행됐지만 관찰값이 0개인 payload를 `visual_evidence_limited` 참고 관찰로 복구한다. 분석이 실행되지 않은 프레임-rich payload는 사실 후보를 만들지 않고 `analysis_recovery` 액션만 남긴다. |
+| 복구 액션 | `analysis_recovery`와 `observation_quality_summary.recovery_actions`에 OpenAI 프레임 분석 활성화, 프레임 분석 재시도, YOLO 보조 관찰 활성화, 사고 시점/충돌 대상 확인 같은 다음 조치를 안전 문구로 기록한다. API key, raw prompt, frame path 원문은 노출하지 않는다. |
+| Gateway 표시 계약 | `apps/gateway/src/lib/report-composer.ts`가 recovery action을 easy-report의 `video_fact_explanation_card.quality_summary.recovery_actions`로 전달하고, “프레임은 충분하지만 판단 반영값이 부족해 재시도 또는 보조 분석이 필요하다”는 상태 note를 추가한다. |
+| Frontend 표시 | `apps/frontend/src/components/easy/VideoFactExplanationCard.vue`가 recovery action을 영상 사실 카드 안에서 표시한다. 사용자는 0개 상태가 단순 실패인지, 재시도/YOLO/사용자 보완이 필요한 상태인지 구분할 수 있다. |
+| 검증 | Agent `test_video_input_contract.py` 23개, Gateway `report-composer.test.ts` 33개, Gateway build, Frontend build를 통과했다. Agent 테스트는 로컬 구조상 `PYTHONPATH=apps/agent`를 지정해 실행한다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. Worker의 기존 OpenAI zero-observation retry와 `visual_evidence_limited` fallback을 대체하지 않고, Agent 입력 계약에서 한 번 더 방어하는 보강이다.
+
+## 2026-05-26 P1: 신호 불명확 교차로 사고 안내 흐름 보강
+
+작업 시작 전 `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md`를 확인하고, 최신 `main` pull 및 reference video 폴더 상태를 점검한 뒤 `codex/p1-signal-guidance-flow` 브랜치에서 P1 작업을 진행했다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Gateway 결과 조합 | `apps/gateway/src/lib/report-composer.ts`의 조건부 판단 카드 생성 조건을 보강했다. Agent가 `fault_ratio.conditional_outcomes`를 직접 주지 않아도 `intersection_signal_violation`, 내 차량 황색/적색 전환, 상대 신호 미확인, 교차로 좌·우회전/직진 같은 구조화 사실이 있으면 “상대 신호가 정상 진행 신호였을 때”와 “상대도 적색 또는 신호위반이었을 때”를 나눠 안내한다. |
+| 보완 질문 우선순위 | 조건부 판단 카드가 생성된 뒤 `missing_info`를 한 번 더 정렬해, 상대 차량 신호/신호 가시성 질문이 차량 파손 정도 같은 후순위 질문보다 먼저 나오도록 했다. |
+| 사고 대상 오염 방지 | 차대차 교차로 사고에서 횡단보도나 보행자가 영상에 등장하더라도 조건부 신호 안내가 보행자 사고처럼 변하지 않도록 테스트를 추가했다. 보행자는 사고 환경일 수 있지만, `collision_partner_type=vehicle`이면 사고 당사자 근거로 승격하지 않는다. |
+| 검증 | Gateway `report-composer.test.ts`에 구조화 사실 기반 조건부 신호 분기 및 보완 질문 재정렬 테스트를 추가했고, 총 33개 테스트가 통과했다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류를 변경하지 않는다. 실제 영상 분석 모델의 관찰값 품질은 Worker/Agent 영상 P단계에서 계속 다루며, 이번 P1은 신호가 불명확한 차대차 교차로 사고의 결과 표시와 질문 흐름을 범용적으로 보강한 작업이다.
+
 ## 2026-05-26 P0: AI 사용량 안전 이벤트 계약 보강
 
 작업 시작 전 `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md`를 확인하고, 최신 `main` pull 및 최근 병합 이력을 점검한 뒤 `codex/p0-evidence-source-hardening` 브랜치에서 P0 작업을 진행했다.
