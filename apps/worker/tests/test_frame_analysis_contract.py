@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -186,6 +187,8 @@ class FrameAnalysisContractTest(unittest.TestCase):
             captured["payload"] = payload
             return {
                 "id": "resp_123",
+                "status": "completed",
+                "usage": {"input_tokens": 120, "output_tokens": 45, "total_tokens": 165},
                 "output_text": (
                     '{"summary":"frames analyzed","observations":['
                     '{"field":"stopped","value":true,"confidence":0.81,'
@@ -218,6 +221,13 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertNotIn("temperature", payload)
         self.assertEqual(result["observation_quality_summary"]["observation_count"], 1)
         self.assertEqual(result["observations"][0]["observation_quality"]["level"], "low")
+        self.assertEqual(result["ai_usage_event"]["version"], "ai-usage-event-v1")
+        self.assertEqual(result["ai_usage_event"]["provider"], "openai")
+        self.assertEqual(result["ai_usage_event"]["endpoint"], "responses")
+        self.assertEqual(result["ai_usage_event"]["model"], "gpt-5-nano")
+        self.assertEqual(result["ai_usage_event"]["selected_frame_count"], 1)
+        self.assertEqual(result["ai_usage_event"]["usage"]["total_tokens"], 165)
+        self.assertNotIn("api_key", json.dumps(result["ai_usage_event"]).lower())
 
     def test_non_gpt5_payload_uses_temperature_zero(self):
         self.assertEqual(frame_analysis._generation_controls_for_model("gpt-4.1-mini"), {"temperature": 0})

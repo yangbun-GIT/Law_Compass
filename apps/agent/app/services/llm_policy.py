@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
+
+
+AI_USAGE_EVENT_VERSION = "ai-usage-event-v1"
 
 
 @dataclass(frozen=True)
@@ -106,6 +110,14 @@ def evaluate_llm_usage(
         "authority": policy.authority,
         "allowed_outputs": list(policy.allowed_outputs),
         "deterministic_authority": list(policy.deterministic_authority),
+        "ai_usage_event": _llm_usage_event(
+            section=policy.section,
+            enabled=provider_enabled,
+            allowed=allowed,
+            used=False,
+            success=False,
+            reason=reason,
+        ),
     }
 
 
@@ -115,7 +127,19 @@ def should_call_llm(*, section: str, evidence: list[dict[str, Any]], facts: dict
 
 def attach_llm_usage(output: dict[str, Any], usage: dict[str, Any], *, used: bool) -> dict[str, Any]:
     updated = dict(output)
-    updated["llm_usage"] = {**usage, "used": used}
+    reason = str(usage.get("reason") or ("used" if used else "not_used"))
+    updated["llm_usage"] = {
+        **usage,
+        "used": used,
+        "ai_usage_event": _llm_usage_event(
+            section=str(usage.get("section") or "unknown"),
+            enabled=bool(usage.get("provider_enabled")),
+            allowed=bool(usage.get("allowed")),
+            used=used,
+            success=used,
+            reason=reason,
+        ),
+    }
     if not used:
         updated.setdefault("analysis_source", "deterministic_fallback")
     else:
@@ -153,6 +177,8 @@ def summarize_case_llm_policy(section_outputs: dict[str, dict[str, Any]]) -> dic
             "mode": usage.get("mode"),
             "required_evidence_family": usage.get("required_evidence_family"),
         }
+        if isinstance(usage.get("ai_usage_event"), dict):
+            sections[section]["ai_usage_event"] = usage["ai_usage_event"]
         if isinstance(usage.get("failure_observation"), dict):
             sections[section]["failure_observation"] = usage["failure_observation"]
             failure_observations.append({"section": section, **usage["failure_observation"]})
@@ -174,11 +200,36 @@ def summarize_case_llm_policy(section_outputs: dict[str, dict[str, Any]]) -> dic
             "blocked_section_count": len(blocked_sections),
             "failed_section_count": len(failed_sections),
             "token_usage_available": False,
-            "token_usage_reason": "OpenAI token usage is not persisted by the current guarded analyst client.",
+            "token_usage_reason": "Agent analyst usage events record safe call metadata only; chat completion token counts are not captured yet.",
+            "usage_event_version": AI_USAGE_EVENT_VERSION,
         },
         "sections": sections,
         "principle": "LLM은 설명과 요약을 보조하고, 과실 수치·KNIA 매칭·법률 근거 존재 여부는 결정론적 로직과 RAG 근거가 우선합니다.",
     }
+
+
+def _llm_usage_event(
+    *,
+    section: str,
+    enabled: bool,
+    allowed: bool,
+    used: bool,
+    success: bool,
+    reason: str,
+) -> dict[str, Any]:
+    event = {
+        "version": AI_USAGE_EVENT_VERSION,
+        "provider": "openai",
+        "endpoint": "chat.completions",
+        "section": section,
+        "enabled": enabled,
+        "allowed": allowed,
+        "used": used,
+        "success": success,
+        "reason": reason,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    return event
 
 
 def _provider_enabled() -> bool:
