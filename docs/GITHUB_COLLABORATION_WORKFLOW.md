@@ -323,3 +323,27 @@ git push origin --delete feature/my-task
 - 서비스 책임 경계
 
 협업 방식 자체가 바뀌면 이 문서(`docs/GITHUB_COLLABORATION_WORKFLOW.md`)도 같이 업데이트합니다.
+## 14. 작업 시작 전 병합 이력 확인
+
+작업 시작 전에는 최신 `main`과 최근 병합/커밋 이력을 먼저 확인합니다.
+
+```powershell
+git checkout main
+git pull origin main
+git log --oneline --decorate --graph -10
+```
+
+최근 이력에서 팀원이 병합한 PR이나 새 커밋이 보이면, 변경 범위가 내 작업과 겹치는지 먼저 확인합니다. 새 브랜치는 이 확인이 끝난 최신 `main`에서 만듭니다.
+
+```powershell
+git checkout -b feature/my-task
+```
+
+이미 작업 중인 브랜치가 있다면 작업을 이어가기 전에 최신 `main`을 병합합니다.
+
+```powershell
+git checkout feature/my-task
+git merge main
+```
+
+충돌이 나면 충돌 파일을 직접 확인하고 해결한 뒤 작업을 계속합니다. 이해하지 못한 충돌을 임의로 덮어쓰지 않습니다.

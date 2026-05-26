@@ -457,3 +457,22 @@ The updated Agentic Design Pattern lecture should be applied as durable engineer
 - Add streaming or realtime Agent status UI when analysis latency or user trust requires visible progress, not merely because the Agent architecture supports it.
 - Add full token/cost dashboards when OpenAI usage is routinely enabled, user-level billing is needed, or cost risk can no longer be managed with metadata and limits alone.
 - Use LLM-as-Judge only as secondary qualitative evaluation. Deterministic, evidence-based regression remains the primary quality gate for legal and fault-ratio behavior.
+
+## 2026-05-26 작업 시작 전 GitHub 동기화 규칙
+
+동시 개발 중에는 실제 작업을 시작하기 전에 최신 `main`과 최근 병합/커밋 이력을 확인한다.
+
+```powershell
+git checkout main
+git pull origin main
+git log --oneline --decorate --graph -10
+```
+
+새 브랜치는 최신 `main`에서 만든다. 이미 진행 중인 브랜치가 있으면 작업을 이어가기 전에 최신 `main`을 병합해 팀원 변경을 반영한다.
+
+```powershell
+git checkout feature/my-task
+git merge main
+```
+
+작업 완료 응답에는 필요한 경우 “작업 시작 전 최신 `main`/최근 병합 확인”, “병합 전 팀원 알림”, “병합 후 팀원 pull 안내”를 짧게 포함한다.
