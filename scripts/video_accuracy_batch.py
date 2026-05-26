@@ -127,6 +127,7 @@ def run_sample(
         "agent_accepted_count": metrics.get("agent_accepted_count"),
         "agent_uncertain_count": metrics.get("agent_uncertain_count"),
         "agent_supporting_count": metrics.get("agent_supporting_count"),
+        "recovery_action_count": metrics.get("recovery_action_count"),
         "applied_count": metrics.get("applied_count"),
         "confirmed_count": metrics.get("confirmed_count"),
         "conflict_count": metrics.get("conflict_count"),
@@ -162,6 +163,8 @@ def video_display_metrics(card: dict[str, Any], metrics: dict[str, Any]) -> dict
         "confirmed_label": stat_map.get("영상 확인"),
         "conflict_label": stat_map.get("입력 충돌 검토"),
         "held_label": stat_map.get("확인 필요"),
+        "recovery_action_count": len(card.get("recovery_actions") or []) if card else 0,
+        "recovery_actions": card.get("recovery_actions") if card else [],
     }
 
 
@@ -387,6 +390,7 @@ def aggregate_video_flow(samples: list[dict[str, Any]]) -> dict[str, Any]:
     applied = sum(int(sample.get("applied_count") or 0) for sample in samples)
     confirmed = sum(int(sample.get("confirmed_count") or 0) for sample in samples)
     conflicts = sum(int(sample.get("conflict_count") or 0) for sample in samples)
+    recovery_actions = sum(int(sample.get("recovery_action_count") or 0) for sample in samples)
     status_counts = count_values(
         sample.get("video_display", {}).get("status_label")
         for sample in samples
@@ -406,12 +410,14 @@ def aggregate_video_flow(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "applied_count": applied,
         "confirmed_count": confirmed,
         "conflict_count": conflicts,
+        "recovery_action_count": recovery_actions,
         "accepted_rate": rate(accepted, total_observations),
         "uncertain_rate": rate(uncertain, total_observations),
         "supporting_rate": rate(supporting, total_observations),
         "applied_rate": rate(applied, total_observations),
         "confirmed_rate": rate(confirmed, total_observations),
         "conflict_rate": rate(conflicts, total_observations),
+        "recovery_action_sample_count": sum(1 for sample in samples if int(sample.get("recovery_action_count") or 0) > 0),
         "display_status_counts": status_counts,
         "quality_status_counts": quality_counts,
         "attention_sample_count": sum(
