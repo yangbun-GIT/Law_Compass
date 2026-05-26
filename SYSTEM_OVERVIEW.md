@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-26 P1: 신호 불명확 교차로 사고 안내 흐름 보강
+
+작업 시작 전 `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md`를 확인하고, 최신 `main` pull 및 reference video 폴더 상태를 점검한 뒤 `codex/p1-signal-guidance-flow` 브랜치에서 P1 작업을 진행했다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Gateway 결과 조합 | `apps/gateway/src/lib/report-composer.ts`의 조건부 판단 카드 생성 조건을 보강했다. Agent가 `fault_ratio.conditional_outcomes`를 직접 주지 않아도 `intersection_signal_violation`, 내 차량 황색/적색 전환, 상대 신호 미확인, 교차로 좌·우회전/직진 같은 구조화 사실이 있으면 “상대 신호가 정상 진행 신호였을 때”와 “상대도 적색 또는 신호위반이었을 때”를 나눠 안내한다. |
+| 보완 질문 우선순위 | 조건부 판단 카드가 생성된 뒤 `missing_info`를 한 번 더 정렬해, 상대 차량 신호/신호 가시성 질문이 차량 파손 정도 같은 후순위 질문보다 먼저 나오도록 했다. |
+| 사고 대상 오염 방지 | 차대차 교차로 사고에서 횡단보도나 보행자가 영상에 등장하더라도 조건부 신호 안내가 보행자 사고처럼 변하지 않도록 테스트를 추가했다. 보행자는 사고 환경일 수 있지만, `collision_partner_type=vehicle`이면 사고 당사자 근거로 승격하지 않는다. |
+| 검증 | Gateway `report-composer.test.ts`에 구조화 사실 기반 조건부 신호 분기 및 보완 질문 재정렬 테스트를 추가했고, 총 33개 테스트가 통과했다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류를 변경하지 않는다. 실제 영상 분석 모델의 관찰값 품질은 Worker/Agent 영상 P단계에서 계속 다루며, 이번 P1은 신호가 불명확한 차대차 교차로 사고의 결과 표시와 질문 흐름을 범용적으로 보강한 작업이다.
+
 ## 2026-05-26 P0: AI 사용량 안전 이벤트 계약 보강
 
 작업 시작 전 `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md`를 확인하고, 최신 `main` pull 및 최근 병합 이력을 점검한 뒤 `codex/p0-evidence-source-hardening` 브랜치에서 P0 작업을 진행했다.

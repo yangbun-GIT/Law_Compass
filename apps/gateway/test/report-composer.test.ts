@@ -1179,6 +1179,50 @@ describe("report composer", () => {
     expect(JSON.stringify(card)).not.toContain("opponent_signal_visible");
   });
 
+  it("derives signal-condition branches from structured facts and reprioritizes follow-up questions", () => {
+    const enriched = enrichEasyReport(
+      sanitizeEasyReport({
+        headline: "교차로 좌회전 차대차 사고",
+        missing_info: {
+          questions: [
+            { field: "damage_level", label: "차량 파손 정도", question: "차량 파손 정도는 어느 정도인가요?" },
+            { field: "opponent_signal", label: "상대 차량 신호", question: "상대 차량이 교차로에 진입할 때 신호는 무엇이었나요?" },
+          ],
+        },
+      }),
+      {
+        scenario_type: "intersection_signal_violation",
+        accident_summary: "블박차가 좌회전 중 황색 신호로 바뀌었고 좌측 직진 차량과 충돌했습니다.",
+        structured_facts: {
+          accident_party_type: "car_vs_car",
+          collision_partner_type: "vehicle",
+          intersection: true,
+          ego_turn_direction: "left",
+          user_signal: "yellow",
+          signal_transition: "yellow_to_red",
+          opponent_signal_visible: false,
+          pedestrian_visible: true,
+        },
+        fault_ratio: {
+          my: 60,
+          other: 40,
+        },
+      }
+    );
+
+    const card = (enriched as any).conditional_outcome_card;
+    expect(card.title).toBe("신호 확인에 따라 달라지는 판단");
+    expect(card.cases).toHaveLength(2);
+    expect(card.cases[0].likely_direction).toContain("내 차량의 책임 비율");
+    expect(card.cases[1].likely_direction).toContain("상대 차량의 책임 비율");
+    expect(card.needed_evidence).toContain("신호 주기표 또는 신호체계 자료");
+    expect(JSON.stringify(card)).not.toContain("보행자");
+
+    const fields = (enriched as any).missing_info.questions.map((item: any) => item.field);
+    expect(fields.indexOf("opponent_signal")).toBeLessThan(fields.indexOf("damage_level"));
+    expect((enriched as any).missing_info.next_focus.label).toBe("상대 차량 신호");
+  });
+
   it("prioritizes non-contact trigger questions before pedestrian context details", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
       video_input_contract: {
