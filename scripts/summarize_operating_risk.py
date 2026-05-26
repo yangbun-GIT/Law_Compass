@@ -34,6 +34,7 @@ def summarize_batch(batch: dict[str, Any]) -> dict[str, Any]:
     samples = nested_list(batch.get("samples"))
     usage_totals = Counter()
     provider_counts = Counter()
+    usage_event_counts = Counter()
     zero_observation_count = 0
     fallback_limited_count = 0
     for sample in samples:
@@ -44,6 +45,11 @@ def summarize_batch(batch: dict[str, Any]) -> dict[str, Any]:
             provider_counts.update([provider])
         frame_analysis = nested_dict(sample.get("frame_analysis") or sample.get("video_analysis"))
         usage = nested_dict(frame_analysis.get("usage") or sample.get("usage"))
+        usage_event = nested_dict(frame_analysis.get("ai_usage_event") or sample.get("ai_usage_event"))
+        if usage_event:
+            usage_event_counts.update([str(usage_event.get("version") or "unknown")])
+            if not usage:
+                usage = nested_dict(usage_event.get("usage"))
         for key in ("input_tokens", "output_tokens", "total_tokens"):
             usage_totals[key] += safe_int(usage.get(key))
         observations = nested_list(frame_analysis.get("observations") or sample.get("video_observations"))
@@ -54,6 +60,7 @@ def summarize_batch(batch: dict[str, Any]) -> dict[str, Any]:
     return {
         "sample_count": len(samples),
         "provider_counts": dict(sorted(provider_counts.items())),
+        "usage_event_counts": dict(sorted(usage_event_counts.items())),
         "token_usage_totals": {key: value for key, value in usage_totals.items() if value},
         "zero_observation_sample_count": zero_observation_count,
         "visual_evidence_limited_count": fallback_limited_count,

@@ -31,6 +31,10 @@ def test_llm_policy_allows_traffic_law_with_legal_evidence(monkeypatch):
     assert usage["allowed"] is True
     assert usage["mode"] == "evidence_bound_interpretation"
     assert "applicable_rules" in usage["deterministic_authority"]
+    assert usage["ai_usage_event"]["version"] == "ai-usage-event-v1"
+    assert usage["ai_usage_event"]["provider"] == "openai"
+    assert usage["ai_usage_event"]["endpoint"] == "chat.completions"
+    assert usage["ai_usage_event"]["section"] == "traffic_law_analysis"
 
 
 def test_analyst_result_records_deterministic_fallback_when_llm_blocked(monkeypatch):
@@ -73,6 +77,8 @@ def test_case_llm_policy_summary_counts_used_and_blocked_sections(monkeypatch):
     assert summary["provider_enabled"] is False
     assert "traffic_law_analysis" in summary["blocked_sections"]
     assert "fault_ratio_analysis" in summary["blocked_sections"]
+    assert summary["cost_metadata"]["usage_event_version"] == "ai-usage-event-v1"
+    assert summary["sections"]["traffic_law_analysis"]["ai_usage_event"]["enabled"] is False
 
 
 def test_allowed_llm_failure_is_recorded_as_observable_fallback(monkeypatch):
@@ -95,6 +101,8 @@ def test_allowed_llm_failure_is_recorded_as_observable_fallback(monkeypatch):
     assert legal["llm_usage"]["allowed"] is True
     assert legal["llm_usage"]["used"] is False
     assert legal["llm_usage"]["reason"] == "llm_output_unavailable"
+    assert legal["llm_usage"]["ai_usage_event"]["allowed"] is True
+    assert legal["llm_usage"]["ai_usage_event"]["success"] is False
     assert legal["llm_usage"]["failure_observation"]["recoverable"] is True
     assert "traffic_law_analysis" in summary["failed_sections"]
     assert summary["cost_metadata"]["failed_section_count"] == 1

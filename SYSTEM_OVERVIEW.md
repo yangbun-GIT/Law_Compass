@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-26 P0: AI 사용량 안전 이벤트 계약 보강
+
+작업 시작 전 `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md`를 확인하고, 최신 `main` pull 및 최근 병합 이력을 점검한 뒤 `codex/p0-evidence-source-hardening` 브랜치에서 P0 작업을 진행했다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Worker OpenAI 프레임 분석 | `apps/worker/worker/frame_analysis.py` 결과에 `ai_usage_event`를 추가했다. 이벤트는 `provider`, `endpoint`, `model`, `enabled`, `success`, `frame_count`, `selected_frame_count`, `max_output_tokens`, `retry_count`, `usage` 숫자만 담고 API key, raw prompt, raw user text는 포함하지 않는다. |
+| Agent LLM 정책 | `apps/agent/app/services/llm_policy.py`가 analyst 섹션별 `ai_usage_event`를 생성하고 `summarize_case_llm_policy`의 section summary와 `cost_metadata.usage_event_version`에 반영한다. 현재 Agent chat completion token 수는 아직 수집하지 않고 안전 호출 메타데이터만 남긴다. |
+| 운영 리스크 요약 | `scripts/summarize_operating_risk.py`가 batch 결과의 `ai_usage_event`를 읽어 event version count와 token usage totals를 함께 집계한다. |
+| 검증 | Worker frame analysis contract 테스트와 Agent LLM policy 테스트에서 `ai_usage_event`가 생성되고 secret/prompt 없이 안전 필드만 남는지 확인한다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류를 변경하지 않는다. PostgreSQL `ai_usage_events` 영속 테이블과 관리자 사용량 대시보드는 후속 Phase B 작업이다.
+
 ## 2026-05-25 영상 P4~P8: 근거 품질, 운영 리스크, 최종 검증 보강
 
 P4~P8은 영상 처리 자체의 세부 튜닝보다 “분석 결과를 제품 수준으로 검증·운영할 수 있는 구조”를 닫는 작업으로 진행했다. 특정 사고 영상에 맞춘 출력 보정은 하지 않았고, 원문 근거 커버리지, static fallback 의존, 사용자 표시 문구, OpenAI 사용량 메타데이터, 최종 검증 재현성을 보강했다.

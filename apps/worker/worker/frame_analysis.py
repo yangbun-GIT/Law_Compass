@@ -14,6 +14,7 @@ def _int_env(name: str, default: int) -> int:
 
 
 FRAME_ANALYSIS_CONTRACT_VERSION = "openai-frame-analysis-v1"
+AI_USAGE_EVENT_VERSION = "ai-usage-event-v1"
 FRAME_SELECTION_STRATEGY = "full-sequence-event-spread-plus-impact-context"
 ENABLE_OPENAI_FRAME_ANALYSIS = os.getenv("ENABLE_OPENAI_FRAME_ANALYSIS", "0") == "1"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -33,20 +34,34 @@ FRAME_ANALYSIS_FIXTURE_MODE = os.getenv("FRAME_ANALYSIS_FIXTURE_MODE", "").strip
 
 def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dict[str, Any]) -> dict[str, Any]:
     if not ENABLE_OPENAI_FRAME_ANALYSIS:
-        return {
+        return _with_openai_usage_event({
             "version": FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": False,
             "reason": "ENABLE_OPENAI_FRAME_ANALYSIS is not 1",
             **_frame_selection_metadata(frame_details, []),
-        }
+        }, enabled=False, success=False, frame_details=frame_details, selected_frames=[], fallback_reason="disabled")
     selected_frames = _select_openai_frames(frame_details, OPENAI_FRAME_ANALYSIS_MAX_FRAMES)
     selection_metadata = _frame_selection_metadata(frame_details, selected_frames)
     if not selected_frames:
-        return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "no frames extracted", **selection_metadata}
+        return _with_openai_usage_event(
+            {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "no frames extracted", **selection_metadata},
+            enabled=False,
+            success=False,
+            frame_details=frame_details,
+            selected_frames=[],
+            fallback_reason="no_frames_extracted",
+        )
     if FRAME_ANALYSIS_FIXTURE_MODE:
         return _fixture_frame_analysis(selected_frames, context, FRAME_ANALYSIS_FIXTURE_MODE, selection_metadata)
     if not OPENAI_API_KEY:
-        return {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "OPENAI_API_KEY is empty", **selection_metadata}
+        return _with_openai_usage_event(
+            {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "OPENAI_API_KEY is empty", **selection_metadata},
+            enabled=False,
+            success=False,
+            frame_details=frame_details,
+            selected_frames=selected_frames,
+            fallback_reason="api_key_missing",
+        )
     payload = _openai_frame_analysis_payload(selected_frames, context)
     attempts: list[dict[str, Any]] = []
     error_retry_used = False
@@ -106,10 +121,22 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "uncertainties": parsed.get("uncertainties") or _empty_output_uncertainty(data, observations),
             "created_at": _now_iso(),
         }
+        result = _with_openai_usage_event(
+            result,
+            enabled=True,
+            success=True,
+            frame_details=frame_details,
+            selected_frames=selected_frames,
+            usage=result.get("usage"),
+            response_status=result.get("response_status"),
+            fallback_reason="zero_observation_retry" if retry_used else "",
+            retry_count=len(attempts) - 1,
+        )
         print(json.dumps({
             "event": "openai_frame_analysis",
             "model": result["model"],
             "frames": len(selected_frames),
+            "usage": result.get("usage") or {},
             "observations": observations,
             "summary": result["summary"],
         }, ensure_ascii=False))
@@ -129,7 +156,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                 attempts.append(retry_attempt["summary"])
                 if not observations:
                     observations = _fallback_limited_visual_observations(selected_frames, event_summary)
-                return {
+                result = {
                     "version": FRAME_ANALYSIS_CONTRACT_VERSION,
                     "enabled": True,
                     "provider": "openai",
@@ -154,10 +181,21 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                     "uncertainties": parsed.get("uncertainties") or _empty_output_uncertainty(data, observations),
                     "created_at": _now_iso(),
                 }
+                return _with_openai_usage_event(
+                    result,
+                    enabled=True,
+                    success=True,
+                    frame_details=frame_details,
+                    selected_frames=selected_frames,
+                    usage=result.get("usage"),
+                    response_status=result.get("response_status"),
+                    fallback_reason="error_retry",
+                    retry_count=len(attempts) - 1,
+                )
             except Exception as retry_exc:
                 error_retry_error = str(retry_exc)
                 attempts.append(_analysis_error_attempt_summary("error_retry", error_retry_error))
-        return {
+        result = {
             "version": FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": True,
             "provider": "openai",
@@ -174,6 +212,18 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "observation_quality_summary": _observation_quality_summary([]),
             "created_at": _now_iso(),
         }
+        return _with_openai_usage_event(
+            result,
+            enabled=True,
+            success=False,
+            frame_details=frame_details,
+            selected_frames=selected_frames,
+            usage=result.get("usage"),
+            response_status="error",
+            fallback_reason="openai_error",
+            retry_count=len(attempts) - 1,
+            error=primary_error,
+        )
 
 
 def _select_openai_frames(frame_details: list[dict[str, Any]], max_frames: int) -> list[dict[str, Any]]:
@@ -502,6 +552,71 @@ def _aggregate_attempt_usage(attempts: list[dict[str, Any]]) -> dict[str, Any]:
         for key in totals:
             totals[key] += _usage_int(usage.get(key))
     return {key: value for key, value in totals.items() if value > 0}
+
+
+def _with_openai_usage_event(
+    result: dict[str, Any],
+    *,
+    enabled: bool,
+    success: bool,
+    frame_details: list[dict[str, Any]],
+    selected_frames: list[dict[str, Any]],
+    usage: dict[str, Any] | None = None,
+    response_status: str | None = None,
+    fallback_reason: str = "",
+    retry_count: int = 0,
+    error: str = "",
+) -> dict[str, Any]:
+    updated = dict(result)
+    updated["ai_usage_event"] = _openai_usage_event(
+        enabled=enabled,
+        success=success,
+        frame_details=frame_details,
+        selected_frames=selected_frames,
+        usage=usage or {},
+        response_status=response_status,
+        fallback_reason=fallback_reason,
+        retry_count=retry_count,
+        error=error,
+    )
+    return updated
+
+
+def _openai_usage_event(
+    *,
+    enabled: bool,
+    success: bool,
+    frame_details: list[dict[str, Any]],
+    selected_frames: list[dict[str, Any]],
+    usage: dict[str, Any],
+    response_status: str | None,
+    fallback_reason: str,
+    retry_count: int,
+    error: str,
+) -> dict[str, Any]:
+    event: dict[str, Any] = {
+        "version": AI_USAGE_EVENT_VERSION,
+        "provider": "openai",
+        "endpoint": "responses",
+        "model": OPENAI_VISION_MODEL,
+        "enabled": bool(enabled),
+        "success": bool(success),
+        "frame_count": len(frame_details),
+        "selected_frame_count": len(selected_frames),
+        "max_output_tokens": OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS,
+        "retry_count": max(0, int(retry_count or 0)),
+        "created_at": _now_iso(),
+    }
+    if response_status:
+        event["response_status"] = str(response_status)
+    safe_usage = {key: _usage_int(usage.get(key)) for key in ("input_tokens", "output_tokens", "total_tokens") if _usage_int(usage.get(key))}
+    if safe_usage:
+        event["usage"] = safe_usage
+    if fallback_reason:
+        event["fallback_reason"] = fallback_reason
+    if error:
+        event["error_type"] = "openai_frame_analysis_error"
+    return event
 
 
 def _usage_int(value: Any) -> int:
