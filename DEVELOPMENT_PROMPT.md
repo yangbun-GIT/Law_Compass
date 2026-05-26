@@ -325,6 +325,20 @@
 </system_prompt>
 ```
 
+## GitHub 협업 workflow
+
+팀원이 동시에 개발하는 경우 폴더를 주고받지 않고 GitHub branch와 Pull Request를 기준으로 작업한다.
+
+1. `main` 브랜치는 항상 실행 가능한 기준 상태로 유지한다.
+2. 모든 개발은 `feature/*`, `fix/*`, `docs/*`, `test/*`, `chore/*` 같은 목적별 작업 브랜치에서 진행한다.
+3. 작업 시작 전 `git checkout main` 후 `git pull origin main`으로 최신 상태를 가져온다.
+4. 작업 범위가 겹칠 수 있는 파일은 팀원에게 먼저 공유한다.
+5. 작업 완료 후 검증 결과를 포함해 Pull Request를 만들고, 상대 리뷰 후 `main`에 병합한다.
+6. `.env`, API key, 사용자 비밀번호, 영상 원본, `storage/`, `logs/`, AI Hub 원본 데이터, YOLO 모델 가중치는 커밋하지 않는다.
+7. 자세한 협업 절차는 `docs/GITHUB_COLLABORATION_WORKFLOW.md`를 따른다.
+
+이 workflow가 변경되면 `docs/GITHUB_COLLABORATION_WORKFLOW.md`와 이 문서를 함께 업데이트한다.
+
 ## 작업 전 체크리스트
 
 - [ ] `DEVELOPMENT_PROMPT.md`를 읽었다.
