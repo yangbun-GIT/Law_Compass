@@ -12,6 +12,7 @@
 - 작업 완료 후 GitHub Pull Request(PR)를 만들고, 상대가 변경 내용을 확인한 뒤 `main`에 병합합니다.
 - 작업 시작 전에는 항상 최신 `main`을 가져옵니다.
 - 같은 파일을 동시에 크게 수정하지 않도록 작업 범위를 먼저 공유합니다.
+- `main` 병합 전에는 팀원에게 병합 예정임을 알리고, 병합 후에는 최신 `main`을 pull하라고 알립니다.
 
 ## 2. 브랜치 이름 규칙
 
@@ -204,7 +205,57 @@ PR 크기는 작게 유지합니다. 가능하면 한 PR은 하나의 목적만 
 - Frontend, Agent, Worker, DB, 문서를 한 번에 크게 수정
 - 리팩토링과 기능 추가와 버그 수정을 한 PR에 섞기
 
-## 9. PR 리뷰 기준
+## 9. main 병합 전/후 알림 규칙
+
+PR을 `main`에 병합하기 전에는 반드시 팀원에게 알립니다.
+
+병합 전 알림 예시:
+
+```text
+내 PR을 main에 병합하려고 해.
+수정 범위: apps/gateway/src/lib/report-composer.ts, EasyReportView.vue
+지금 같은 파일 작업 중이면 말해줘.
+```
+
+팀원이 같은 파일을 작업 중이면 바로 병합하지 말고 먼저 조율합니다. 특히 아래 파일은 충돌 가능성이 높습니다.
+
+- `apps/gateway/src/lib/report-composer.ts`
+- `apps/agent/app/services/scenario_classifier.py`
+- `apps/agent/app/services/fact_arbitration.py`
+- `apps/agent/app/services/analysts/fault_ratio_analyst.py`
+- `apps/worker/worker/frame_analysis.py`
+- `SYSTEM_OVERVIEW.md`
+- `DEVELOPMENT_PROMPT.md`
+
+병합 후에는 팀원에게 최신 `main`을 가져오라고 알립니다.
+
+병합 후 알림 예시:
+
+```text
+main 병합 완료.
+작업 시작 전 또는 진행 중인 브랜치에서 아래 순서로 최신 main 반영해줘.
+
+git checkout main
+git pull origin main
+git checkout feature/your-task
+git merge main
+```
+
+팀원이 아직 자기 브랜치를 만들지 않았다면 아래처럼 시작합니다.
+
+```powershell
+git checkout main
+git pull origin main
+git checkout -b feature/your-task
+```
+
+작업 완료 응답이나 인수인계 메시지에는 필요할 때 아래 한 줄을 포함합니다.
+
+```text
+main 병합 전에는 팀원에게 병합 예정임을 알리고, 병합 후에는 팀원에게 main pull 후 작업 브랜치에 반영하라고 안내하세요.
+```
+
+## 10. PR 리뷰 기준
 
 리뷰할 때는 아래를 우선 확인합니다.
 
@@ -217,7 +268,7 @@ PR 크기는 작게 유지합니다. 가능하면 한 PR은 하나의 목적만 
 
 문제가 있으면 GitHub PR에 코멘트를 남기고, 수정 후 다시 확인합니다.
 
-## 10. 병합 후 절차
+## 11. 병합 후 절차
 
 PR이 `main`에 병합되면 각자 로컬을 최신화합니다.
 
@@ -235,7 +286,7 @@ git push origin --delete feature/my-task
 
 삭제는 선택입니다. 아직 이어서 작업할 브랜치라면 유지합니다.
 
-## 11. 충돌이 났을 때
+## 12. 충돌이 났을 때
 
 충돌이 나면 아래 순서로 처리합니다.
 
@@ -251,7 +302,7 @@ git push origin --delete feature/my-task
 - 상대 작업을 이해하지 못한 상태에서 한쪽 변경을 통째로 버리지 않습니다.
 - 충돌 파일이 `SYSTEM_OVERVIEW.md`나 `DEVELOPMENT_PROMPT.md`라면 문서 순서와 최신 내용을 함께 정리합니다.
 
-## 12. 문서 업데이트 기준
+## 13. 문서 업데이트 기준
 
 아래가 바뀌면 `SYSTEM_OVERVIEW.md`를 함께 수정합니다.
 

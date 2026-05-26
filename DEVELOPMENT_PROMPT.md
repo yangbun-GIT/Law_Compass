@@ -336,6 +336,8 @@
 5. 작업 완료 후 검증 결과를 포함해 Pull Request를 만들고, 상대 리뷰 후 `main`에 병합한다.
 6. `.env`, API key, 사용자 비밀번호, 영상 원본, `storage/`, `logs/`, AI Hub 원본 데이터, YOLO 모델 가중치는 커밋하지 않는다.
 7. 자세한 협업 절차는 `docs/GITHUB_COLLABORATION_WORKFLOW.md`를 따른다.
+8. `main` 병합 전에는 팀원에게 병합 예정임을 알리고, 병합 후에는 `main` pull 및 진행 중인 작업 브랜치에 최신 `main`을 반영하라고 안내한다.
+9. 작업 완료 응답에는 필요한 경우 “병합 전 팀원 알림”과 “병합 후 팀원 pull 안내”를 짧게 포함한다.
 
 이 workflow가 변경되면 `docs/GITHUB_COLLABORATION_WORKFLOW.md`와 이 문서를 함께 업데이트한다.
 
