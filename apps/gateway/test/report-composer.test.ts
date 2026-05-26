@@ -578,6 +578,10 @@ describe("report composer", () => {
           uncertain_count: 0,
           ignored_count: 0,
           uncertain_reasons: {},
+          recovery_actions: [
+            { label: "프레임 분석 재시도", reason: "영상 분석은 실행됐지만 판단에 바로 반영할 물리 사실이 부족했습니다." },
+            { label: "YOLO 보조 관찰 활성화", reason: "차량·사람·신호등 위치 후보를 별도 모델로 보강할 수 있습니다." },
+          ],
         },
       },
     });
@@ -591,6 +595,8 @@ describe("report composer", () => {
     expect(card.applied_items).toEqual([]);
     expect(card.review_items).toEqual([]);
     expect(card.uncertain_items).toEqual([]);
+    expect(card.quality_summary.recovery_actions).toHaveLength(2);
+    expect(card.quality_summary.notes).toContain("프레임은 충분하지만 판단 반영값이 부족해 재시도 또는 보조 분석이 필요합니다.");
   });
 
   it("surfaces accident event candidate even when no frame observation passes fact gates", () => {

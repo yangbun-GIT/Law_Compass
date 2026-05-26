@@ -57,6 +57,16 @@
           {{ text(reason.label) }} {{ reason.count }}개
         </span>
       </div>
+      <div v-if="card.quality_summary.recovery_actions?.length" class="recovery-list">
+        <div
+          v-for="action in card.quality_summary.recovery_actions"
+          :key="action.label"
+          class="recovery-item"
+        >
+          <span class="item-label">{{ text(action.label) }}</span>
+          <p>{{ text(action.reason) }}</p>
+        </div>
+      </div>
     </section>
 
     <section v-if="card.applied_items?.length" class="video-fact-section">
@@ -263,6 +273,24 @@ function text(value: unknown) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.recovery-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.recovery-item {
+  background: rgba(255, 221, 119, 0.08);
+  border: 1px solid rgba(255, 221, 119, 0.22);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.recovery-item p {
+  color: #d7dfeb;
+  margin: 8px 0 0;
 }
 
 .compact {

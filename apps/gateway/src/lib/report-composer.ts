@@ -743,6 +743,13 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
     }))
     .filter((item) => item.label && item.count > 0)
     .slice(0, 5);
+  const recoveryActions = asArray(summary.recovery_actions)
+    .map((item: AnyRecord) => ({
+      label: cleanText(item?.label, ""),
+      reason: cleanText(item?.reason, ""),
+    }))
+    .filter((item) => item.label)
+    .slice(0, 4);
   const notes = [
     !acceptedCount && !uncertainCount && !ignoredCount && !supportingCount && representativeFrameCount
       ? `대표 프레임 ${representativeFrameCount}장을 확인했지만 확정 가능한 사고 사실 관찰값은 만들지 않았습니다.`
@@ -762,6 +769,9 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
     supportingCount
       ? `충돌 방향 등 참고 관찰값 ${supportingCount}개는 사용자 확인이나 다른 사실과 함께만 해석합니다.`
       : "",
+    recoveryActions.length
+      ? "프레임은 충분하지만 판단 반영값이 부족해 재시도 또는 보조 분석이 필요합니다."
+      : "",
   ].filter(Boolean);
   return {
     status_label: videoObservationQualityStatus(acceptedCount, uncertainCount, ignoredCount, representativeFrameCount),
@@ -774,6 +784,7 @@ function videoObservationQualitySummary(contract: AnyRecord = {}, representative
     multi_frame_count: multiFrameCount,
     hold_items: reasonEntries,
     notes,
+    recovery_actions: recoveryActions,
   };
 }
 

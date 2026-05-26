@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-26 P2: 프레임 충분·관찰값 부족 fallback 표시 보강
+
+P2는 “대표 프레임은 충분히 추출됐지만 분석 관찰값이 0개이거나 판단 반영값이 없는 상태”를 실패처럼 방치하지 않고, 안전한 fallback 상태와 다음 조치를 명확히 남기는 작업이다. 특정 사고 영상에 맞춘 보정이 아니라, 영상 입력 전반에서 재시도/보조 분석/사용자 보완 입력 흐름이 끊기지 않도록 Agent-Gateway-Frontend 계약을 보강했다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Agent 영상 입력 계약 | `apps/agent/app/services/video_input_contract.py`가 대표 프레임 6장 이상이고 OpenAI/YOLO 분석이 실행됐지만 관찰값이 0개인 payload를 `visual_evidence_limited` 참고 관찰로 복구한다. 분석이 실행되지 않은 프레임-rich payload는 사실 후보를 만들지 않고 `analysis_recovery` 액션만 남긴다. |
+| 복구 액션 | `analysis_recovery`와 `observation_quality_summary.recovery_actions`에 OpenAI 프레임 분석 활성화, 프레임 분석 재시도, YOLO 보조 관찰 활성화, 사고 시점/충돌 대상 확인 같은 다음 조치를 안전 문구로 기록한다. API key, raw prompt, frame path 원문은 노출하지 않는다. |
+| Gateway 표시 계약 | `apps/gateway/src/lib/report-composer.ts`가 recovery action을 easy-report의 `video_fact_explanation_card.quality_summary.recovery_actions`로 전달하고, “프레임은 충분하지만 판단 반영값이 부족해 재시도 또는 보조 분석이 필요하다”는 상태 note를 추가한다. |
+| Frontend 표시 | `apps/frontend/src/components/easy/VideoFactExplanationCard.vue`가 recovery action을 영상 사실 카드 안에서 표시한다. 사용자는 0개 상태가 단순 실패인지, 재시도/YOLO/사용자 보완이 필요한 상태인지 구분할 수 있다. |
+| 검증 | Agent `test_video_input_contract.py` 23개, Gateway `report-composer.test.ts` 33개, Gateway build, Frontend build를 통과했다. Agent 테스트는 로컬 구조상 `PYTHONPATH=apps/agent`를 지정해 실행한다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. Worker의 기존 OpenAI zero-observation retry와 `visual_evidence_limited` fallback을 대체하지 않고, Agent 입력 계약에서 한 번 더 방어하는 보강이다.
+
 ## 2026-05-26 P1: 신호 불명확 교차로 사고 안내 흐름 보강
 
 작업 시작 전 `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md`를 확인하고, 최신 `main` pull 및 reference video 폴더 상태를 점검한 뒤 `codex/p1-signal-guidance-flow` 브랜치에서 P1 작업을 진행했다.

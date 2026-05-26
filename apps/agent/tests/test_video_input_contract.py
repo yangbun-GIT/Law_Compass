@@ -145,6 +145,55 @@ def test_limited_visual_evidence_is_supporting_only():
     assert contract["confirmation_candidates"] == []
 
 
+def test_frame_rich_zero_observation_analysis_gets_limited_visual_fallback():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "representative_frames": [f"/frames/frame_{index:03d}.jpg" for index in range(1, 9)],
+                "openai_frame_analysis": {
+                    "enabled": True,
+                    "observations": [],
+                    "accident_event_summary": {
+                        "impact_visible": True,
+                        "event_frame_refs": ["frame_004.jpg", "frame_005.jpg"],
+                    },
+                },
+                "yolo_frame_analysis": {
+                    "enabled": False,
+                },
+            }
+        }
+    )
+
+    assert contract["fact_patch"] == {}
+    assert contract["accepted_observations"] == []
+    assert contract["supporting_observations"][0]["field"] == "visual_evidence_limited"
+    assert contract["supporting_observations"][0]["frame_refs"] == ["frame_004.jpg", "frame_005.jpg"]
+    assert contract["analysis_recovery"]["status"] == "frame_rich_no_actionable_observation"
+    labels = [item["label"] for item in contract["analysis_recovery"]["actions"]]
+    assert "프레임 분석 재시도" in labels
+    assert "YOLO 보조 관찰 활성화" in labels
+    assert contract["observation_quality_summary"]["recovery_status"] == "frame_rich_no_actionable_observation"
+    assert contract["observation_quality_summary"]["recovery_actions"]
+
+
+def test_frame_rich_video_without_analysis_gets_recovery_actions_without_fallback_fact():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "representative_frames": [f"/frames/frame_{index:03d}.jpg" for index in range(1, 7)],
+            }
+        }
+    )
+
+    assert contract["fact_patch"] == {}
+    assert contract["supporting_observations"] == []
+    assert contract["analysis_recovery"]["status"] == "frame_rich_no_actionable_observation"
+    labels = [item["label"] for item in contract["analysis_recovery"]["actions"]]
+    assert "OpenAI 프레임 분석 활성화" in labels
+    assert "YOLO 보조 관찰 활성화" in labels
+
+
 def test_signal_violation_uses_stricter_field_threshold():
     contract = normalize_video_input_contract(
         {
