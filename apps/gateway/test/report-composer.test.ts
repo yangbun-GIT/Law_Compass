@@ -2,6 +2,29 @@ import { describe, expect, it } from "vitest";
 import { composeEasyFallback, composeReanalysisChangeCard, enrichEasyReport, sanitizeEasyReport } from "../src/lib/report-composer.js";
 
 describe("report composer", () => {
+  it("filters long legal sections from quick summary mode", () => {
+    const enriched: any = enrichEasyReport(
+      sanitizeEasyReport({
+        headline: "정차 중 뒤차 추돌 사고로 보입니다.",
+        legal_explanation: { title: "법률상 확인할 점", simple_summary: "긴 법률 설명" },
+        legal_basis_cards: [{ law_name: "도로교통법", easy_title: "긴 근거" }],
+      }),
+      {
+        analysis_mode_contract: { mode: "quick_summary" },
+        expert_guidance_sections: {
+          legal_prediction: { summary: "장문 법률 설명", basis: [] },
+          insurance_prediction: {},
+          missing_facts: { items: [] },
+        },
+      }
+    );
+
+    expect(enriched.legal_explanation).toBeUndefined();
+    expect(enriched.legal_basis_cards).toEqual([]);
+    expect(enriched.expert_guidance_card).toBeUndefined();
+    expect(enriched.detail_sections.notice).toContain("빠른 요약");
+  });
+
   it("adds a user-safe evidence reliability card without raw claim internals", () => {
     const report = sanitizeEasyReport({ headline: "테스트 리포트" });
     const enriched = enrichEasyReport(report, {

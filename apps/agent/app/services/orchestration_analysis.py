@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.services.accident_perspective import map_fault_ratio_to_user
+from app.services.knia.knia_adjustment_agent import apply_knia_adjustment_agent
 from app.services.knia.knia_matcher import is_knia_match_compatible_with_scenario
 from app.services.analysts.action_plan_analyst import analyze_action_plan
 from app.services.analysts.criminal_liability_analyst import analyze_criminal_liability
@@ -60,6 +61,13 @@ def run_analysis_stage(context: CaseContext, evidence_bundle: EvidenceBundle) ->
         knia_fault_estimate=evidence_bundle.knia_fault_estimate,
         scenario=scenario,
         normalized=normalized,
+    )
+    apply_knia_adjustment_agent(
+        fault_ratio=fault_ratio,
+        knia_fault_estimate=evidence_bundle.knia_fault_estimate,
+        scenario_type=scenario["scenario_type"],
+        description_text=normalized["description_text"],
+        structured_facts=normalized["structured_facts"],
     )
     legal_liability = analyze_criminal_liability(
         scenario_type=scenario["scenario_type"],

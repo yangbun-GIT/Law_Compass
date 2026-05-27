@@ -28,6 +28,16 @@ export type AccidentFacts = {
   pedestrian?: boolean;
   stopped?: boolean;
   sudden_brake?: boolean;
+  stop_reason?: string;
+  sudden_brake_reason?: string;
+  lawful_stop_reason?: string;
+  brake_light?: string | boolean;
+  brake_light_status?: string;
+  brake_light_failure?: boolean;
+  abnormal_stop?: boolean;
+  illegal_parking?: boolean;
+  abnormal_stop_position?: boolean;
+  stopped_after_prior_accident?: boolean;
   weather?: string;
   light_condition?: string;
   opponent_behavior?: string;
@@ -201,8 +211,8 @@ export const api = {
     form.append("file", file);
     return request<{ upload_id: string; status: string; trace_id: string }>("/api/v1/uploads/local", { method: "POST", body: form, headers: idempo() });
   },
-  completeUpload: (upload_id: string) =>
-    request<{ upload_id: string; job_id: string; status: string; trace_id: string }>("/api/v1/uploads/complete", { method: "POST", body: JSON.stringify({ upload_id }), headers: idempo() }),
+  completeUpload: (upload_id: string, options: { autoAnalyzeAfterPreprocess?: boolean } = {}) =>
+    request<{ upload_id: string; job_id: string; status: string; trace_id: string }>("/api/v1/uploads/complete", { method: "POST", body: JSON.stringify({ upload_id, auto_analyze_after_preprocess: options.autoAnalyzeAfterPreprocess !== false }), headers: idempo() }),
   getUpload: (uploadId: string) => request<{ upload: UploadItem; trace_id: string }>(`/api/v1/uploads/${uploadId}`),
   getCaseUploads: (caseId: string) => request<{ items: UploadItem[]; trace_id: string }>(`/api/v1/cases/${caseId}/uploads`),
   getViewUrl: (uploadId: string) => request<{ view_url: string; expires_in_sec: number }>(`/api/v1/uploads/${uploadId}/view-url`),
@@ -216,6 +226,7 @@ export const api = {
     request<any>(`/api/v1/cases/${caseId}/analyze-video`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
 
   getJobs: (caseId: string) => request<{ items: any[]; trace_id: string }>(`/api/v1/cases/${caseId}/jobs`),
+  getAnalysisProgress: (caseId: string) => request<any>(`/api/v1/cases/${caseId}/analysis-progress`),
   getResult: (caseId: string) => request<{ result: any; report: any; trace_id: string }>(`/api/v1/cases/${caseId}/result`),
   getReport: (caseId: string) => request<{ report: any; trace_id: string }>(`/api/v1/cases/${caseId}/report`),
   getEasyReport: (caseId: string) => request<any>(`/api/v1/cases/${caseId}/easy-report`),

@@ -21,11 +21,10 @@
       <label>분석 모드
         <select :value="analysisMode" @change="updateAnalysisMode">
           <option value="quick_summary">빠른 요약</option>
-          <option value="fault-focused">과실비율 중심</option>
-          <option value="legal-focused">법률/판례 근거 중심</option>
-          <option value="criminal-liability-focused">형사 리스크 중심</option>
-          <option value="insurance-focused">보험/대응 중심</option>
-          <option value="evidence-review">증거 보강 중심</option>
+          <option value="fault_ratio_focused">과실비율 중심</option>
+          <option value="legal_precedent_focused">법률/판례 근거 중심</option>
+          <option value="insurance_response_focused">보험 대응 중심</option>
+          <option value="full_deep_research">전체 심층 리서치 분석</option>
         </select>
       </label>
       <label>사고 대분류

@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from app.services.analysis_modes import normalize_analysis_mode
 from app.services.fact_arbitration import arbitrate_facts
 from app.services.security_filter import sanitize_input
 from app.services.video_input_contract import normalize_video_input_contract
@@ -249,6 +250,7 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "분석용 영상 입력 계약: " + json.dumps(video_contract_for_text, ensure_ascii=False, separators=(",", ":")),
         "분석용 사실 중재 계약: " + json.dumps(arbitration_for_text, ensure_ascii=False, separators=(",", ":")),
     ])
+    canonical_analysis_mode = normalize_analysis_mode(analysis_mode)
     return {
         "description_text": clean_text,
         "user_visible_summary_text": user_visible_summary_text,
@@ -258,7 +260,7 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "video_metadata": video_metadata or {},
         "video_input_contract": video_contract,
         "fact_arbitration": fact_arbitration,
-        "analysis_mode": analysis_mode or "quick_summary",
+        "analysis_mode": canonical_analysis_mode,
         "security_flags": security_flags,
         "missing_fields": missing_fields,
         "merged_text": merged_text,

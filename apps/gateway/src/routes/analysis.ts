@@ -35,9 +35,63 @@ function easyReportQuestionCount(report: any) {
 }
 
 type AnyRecord = Record<string, any>;
+const GUIDED_PROGRESS_VERSION = "gateway-guided-progress-v1";
+
+const USER_STAGE_MESSAGES: Record<string, string> = {
+  draft: "사고 설명을 정리하고 있습니다.",
+  ready: "사고유형을 확인할 준비가 되었습니다.",
+  analyzing: "비슷한 KNIA 기준과 과실비율을 확인하고 있습니다.",
+  completed: "분석 결과를 정리했습니다.",
+  failed: "분석 실패. 다시 시도해 주세요.",
+  queued: "대기 중입니다.",
+  running: "분석 중입니다.",
+  retrying: "잠시 후 다시 확인하고 있습니다.",
+  succeeded: "완료되었습니다.",
+  ready_for_analysis: "분석 준비가 끝났습니다.",
+  uploaded: "영상을 확인하고 있습니다.",
+  processing: "사고 장면을 찾고 있습니다.",
+};
 
 function isNonEmptyRecord(value: any): value is AnyRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length > 0;
+}
+
+export function publicStatusLabel(status?: string) {
+  return USER_STAGE_MESSAGES[String(status || "")] || "상태를 확인하고 있습니다.";
+}
+
+export function publicJobTypeLabel(type?: string) {
+  const labels: Record<string, string> = {
+    video_preprocess: "영상 확인 중",
+    video_analyze: "사고 장면 분석 중",
+  };
+  return labels[String(type || "")] || "분석 준비 중";
+}
+
+export function composeGuidedProgressPayload(caseRow: AnyRecord | null | undefined, jobs: AnyRecord[] = []) {
+  const safeJobs = jobs.slice(0, 5).map((job) => ({
+    label: publicJobTypeLabel(job.type),
+    status_label: publicStatusLabel(job.status),
+    is_active: ["queued", "running", "retrying", "processing", "analyzing"].includes(String(job.status || "")),
+  }));
+  const activeJob = safeJobs.find((job) => job.is_active);
+  const status = String(caseRow?.status || "");
+  const stage = activeJob?.label || publicStatusLabel(status);
+  const steps = [
+    { stage: "organizing_input", message: "사고 설명을 정리하고 있습니다." },
+    { stage: "classifying_accident", message: "어떤 사고유형에 가까운지 확인하고 있습니다." },
+    { stage: "matching_knia", message: "비슷한 KNIA 과실비율 기준을 찾고 있습니다." },
+    { stage: "checking_adjustments", message: "급정거, 제동등, 정차 위치 같은 가감요소를 확인하고 있습니다." },
+    { stage: "composing_result", message: "보험 대응 방법과 결과 화면을 정리하고 있습니다." },
+  ];
+  return {
+    version: GUIDED_PROGRESS_VERSION,
+    current_stage: stage,
+    current_message: activeJob?.status_label || publicStatusLabel(status),
+    steps,
+    jobs: safeJobs,
+    hide_internal_terms: true,
+  };
 }
 
 export function buildReanalysisVideoMetadata(uploadRow: AnyRecord | null | undefined, bodyVideoMetadata?: AnyRecord | null) {
@@ -215,6 +269,23 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
       [caseId, (req as any).user.id]
     );
     return { items: rows.rows, trace_id: traceId };
+  });
+
+  app.get(`${opts.apiPrefix}/cases/:caseId/analysis-progress`, async (req, reply) => {
+    if (!requireUser(req as any, reply)) return;
+    const traceId = trace(req);
+    const { caseId } = req.params as any;
+    const caseRow = await opts.db.query(
+      `SELECT id,status FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`,
+      [caseId, (req as any).user.id]
+    );
+    if (!caseRow.rowCount) return reply.code(404).send(opts.errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
+    const jobs = await opts.db.query(
+      `SELECT type,status,created_at,updated_at
+       FROM jobs WHERE case_id=$1 AND owner_user_id=$2 ORDER BY created_at DESC LIMIT 5`,
+      [caseId, (req as any).user.id]
+    );
+    return { ...composeGuidedProgressPayload(caseRow.rows[0], jobs.rows), trace_id: traceId };
   });
 
   app.get(`${opts.apiPrefix}/cases/:caseId/result`, async (req, reply) => {

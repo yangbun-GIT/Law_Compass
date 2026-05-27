@@ -79,6 +79,7 @@ def compose_analysis_output(
         "disclaimers": ["본 결과는 법률/보험 자문이 아닌 AI 기반 참고 정보입니다.", "최종 과실비율, 보상금액, 형사책임은 수사기관, 보험사, 법원의 판단에 따릅니다.", "개인정보와 원본 영상은 필요한 범위에서만 보관하고, 민감정보 입력은 최소화해 주세요."],
         "followup_questions": evidence_audit.get("followup_questions", []),
         "input_requirements": input_requirements,
+        "guided_questionnaire": input_requirements.get("guided_questionnaire") or {},
         "followup_loop": followup_loop,
         "video_input_contract": normalized_input.get("video_input_contract") or {},
         "fact_arbitration": normalized_input.get("fact_arbitration") or {},
@@ -89,6 +90,7 @@ def compose_analysis_output(
         "model_info": {
             "orchestrator": "legal-rag-multi-analyst-v2-party-type",
             "ai_profile": ai_profile,
+            "analysis_mode": normalized_input.get("analysis_mode") or "quick_summary",
             "llm_enabled": llm_enabled,
             "rag_top_k": len(evidence),
             "evidence_cache_key": evidence[0].get("cache_key") if evidence else None,

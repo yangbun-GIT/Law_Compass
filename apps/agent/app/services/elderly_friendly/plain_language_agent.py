@@ -56,7 +56,7 @@ class PlainLanguageAgent:
         if scenario == "school_zone_child_accident" or facts.get("school_zone"):
             return "어린이보호구역 사고로 보이며, 신고와 형사 문제를 꼭 확인해 보셔야 합니다."
         if scenario == "rear_end_collision":
-            return "이번 사고는 정차 중 뒤차가 들이받은 사고로 보이며, 상대 차량 책임이 더 클 가능성이 높습니다."
+            return "정차 중 뒤차 추돌 사고로 보입니다."
         if scenario == "intersection_signal_violation":
             if facts.get("opponent_signal_visible") is False:
                 return "교차로 차대차 사고로 보이며, 상대 차량 신호가 영상에 보이지 않아 신호체계나 CCTV 확인이 필요합니다."
@@ -108,7 +108,7 @@ class PlainLanguageAgent:
         if scenario == "rear_end_collision":
             easy = "정차 중 뒤에서 추돌당한 사고라면 일반적으로 뒤차의 책임이 더 크게 볼 수 있습니다."
             why = ["내 차량이 정차 중이었다는 점", "상대 차량이 뒤에서 추돌했다는 점", "뒤차는 앞차와 안전거리를 유지해야 한다는 점"]
-            caution = "단, 급정거 여부나 사고 당시 도로 상황에 따라 달라질 수 있습니다."
+            caution = "단, 이유 없는 급정거, 브레이크등 고장, 비정상 정차가 확인되면 내 과실이 일부 올라갈 수 있습니다."
         elif scenario == "lane_change_collision":
             easy = "차선을 바꾸는 차량은 주변 차량을 살피고 안전하게 들어와야 합니다."
             why = ["상대 차량의 차선 변경 여부", "방향지시등 사용 여부", "충돌 부위와 당시 속도"]
@@ -177,7 +177,7 @@ def _cautious_headline_for_known_scenario(scenario: str | None, facts: dict[str,
     if scenario == "rear_end_collision":
         if facts.get("front_vehicle_stopped") or facts.get("ego_turn_direction") == "right":
             return "우회전 또는 횡단보도 주변에서 앞차 정차와 후방 추돌이 결합된 차대차 사고로 보이며, 정차 사유와 안전거리 쟁점을 확인해야 합니다."
-        return "후방 추돌 사고로 보이며, 정차 여부와 급정거 사유를 더 확인해 과실 범위를 좁혀야 합니다."
+        return "후방 추돌 사고로 보입니다. 정차 사유와 급정거 여부를 확인해야 합니다."
     if scenario == "intersection_signal_violation":
         if facts.get("opponent_signal_visible") is False:
             return "교차로 차대차 사고로 보이며, 상대 차량 신호가 영상에 보이지 않아 CCTV나 신호체계 확인이 필요합니다."

@@ -31,7 +31,7 @@
       <p class="soft-warning">{{ text(safeReport.conditional_outcome_card.notice) }}</p>
     </article>
     <ElderlyActionCard v-if="actionItems.length" :actions="actionItems" />
-    <article class="card easy-card">
+    <article v-if="!isQuickSummary" class="card easy-card">
       <h2>{{ text(safeReport.insurance_explanation?.title || "보험 처리 안내") }}</h2>
       <p class="big-text">{{ text(safeReport.insurance_explanation?.simple_summary) }}</p>
       <h3>진행 순서</h3>
@@ -39,7 +39,7 @@
       <h3>챙겨두면 좋은 서류</h3>
       <div class="chips"><span class="chip" v-for="doc in safeReport.insurance_explanation?.documents || []" :key="doc">{{ text(doc) }}</span></div>
     </article>
-    <article class="card easy-card">
+    <article v-if="!isQuickSummary" class="card easy-card">
       <h2>{{ text(safeReport.legal_explanation?.title || "법률상 확인할 점") }}</h2>
       <p class="big-text">{{ text(safeReport.legal_explanation?.simple_summary) }}</p>
       <div class="chips"><span class="chip selected">위험도 {{ text(safeReport.legal_explanation?.risk_label || "확인 필요") }}</span></div>
@@ -49,8 +49,8 @@
     <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
     <ExpertGuidanceCard v-if="safeReport.expert_guidance_card" :card="safeReport.expert_guidance_card" />
     <VideoFactExplanationCard v-if="safeReport.video_fact_explanation_card" :card="safeReport.video_fact_explanation_card" />
-    <EvidenceReliabilityCard v-if="safeReport.evidence_reliability_card" :card="safeReport.evidence_reliability_card" />
-    <article class="card easy-card wide-card">
+    <EvidenceReliabilityCard v-if="!isQuickSummary && safeReport.evidence_reliability_card" :card="safeReport.evidence_reliability_card" />
+    <article v-if="!isQuickSummary" class="card easy-card wide-card">
       <h2>법률 근거 쉽게 보기</h2>
       <p class="easy-summary">법 이름보다 “이 사고와 어떤 관련이 있는지”를 먼저 보시면 됩니다.</p>
       <div class="basis-grid"><EasyLegalBasisCard v-for="card in visibleBasisCards" :key="`${card.law_name}-${card.easy_title}`" :card="card" /></div>
@@ -101,8 +101,8 @@
         </div>
       </div>
     </article>
-    <AgentProcessCard v-if="safeReport.agent_process_card" :card="safeReport.agent_process_card" />
-    <DetailToggleSection :details="safeReport.detail_sections || {}" />
+    <AgentProcessCard v-if="!isQuickSummary && safeReport.agent_process_card" :card="safeReport.agent_process_card" />
+    <DetailToggleSection v-if="!isQuickSummary" :details="safeReport.detail_sections || {}" />
   </section>
 </template>
 <script setup lang="ts">
@@ -126,6 +126,7 @@ const props = defineProps<{ report: any; followupSubmitting?: boolean; followupE
 const emit = defineEmits<{ submitFollowup: [answers: Record<string, string>] }>();
 const showAllBasis = ref(false);
 const safeReport = computed(() => removeTechnicalFields(props.report || {}));
+const isQuickSummary = computed(() => props.report?.analysis_mode_contract?.mode === "quick_summary");
 const basisCards = computed(() => safeReport.value?.legal_basis_cards || []);
 const visibleBasisCards = computed(() => (showAllBasis.value ? basisCards.value : basisCards.value.slice(0, 3)));
 const actionItems = computed(() => Array.isArray(safeReport.value?.top_actions) ? safeReport.value.top_actions : []);

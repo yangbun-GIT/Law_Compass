@@ -5,6 +5,7 @@ from typing import Any
 
 from app.services.accident_party_action_guide import build_party_type_action_guide
 from app.services.accident_perspective import infer_user_vehicle_role
+from app.services.dynamic_questionnaire import build_dynamic_questionnaire
 from app.services.input_normalizer import normalize_analysis_input
 from app.services.input_requirements import build_followup_loop_state, build_input_requirements
 from app.services.scenario_classifier import classify_scenario
@@ -18,6 +19,7 @@ class CaseContext:
     scenario: dict[str, Any]
     party_type_action_guide: dict[str, Any]
     input_requirements: dict[str, Any]
+    guided_questionnaire: dict[str, Any]
     followup_loop: dict[str, Any]
     decision_blocking_missing_fields: list[str]
 
@@ -63,6 +65,16 @@ def build_case_context(
         missing_fields=normalized["missing_fields"],
         description_text=normalized["description_text"],
     )
+    guided_questionnaire = build_dynamic_questionnaire(
+        scenario_type=scenario["scenario_type"],
+        accident_party_type=scenario.get("accident_party_type"),
+        analysis_mode=normalized.get("analysis_mode"),
+        description_text=normalized["description_text"],
+        structured_facts=normalized["structured_facts"],
+        selected_keywords=normalized["selected_keywords"],
+        video_observations=video_context,
+    )
+    input_requirements = {**input_requirements, "guided_questionnaire": guided_questionnaire}
     followup_loop = build_followup_loop_state(input_requirements, normalized["structured_facts"])
     return CaseContext(
         video_context=video_context,
@@ -70,6 +82,7 @@ def build_case_context(
         scenario=scenario,
         party_type_action_guide=party_type_action_guide,
         input_requirements=input_requirements,
+        guided_questionnaire=guided_questionnaire,
         followup_loop=followup_loop,
         decision_blocking_missing_fields=list(input_requirements.get("blocking_fields") or []),
     )

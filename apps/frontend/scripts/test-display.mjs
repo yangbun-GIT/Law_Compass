@@ -26,6 +26,8 @@ const apiClient = readFileSync("src/api/client.ts", "utf8");
 const appView = readFileSync("src/App.vue", "utf8");
 const dashboardView = readFileSync("src/views/DashboardView.vue", "utf8");
 const caseDetailView = readFileSync("src/views/CaseDetailView.vue", "utf8");
+const caseCreateView = readFileSync("src/views/CaseCreateView.vue", "utf8");
+const useCaseWorkspace = readFileSync("src/composables/useCaseWorkspace.ts", "utf8");
 const caseWorkspaceHeader = readFileSync("src/components/case/CaseWorkspaceHeader.vue", "utf8");
 const loginView = readFileSync("src/views/LoginView.vue", "utf8");
 const signupView = readFileSync("src/views/SignupView.vue", "utf8");
@@ -47,7 +49,7 @@ const requiredErrorUx = [
   "v-if=\"!session.user\"",
   "dashboard-hero",
   "첫 케이스 만들기",
-  "Case Workspace",
+  "사고 입력",
   "Analysis Result",
   "개발자 전용 원문",
   "법률 근거가 부족합니다",
@@ -68,7 +70,7 @@ const requiredErrorUx = [
   "영상 신뢰도"
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
@@ -114,6 +116,41 @@ if (kniaCardText.includes("<iframe") || kniaCardText.includes("<video")) {
 }
 if (relatedVideoCard.includes("<img") || kniaVideoLinkCard.includes("<img")) {
   console.error("KNIA link cards must not render default thumbnails as images");
+  process.exit(1);
+}
+
+const guidedFlowContracts = [
+  "어떤 사고에 가장 가까운가요?",
+  "잘 모르겠어요",
+  "무엇을 중심으로 볼까요?",
+  "이대로 분석하기",
+  "답변 더 추가하기",
+  "고급 진단 보기",
+  "영상 확인 중",
+  "사고 장면 분석 중",
+  "quick_summary",
+  "fault_ratio_focused",
+  "legal_precedent_focused",
+  "insurance_response_focused",
+  "full_deep_research",
+  "fault-summary-card",
+  "isQuickSummary",
+  "analysis_mode_contract",
+];
+const missingGuidedContracts = guidedFlowContracts.filter((token) => !displayFiles.some((text) => text.includes(token)));
+if (missingGuidedContracts.length) {
+  console.error("guided analysis flow contract failed", missingGuidedContracts);
+  process.exit(1);
+}
+if (caseCreateView.includes("<select v-model=\"analysisMode\"")) {
+  console.error("analysis mode dropdown must not appear on the first create screen");
+  process.exit(1);
+}
+const defaultCaseDetail = caseDetailView.replace(/<details[\s\S]*?<\/details>/g, "");
+const hiddenDeveloperTerms = ["Local video verified", "duration=", "resolution=", "frames=", "attempts:", "video_preprocess", "video_analyze", "job id", "Redis", "worker"];
+const visibleLeaks = hiddenDeveloperTerms.filter((token) => defaultCaseDetail.includes(token));
+if (visibleLeaks.length) {
+  console.error("default guided flow exposes technical terms", visibleLeaks);
   process.exit(1);
 }
 

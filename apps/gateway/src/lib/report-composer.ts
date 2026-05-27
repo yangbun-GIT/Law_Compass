@@ -1741,34 +1741,194 @@ function removeDuplicateKniaRelatedVideo(report: AnyRecord = {}, canonicalCard?:
   return report;
 }
 
-export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {}) {
-  const card = composeEvidenceReliabilityCard(result);
-  const processCard = composeAgentProcessCard(result);
-  const videoFactCard = composeVideoFactExplanationCard(result);
-  const expertGuidanceCard = composeExpertGuidanceCard(result);
-  const videoQuestions = combineVideoQuestions(
-    composeVideoConflictQuestions(result),
-    composeVideoQualityQuestions(result),
-  );
-  const mergedReport = prioritizeMissingInfo(mergeVideoQuestions(report, videoQuestions));
-  const conditionalOutcomeCard = composeConditionalOutcomeCard(result, mergedReport);
-  const reportWithConditionalOutcome = conditionalOutcomeCard
-    ? prioritizeMissingInfo({ ...mergedReport, conditional_outcome_card: conditionalOutcomeCard })
-    : mergedReport;
-  const kniaLinkCards: AnyRecord = composeKniaLinkCards(result, reportWithConditionalOutcome);
-  const reportWithoutDuplicateKniaVideo = removeDuplicateKniaRelatedVideo(
-    reportWithConditionalOutcome,
-    kniaLinkCards.related_knia_video_card,
-  );
+function applyAnalysisModeContract(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord {
+    const mode = normalizeAnalysisMode(
+        result.analysis_mode ??
+        result.analysisMode ??
+        result.analysis_mode_contract?.mode ??
+        result.structured_facts?.analysis_mode ??
+        result.model_info?.analysis_mode ??
+        report.analysis_mode ??
+        report.analysis_mode_contract?.mode,
+    );
 
+    const nextReport: AnyRecord = {
+        ...report,
+        analysis_mode: mode,
+        analysis_mode_contract: {
+            ...(isPlainObject(report.analysis_mode_contract) ? report.analysis_mode_contract : {}),
+            mode,
+            label: analysisModeLabel(mode),
+            description: analysisModeDescription(mode),
+        },
+    };
+
+    if (mode === "quick_summary") {
+        delete nextReport.legal_explanation;
+        nextReport.legal_basis_cards = [];
+        nextReport.detail_sections = {
+            notice: "빠른 요약에서는 긴 법률·판례 설명을 접어두고 핵심 판단만 보여줍니다.",
+            evidence_summaries: [],
+        };
+        delete nextReport.expert_guidance_card;
+        delete nextReport.knia_fault_adjustment_card;
+    }
+
+    if (mode === "fault_ratio_focused") {
+        delete nextReport.legal_explanation;
+        nextReport.legal_basis_cards = [];
+        nextReport.detail_sections = {
+            notice: "과실비율 중심에서는 법률 장문보다 KNIA 기준과 가감요소를 우선 표시합니다.",
+            evidence_summaries: [],
+        };
+        if (isPlainObject(nextReport.knia_fault_adjustment_card)) {
+            nextReport.knia_fault_adjustment_card.title = "KNIA 기본과실과 가감요소";
+        }
+    }
+
+    if (mode === "insurance_response_focused") {
+        delete nextReport.legal_explanation;
+        nextReport.legal_basis_cards = [];
+        nextReport.detail_sections = {
+            notice: "보험 대응 중심에서는 보험사에 전달할 핵심 자료와 주장 포인트를 우선 표시합니다.",
+            evidence_summaries: [],
+        };
+    }
+
+    if (mode === "legal_precedent_focused") {
+        // 법률/판례 중심은 법률 카드와 KNIA 카드가 핵심이므로 기존 report를 최대한 유지한다.
+        return nextReport;
+    }
+
+    if (mode === "full_deep_research") {
+        // 전체 심층 분석은 모든 섹션을 유지한다.
+        return nextReport;
+    }
+
+    return nextReport;
+}
+
+function normalizeAnalysisMode(value: unknown): string {
+    const mode = String(value ?? "").trim();
+
+    const allowed = new Set([
+        "quick_summary",
+        "fault_ratio_focused",
+        "legal_precedent_focused",
+        "insurance_response_focused",
+        "full_deep_research",
+    ]);
+
+    if (allowed.has(mode)) {
+        return mode;
+    }
+
+    // legacy compatibility
+    if (mode === "fast" || mode === "summary" || mode === "quick") {
+        return "quick_summary";
+    }
+    if (mode === "fault" || mode === "fault_ratio" || mode === "fault-focused") {
+        return "fault_ratio_focused";
+    }
+    if (mode === "legal" || mode === "precedent" || mode === "legal_basis" || mode === "legal-focused" || mode === "criminal-liability-focused") {
+        return "legal_precedent_focused";
+    }
+    if (mode === "insurance" || mode === "insurance-focused") {
+        return "insurance_response_focused";
+    }
+    if (mode === "deep" || mode === "full" || mode === "research" || mode === "evidence-review") {
+        return "full_deep_research";
+    }
+
+    return "quick_summary";
+}
+
+function analysisModeLabel(mode: string): string {
+    const labels: Record<string, string> = {
+        quick_summary: "빠른 요약",
+        fault_ratio_focused: "과실비율 중심",
+        legal_precedent_focused: "법률/판례 근거 중심",
+        insurance_response_focused: "보험 대응 중심",
+        full_deep_research: "전체 심층 리서치 분석",
+    };
+    return labels[mode] ?? "빠른 요약";
+}
+
+function analysisModeDescription(mode: string): string {
+    const descriptions: Record<string, string> = {
+        quick_summary: "핵심 상황과 예상 과실비율만 간단히 보여줍니다.",
+        fault_ratio_focused: "KNIA 기준과 가감요소를 중심으로 과실비율을 계산합니다.",
+        legal_precedent_focused: "과실비율 산정 후 관련 법률과 판례 근거를 자세히 보여줍니다.",
+        insurance_response_focused: "보험사 대응에 필요한 자료와 주장 포인트를 중심으로 정리합니다.",
+        full_deep_research: "사고 사실, 영상 관찰, KNIA, 법률, 보험 대응을 모두 자세히 보여줍니다.",
+    };
+    return descriptions[mode] ?? descriptions.quick_summary;
+}
+
+function isPlainObject(value: unknown): value is AnyRecord {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+
+export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord {
+    const card = composeEvidenceReliabilityCard(result);
+    const processCard = composeAgentProcessCard(result);
+    const videoFactCard = composeVideoFactExplanationCard(result);
+    const expertGuidanceCard = composeExpertGuidanceCard(result);
+    const videoQuestions = combineVideoQuestions(
+        composeVideoConflictQuestions(result),
+        composeVideoQualityQuestions(result),
+    );
+
+    const mergedReport: AnyRecord = prioritizeMissingInfo(mergeVideoQuestions(report, videoQuestions));
+    const conditionalOutcomeCard = composeConditionalOutcomeCard(result, mergedReport);
+    const reportWithConditionalOutcome: AnyRecord = conditionalOutcomeCard
+        ? prioritizeMissingInfo({ ...mergedReport, conditional_outcome_card: conditionalOutcomeCard })
+        : mergedReport;
+
+    const kniaLinkCards: AnyRecord = composeKniaLinkCards(result, reportWithConditionalOutcome);
+    const reportWithoutDuplicateKniaVideo: AnyRecord = removeDuplicateKniaRelatedVideo(
+        reportWithConditionalOutcome,
+        kniaLinkCards.related_knia_video_card,
+    );
+
+    const enrichedReport: AnyRecord = {
+        ...reportWithoutDuplicateKniaVideo,
+        ...kniaLinkCards,
+        ...(card ? { evidence_reliability_card: card } : {}),
+        ...(processCard ? { agent_process_card: processCard } : {}),
+        ...(videoFactCard ? { video_fact_explanation_card: videoFactCard } : {}),
+        ...(expertGuidanceCard ? { expert_guidance_card: expertGuidanceCard } : {}),
+        ...(conditionalOutcomeCard ? { conditional_outcome_card: conditionalOutcomeCard } : {}),
+        ...(result.guided_questionnaire ? { guided_questionnaire: sanitizeGuidedQuestionnaire(result.guided_questionnaire) } : {}),
+    };
+
+    return applyAnalysisModeContract(enrichedReport, result);
+}
+
+function sanitizeGuidedQuestionnaire(value: AnyRecord = {}) {
   return {
-    ...reportWithoutDuplicateKniaVideo,
-    ...kniaLinkCards,
-    ...(card ? { evidence_reliability_card: card } : {}),
-    ...(processCard ? { agent_process_card: processCard } : {}),
-    ...(videoFactCard ? { video_fact_explanation_card: videoFactCard } : {}),
-    ...(expertGuidanceCard ? { expert_guidance_card: expertGuidanceCard } : {}),
-    ...(conditionalOutcomeCard ? { conditional_outcome_card: conditionalOutcomeCard } : {}),
+    version: cleanText(value.version, ""),
+    analysis_mode: cleanText(value.analysis_mode, ""),
+    question_count: toNumber(value.question_count, asArray(value.questions).length),
+    auto_analysis_policy: {
+      can_auto_start_when_required_answered: value.auto_analysis_policy?.can_auto_start_when_required_answered === true,
+      user_controls: asArray(value.auto_analysis_policy?.user_controls).map((item) => cleanText(item, "")).filter(Boolean).slice(0, 3),
+      batch_size_hint: toNumber(value.auto_analysis_policy?.batch_size_hint, 3),
+    },
+    questions: asArray(value.questions).map((item: AnyRecord) => ({
+      question_id: cleanText(item.question_id, ""),
+      title: cleanText(item.title, ""),
+      plain_question: cleanText(item.plain_question ?? item.question, ""),
+      why_it_matters: cleanText(item.why_it_matters ?? item.reason, ""),
+      choices: asArray(item.choices).map((choice: AnyRecord) => ({
+        value: cleanText(choice.value, ""),
+        label: cleanText(choice.label, ""),
+      })).filter((choice) => choice.label).slice(0, 6),
+      default_choice: cleanText(item.default_choice, "unknown"),
+      affects_fault_ratio: item.affects_fault_ratio === true,
+      knia_factor_key: cleanText(item.knia_factor_key, ""),
+    })).filter((item) => item.plain_question).slice(0, 12),
   };
 }
 

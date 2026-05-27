@@ -19,11 +19,11 @@ function trace(req: FastifyRequest) {
   return (req.headers["x-correlation-id"] as string) || randomUUID();
 }
 
-async function enqueueVideoPreprocessJob(opts: UploadRouteOptions, caseId: string, uploadId: string, ownerId: string, storagePath: string) {
+async function enqueueVideoPreprocessJob(opts: UploadRouteOptions, caseId: string, uploadId: string, ownerId: string, storagePath: string, autoAnalyzeAfterPreprocess = true) {
   const jobRes = await opts.db.query(
     `INSERT INTO jobs(case_id, upload_id, owner_user_id, type, status, payload)
      VALUES($1,$2,$3,'video_preprocess','queued',$4) RETURNING id`,
-    [caseId, uploadId, ownerId, JSON.stringify({ upload_id: uploadId, case_id: caseId, storage_path: storagePath })]
+    [caseId, uploadId, ownerId, JSON.stringify({ upload_id: uploadId, case_id: caseId, storage_path: storagePath, auto_analyze_after_preprocess: autoAnalyzeAfterPreprocess })]
   );
   await opts.redis.xadd(
     process.env.REDIS_STREAM_KEY ?? "jobs:v1:stream",
@@ -65,7 +65,8 @@ async function completeLocalUpload(
   ownerId: string,
   traceId: string,
   reply: any,
-  mode: "body" | "path"
+  mode: "body" | "path",
+  autoAnalyzeAfterPreprocess = true
 ) {
   const found = await opts.db.query(
     `SELECT u.*, c.id as case_exists FROM uploads u
@@ -118,7 +119,7 @@ async function completeLocalUpload(
   );
   const jobId = existingJob.rowCount
     ? existingJob.rows[0].id
-    : await enqueueVideoPreprocessJob(opts, upload.case_id, uploadId, ownerId, upload.storage_path);
+    : await enqueueVideoPreprocessJob(opts, upload.case_id, uploadId, ownerId, upload.storage_path, autoAnalyzeAfterPreprocess);
   return { upload_id: uploadId, job_id: jobId, status: "verified", trace_id: traceId };
 }
 
@@ -194,21 +195,23 @@ export function registerUploadRoutes(app: FastifyInstance, opts: UploadRouteOpti
         type: "object",
         required: ["upload_id"],
         properties: {
-          upload_id: { type: "string", format: "uuid" }
+          upload_id: { type: "string", format: "uuid" },
+          auto_analyze_after_preprocess: { type: "boolean" }
         }
       }
     }
   }, async (req, reply) => {
     if (!requireUser(req as any, reply)) return;
     const traceId = trace(req);
-    const { upload_id } = req.body as any;
-    return completeLocalUpload(opts, upload_id, (req as any).user.id, traceId, reply, "body");
+    const { upload_id, auto_analyze_after_preprocess } = req.body as any;
+    return completeLocalUpload(opts, upload_id, (req as any).user.id, traceId, reply, "body", auto_analyze_after_preprocess !== false);
   });
 
   app.post(`${opts.apiPrefix}/uploads/:uploadId/complete`, async (req, reply) => {
     if (!requireUser(req as any, reply)) return;
     const traceId = trace(req);
-    return completeLocalUpload(opts, (req.params as any).uploadId, (req as any).user.id, traceId, reply, "path");
+    const autoAnalyze = (req.query as any)?.autoAnalyzeAfterPreprocess !== "false";
+    return completeLocalUpload(opts, (req.params as any).uploadId, (req as any).user.id, traceId, reply, "path", autoAnalyze);
   });
 
   app.get(`${opts.apiPrefix}/uploads/:uploadId`, async (req, reply) => {

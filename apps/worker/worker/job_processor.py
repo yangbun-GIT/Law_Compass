@@ -29,6 +29,24 @@ DB_URL = os.getenv("DATABASE_URL", "")
 INTERNAL_AGENT_URL = os.getenv("INTERNAL_AGENT_URL", "http://agent:8000")
 INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "")
 STORAGE_ROOT = Path(os.getenv("LOCAL_STORAGE_ROOT", "/app/storage"))
+USER_JOB_LABELS = {
+    "video_preprocess": "영상 확인 중",
+    "video_analyze": "사고 장면 분석 중",
+}
+USER_STATUS_LABELS = {
+    "queued": "대기 중",
+    "running": "분석 중",
+    "retrying": "다시 확인 중",
+    "succeeded": "완료",
+    "failed": "분석 실패. 다시 시도해 주세요.",
+}
+
+
+def user_facing_job_status(job_type: str, status: str) -> dict[str, str]:
+    return {
+        "job_label": USER_JOB_LABELS.get(job_type, "분석 준비 중"),
+        "status_label": USER_STATUS_LABELS.get(status, "상태를 확인하고 있습니다."),
+    }
 
 
 def requests_post_json(url: str, payload: dict, headers: dict[str, str] | None = None, timeout: float = 25):
@@ -107,6 +125,7 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
     )
     frame_dir = str(STORAGE_ROOT / "frames" / str(row[1]) / str(row[2]))
     artifacts = {
+        "user_facing_status": user_facing_job_status("video_preprocess", "succeeded"),
         "video_preprocess_contract_version": VIDEO_PREPROCESS_CONTRACT_VERSION,
         "duration_sec": metadata.get("duration_sec"),
         "width": metadata.get("width"),
@@ -135,7 +154,8 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
     time.sleep(random.uniform(0.1, 0.4))
     cur.execute("UPDATE uploads SET status='ready', derived_path=%s WHERE id=%s", (frame_dir, row[2]))
     cur.execute("UPDATE jobs SET status='succeeded', artifacts=%s, finished_at=now() WHERE id=%s", (json.dumps(artifacts), row[0]))
-    _enqueue_video_analyze_job(cur, row, payload, redis_client, case_inputs)
+    if payload.get("auto_analyze_after_preprocess", True) is not False:
+        _enqueue_video_analyze_job(cur, row, payload, redis_client, case_inputs)
 
 
 def _merge_frame_observations(*analysis_payloads: dict[str, Any]) -> list[dict[str, Any]]:
@@ -239,7 +259,10 @@ def _process_video_analyze(cur: Any, row: tuple[Any, ...], payload: dict[str, An
         agent_payload,
     )
     _insert_analysis_result(cur, row, response)
-    cur.execute("UPDATE jobs SET status='succeeded', finished_at=now() WHERE id=%s", (job_id,))
+    cur.execute(
+        "UPDATE jobs SET status='succeeded', artifacts=%s, finished_at=now() WHERE id=%s",
+        (json.dumps({"user_facing_status": user_facing_job_status("video_analyze", "succeeded")}), job_id),
+    )
 
 
 def build_video_analyze_payload(row: tuple[Any, ...], payload: dict[str, Any], case_inputs: tuple[Any, ...] | None) -> dict[str, Any]:
