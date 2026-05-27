@@ -30,6 +30,49 @@ _KNOWN_ROLES = {
     SINGLE_VEHICLE,
 }
 
+_SIGNAL_VIOLATION_ACTIONS = [
+    "신호위반",
+    "신호 위반",
+    "빨간불",
+    "적색신호",
+    "적색 신호",
+    "정지신호",
+    "정지 신호",
+    "적색등",
+    "정지등",
+    "red light",
+    "red signal",
+]
+
+_MY_ACTOR_MARKERS = [
+    "내가",
+    "제가",
+    "나는",
+    "저는",
+    "내 차가",
+    "제 차가",
+    "내 차량이",
+    "제 차량이",
+    "우리 차가",
+    "우리 차량이",
+    "본인이",
+    "운전자 본인이",
+    "my car",
+    "my vehicle",
+]
+
+_OPPONENT_ACTOR_MARKERS = [
+    "상대",
+    "상대방",
+    "상대 차량",
+    "상대차",
+    "상대 차",
+    "다른 차",
+    "상대 운전자",
+    "opponent",
+    "other vehicle",
+]
+
 
 def infer_user_vehicle_role(text: str, facts: dict[str, Any] | None = None, scenario_type: str | None = None) -> str:
     facts = facts or {}
@@ -38,6 +81,7 @@ def infer_user_vehicle_role(text: str, facts: dict[str, Any] | None = None, scen
         return str(explicit)
 
     haystack = _haystack(text, facts)
+
     if _is_rear_end_context(scenario_type, haystack):
         if facts.get("front_vehicle_stopped") is True and facts.get("stopped") is False:
             return FOLLOWING_VEHICLE
@@ -69,9 +113,34 @@ def infer_user_vehicle_role(text: str, facts: dict[str, Any] | None = None, scen
             return SIGNAL_VIOLATION_VEHICLE
         if _truthy_any(facts, ["opponent_signal_violation", "other_signal_violation"]):
             return SIGNAL_COMPLIANT_VEHICLE
-        if _has_my_action(haystack, ["신호위반", "빨간불", "적색신호", "정지신호"]):
+
+        # 중요:
+        # "상대 차량이 적색신호를 위반하고 내 차와 충돌" 같은 문장에는
+        # "내 차"와 "신호위반" 단어가 같은 입력 안에 함께 존재한다.
+        # 기존 broad matcher는 이를 내 차량 신호위반으로 오인할 수 있으므로,
+        # actor 주변 문맥을 먼저 본 뒤 역할을 결정한다.
+        opponent_signal_violation = _has_signal_violation_by_actor(haystack, _OPPONENT_ACTOR_MARKERS)
+        my_signal_violation = _has_signal_violation_by_actor(haystack, _MY_ACTOR_MARKERS)
+
+        if opponent_signal_violation and not my_signal_violation:
+            return SIGNAL_COMPLIANT_VEHICLE
+        if my_signal_violation and not opponent_signal_violation:
             return SIGNAL_VIOLATION_VEHICLE
-        if _has_opponent_action(haystack, ["신호위반", "빨간불", "적색신호", "정지신호"]):
+
+        # 둘 다 감지되는 모호한 문장에서는 명시적 패턴을 우선한다.
+        if _has_explicit_opponent_signal_violation_phrase(haystack):
+            return SIGNAL_COMPLIANT_VEHICLE
+        if _has_explicit_my_signal_violation_phrase(haystack):
+            return SIGNAL_VIOLATION_VEHICLE
+
+        # 최후 fallback.
+        # 상대 차량이 신호위반했다고 쓰는 경우가 회귀 테스트와 실제 사용자 입력에서 더 흔하므로,
+        # 상대 actor가 있는 신호위반 문장은 먼저 정상 신호 차량으로 해석한다.
+        if _has_opponent_action(haystack, _SIGNAL_VIOLATION_ACTIONS) and not _has_my_action(haystack, _SIGNAL_VIOLATION_ACTIONS):
+            return SIGNAL_COMPLIANT_VEHICLE
+        if _has_my_action(haystack, _SIGNAL_VIOLATION_ACTIONS):
+            return SIGNAL_VIOLATION_VEHICLE
+        if _has_opponent_action(haystack, _SIGNAL_VIOLATION_ACTIONS):
             return SIGNAL_COMPLIANT_VEHICLE
 
     if scenario_type in {"pedestrian_crosswalk_accident", "school_zone_child_accident"}:
@@ -94,11 +163,11 @@ def infer_user_vehicle_role(text: str, facts: dict[str, Any] | None = None, scen
 
 
 def map_fault_ratio_to_user(
-    *,
-    scenario_type: str,
-    fault: dict[str, Any],
-    text: str,
-    facts: dict[str, Any] | None = None,
+        *,
+        scenario_type: str,
+        fault: dict[str, Any],
+        text: str,
+        facts: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     role = infer_user_vehicle_role(text, facts, scenario_type)
     a = _as_int(fault.get("A"))
@@ -133,22 +202,29 @@ def _user_knia_party(scenario_type: str, role: str) -> str:
         if role == FRONT_VEHICLE:
             return "B"
         return "A"
+
     if scenario_type == "lane_change_collision":
         if role == LANE_CHANGING_VEHICLE:
             return "B"
         return "A"
+
     if scenario_type == "intersection_signal_violation":
+        # KNIA 신호위반 교차로 기준은 일반적으로
+        # A = 신호위반 차량, B = 정상 신호 차량으로 해석한다.
         if role == SIGNAL_VIOLATION_VEHICLE:
-            return "B"
-        return "A"
+            return "A"
+        return "B"
+
     if scenario_type in {"pedestrian_crosswalk_accident", "school_zone_child_accident"}:
         if role == PEDESTRIAN:
             return "B"
         return "A"
+
     if scenario_type == "bicycle_collision":
         if role == BICYCLE:
             return "B"
         return "A"
+
     return "A"
 
 
@@ -158,8 +234,8 @@ def _role_label(role: str, party: str) -> str | None:
         FOLLOWING_VEHICLE: "내 차량은 뒤차/추돌 차량(A)으로 해석했습니다.",
         STRAIGHT_VEHICLE: "내 차량은 직진 차량(A)으로 해석했습니다.",
         LANE_CHANGING_VEHICLE: "내 차량은 진로변경 차량(B)으로 해석했습니다.",
-        SIGNAL_COMPLIANT_VEHICLE: "내 차량은 정상 신호 차량(A)으로 해석했습니다.",
-        SIGNAL_VIOLATION_VEHICLE: "내 차량은 신호위반 차량(B)으로 해석했습니다.",
+        SIGNAL_COMPLIANT_VEHICLE: "내 차량은 정상 신호 차량(B)으로 해석했습니다.",
+        SIGNAL_VIOLATION_VEHICLE: "내 차량은 신호위반 차량(A)으로 해석했습니다.",
         VEHICLE: f"내 차량은 KNIA 기준 {party} 차량으로 해석했습니다.",
         PEDESTRIAN: "사용자는 보행자(B)로 해석했습니다.",
         BICYCLE: "사용자는 자전거 운전자(B)로 해석했습니다.",
@@ -175,7 +251,21 @@ def _haystack(text: str, facts: dict[str, Any]) -> str:
 
 def _is_rear_end_context(scenario_type: str | None, text: str) -> bool:
     return scenario_type == "rear_end_collision" or any(
-        word in text for word in ["후미", "뒷차", "뒷 차", "뒤차", "뒤 차", "후방", "후속", "뒤에서", "추돌", "받힘", "받혔", "rear"]
+        word in text
+        for word in [
+            "후미",
+            "뒷차",
+            "뒷 차",
+            "뒤차",
+            "뒤 차",
+            "후방",
+            "후속",
+            "뒤에서",
+            "추돌",
+            "받힘",
+            "받혔",
+            "rear",
+        ]
     )
 
 
@@ -209,8 +299,8 @@ def _has_clear_following_vehicle_korean(text: str) -> bool:
 
 def _has_front_vehicle_phrase(text: str) -> bool:
     if _contains_any(text, ["정차", "신호대기", "선행차", "앞차"]) and _contains_any(
-        text,
-        ["뒤에서", "뒤차", "후미", "들이받", "받혔", "추돌당", "추돌 받"],
+            text,
+            ["뒤에서", "뒤차", "후미", "들이받", "받혔", "추돌당", "추돌 받"],
     ):
         return True
     front_markers = ["정차", "신호대기", "앞차", "앞 차량", "선행차", "선행 차량"]
@@ -220,8 +310,8 @@ def _has_front_vehicle_phrase(text: str) -> bool:
 
 def _has_following_vehicle_phrase(text: str) -> bool:
     if _contains_any(text, ["내가", "제가", "내 차", "제 차", "우리 차"]) and _contains_any(
-        text,
-        ["앞차", "앞 차량", "선행차", "선행 차량"],
+            text,
+            ["앞차", "앞 차량", "선행차", "선행 차량"],
     ) and _contains_any(text, ["추돌", "들이받", "박았", "박음", "받음"]):
         return True
     my_markers = ["내가", "제가", "내 차", "제 차", "우리 차"]
@@ -240,6 +330,85 @@ def _has_my_action(text: str, actions: list[str]) -> bool:
 def _has_opponent_action(text: str, actions: list[str]) -> bool:
     opponent_markers = ["상대", "상대방", "상대 차량", "상대차", "다른 차", "앞차", "옆 차", "옆차"]
     return _contains_any(text, opponent_markers) and _contains_any(text, actions)
+
+
+def _has_signal_violation_by_actor(text: str, actor_markers: list[str]) -> bool:
+    """Return True when a signal-violation action appears near the actor marker.
+
+    Broad checks such as "내 차" + "신호위반" are unsafe because many sentences say
+    "상대 차량이 신호위반하여 내 차와 충돌했다".
+    This helper gives priority to local actor-action context.
+    """
+    return _has_actor_action_after(text, actor_markers, _SIGNAL_VIOLATION_ACTIONS, window=42)
+
+
+def _has_actor_action_after(text: str, actor_markers: list[str], actions: list[str], window: int = 42) -> bool:
+    for actor in actor_markers:
+        start = 0
+        while True:
+            index = text.find(actor, start)
+            if index == -1:
+                break
+            local = text[index : index + len(actor) + window]
+            if _contains_any(local, actions):
+                return True
+            start = index + len(actor)
+    return False
+
+
+def _has_explicit_opponent_signal_violation_phrase(text: str) -> bool:
+    patterns = [
+        "상대 차량이 신호위반",
+        "상대차가 신호위반",
+        "상대방이 신호위반",
+        "상대가 신호위반",
+        "상대 차량이 빨간불",
+        "상대차가 빨간불",
+        "상대방이 빨간불",
+        "상대가 빨간불",
+        "상대 차량이 적색신호",
+        "상대차가 적색신호",
+        "상대방이 적색신호",
+        "상대가 적색신호",
+        "신호위반한 상대",
+        "빨간불에 진입한 상대",
+        "적색신호에 진입한 상대",
+        "opponent ran a red light",
+        "other vehicle ran a red light",
+    ]
+    return _contains_any(text, patterns)
+
+
+def _has_explicit_my_signal_violation_phrase(text: str) -> bool:
+    patterns = [
+        "내가 신호위반",
+        "제가 신호위반",
+        "내 차가 신호위반",
+        "제 차가 신호위반",
+        "내 차량이 신호위반",
+        "제 차량이 신호위반",
+        "내가 빨간불",
+        "제가 빨간불",
+        "내 차가 빨간불",
+        "제 차가 빨간불",
+        "내 차량이 빨간불",
+        "제 차량이 빨간불",
+        "내가 적색신호",
+        "제가 적색신호",
+        "내 차가 적색신호",
+        "제 차가 적색신호",
+        "내 차량이 적색신호",
+        "제 차량이 적색신호",
+        "신호위반한 내 차",
+        "신호위반한 제 차",
+        "빨간불에 진입한 내 차",
+        "빨간불에 진입한 제 차",
+        "적색신호에 진입한 내 차",
+        "적색신호에 진입한 제 차",
+        "i ran a red light",
+        "my car ran a red light",
+    ]
+    return _contains_any(text, patterns)
 
 
 def _has_user_role_phrase(text: str, role_markers: list[str]) -> bool:
