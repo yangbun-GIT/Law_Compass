@@ -62,7 +62,7 @@ def match_knia_charts(
     q = normalize_query(" ".join([description_text or "", json.dumps(facts, ensure_ascii=False), " ".join(keywords), scenario_type or "", party or "", " ".join(expansion_terms)]))
     chart_direct = re.search(r"[차보자기단]\d{1,3}(?:-\d+)?", q)
     tags = list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)]))
-    cache_key = "knia:match:v6:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+    cache_key = "knia:match:v7:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
     cache = _redis_client()
     if cache:
         cached = cache.get(cache_key)
@@ -140,20 +140,21 @@ def _hybrid_lookup(
     provider = get_embedding_provider()
     vec = vector_literal(provider.embed(query))
     party_filter = party if party and party != "unknown" else None
+    party_prefixes = _party_chart_prefixes(party_filter)
     sql = """
     WITH fts AS (
       SELECT c.id AS chart_id, ch.id AS chunk_id, ts_rank_cd(ch.tsv, plainto_tsquery('simple', %(q)s)) AS fts_score
       FROM knia_fault_chart_chunks ch
       JOIN knia_fault_charts c ON c.id = ch.chart_id
       WHERE ch.tsv @@ plainto_tsquery('simple', %(q)s)
-        AND (%(party)s::text IS NULL OR ch.accident_party_type=%(party)s OR c.accident_party_type=%(party)s)
+        AND (%(party)s::text IS NULL OR ch.accident_party_type=%(party)s OR c.accident_party_type=%(party)s OR c.chart_no LIKE ANY(%(party_prefixes)s::text[]))
       LIMIT 100
     ), vec AS (
       SELECT c.id AS chart_id, ch.id AS chunk_id, CASE WHEN ch.embedding IS NULL THEN 0 ELSE 1 - (ch.embedding <=> %(vec)s::vector) END AS vec_score
       FROM knia_fault_chart_chunks ch
       JOIN knia_fault_charts c ON c.id = ch.chart_id
       WHERE ch.embedding IS NOT NULL
-        AND (%(party)s::text IS NULL OR ch.accident_party_type=%(party)s OR c.accident_party_type=%(party)s)
+        AND (%(party)s::text IS NULL OR ch.accident_party_type=%(party)s OR c.accident_party_type=%(party)s OR c.chart_no LIKE ANY(%(party_prefixes)s::text[]))
       ORDER BY ch.embedding <=> %(vec)s::vector
       LIMIT 100
     ), tag AS (
@@ -161,12 +162,12 @@ def _hybrid_lookup(
       FROM knia_fault_chart_chunks ch
       JOIN knia_fault_charts c ON c.id = ch.chart_id
       WHERE (%(tags)s::text[] = '{}'::text[] OR ch.scenario_tags && %(tags)s::text[] OR ch.display_tags && %(tags)s::text[])
-        AND (%(party)s::text IS NULL OR ch.accident_party_type=%(party)s OR c.accident_party_type=%(party)s)
+        AND (%(party)s::text IS NULL OR ch.accident_party_type=%(party)s OR c.accident_party_type=%(party)s OR c.chart_no LIKE ANY(%(party_prefixes)s::text[]))
       LIMIT 100
     ), party_rank AS (
       SELECT c.id AS chart_id, 0.22 AS party_score
       FROM knia_fault_charts c
-      WHERE %(party)s::text IS NOT NULL AND c.accident_party_type=%(party)s
+      WHERE %(party)s::text IS NOT NULL AND (c.accident_party_type=%(party)s OR c.chart_no LIKE ANY(%(party_prefixes)s::text[]))
       LIMIT 100
     ), merged AS (
       SELECT COALESCE(f.chart_id, v.chart_id, t.chart_id, p.chart_id) AS chart_id,
@@ -187,7 +188,7 @@ def _hybrid_lookup(
     SELECT * FROM ranked ORDER BY match_score DESC LIMIT %(limit)s
     """
     with psycopg.connect(DB_URL) as conn, conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-        cur.execute(sql, {"q": query, "vec": vec, "tags": tags, "party": party_filter, "limit": limit})
+        cur.execute(sql, {"q": query, "vec": vec, "tags": tags, "party": party_filter, "party_prefixes": party_prefixes, "limit": limit})
         rows = [dict(r) for r in cur.fetchall()]
     matches = []
     for row in rows:
@@ -233,13 +234,22 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
         "bicycle_collision": {"car_vs_bicycle"},
         "object_collision": {"car_vs_object"},
         "single_vehicle_accident": {"single_vehicle"},
+        "intersection_signal_violation": {"car_vs_car"},
+        "lane_change_collision": {"car_vs_car"},
+        "rear_end_collision": {"car_vs_car"},
     }.get(scenario_type or "")
     if expected_parties and party not in expected_parties:
         return True
 
-    has_signal_terms = any(w in joined_text for w in ["신호위반", "적색", "빨간불", "교차로 신호"])
+    has_signal_terms = any(w in joined_text for w in ["신호위반", "적색", "빨간불", "교차로 신호", "녹색신호"])
+    has_lane_terms = any(w in joined_text for w in ["진로 변경", "진로변경", "차로를 변경", "차선변경", "끼어들", "방향지시"])
     if scenario_type == "intersection_signal_violation":
-        return not (chart_no.startswith("차12") or has_signal_terms)
+        # Vehicle-vs-vehicle signal violation standards should stay in the 차12 family.
+        # Do not let pedestrian/bicycle signal charts win only because they contain
+        # generic "신호위반" terms.
+        return not chart_no.startswith("차12")
+    if scenario_type == "lane_change_collision":
+        return not (chart_no.startswith("차43") or has_lane_terms)
     if scenario_type == "rear_end_collision":
         return _rear_end_primary_exclusion_reason(row, joined_text) is not None
     return False
@@ -363,19 +373,39 @@ def _is_centerline_primary_mismatch(tags: list[str], row: dict[str, Any]) -> boo
 def _scenario_chart_score_adjustment(row: dict[str, Any], tags: list[str], joined_text: str) -> float:
     chart_no = str(row.get("chart_no") or "")
     adjustment = 0.0
-    has_lane_terms = any(w in joined_text for w in ["진로 변경", "진로변경", "차로를 변경", "차선변경"])
-    has_signal_terms = any(w in joined_text for w in ["신호위반", "적색", "빨간불", "교차로 신호"])
+    has_lane_terms = any(w in joined_text for w in ["진로 변경", "진로변경", "차로를 변경", "차선변경", "끼어들", "방향지시"])
+    has_signal_terms = any(w in joined_text for w in ["신호위반", "적색", "빨간불", "교차로 신호", "녹색신호"])
+
+    if "rear_end" in tags:
+        if chart_no.startswith(("차41", "차42")):
+            adjustment += 0.55
+        if chart_no.startswith(("차12", "차16", "차43")):
+            adjustment -= 0.35
 
     if "signal_violation" in tags:
-        if chart_no.startswith("차12") or has_signal_terms:
-            adjustment += 0.32
+        if chart_no.startswith("차12"):
+            adjustment += 0.70
+        elif has_signal_terms:
+            adjustment += 0.06
+        if not chart_no.startswith("차12"):
+            adjustment -= 0.22
         if has_lane_terms and not has_signal_terms:
             adjustment -= 0.22
 
     if "lane_change" in tags:
-        if chart_no.startswith("차43") or has_lane_terms:
-            adjustment += 0.18
+        if chart_no.startswith("차43"):
+            adjustment += 0.70
+        elif has_lane_terms:
+            adjustment += 0.12
+        if chart_no.startswith(("차12", "차16", "차41", "차42")):
+            adjustment -= 0.35
         if has_signal_terms and not has_lane_terms:
+            adjustment -= 0.12
+
+    if "bicycle" in tags:
+        if chart_no.startswith(("자", "거")):
+            adjustment += 0.32
+        if chart_no.startswith(("차", "보")):
             adjustment -= 0.12
 
     if "centerline" in tags or "oncoming_vehicle" in tags or "road_obstruction" in tags:
@@ -447,13 +477,31 @@ def _safe_error(exc: Exception) -> dict[str, str]:
     return {"type": exc.__class__.__name__, "message": "KNIA chart lookup failed"}
 
 
+def _party_chart_prefixes(party: str | None) -> list[str]:
+    prefixes = {
+        "car_vs_car": ["차%"],
+        "vehicle_vs_vehicle": ["차%"],
+        "car_vs_person": ["보%"],
+        "vehicle_vs_pedestrian": ["보%"],
+        "pedestrian": ["보%"],
+        "car_vs_bicycle": ["자%", "거%"],
+        "vehicle_vs_bicycle": ["자%", "거%"],
+        "bicycle": ["자%", "거%"],
+        "two_wheeler": ["자%", "거%"],
+        "car_vs_object": ["기%"],
+        "single_vehicle": ["단%"],
+        "vehicle_single": ["단%"],
+    }
+    return prefixes.get(party or "", [])
+
+
 def _party_from_chart_no(chart_no: Any) -> str | None:
     text = str(chart_no or "")
     if text.startswith("차"):
         return "car_vs_car"
     if text.startswith("보"):
         return "car_vs_person"
-    if text.startswith("자"):
+    if text.startswith(("자", "거")):
         return "car_vs_bicycle"
     if text.startswith("기"):
         return "car_vs_object"

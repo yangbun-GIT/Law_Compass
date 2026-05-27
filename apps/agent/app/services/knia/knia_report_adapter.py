@@ -243,10 +243,6 @@ def _repository_display_fallback_candidates(
     source: dict[str, Any],
     existing_candidates: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Find displayable KNIA chart rows when the analysis candidate has only a scenario label.
-
-    This is a bounded DB fallback only. It does not fetch external pages.
-    """
     scenario_type = str(source.get("scenario_type") or source.get("structured_facts", {}).get("scenario_type") or "")
     accident_party_type = str(source.get("accident_party_type") or source.get("structured_facts", {}).get("accident_party_type") or "")
     hint_text = _fallback_hint_text(source, existing_candidates)
@@ -284,16 +280,7 @@ def _fallback_hint_text(source: dict[str, Any], existing_candidates: list[dict[s
             if value not in (None, "", [], {}, False):
                 parts.append(f"{key} {value}")
     for item in existing_candidates[:8]:
-        for key in (
-            "chart_no",
-            "title",
-            "chart_title",
-            "article_title",
-            "plain_summary",
-            "easy_explanation",
-            "why_similar",
-            "related_reason",
-        ):
+        for key in ("chart_no", "title", "chart_title", "article_title", "plain_summary", "easy_explanation", "why_similar", "related_reason"):
             value = item.get(key)
             if value:
                 parts.append(str(value))
@@ -303,12 +290,12 @@ def _fallback_hint_text(source: dict[str, Any], existing_candidates: list[dict[s
 def _scenario_link_terms(scenario_type: str, hint_text: str) -> list[str]:
     base_terms: dict[str, list[str]] = {
         "rear_end_collision": ["후방 추돌", "후방추돌", "후미추돌", "뒤차", "뒷차", "안전거리", "정차", "선행차", "앞차", "차41", "차42"],
-        "intersection_signal_violation": ["교차로", "신호", "신호위반", "적색", "좌회전", "직진", "차12", "차16"],
-        "lane_change_collision": ["진로 변경", "진로변경", "차로변경", "차선변경", "진입", "차43"],
+        "intersection_signal_violation": ["교차로", "신호위반", "적색", "녹색신호", "직진", "차12"],
+        "lane_change_collision": ["진로 변경", "진로변경", "차로변경", "차선변경", "끼어들", "방향지시", "차43"],
         "centerline_obstacle_collision": ["중앙선", "장애물", "대향", "불법 주정차", "진로변경", "차43"],
         "pedestrian_crosswalk_accident": ["보행자", "횡단보도", "보행자 신호", "어린이", "보"],
-        "bicycle_collision": ["자전거", "이륜차", "비접촉", "거", "자"],
-        "object_collision": ["기물", "시설물", "주차", "물체"],
+        "bicycle_collision": ["자전거", "차대자전거", "자전거도로", "자", "거"],
+        "object_collision": ["기물", "시설물", "주차", "물체", "기"],
         "single_vehicle_accident": ["단독", "전도", "공작물", "시설물", "단"],
     }
     terms = list(base_terms.get(scenario_type, []))
@@ -322,6 +309,8 @@ def _scenario_link_terms(scenario_type: str, hint_text: str) -> list[str]:
         terms.extend(base_terms["centerline_obstacle_collision"])
     if "보행자" in hint_text or "횡단보도" in hint_text:
         terms.extend(base_terms["pedestrian_crosswalk_accident"])
+    if "자전거" in hint_text:
+        terms.extend(base_terms["bicycle_collision"])
     return list(dict.fromkeys(term.lower() for term in terms if term))
 
 

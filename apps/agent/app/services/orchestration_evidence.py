@@ -124,10 +124,34 @@ def _filter_primary_knia_evidence(
     for item in items:
         if _is_centerline_primary_mismatch(scenario_tags, item):
             continue
-        if scenario_type and not is_knia_match_compatible_with_scenario(item, scenario_type):
+        if scenario_type and _is_knia_like_item(item) and not is_knia_match_compatible_with_scenario(item, scenario_type):
             continue
         filtered.append(item)
     return filtered
+
+
+def _is_knia_like_item(item: dict[str, Any]) -> bool:
+    source_type = str(item.get("source_type") or "").lower()
+    joined = " ".join(
+        str(item.get(key) or "")
+        for key in (
+            "source",
+            "title",
+            "law_name",
+            "article_title",
+            "source_url",
+            "source_detail_url",
+            "video_url",
+            "chart_no",
+        )
+    ).lower()
+    return (
+        bool(item.get("chart_no"))
+        or source_type.startswith("knia")
+        or "knia" in joined
+        or "과실비율" in joined
+        or "accident.knia.or.kr" in joined
+    )
 
 
 def _filter_pedestrian_target_mismatch(

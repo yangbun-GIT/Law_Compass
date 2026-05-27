@@ -606,20 +606,8 @@ class KniaRepository:
                 """,
                 [*params, capped_limit],
             )
-            return [self._normalize_display_link_row(dict(r)) for r in cur.fetchall()]
+            return [dict(r) for r in cur.fetchall()]
 
-    def _normalize_display_link_row(self, row: dict[str, Any]) -> dict[str, Any]:
-        """Normalize unreliable imported party type for display-only KNIA link fallback."""
-        chart_no = str(row.get("chart_no") or "").strip()
-        if chart_no.startswith("차"):
-            row["accident_party_type"] = "car_vs_car"
-        elif chart_no.startswith("보"):
-            row["accident_party_type"] = "car_vs_person"
-        elif chart_no.startswith(("자", "거")):
-            row["accident_party_type"] = "car_vs_bicycle"
-        elif chart_no.startswith("단"):
-            row["accident_party_type"] = "single_vehicle"
-        return row
 
 
 
