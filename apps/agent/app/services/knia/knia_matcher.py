@@ -62,7 +62,7 @@ def match_knia_charts(
     q = normalize_query(" ".join([description_text or "", json.dumps(facts, ensure_ascii=False), " ".join(keywords), scenario_type or "", party or "", " ".join(expansion_terms)]))
     chart_direct = re.search(r"[차보자기단]\d{1,3}(?:-\d+)?", q)
     tags = list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)]))
-    cache_key = "knia:match:v5:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+    cache_key = "knia:match:v6:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
     cache = _redis_client()
     if cache:
         cached = cache.get(cache_key)
@@ -70,8 +70,10 @@ def match_knia_charts(
             return {"items": json.loads(cached), "cache_hit": True, "cache_key": cache_key, "accident_party_type": party, "query_expansion_terms": expansion_terms}
     lookup_error = None
     try:
+        excluded_items: list[dict[str, Any]] = []
         if chart_direct:
-            items = _direct_lookup(chart_direct.group(0), limit)
+            raw_items = _direct_lookup(chart_direct.group(0), limit)
+            items, excluded_items = _filter_scenario_compatible_matches(raw_items, scenario_type)
         else:
             items = _hybrid_lookup(q, tags, party, limit, scenario_type=scenario_type)
             if not items and party != "unknown":
@@ -88,6 +90,7 @@ def match_knia_charts(
         "accident_party_type": party,
         "query_expansion_terms": expansion_terms,
         "lookup_error": lookup_error,
+        "excluded_items": excluded_items if "excluded_items" in locals() else [],
     }
 
 
@@ -237,7 +240,107 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
     has_signal_terms = any(w in joined_text for w in ["신호위반", "적색", "빨간불", "교차로 신호"])
     if scenario_type == "intersection_signal_violation":
         return not (chart_no.startswith("차12") or has_signal_terms)
+    if scenario_type == "rear_end_collision":
+        return _rear_end_primary_exclusion_reason(row, joined_text) is not None
     return False
+
+
+def _filter_scenario_compatible_matches(
+    items: list[dict[str, Any]],
+    scenario_type: str | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    kept: list[dict[str, Any]] = []
+    excluded: list[dict[str, Any]] = []
+    for item in items:
+        joined = _match_joined_text(item)
+        reason = None
+        if scenario_type == "rear_end_collision":
+            reason = _rear_end_primary_exclusion_reason(item, joined)
+        elif _is_strict_scenario_mismatch(scenario_type, item, joined):
+            reason = "scenario_party_or_structure_mismatch"
+        if reason:
+            excluded.append({**item, "exclusion_reason": reason})
+        else:
+            kept.append(item)
+    return kept, excluded
+
+
+def _rear_end_primary_exclusion_reason(row: dict[str, Any], joined_text: str | None = None) -> str | None:
+    text = joined_text or _match_joined_text(row)
+    chart_no = str(row.get("chart_no") or "")
+    party = _row_party_type(row)
+    if party in {"car_vs_person", "car_vs_bicycle", "car_vs_object", "single_vehicle"}:
+        return f"incompatible_party_type:{party}"
+    strong_rear_end = chart_no.startswith(("차41", "차42")) or any(
+        token in text
+        for token in (
+            "후미추돌",
+            "후방추돌",
+            "후방 추돌",
+            "뒤차",
+            "뒷차",
+            "안전거리",
+            "정차 차량",
+            "선행 차량",
+            "앞차",
+            "rear-end",
+            "safe distance",
+        )
+    )
+    structural_mismatch = any(
+        token in text
+        for token in (
+            "좌회전",
+            "직진 대 좌회전",
+            "교차로 직진",
+            "신호등 없는 교차로",
+            "진로변경",
+            "진로 변경",
+            "차선변경",
+            "차로를 변경",
+            "자전거",
+            "보행자",
+            "기물",
+            "시설물",
+            "중앙선 침범",
+            "중앙선",
+            "left turn",
+            "lane change",
+            "bicycle",
+            "pedestrian",
+        )
+    )
+    if chart_no.startswith("차16") or (structural_mismatch and not strong_rear_end):
+        return "rear_end_structure_mismatch"
+    if not strong_rear_end:
+        return "rear_end_signal_missing"
+    return None
+
+
+def is_knia_match_compatible_with_scenario(match: dict[str, Any] | None, scenario_type: str | None) -> bool:
+    if not match:
+        return False
+    return _rear_end_primary_exclusion_reason(match) is None if scenario_type == "rear_end_collision" else not _is_strict_scenario_mismatch(scenario_type, match, _match_joined_text(match))
+
+
+def _match_joined_text(row: dict[str, Any]) -> str:
+    return " ".join(
+        str(row.get(key) or "")
+        for key in (
+            "chart_no",
+            "title",
+            "accident_summary",
+            "scenario_summary_easy",
+            "basic_fault_text",
+            "plain_summary",
+            "summary",
+            "related_reason",
+            "source_url",
+            "source_detail_url",
+            "display_tags",
+            "keywords",
+        )
+    ).lower()
 
 
 def _is_centerline_primary_mismatch(tags: list[str], row: dict[str, Any]) -> bool:

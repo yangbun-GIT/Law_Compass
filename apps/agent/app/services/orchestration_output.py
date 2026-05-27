@@ -55,6 +55,13 @@ def enrich_analysis_output(
         x.get("source_url") for x in evidence_bundle.knia_json_evidence if x.get("source_url")
     ]
     output["model_info"]["retrieval"] = _build_retrieval_model_info(evidence_bundle)
+    if (analysis_bundle.fault_ratio or {}).get("rejected_knia_fault_estimate"):
+        observation = {
+            "type": "knia_basis_mismatch",
+            "reason": "primary KNIA chart was incompatible with scenario_type and was not used to overwrite fault_ratio",
+        }
+        output.setdefault("evidence_audit", {}).setdefault("observations", []).append(observation)
+        output["model_info"].setdefault("evidence_mismatch", []).append(observation)
     output["model_info"]["scenario_classifier"] = context.scenario
     output["model_info"]["evidence_source_status"] = build_evidence_source_status(evidence_bundle)
     output["model_info"]["evidence_source_status_version"] = EVIDENCE_SOURCE_STATUS_VERSION

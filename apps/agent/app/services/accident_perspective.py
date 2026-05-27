@@ -43,6 +43,10 @@ def infer_user_vehicle_role(text: str, facts: dict[str, Any] | None = None, scen
             return FOLLOWING_VEHICLE
         if _facts_indicate_front_vehicle_rear_end(facts):
             return FRONT_VEHICLE
+        if _has_clear_front_vehicle_rear_end_korean(haystack):
+            return FRONT_VEHICLE
+        if _has_clear_following_vehicle_korean(haystack):
+            return FOLLOWING_VEHICLE
         if _has_front_vehicle_phrase(haystack):
             return FRONT_VEHICLE
         if _has_following_vehicle_phrase(haystack):
@@ -171,7 +175,7 @@ def _haystack(text: str, facts: dict[str, Any]) -> str:
 
 def _is_rear_end_context(scenario_type: str | None, text: str) -> bool:
     return scenario_type == "rear_end_collision" or any(
-        word in text for word in ["후미", "뒷차", "뒤에서", "추돌", "받힘", "받혔"]
+        word in text for word in ["후미", "뒷차", "뒷 차", "뒤차", "뒤 차", "후방", "후속", "뒤에서", "추돌", "받힘", "받혔", "rear"]
     )
 
 
@@ -186,6 +190,21 @@ def _facts_indicate_front_vehicle_rear_end(facts: dict[str, Any]) -> bool:
         "rear_impact",
         "hit_from_behind",
     }
+
+
+def _has_clear_front_vehicle_rear_end_korean(text: str) -> bool:
+    stopped_context = _contains_any(text, ["정차", "정지", "멈춰", "멈춘", "대기", "신호대기", "신호 대기", "stopped"])
+    rear_actor = _contains_any(text, ["뒷차", "뒷 차", "뒤차", "뒤 차", "후방 차량", "후속 차량", "뒤 차량", "rear vehicle", "vehicle behind"])
+    impact = _contains_any(text, ["추돌", "들이받", "박았", "받았", "받힘", "hit from behind", "rear-ended"])
+    my_stopped = _contains_any(text, ["내 차는 정차", "제 차는 정차", "내 차량은 정차", "제 차량은 정차", "my car was stopped"])
+    return impact and rear_actor and (stopped_context or my_stopped)
+
+
+def _has_clear_following_vehicle_korean(text: str) -> bool:
+    my_actor = _contains_any(text, ["내가", "제가", "내 차가", "제 차가", "내 차량이", "제 차량이", "my car"])
+    front_vehicle = _contains_any(text, ["앞차", "선행차", "선행 차량", "앞 차량", "front vehicle"])
+    impact = _contains_any(text, ["추돌", "들이받", "박았", "받았", "hit", "rear-ended"])
+    return my_actor and front_vehicle and impact
 
 
 def _has_front_vehicle_phrase(text: str) -> bool:

@@ -90,6 +90,51 @@ def _set_if_empty(facts: dict[str, Any], key: str, value: Any) -> None:
     if _is_empty(facts.get(key)):
         facts[key] = value
 
+def _has_lawful_red_light_stop_context(text: str) -> bool:
+    stop_tokens = (
+        "신호대기",
+        "신호 대기",
+        "빨간불에 정차",
+        "빨간불 정차",
+        "적색신호 대기",
+        "적색 신호 대기",
+        "신호대기 중 정차",
+        "신호 대기 중 정차",
+        "정지선에서 대기",
+        "정지선 대기",
+        "red light stop",
+        "stopped at red",
+    )
+    return _contains_any(text, stop_tokens)
+
+def _has_red_light_violation_context(text: str) -> bool:
+    red_context = _contains_any(text, ("빨간불", "적색신호", "적색 신호", "정지신호", "red light", "red signal"))
+    violation_context = _contains_any(
+        text,
+        (
+            "진입",
+            "들어갔",
+            "통과",
+            "무시",
+            "위반",
+            "진행",
+            "교차로로",
+            "entered",
+            "ran",
+            "ignored",
+            "violation",
+        ),
+    )
+    lawful_stop = _has_lawful_red_light_stop_context(text)
+    return red_context and violation_context and not lawful_stop
+
+def _has_rear_end_victim_context(text: str) -> bool:
+    rear_actor = _contains_any(text, ("뒷차", "뒷 차", "뒤차", "뒤 차", "후방 차량", "후속 차량", "뒤 차량", "rear vehicle", "vehicle behind"))
+    impact = _contains_any(text, ("추돌", "들이받", "박았", "받았", "받힘", "hit from behind", "rear-ended"))
+    stopped = _contains_any(text, ("정차", "정지", "멈춰", "멈춘", "대기", "stopped"))
+    my_vehicle = _contains_any(text, ("내 차", "제 차", "내 차량", "제 차량", "my car", "my vehicle"))
+    return rear_actor and impact and (stopped or my_vehicle)
+
 def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str, Any]:
     """Fill broadly applicable traffic facts that the UI can express but users often write in free text."""
     enriched = dict(facts)
@@ -124,6 +169,16 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
 
     if _contains_any(hay, ("황색", "노란불", "yellow")):
         _set_if_empty(enriched, "user_signal", "yellow")
+    if _has_lawful_red_light_stop_context(hay):
+        _set_if_empty(enriched, "lawful_stop_reason", "traffic_signal")
+        _set_if_empty(enriched, "stopped_at_red_light", True)
+        _set_if_empty(enriched, "stopped_due_to_signal", True)
+        _set_if_empty(enriched, "rear_end_context", True)
+        _set_if_empty(enriched, "stopped", True)
+    if _has_red_light_violation_context(hay):
+        _set_if_empty(enriched, "user_signal_violation", True)
+        _set_if_empty(enriched, "intersection", True)
+        _set_if_empty(enriched, "accident_type", "intersection_signal_violation")
     if _contains_any(hay, ("적색", "빨간불", "red")) and _contains_any(hay, ("변경", "바뀌", "전환", "changed", "turn")):
         _set_if_empty(enriched, "signal_transition", "yellow_to_red")
     if _contains_any(hay, ("황색", "노란불", "yellow")) and _contains_any(hay, ("적색", "빨간불", "red")):
@@ -152,6 +207,13 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
         _set_if_empty(enriched, "direct_collision_partner_type", "vehicle")
         _set_if_empty(enriched, "accident_party_type", "car_vs_car")
         _set_if_empty(enriched, "accident_type", "non_contact_trigger")
+    if _has_rear_end_victim_context(hay):
+        _set_if_empty(enriched, "collision_partner_type", "vehicle")
+        _set_if_empty(enriched, "direct_collision_partner_type", "vehicle")
+        _set_if_empty(enriched, "accident_party_type", "car_vs_car")
+        _set_if_empty(enriched, "opponent_behavior", "rear_collision")
+        _set_if_empty(enriched, "accident_type", "rear_end_collision")
+        _set_if_empty(enriched, "rear_end_context", True)
     return enriched
 
 def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None) -> dict[str, Any]:

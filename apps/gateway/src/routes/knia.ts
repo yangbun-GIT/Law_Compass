@@ -28,6 +28,15 @@ function summarizeRankingDetailStatus(rows: any[]) {
   };
 }
 
+function publicKniaThumbnail(value: any) {
+  const text = String(value ?? "").trim();
+  const lowered = text.toLowerCase();
+  if (!text || lowered.includes("logo_test.jpg") || lowered.includes("/images/common/logo_test")) {
+    return null;
+  }
+  return text;
+}
+
 export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions) {
   const { env, db, errorPayload } = opts;
 
@@ -195,7 +204,7 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
             source_url: sourceDetailUrl || ranking.source_url,
             embed_url: null,
             thumbnail_url: null,
-            button_label: "KNIA 원문 보기",
+            button_label: "KNIA 원문 기준 보기",
             attribution: "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털"
           },
           license_status: "source_link_only",
@@ -247,16 +256,16 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
         case_references: chart.case_references ?? [],
         source_url: chart.source_url,
         source_detail_url: chart.source_detail_url ?? chart.source_url,
-        thumbnail_url: chart.thumbnail_url,
+        thumbnail_url: publicKniaThumbnail(chart.thumbnail_url),
         video_url: chart.video_url,
         media_embed_url: chart.media_embed_url,
         media_provider: "external_url",
         related_video: {
-          display_mode: chart.media_embed_url ? "embed" : "external_link",
-          source_url: chart.video_url || chart.source_url,
-          embed_url: chart.media_embed_url,
-          thumbnail_url: chart.thumbnail_url,
-          button_label: chart.video_url ? "관련 영상 보기" : "원문 기준 보기",
+          display_mode: "external_link",
+          source_url: chart.video_url || chart.source_detail_url || chart.source_url,
+          embed_url: null,
+          thumbnail_url: publicKniaThumbnail(chart.thumbnail_url),
+          button_label: chart.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기",
           attribution: chart.attribution ?? "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털"
         },
         license_status: "source_link_only",

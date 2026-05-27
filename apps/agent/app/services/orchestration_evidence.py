@@ -4,7 +4,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.services.knia.knia_fault_adjuster import estimate_knia_fault
-from app.services.knia.knia_matcher import _is_centerline_primary_mismatch, match_knia_charts
+from app.services.knia.knia_matcher import (
+    _is_centerline_primary_mismatch,
+    is_knia_match_compatible_with_scenario,
+    match_knia_charts,
+)
 from app.services.knia.knia_report_adapter import build_knia_evidence
 from app.services.knia.knia_repository import KniaRepository
 from app.services.orchestration_context import CaseContext
@@ -40,7 +44,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         limit=5,
     )
     scenario_tags = scenario.get("scenario_tags") or []
-    knia_matches = _filter_primary_knia_evidence(knia_result.get("items") or [], scenario_tags)
+    knia_matches = _filter_primary_knia_evidence(knia_result.get("items") or [], scenario_tags, scenario.get("scenario_type"))
     knia_matches = _filter_pedestrian_target_mismatch(knia_matches, normalized["structured_facts"], scenario.get("accident_party_type"))
     evidence_query = evidence_query_payload(
         description_text=normalized["description_text"],
@@ -56,7 +60,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         scenario_type=scenario.get("scenario_type"),
         limit=5,
     )
-    knia_json_evidence = _filter_primary_knia_evidence(knia_json_result.get("items") or [], scenario_tags)
+    knia_json_evidence = _filter_primary_knia_evidence(knia_json_result.get("items") or [], scenario_tags, scenario.get("scenario_type"))
     knia_json_evidence = _filter_pedestrian_target_mismatch(knia_json_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
     knia_fault_estimate: dict[str, Any] | None = None
     knia_reference_evidence: list[dict[str, Any]] = []
@@ -94,7 +98,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         limit=8,
     )
     legal_evidence = normalize_evidence_items(retrieval["items"], default_source="법률 근거")
-    legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario_tags)
+    legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario_tags, scenario.get("scenario_type"))
     legal_evidence = _filter_pedestrian_target_mismatch(legal_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
     return EvidenceBundle(
         knia_result=knia_result,
@@ -111,8 +115,19 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
     )
 
 
-def _filter_primary_knia_evidence(items: list[dict[str, Any]], scenario_tags: list[str]) -> list[dict[str, Any]]:
-    return [item for item in items if not _is_centerline_primary_mismatch(scenario_tags, item)]
+def _filter_primary_knia_evidence(
+    items: list[dict[str, Any]],
+    scenario_tags: list[str],
+    scenario_type: str | None = None,
+) -> list[dict[str, Any]]:
+    filtered: list[dict[str, Any]] = []
+    for item in items:
+        if _is_centerline_primary_mismatch(scenario_tags, item):
+            continue
+        if scenario_type and not is_knia_match_compatible_with_scenario(item, scenario_type):
+            continue
+        filtered.append(item)
+    return filtered
 
 
 def _filter_pedestrian_target_mismatch(

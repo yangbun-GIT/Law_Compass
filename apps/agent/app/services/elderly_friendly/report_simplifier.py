@@ -47,4 +47,5 @@ def build_elderly_friendly_report(technical_result: dict[str, Any]) -> dict[str,
         safe_report,
         technical_result.get("knia_primary_match"),
         technical_result.get("knia_matches") or [],
+        technical_result,
     )

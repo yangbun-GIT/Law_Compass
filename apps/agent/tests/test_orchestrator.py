@@ -38,11 +38,11 @@ def test_analyze_case_minimum_fields():
     assert result["agent_quality_packet"]["version"] == "agent-quality-packet-v1"
     assert result["agent_quality_packet"]["packet_contract"]["required_packets_present"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["safe_metadata_only"] is True
-    assert result["agent_quality_packet"]["evidence_source_status"]["version"] == "evidence-source-status-v1"
+    assert result["agent_quality_packet"]["evidence_source_status"]["version"] == "evidence-source-status-v2"
     assert result["expert_guidance_sections"]["version"] == "expert-guidance-sections-v1"
     assert "expert_guidance_sections" in AnalysisOutput(**result).model_dump()
     assert result["model_info"]["agent_quality_packet_version"] == "agent-quality-packet-v1"
-    assert result["model_info"]["evidence_source_status"]["version"] == "evidence-source-status-v1"
+    assert result["model_info"]["evidence_source_status"]["version"] == "evidence-source-status-v2"
     assert result["reflection_loop"]["version"] == "agent-reflection-loop-v1"
     assert result["reflection_loop"]["next_action"] in {
         "finalize",
@@ -59,6 +59,31 @@ def test_analyze_case_minimum_fields():
     }
     assert "신호대기 중 후방 차량 추돌" not in str(result["agent_trace"])
     AnalysisOutput(**result)
+
+
+def test_red_light_waiting_rear_end_analysis_keeps_front_vehicle_fault_and_filters_knia_links():
+    text = "신호대기 중(빨간불) 뒷 차와 추돌사고가 발생했다. 내 차는 정차해있었고 뒷차가 갑자기 추돌하였다. 시간은 오후 2시 정도였으며 날씨는 흐림이었으나 어둡지는 않았다."
+    result = analyze_case(text, analysis_mode="fault_ratio")
+
+    assert result["scenario_type"] == "rear_end_collision"
+    assert result["accident_party_type"] == "car_vs_car"
+    assert result["fault_ratio"]["user_vehicle_role"] == "front_vehicle"
+    assert result["fault_ratio"]["my"] <= 10
+    assert result["fault_ratio"]["other"] >= 90
+    assert "급정지" in " ".join(result["fault_ratio"].get("caveats") or [])
+    if result.get("knia_primary_match"):
+        primary_text = str(result["knia_primary_match"])
+        assert "차41" in primary_text or "차42" in primary_text or "후미" in primary_text or "후방" in primary_text or "안전거리" in primary_text
+    visible_links_text = str(
+        {
+            "knia_primary_match": result.get("knia_primary_match"),
+            "knia_evidence": result.get("knia_evidence"),
+            "combined_evidence": result.get("combined_evidence"),
+            "related": (result.get("elderly_friendly_report") or {}).get("related_knia_video_card"),
+        }
+    )
+    assert "차16-1" not in visible_links_text
+    assert "좌회전" not in visible_links_text or "후미" in visible_links_text
 
 
 def test_analyze_video_case_applies_video_input_contract():
@@ -246,6 +271,35 @@ def test_contextual_complex_fault_estimate_is_not_overwritten_by_knia_base_fault
     assert fault_ratio["other"] == 70
     assert fault_ratio["knia_reference_fault"] == {"A": 100, "B": 0}
     assert fault_ratio["knia_override_policy"] == "preserved_contextual_complex_case_estimate"
+
+
+def test_incompatible_knia_fault_estimate_does_not_overwrite_rear_end_fault():
+    fault_ratio = {
+        "my": 0,
+        "other": 100,
+        "fault_estimate_source": "scenario_default",
+        "basis": "rear-end default",
+        "key_factors": ["후미추돌"],
+    }
+
+    _apply_knia_fault_estimate(
+        fault_ratio=fault_ratio,
+        knia_fault_estimate={
+            "source_chart": {"chart_no": "차16-1", "title": "교차로 직진 대 좌회전"},
+            "final_fault": {"A": 50, "B": 50},
+        },
+        scenario={"scenario_type": "rear_end_collision"},
+        normalized={
+            "description_text": "정차 중 뒤차가 추돌",
+            "structured_facts": {"stopped": True, "opponent_behavior": "rear_collision"},
+        },
+    )
+
+    assert fault_ratio["my"] == 0
+    assert fault_ratio["other"] == 100
+    assert fault_ratio["knia_reference_fault"] == {"A": 50, "B": 50}
+    assert fault_ratio["rejected_knia_fault_estimate"]["reason"] == "knia_basis_mismatch"
+    assert fault_ratio["knia_override_policy"] == "rejected_incompatible_knia_basis"
 
 
 def test_uncertain_signal_transition_does_not_treat_user_as_clear_victim():

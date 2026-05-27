@@ -32,6 +32,8 @@ const signupView = readFileSync("src/views/SignupView.vue", "utf8");
 const resultView = readFileSync("src/views/CaseResultView.vue", "utf8");
 const evidenceView = readFileSync("src/views/EvidenceDetailView.vue", "utf8");
 const easyReportView = readFileSync("src/components/easy/EasyReportView.vue", "utf8");
+const relatedVideoCard = readFileSync("src/components/knia/RelatedVideoCard.vue", "utf8");
+const kniaVideoLinkCard = readFileSync("src/components/knia/KniaVideoLinkCard.vue", "utf8");
 const evidenceReliabilityCard = readFileSync("src/components/easy/EvidenceReliabilityCard.vue", "utf8");
 const videoFactExplanationCard = readFileSync("src/components/easy/VideoFactExplanationCard.vue", "utf8");
 const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
@@ -66,7 +68,7 @@ const requiredErrorUx = [
   "영상 신뢰도"
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
@@ -89,6 +91,29 @@ const forbiddenEvidenceText = ["chunk_id:", "{{ chunk?.id }}", "<pre v-if=\"chun
 const evidenceLeaks = forbiddenEvidenceText.filter((token) => evidenceView.includes(token));
 if (evidenceLeaks.length) {
   console.error("evidence detail exposes internal identifiers by default", evidenceLeaks);
+  process.exit(1);
+}
+
+const kniaLinkCardContracts = [
+  "KNIA 원문 기준 및 관련 영상",
+  "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
+  "target=\"_blank\"",
+  "rel=\"noopener noreferrer\"",
+  "safeSourceUrl || video.has_knia_candidate",
+  "수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.",
+];
+const kniaCardText = [relatedVideoCard, kniaVideoLinkCard, easyReportView, kniaChartView].join("\n");
+const missingKniaCardContracts = kniaLinkCardContracts.filter((token) => !kniaCardText.includes(token));
+if (missingKniaCardContracts.length) {
+  console.error("KNIA link card contract failed", missingKniaCardContracts);
+  process.exit(1);
+}
+if (kniaCardText.includes("<iframe") || kniaCardText.includes("<video")) {
+  console.error("KNIA card must not render iframe or video tags by default");
+  process.exit(1);
+}
+if (relatedVideoCard.includes("<img") || kniaVideoLinkCard.includes("<img")) {
+  console.error("KNIA link cards must not render default thumbnails as images");
   process.exit(1);
 }
 

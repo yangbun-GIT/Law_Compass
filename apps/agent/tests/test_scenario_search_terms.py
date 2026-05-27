@@ -248,6 +248,48 @@ def test_signal_transition_without_opponent_signal_keeps_intersection_uncertaint
     assert "opponent_signal_not_visible" in scenario["scenario_tags"]
 
 
+def test_red_light_waiting_rear_end_is_not_signal_violation():
+    scenario = classify_scenario(
+        "신호대기 중(빨간불) 뒷 차와 추돌사고가 발생했다. 내 차는 정차해있었고 뒷차가 갑자기 추돌하였다.",
+        {},
+        [],
+    )
+
+    assert scenario["scenario_type"] == "rear_end_collision"
+    assert scenario["accident_party_type"] == "car_vs_car"
+    assert "rear_end" in scenario["scenario_tags"]
+    assert "signal_violation" not in scenario["scenario_tags"]
+
+
+def test_red_light_entry_signal_violation_stays_intersection_case():
+    scenario = classify_scenario(
+        "제가 빨간불에 교차로로 진입했고 정상 신호로 직진하던 상대 차량과 충돌했습니다.",
+        {},
+        [],
+    )
+
+    assert scenario["scenario_type"] == "intersection_signal_violation"
+    assert scenario["scenario_type"] != "rear_end_collision"
+
+
+def test_rear_end_search_terms_do_not_pollute_red_light_wait_with_left_turn_signal_violation():
+    terms = scenario_search_terms(
+        scenario_type="rear_end_collision",
+        scenario_tags=["rear_end", "stopped_at_red_light"],
+        facts={"stopped": True, "stopped_at_red_light": True, "stopped_due_to_signal": True},
+        selected_keywords=["빨간불 신호대기"],
+        accident_party_type="car_vs_car",
+        max_terms=40,
+    )
+
+    expanded = " ".join(terms)
+    assert "후미추돌" in terms
+    assert "차41" in terms
+    assert "신호위반" not in expanded
+    assert "좌회전" not in expanded
+    assert "차16" not in expanded
+
+
 def test_left_turn_straight_signal_case_is_not_overridden_by_stopped_crosswalk_context():
     scenario = classify_scenario(
         "교차로에서 좌회전하던 중 왼쪽 1차로에서 직진해 온 차량과 사고가 났습니다.",

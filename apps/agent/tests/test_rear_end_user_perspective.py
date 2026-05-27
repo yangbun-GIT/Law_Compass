@@ -38,6 +38,8 @@ def test_front_vehicle_stopped_fact_infers_user_as_following_vehicle():
 def test_rear_end_phrases_infer_front_vehicle():
     assert infer_user_vehicle_role("신호대기 중 뒤차가 후미를 추돌했습니다", {}, "rear_end_collision") == FRONT_VEHICLE
     assert infer_user_vehicle_role("정차 중 뒤차가 들이받았습니다", {}, "rear_end_collision") == FRONT_VEHICLE
+    assert infer_user_vehicle_role("빨간불에 정차해 있는데 뒤차가 박았습니다", {}, "rear_end_collision") == FRONT_VEHICLE
+    assert infer_user_vehicle_role("신호대기 중 뒷 차가 추돌했습니다", {}, "rear_end_collision") == FRONT_VEHICLE
 
 
 def test_static_fallback_returns_korean_rear_end_basis():

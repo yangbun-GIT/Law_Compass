@@ -69,6 +69,10 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance"])
+    elif _is_lawful_signal_stop_rear_end_context(facts, haystack):
+        scenario_type = "rear_end_collision"
+        accident_party_type = "car_vs_car"
+        tags.update(["rear_end", "safe_distance", "stopped_vehicle", "lawful_stop_reason", "stopped_at_red_light"])
     elif (
         collision_partner_type == "vehicle"
         and facts.get("front_vehicle_stopped")
@@ -101,7 +105,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "single_vehicle_accident"
         accident_party_type = "single_vehicle"
         tags.update(["single_vehicle", "road_condition"])
-    elif facts.get("opponent_signal_violation") or "신호위반" in haystack or facts.get("signal_transition") or (facts.get("intersection") and (facts.get("user_signal") or facts.get("opponent_signal") or facts.get("opponent_signal_visible") is False or "신호" in haystack)):
+    elif facts.get("opponent_signal_violation") or facts.get("user_signal_violation") or _has_red_light_violation_context(haystack) or "신호위반" in haystack or facts.get("signal_transition") or (facts.get("intersection") and not facts.get("stopped_due_to_signal") and (facts.get("user_signal") or facts.get("opponent_signal") or facts.get("opponent_signal_visible") is False or "신호" in haystack)):
         scenario_type = "intersection_signal_violation"
         accident_party_type = "car_vs_car"
         tags.update(["intersection", "signal_violation", "right_of_way"])
@@ -169,6 +173,10 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
             tags.add("non_contact_trigger")
     if facts.get("rear_vehicle_collision"):
         tags.add("rear_end")
+    if facts.get("lawful_stop_reason") or facts.get("stopped_due_to_signal"):
+        tags.add("lawful_stop_reason")
+    if facts.get("stopped_at_red_light"):
+        tags.add("stopped_at_red_light")
     if facts.get("reported_speed_kmh") or facts.get("speed_limit_kmh"):
         tags.add("speed")
     if facts.get("fatality"):
@@ -196,6 +204,8 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
 
 
 def _is_intersection_signal_turning_conflict(facts: dict[str, Any], accident_type: str, haystack: str) -> bool:
+    if facts.get("stopped_due_to_signal") and _has_rear_end_tokens(haystack):
+        return False
     if not facts.get("intersection") and "교차로" not in haystack:
         return False
     turning_text = " ".join(str(facts.get(field) or "") for field in ("turning", "ego_turn_direction", "accident_type"))
@@ -214,6 +224,25 @@ def _is_intersection_signal_turning_conflict(facts: dict[str, Any], accident_typ
         "교차로" in haystack and ("좌회전" in haystack or "직진" in haystack)
     )
     return signal_context and (declared_intersection or (left_turn and straight_opponent))
+
+
+def _is_lawful_signal_stop_rear_end_context(facts: dict[str, Any], haystack: str) -> bool:
+    lawful_stop = facts.get("stopped_due_to_signal") or facts.get("stopped_at_red_light") or any(
+        token in haystack for token in ("신호대기", "신호 대기", "빨간불에 정차", "적색신호 대기", "정지선에서 대기")
+    )
+    stopped = facts.get("stopped") is True or any(token in haystack for token in ("정차", "정지", "멈춰", "대기"))
+    return bool(lawful_stop and stopped and _has_rear_end_tokens(haystack))
+
+
+def _has_rear_end_tokens(text: str) -> bool:
+    return any(token in text for token in ("뒷차", "뒷 차", "뒤차", "뒤 차", "후방", "후속", "후미", "추돌", "들이받", "받힘", "rear"))
+
+
+def _has_red_light_violation_context(text: str) -> bool:
+    red_context = any(token in text for token in ("빨간불", "적색신호", "적색 신호", "정지신호", "red light", "red signal"))
+    violation_context = any(token in text for token in ("진입", "들어갔", "통과", "무시", "위반", "진행", "교차로로", "entered", "ran", "ignored", "violation"))
+    lawful_wait = any(token in text for token in ("신호대기", "신호 대기", "빨간불에 정차", "적색신호 대기", "정지선에서 대기"))
+    return red_context and violation_context and not lawful_wait
 
 
 def _is_non_contact_trigger_context(facts: dict[str, Any], haystack: str) -> bool:

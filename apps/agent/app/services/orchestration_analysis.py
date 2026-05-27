@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.services.accident_perspective import map_fault_ratio_to_user
+from app.services.knia.knia_matcher import is_knia_match_compatible_with_scenario
 from app.services.analysts.action_plan_analyst import analyze_action_plan
 from app.services.analysts.criminal_liability_analyst import analyze_criminal_liability
 from app.services.analysts.evidence_auditor import audit_evidence
@@ -148,7 +149,7 @@ def run_reflection_requery_stage(
             *normalize_evidence_items(retry_retrieval["items"], default_source="법률 근거"),
         ]
     )
-    legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario.get("scenario_tags") or [])
+    legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario.get("scenario_tags") or [], scenario.get("scenario_type"))
     next_evidence_bundle = EvidenceBundle(
         **{
             **evidence_bundle.__dict__,
@@ -175,6 +176,22 @@ def _apply_knia_fault_estimate(
         return
     final_fault = knia_fault_estimate.get("final_fault") or {}
     fault_ratio["knia_reference_fault"] = final_fault
+    source_chart = knia_fault_estimate.get("source_chart") or {}
+    if source_chart and not is_knia_match_compatible_with_scenario(source_chart, scenario.get("scenario_type")):
+        fault_ratio["rejected_knia_fault_estimate"] = {
+            "source_chart": source_chart,
+            "final_fault": final_fault,
+            "reason": "knia_basis_mismatch",
+        }
+        fault_ratio["knia_override_policy"] = "rejected_incompatible_knia_basis"
+        factors = list(fault_ratio.get("key_factors") or [])
+        if "KNIA 기준 불일치" not in factors:
+            fault_ratio["key_factors"] = [*factors, "KNIA 기준 불일치"]
+        fault_ratio["basis"] = (
+            f"{fault_ratio.get('basis') or '사고 사실 기반 참고용 과실 추정입니다.'} "
+            "검색된 KNIA 기준이 현재 사고 유형과 맞지 않아 과실비율 덮어쓰기에 사용하지 않았습니다."
+        ).strip()
+        return
     if fault_ratio.get("fault_estimate_source") == "contextual_complex_case":
         fault_ratio["basis"] = (
             "복합 사고 맥락과 KNIA 과실비율 인정기준을 함께 검토한 참고용 과실 추정입니다. "

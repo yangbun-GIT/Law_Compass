@@ -12,6 +12,10 @@ import redis
 from app.providers.embedding import get_embedding_provider, vector_literal
 
 
+KNIA_JSON_EXACT_CACHE_VERSION = "v2"
+KNIA_JSON_SEMANTIC_DISTANCE_THRESHOLD = 0.20
+
+
 def _db_url() -> str | None:
     url = os.getenv("DATABASE_URL", "")
     if not url:
@@ -52,7 +56,7 @@ def invalidate_scope(scope: str = "knia_json") -> dict[str, Any]:
     r = _redis()
     if r and scope == "knia_json":
         try:
-            for key in r.scan_iter("knia_json:exact:v1:*"):
+            for key in r.scan_iter("knia_json:exact:*"):
                 deleted_redis += r.delete(key)
         except Exception:
             deleted_redis = 0
@@ -107,17 +111,18 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
     qh = query_hash(normalized)
     version = get_knia_json_version()
     party = accident_party_type or "unknown"
-    key = f"knia_json:exact:v1:{version}:{party}:{qh}"
+    scenario = scenario_type or "unknown"
+    key = f"knia_json:exact:{KNIA_JSON_EXACT_CACHE_VERSION}:{version}:{party}:{scenario}:{qh}"
     db_url = _db_url()
     if not db_url:
-        return {"items": [], "cache": {"exact_hit": False, "semantic_hit": False, "key": key, "disabled_reason": "DATABASE_URL missing"}}
+        return {"items": [], "cache": {"exact_hit": False, "semantic_hit": False, "key": key, "scenario_type": scenario, "disabled_reason": "DATABASE_URL missing"}}
     r = _redis()
     if r:
         try:
             cached = r.get(key)
             if cached:
                 refs = json.loads(cached)
-                return {"items": _public_items_from_refs(refs), "cache": {"exact_hit": True, "semantic_hit": False, "key": key}}
+                return {"items": _public_items_from_refs(refs), "cache": {"exact_hit": True, "semantic_hit": False, "key": key, "scenario_type": scenario}}
         except Exception:
             r = None
 
@@ -126,27 +131,38 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
             """
-            SELECT result_refs
+            SELECT result_refs, query_hash, query_embedding <=> %s::vector AS distance
             FROM semantic_query_cache
             WHERE source_scope='knia_json'
               AND coalesce(accident_party_type,'unknown')=%s
+              AND coalesce(scenario_type,'unknown')=%s
               AND (expires_at IS NULL OR expires_at > now())
             ORDER BY query_embedding <=> %s::vector ASC
             LIMIT 1
             """,
-            (party, vec_literal),
+            (vec_literal, party, scenario, vec_literal),
         )
         semantic = cur.fetchone()
-        if semantic:
+        if semantic and float(semantic[2] or 1.0) <= KNIA_JSON_SEMANTIC_DISTANCE_THRESHOLD:
             refs = semantic[0]
-            cur.execute("UPDATE semantic_query_cache SET hit_count=hit_count+1, updated_at=now() WHERE query_hash=%s AND source_scope='knia_json'", (qh,))
+            cur.execute("UPDATE semantic_query_cache SET hit_count=hit_count+1, updated_at=now() WHERE query_hash=%s AND source_scope='knia_json'", (semantic[1],))
             conn.commit()
             if r:
                 try:
                     r.setex(key, 3600, json.dumps(refs, ensure_ascii=False))
                 except Exception:
                     pass
-            return {"items": _public_items_from_refs(refs), "cache": {"exact_hit": False, "semantic_hit": True, "key": key}}
+            return {
+                "items": _public_items_from_refs(refs),
+                "cache": {
+                    "exact_hit": False,
+                    "semantic_hit": True,
+                    "key": key,
+                    "scenario_type": scenario,
+                    "semantic_distance": float(semantic[2] or 0.0),
+                    "semantic_distance_threshold": KNIA_JSON_SEMANTIC_DISTANCE_THRESHOLD,
+                },
+            }
 
         params: list[Any] = [normalized, vec_literal]
         where = "kc.source_url IS NOT NULL"
@@ -199,5 +215,14 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
                 r.setex(key, 3600, json.dumps(refs, ensure_ascii=False))
             except Exception:
                 pass
-        return {"items": items, "cache": {"exact_hit": False, "semantic_hit": False, "key": key}}
+        return {
+            "items": items,
+            "cache": {
+                "exact_hit": False,
+                "semantic_hit": False,
+                "key": key,
+                "scenario_type": scenario,
+                "semantic_distance_threshold": KNIA_JSON_SEMANTIC_DISTANCE_THRESHOLD,
+            },
+        }
 

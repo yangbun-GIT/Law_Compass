@@ -79,6 +79,23 @@ def scenario_search_terms(
 ) -> list[str]:
     facts = facts or {}
     terms: list[str] = []
+    if scenario_type == "rear_end_collision":
+        _extend_unique(
+            terms,
+            (
+                "후미추돌",
+                "후방추돌",
+                "정차 차량 추돌",
+                "신호대기 정차",
+                "뒤차 추돌",
+                "뒷차 추돌",
+                "안전거리",
+                "선행차",
+                "앞차",
+                "차41",
+                "차42",
+            ),
+        )
     _extend_unique(terms, _fact_value_terms(facts))
     _extend_unique(terms, SCENARIO_SEARCH_TERMS.get(scenario_type or "", ()))
 
@@ -91,7 +108,7 @@ def scenario_search_terms(
         _extend_unique(terms, ("정차 중", "정차 차량", "후미추돌", "앞차 정지", "정지 사유"))
     if facts.get("lane_change"):
         _extend_unique(terms, ("차선변경", "진로변경", "방향지시등"))
-    if facts.get("intersection"):
+    if facts.get("intersection") and scenario_type != "rear_end_collision":
         _extend_unique(terms, ("교차로", "우선권", "신호"))
     if facts.get("crosswalk_nearby"):
         if facts.get("pedestrian_visible") is True or str(party or "") == "car_vs_person":
@@ -108,7 +125,10 @@ def scenario_search_terms(
     for tag in scenario_tags or []:
         _extend_unique(terms, TAG_SEARCH_TERMS.get(str(tag), ()))
 
-    return _dedupe(terms)[:max_terms]
+    deduped = _dedupe(terms)
+    if scenario_type == "rear_end_collision" and not (facts.get("user_signal_violation") or facts.get("opponent_signal_violation")):
+        deduped = _filter_rear_end_query_pollution(deduped)
+    return deduped[:max_terms]
 
 
 def expand_query_text(
@@ -190,7 +210,7 @@ def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
         terms.extend(["내 차량 차선변경", "진로변경 차량", "차선변경 가해"])
     if facts.get("opponent_signal_violation") or opponent_signal in {"red", "red_light", "signal_violation"}:
         terms.extend(["상대 신호위반", "적색신호 위반", "교차로 신호위반"])
-    if signal_state in {"red", "red_light"}:
+    if signal_state in {"red", "red_light"} and not (facts.get("stopped_due_to_signal") or facts.get("stopped_at_red_light")):
         terms.extend(["적색신호", "신호대기", "교차로 신호"])
     if user_signal in {"green", "blue", "green_light"} and facts.get("opponent_signal_violation"):
         terms.extend(["정상 신호 직진", "신호 준수 차량"])
@@ -282,6 +302,23 @@ def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
             "급정거 대응 시간",
         ])
     return tuple(terms)
+
+
+def _filter_rear_end_query_pollution(values: list[str]) -> list[str]:
+    pollution_tokens = (
+        "신호위반",
+        "좌회전",
+        "직진 대 좌회전",
+        "교차로 신호위반",
+        "차16",
+        "신호등 없는 교차로",
+        "진로변경",
+        "차선변경",
+    )
+    filtered = [value for value in values if not any(token in value for token in pollution_tokens)]
+    if any("신호대기" in value or "빨간불" in value or "적색" in value for value in values):
+        filtered.append("정상 정차 사유")
+    return _dedupe(filtered)
 
 
 def _dedupe(values: list[str]) -> list[str]:

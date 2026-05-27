@@ -43,3 +43,21 @@ def test_signal_violation_scenario_rejects_unrelated_rear_end_chart():
         {"chart_no": "차12-1"},
         "교차로 신호위반 충돌",
     )
+
+
+def test_rear_end_scenario_rejects_left_turn_straight_chart_family():
+    assert _is_strict_scenario_mismatch(
+        "rear_end_collision",
+        {"chart_no": "차16-1", "accident_party_type": "car_vs_car"},
+        "신호등 없는 교차로 직진 대 좌회전 사고",
+    )
+    assert _is_strict_scenario_mismatch(
+        "rear_end_collision",
+        {"chart_no": "차43-2", "accident_party_type": "car_vs_car"},
+        "후행 직진 대 선행 진로변경 차로를 변경",
+    )
+    assert not _is_strict_scenario_mismatch(
+        "rear_end_collision",
+        {"chart_no": "차41-1", "accident_party_type": "car_vs_car"},
+        "뒤차 안전거리 미확보 후미추돌 정차 차량 추돌",
+    )

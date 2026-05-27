@@ -29,6 +29,7 @@ class AnalyzeVideoRequest(BaseModel):
 
 class EvidenceItem(BaseModel):
     chunk_id: str | None = None
+    chart_no: str | None = None
     title: str
     source: str
     score: float | None = None
@@ -38,6 +39,12 @@ class EvidenceItem(BaseModel):
     plain_summary: str | None = None
     related_reason: str | None = None
     source_url: str | None = None
+    source_detail_url: str | None = None
+    video_url: str | None = None
+    media_embed_url: str | None = None
+    thumbnail_url: str | None = None
+    media_provider: str | None = None
+    license_status: str | None = None
     confidence_label: str | None = None
     display_priority: int | None = None
     source_type: str | None = None

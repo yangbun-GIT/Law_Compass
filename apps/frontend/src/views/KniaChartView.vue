@@ -172,7 +172,7 @@ const hasBaseFault = computed(() => baseA.value !== null && baseB.value !== null
 const baseAForBar = computed(() => baseA.value ?? 0);
 const baseBForBar = computed(() => baseB.value ?? 0);
 const baseFaultLabel = computed(() => hasBaseFault.value ? `기본 A ${baseAForBar.value}% / B ${baseBForBar.value}%` : "");
-const detailUrl = computed(() => chart.value?.source_detail_url || chart.value?.source_url || "");
+const detailUrl = computed(() => safeKniaUrl(chart.value?.source_detail_url || chart.value?.source_url));
 const adjustmentFactors = computed(() => Array.isArray(chart.value?.adjustment_factors) ? chart.value.adjustment_factors : []);
 const adjustmentExplanations = computed(() => Array.isArray(chart.value?.adjustment_explanations) ? chart.value.adjustment_explanations : []);
 const relatedLaws = computed(() => Array.isArray(chart.value?.related_laws) ? chart.value.related_laws : []);
@@ -193,12 +193,20 @@ const manualFault = computed(() => {
   return { A: a, B: 100 - a };
 });
 const videoCard = computed(() => ({
-  title: "관련 영상 또는 원문 보기",
-  source_url: chart.value?.video_url || chart.value?.source_detail_url || chart.value?.source_url,
-  embed_url: chart.value?.media_embed_url,
-  thumbnail_url: chart.value?.thumbnail_url,
-  button_label: chart.value?.video_url ? "과실비율정보포털에서 관련 영상 보기" : "원문 기준 보기",
-  notice: "영상 파일은 LawCompass 서버에 저장하지 않고, 원본 사이트 링크로만 제공합니다.",
+  title: "KNIA 원문 기준 및 관련 영상",
+  description: "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
+  source_url: safeKniaUrl(chart.value?.video_url || chart.value?.source_detail_url || chart.value?.source_url),
+  video_url: safeKniaUrl(chart.value?.video_url) || undefined,
+  source_detail_url: safeKniaUrl(chart.value?.source_detail_url) || undefined,
+  source_page_url: safeKniaUrl(chart.value?.source_url) || undefined,
+  embed_url: null,
+  media_embed_url: chart.value?.media_embed_url,
+  thumbnail_url: safeThumbnail(chart.value?.thumbnail_url),
+  display_mode: "external_link",
+  button_label: chart.value?.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기",
+  notice: "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.",
+  has_knia_candidate: Boolean(chart.value?.chart_no),
+  missing_source_notice: "수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.",
   source_label: "자료 출처: 과실비율정보포털"
 }));
 
@@ -254,6 +262,20 @@ function numberOr(...values: any[]) {
   return null;
 }
 function text(value: unknown) { return sanitizeDisplayText(value); }
+function safeKniaUrl(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw || /\s/.test(raw)) return "";
+  try {
+    const url = new URL(raw);
+    return ["http:", "https:"].includes(url.protocol) && url.hostname.toLowerCase() === "accident.knia.or.kr" ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+function safeThumbnail(value: unknown) {
+  const url = safeKniaUrl(value);
+  return url.includes("logo_test.jpg") ? "" : url;
+}
 function factorKey(factor: any) { return `${factor.factor_order ?? factor.label}-${factor.label}-${factor.delta_a}-${factor.delta_b}`; }
 function formatDelta(value: any) {
   const n = Number(value || 0);

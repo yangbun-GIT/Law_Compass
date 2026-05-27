@@ -519,6 +519,110 @@ class KniaRepository:
             return dict(row) if row else None
 
 
+    def display_link_candidates(
+        self,
+        accident_party_type: str | None = None,
+        limit: int = 150,
+    ) -> list[dict[str, Any]]:
+        """Return bounded KNIA chart rows that have at least one user-displayable link.
+
+        Some legacy/imported KNIA rows have an unreliable accident_party_type.
+        Therefore this display fallback uses chart_no prefixes as an additional
+        safety net:
+        - 차*: vehicle-vs-vehicle standards
+        - 보*: vehicle-vs-pedestrian standards
+        - 자*/거*: bicycle/two-wheel related standards
+        The method never calls the external KNIA site and does not scan
+        unbounded rows.
+        """
+        capped_limit = max(1, min(int(limit or 150), 300))
+        party = (accident_party_type or "").strip()
+
+        party_filter = ""
+        params: list[Any] = []
+        if party in {"car_vs_car", "vehicle_vs_vehicle"}:
+            party_filter = """
+              AND (
+                accident_party_type = %s
+                OR chart_no LIKE '차%%'
+                OR accident_party_type = 'unknown'
+                OR accident_party_type IS NULL
+              )
+            """
+            params.append(party)
+        elif party in {"car_vs_person", "vehicle_vs_pedestrian", "pedestrian"}:
+            party_filter = """
+              AND (
+                accident_party_type = %s
+                OR chart_no LIKE '보%%'
+                OR accident_party_type = 'unknown'
+                OR accident_party_type IS NULL
+              )
+            """
+            params.append(party)
+        elif party in {"car_vs_bicycle", "vehicle_vs_bicycle", "bicycle", "two_wheeler"}:
+            party_filter = """
+              AND (
+                accident_party_type = %s
+                OR chart_no LIKE '자%%'
+                OR chart_no LIKE '거%%'
+                OR accident_party_type = 'unknown'
+                OR accident_party_type IS NULL
+              )
+            """
+            params.append(party)
+        elif party in {"single_vehicle", "vehicle_single"}:
+            party_filter = """
+              AND (
+                accident_party_type = %s
+                OR chart_no LIKE '단%%'
+                OR accident_party_type = 'unknown'
+                OR accident_party_type IS NULL
+              )
+            """
+            params.append(party)
+        elif party:
+            party_filter = """
+              AND (
+                accident_party_type = %s
+                OR accident_party_type = 'unknown'
+                OR accident_party_type IS NULL
+              )
+            """
+            params.append(party)
+
+        with psycopg.connect(self.db_url) as conn, conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+            cur.execute(
+                f"""
+                SELECT *
+                FROM knia_fault_charts
+                WHERE (video_url IS NOT NULL OR source_detail_url IS NOT NULL OR source_url IS NOT NULL)
+                  {party_filter}
+                ORDER BY
+                  CASE WHEN video_url IS NOT NULL THEN 0 ELSE 1 END,
+                  updated_at DESC NULLS LAST,
+                  chart_no ASC
+                LIMIT %s
+                """,
+                [*params, capped_limit],
+            )
+            return [self._normalize_display_link_row(dict(r)) for r in cur.fetchall()]
+
+    def _normalize_display_link_row(self, row: dict[str, Any]) -> dict[str, Any]:
+        """Normalize unreliable imported party type for display-only KNIA link fallback."""
+        chart_no = str(row.get("chart_no") or "").strip()
+        if chart_no.startswith("차"):
+            row["accident_party_type"] = "car_vs_car"
+        elif chart_no.startswith("보"):
+            row["accident_party_type"] = "car_vs_person"
+        elif chart_no.startswith(("자", "거")):
+            row["accident_party_type"] = "car_vs_bicycle"
+        elif chart_no.startswith("단"):
+            row["accident_party_type"] = "single_vehicle"
+        return row
+
+
+
 def _summary_for(chart: dict[str, Any]) -> str:
     if chart.get("base_fault_a") is not None and chart.get("base_fault_b") is not None:
         return f"기본 과실은 A차량 {chart['base_fault_a']}%, B차량 {chart['base_fault_b']}%로 표시된 KNIA 참고 기준입니다."

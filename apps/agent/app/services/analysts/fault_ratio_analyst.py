@@ -117,6 +117,11 @@ def analyze_fault_ratio(
         "fault_estimate_source": fault_estimate_source,
         "evidence_ids": [ev.get("chunk_id") for ev in evidence[:6] if ev.get("chunk_id")],
     }
+    if scenario_type == "rear_end_collision" and user_vehicle_role == FRONT_VEHICLE:
+        payload["caveats"] = [
+            "기본적으로 뒤차 과실이 높게 검토되지만, 이유 없는 급정지, 제동등 고장, 비정상 정차, 선행사고 후 도로상 정차, 야간 무등화, 시야장애 여부는 추가 확인이 필요합니다."
+        ]
+        payload["adjustment_review_factors"] = ["급정지", "제동등", "비정상 정차", "선행사고 후 정차", "야간 무등화", "시야장애"]
     if conditional_outcomes:
         payload["conditional_outcomes"] = conditional_outcomes
         payload["basis"] = "상대 차량 신호가 확인되지 않은 교차로 사고라서, 신호 조건별 과실 범위를 나누어 제시한 참고용 추정입니다."
