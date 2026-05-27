@@ -1760,49 +1760,27 @@ function applyAnalysisModeContract(report: AnyRecord = {}, result: AnyRecord = {
             mode,
             label: analysisModeLabel(mode),
             description: analysisModeDescription(mode),
+            hidden_sections: analysisModeHiddenSections(mode),
+            compact: mode === "quick_summary",
         },
     };
 
-    if (mode === "quick_summary") {
-        delete nextReport.legal_explanation;
-        nextReport.legal_basis_cards = [];
-        nextReport.detail_sections = {
-            notice: "빠른 요약에서는 긴 법률·판례 설명을 접어두고 핵심 판단만 보여줍니다.",
-            evidence_summaries: [],
-        };
-        delete nextReport.expert_guidance_card;
-        delete nextReport.knia_fault_adjustment_card;
-    }
-
     if (mode === "fault_ratio_focused") {
-        delete nextReport.legal_explanation;
-        nextReport.legal_basis_cards = [];
-        nextReport.detail_sections = {
-            notice: "과실비율 중심에서는 법률 장문보다 KNIA 기준과 가감요소를 우선 표시합니다.",
-            evidence_summaries: [],
-        };
         if (isPlainObject(nextReport.knia_fault_adjustment_card)) {
             nextReport.knia_fault_adjustment_card.title = "KNIA 기본과실과 가감요소";
         }
     }
 
-    if (mode === "insurance_response_focused") {
+    if (isLegacyQuickSummaryPruningRequested(report, result, mode)) {
         delete nextReport.legal_explanation;
         nextReport.legal_basis_cards = [];
+        delete nextReport.expert_guidance_card;
+        delete nextReport.knia_fault_adjustment_card;
         nextReport.detail_sections = {
-            notice: "보험 대응 중심에서는 보험사에 전달할 핵심 자료와 주장 포인트를 우선 표시합니다.",
+            ...(isPlainObject(nextReport.detail_sections) ? nextReport.detail_sections : {}),
+            notice: "빠른 요약에서는 긴 법률·판례 설명을 접어두고 핵심 판단만 보여줍니다.",
             evidence_summaries: [],
         };
-    }
-
-    if (mode === "legal_precedent_focused") {
-        // 법률/판례 중심은 법률 카드와 KNIA 카드가 핵심이므로 기존 report를 최대한 유지한다.
-        return nextReport;
-    }
-
-    if (mode === "full_deep_research") {
-        // 전체 심층 분석은 모든 섹션을 유지한다.
-        return nextReport;
     }
 
     return nextReport;
@@ -1863,6 +1841,25 @@ function analysisModeDescription(mode: string): string {
         full_deep_research: "사고 사실, 영상 관찰, KNIA, 법률, 보험 대응을 모두 자세히 보여줍니다.",
     };
     return descriptions[mode] ?? descriptions.quick_summary;
+}
+
+function analysisModeHiddenSections(mode: string): string[] {
+    const hiddenSections: Record<string, string[]> = {
+        quick_summary: ["long_legal_text", "deep_research_details"],
+        fault_ratio_focused: ["long_legal_text"],
+        legal_precedent_focused: [],
+        insurance_response_focused: ["long_legal_text", "deep_research_details"],
+        full_deep_research: [],
+    };
+    return hiddenSections[mode] ?? hiddenSections.quick_summary;
+}
+
+function isLegacyQuickSummaryPruningRequested(report: AnyRecord, result: AnyRecord, mode: string): boolean {
+    if (mode !== "quick_summary") return false;
+    if (result.analysis_mode || result.analysisMode || report.analysis_mode) return false;
+    const contract = result.analysis_mode_contract;
+    if (!isPlainObject(contract) || contract.mode !== "quick_summary") return false;
+    return !("hidden_sections" in contract) && !("compact" in contract) && !("preserve_report_fields" in contract);
 }
 
 function isPlainObject(value: unknown): value is AnyRecord {

@@ -79,6 +79,7 @@ export function composeGuidedProgressPayload(caseRow: AnyRecord | null | undefin
   const stage = activeJob?.label || publicStatusLabel(status);
   const steps = [
     { stage: "organizing_input", message: "사고 설명을 정리하고 있습니다." },
+    { stage: "finding_accident_scene", message: "사고 장면을 찾고 있습니다." },
     { stage: "classifying_accident", message: "어떤 사고유형에 가까운지 확인하고 있습니다." },
     { stage: "matching_knia", message: "비슷한 KNIA 과실비율 기준을 찾고 있습니다." },
     { stage: "checking_adjustments", message: "급정거, 제동등, 정차 위치 같은 가감요소를 확인하고 있습니다." },

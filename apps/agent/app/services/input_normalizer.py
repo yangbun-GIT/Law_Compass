@@ -108,6 +108,33 @@ def _has_lawful_red_light_stop_context(text: str) -> bool:
     )
     return _contains_any(text, stop_tokens)
 
+def _has_actor_signal_violation_context(text: str, actor_tokens: tuple[str, ...]) -> bool:
+    for actor in actor_tokens:
+        start = 0
+        while True:
+            index = text.find(actor, start)
+            if index == -1:
+                break
+            local = text[index : index + len(actor) + 64]
+            if _contains_any(local, ("신호위반", "신호 위반", "signal violation")):
+                return True
+            if _has_red_light_violation_context(local):
+                return True
+            start = index + len(actor)
+    return False
+
+def _has_opponent_signal_violation_context(text: str) -> bool:
+    return _has_actor_signal_violation_context(
+        text,
+        ("상대", "상대방", "상대 차량", "상대차", "상대 차", "다른 차", "opponent", "other vehicle"),
+    )
+
+def _has_user_signal_violation_context(text: str) -> bool:
+    return _has_actor_signal_violation_context(
+        text,
+        ("내가", "제가", "내 차가", "제 차가", "내 차량이", "제 차량이", "우리 차가", "본인이", "my car", "my vehicle"),
+    )
+
 def _has_red_light_violation_context(text: str) -> bool:
     red_context = _contains_any(text, ("빨간불", "적색신호", "적색 신호", "정지신호", "red light", "red signal"))
     violation_context = _contains_any(
@@ -176,7 +203,15 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
         _set_if_empty(enriched, "stopped_due_to_signal", True)
         _set_if_empty(enriched, "rear_end_context", True)
         _set_if_empty(enriched, "stopped", True)
-    if _has_red_light_violation_context(hay):
+    opponent_signal_violation_text = _has_opponent_signal_violation_context(hay)
+    user_signal_violation_text = _has_user_signal_violation_context(hay)
+    if opponent_signal_violation_text:
+        _set_if_empty(enriched, "opponent_signal_violation", True)
+        _set_if_empty(enriched, "intersection", True)
+        _set_if_empty(enriched, "accident_type", "intersection_signal_violation")
+        if enriched.get("user_signal_violation") is True and not user_signal_violation_text:
+            enriched.pop("user_signal_violation", None)
+    elif user_signal_violation_text or _has_red_light_violation_context(hay):
         _set_if_empty(enriched, "user_signal_violation", True)
         _set_if_empty(enriched, "intersection", True)
         _set_if_empty(enriched, "accident_type", "intersection_signal_violation")
