@@ -60,6 +60,20 @@ P3 기준 영상 flow 통합 요약은 대표 프레임 관찰값 13개, Agent a
 
 이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류를 변경하지 않는다. OpenAI 실행 로그와 reference manifest/current aggregate는 `logs/` 아래 로컬 산출물이며 Git에 포함하지 않는다.
 
+## 2026-05-28 Frontend Workspace SRP 보강 P0
+
+P3 이후 적용할 구조 보강 항목으로 `apps/frontend/src/composables/useCaseWorkspace.ts`의 단일 책임 분리를 시작했다. 먼저 비슷한 장문 파일을 점검한 결과 `apps/gateway/src/lib/report-composer.ts`, `apps/worker/worker/frame_analysis.py`, `apps/agent/app/services/video_input_contract.py`, `apps/gateway/src/routes/uploads.ts`도 향후 SRP 점검 후보지만, 이번 P0은 프론트 workspace composable에 한정한다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Guided data 분리 | 사고유형 옵션, 분석모드 옵션, guided question set, fallback 질문 추론 상수/순수 함수를 `apps/frontend/src/composables/caseWorkspaceGuidance.ts`로 이동했다. |
+| 표시 유틸 분리 | `prettySize`, `formatDate`, `statusLabel`, `statusClass`를 `apps/frontend/src/composables/caseWorkspaceFormatters.ts`로 이동했다. |
+| 외부 계약 유지 | `useCaseWorkspace()`의 반환값과 기존 re-export는 유지해 `CaseDetailView.vue` 및 case components의 import/사용 방식을 바꾸지 않았다. |
+| 표시 계약 테스트 | `apps/frontend/scripts/test-display.mjs`가 분리된 guidance/formatter 파일도 사용자 표시 계약 검사 범위에 포함한다. |
+| 남은 단계 | P1은 report/progress payload 판별 로직, P2는 guided answer -> facts 매핑, P3는 upload/progress/report orchestration composable 분리를 검토한다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 목적은 화면 동작 변경이 아니라 프론트 소스 책임 경계를 줄여 이후 사고유형/질문지 확장 시 충돌과 회귀 위험을 낮추는 것이다.
+
 ## 2026-05-26 P2: 프레임 충분·관찰값 부족 fallback 표시 보강
 
 P2는 “대표 프레임은 충분히 추출됐지만 분석 관찰값이 0개이거나 판단 반영값이 없는 상태”를 실패처럼 방치하지 않고, 안전한 fallback 상태와 다음 조치를 명확히 남기는 작업이다. 특정 사고 영상에 맞춘 보정이 아니라, 영상 입력 전반에서 재시도/보조 분석/사용자 보완 입력 흐름이 끊기지 않도록 Agent-Gateway-Frontend 계약을 보강했다.
