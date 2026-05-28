@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 Agent Video Input Guard SRP 보강 P0-4
+
+P0-3 이후 `apps/agent/app/services/video_input_contract.py`에 남아 있던 영상 fact guard 책임을 별도 모듈로 분리했다. 이번 변경은 영상 관찰값이 보행자/횡단보도 context를 실제 보행자 충돌로 오인하거나, 직접 충돌 대상과 broad collision partner가 충돌하는 경우를 방어하는 정책을 명시적인 guard 계층으로 이동한 구조 보강이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Guard 모듈 | `apps/agent/app/services/video_input_contract_guards.py`를 추가해 `apply_video_fact_guards()`를 단일 진입점으로 제공한다. 충돌 대상 분류 guard, 직접 충돌 대상 정렬, context-dependent fact demotion, accepted -> uncertain 이동 책임을 이 파일이 담당한다. |
+| Facade 축소 | `video_input_contract.py`는 영상 입력 계약 조립, observation 처리, recovery/quality summary 연결만 담당하고 guard 정책은 `apply_video_fact_guards()` 호출로 위임한다. |
+| Guard 단위 테스트 | `apps/agent/tests/test_video_input_contract_guards.py`를 추가해 차대차 사고에서 보행자 context demotion, direct collision partner 정렬, 보행자 충돌 직접 접촉 근거 요구를 순수 함수 수준에서 고정했다. |
+| 검증 | `PYTHONPATH=apps/agent py -3.13 -m pytest apps/agent/tests/test_video_input_contract.py apps/agent/tests/test_video_input_contract_guards.py -q` 30개 테스트와 `py -3.13 -m py_compile`을 통과했다. 전체 Agent suite는 Python 3.13 기준 157개 통과, 4개 기존 테스트 실패가 남았다. 실패 범위는 동적 질문지 문구, 입력 요구 blocking reason, KNIA 사용자 관점 매핑 테스트다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. `video_input_contract.py`는 이제 public facade 역할만 남았으며, 추가 SRP 보강은 영상 입력 계약보다 다른 Agent 장문 파일(`orchestration_analysis.py`, `orchestration_evidence.py`, 일부 analyst prompt/guard 파일)을 우선 점검하는 것이 적합하다.
+
+
 ## 2026-05-29 Agent Video Input Contract SRP 보강 P0-3
 
 `apps/agent/app/services/video_input_contract.py`가 영상 입력 계약 정규화, 관찰값 수집, fact 품질 gate, 확인 후보 생성, 기술 metadata/recovery plan, 충돌 대상 guard를 한 파일에서 함께 담당하던 구조를 분리했다. 이번 변경은 `VERSION`과 `normalize_video_input_contract()` public import 계약을 유지하면서 Agent 영상 입력 계약의 내부 책임 경계를 줄이는 구조 보강이다.
@@ -12,7 +26,7 @@
 | 기존 facade 유지 | `video_input_contract.py`는 `normalize_video_input_contract()` 조립 흐름과 충돌 대상/보행자 오염 방지 guard만 보유한다. 기존 테스트가 참조하는 `VERSION` import 계약은 유지한다. |
 | 검증 | `PYTHONPATH=apps/agent py -3.13 -m pytest apps/agent/tests/test_video_input_contract.py -q` 27개 테스트와 `py -3.13 -m py_compile`을 통과했다. 전체 Agent suite는 Python 3.13 기준 154개 통과, 4개 기존 테스트 실패가 남았다. 실패 범위는 동적 질문지 문구와 KNIA 사용자 관점 매핑 테스트이며 이번 분리 파일과 직접 관련된 `video_input_contract` 테스트는 통과했다. |
 
-이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. 남은 SRP 후보는 `video_input_contract.py` 내부의 충돌 대상 guard 묶음이며, 차대차/차대사람 오염 방지 회귀와 직접 연결되므로 별도 테스트를 먼저 고정한 뒤 분리한다.
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. 충돌 대상 guard 묶음은 P0-4에서 별도 모듈로 분리했다.
 
 
 ## 2026-05-28 Worker Frame Analysis SRP 보강 P0-2
