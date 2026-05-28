@@ -14,6 +14,7 @@
 - 같은 파일을 동시에 크게 수정하지 않도록 작업 범위를 먼저 공유합니다.
 - `main` 병합 전에는 팀원에게 병합 예정임을 알리고, 병합 후에는 최신 `main`을 pull하라고 알립니다.
 - NAS, 로컬 저장소, 로그, 문서, 브랜치, 테스트 산출물처럼 팀원이나 외부 화면에 남을 수 있는 이름에는 특정 개발 도구명이나 개인 식별명을 넣지 않습니다. `lawcompass-upload-check-*`, `storage-check-*`처럼 프로젝트 목적 중심의 중립적인 이름을 사용합니다.
+- 커밋 메시지, PR 제목, PR 설명은 팀원이 바로 이해할 수 있도록 한국어로 작성합니다. 코드 식별자, 파일 경로, 명령어, API route, 환경변수 이름은 원문을 유지해도 됩니다.
 
 ## 2. 브랜치 이름 규칙
 
@@ -149,21 +150,21 @@ Invoke-WebRequest -UseBasicParsing http://localhost/health
 
 ## 7. 커밋과 Push
 
-커밋 메시지는 작업 내용을 한 문장으로 요약합니다.
+커밋 메시지는 한국어로 작업 내용을 한 문장으로 요약합니다.
 
 ```powershell
 git add .
-git commit -m "Improve video evidence display"
+git commit -m "영상 근거 표시 흐름 개선"
 git push origin feature/my-task
 ```
 
 좋은 커밋 메시지 예시:
 
 ```text
-Add GitHub collaboration workflow
-Fix vehicle collision evidence filtering
-Improve admin agent test input modes
-Document build and run handoff steps
+GitHub 협업 절차 문서 추가
+차대차 사고 근거 필터 보강
+관리자 Agent 테스트 입력 모드 개선
+빌드와 실행 인수인계 절차 문서화
 ```
 
 피해야 할 메시지:
@@ -177,17 +178,17 @@ final
 
 ## 8. Pull Request 규칙
 
-PR에는 아래 내용을 적습니다.
+PR 제목과 본문은 한국어로 작성하고, 아래 내용을 적습니다.
 
 ```markdown
-## Summary
+## 요약
 - 무엇을 바꿨는지 요약
 
-## Verification
+## 검증
 - 실행한 검증 명령
 - 실패하거나 생략한 검증이 있으면 이유
 
-## Notes
+## 참고
 - 팀원이 특히 봐야 하는 파일
 - 남은 리스크나 다음 작업
 ```
