@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 Agent Video Input Contract SRP 보강 P0-3
+
+`apps/agent/app/services/video_input_contract.py`가 영상 입력 계약 정규화, 관찰값 수집, fact 품질 gate, 확인 후보 생성, 기술 metadata/recovery plan, 충돌 대상 guard를 한 파일에서 함께 담당하던 구조를 분리했다. 이번 변경은 `VERSION`과 `normalize_video_input_contract()` public import 계약을 유지하면서 Agent 영상 입력 계약의 내부 책임 경계를 줄이는 구조 보강이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 계약 상수/정규화 규칙 | `apps/agent/app/services/video_input_contract_rules.py`를 추가해 contract version, fact field 목록, confidence threshold, frame reference 요구 기준, field alias, fact value normalization을 담당한다. |
+| 영상 metadata/recovery | `apps/agent/app/services/video_input_contract_metadata.py`를 추가해 기술 metadata 추출, 사고 event summary, frame-rich zero-observation fallback, OpenAI/YOLO 재시도 recovery plan 생성을 담당한다. |
+| 관찰값 품질 gate | `apps/agent/app/services/video_input_contract_observations.py`를 추가해 observation 수집/정규화, source 검증, fact 품질 gate, confirmation candidates/groups, observation quality summary를 담당한다. |
+| 기존 facade 유지 | `video_input_contract.py`는 `normalize_video_input_contract()` 조립 흐름과 충돌 대상/보행자 오염 방지 guard만 보유한다. 기존 테스트가 참조하는 `VERSION` import 계약은 유지한다. |
+| 검증 | `PYTHONPATH=apps/agent py -3.13 -m pytest apps/agent/tests/test_video_input_contract.py -q` 27개 테스트와 `py -3.13 -m py_compile`을 통과했다. 전체 Agent suite는 Python 3.13 기준 154개 통과, 4개 기존 테스트 실패가 남았다. 실패 범위는 동적 질문지 문구와 KNIA 사용자 관점 매핑 테스트이며 이번 분리 파일과 직접 관련된 `video_input_contract` 테스트는 통과했다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. 남은 SRP 후보는 `video_input_contract.py` 내부의 충돌 대상 guard 묶음이며, 차대차/차대사람 오염 방지 회귀와 직접 연결되므로 별도 테스트를 먼저 고정한 뒤 분리한다.
+
+
 ## 2026-05-28 Worker Frame Analysis SRP 보강 P0-2
 
 `apps/worker/worker/frame_analysis.py`가 OpenAI 프레임 분석 orchestration, 대표 프레임 선택, 관찰값 정규화, 품질 요약, AI usage 이벤트 조립을 한 파일에서 함께 담당하던 구조를 일부 분리했다. 이번 변경은 `analyze_frames_with_openai()`의 public worker 계약과 기존 테스트에서 참조하던 compatibility helper 이름을 유지하면서 내부 책임 경계를 줄이는 구조 보강이다.
