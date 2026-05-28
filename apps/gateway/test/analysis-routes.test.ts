@@ -43,8 +43,8 @@ describe("analysis route helpers", () => {
     );
 
     const text = JSON.stringify(progress);
-    expect(progress.current_stage).toBe("영상 확인 중");
-    expect(progress.current_message).toBe("분석 중입니다.");
+    expect(progress.current_stage).toBe("사고 장면 확인");
+    expect(progress.current_message).toBe("사고 장면을 찾고 있습니다.");
     expect(text).toContain("사고 장면을 찾고 있습니다.");
     expect(text).not.toContain("video_preprocess");
     expect(text).not.toContain("video_analyze");
