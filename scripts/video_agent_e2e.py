@@ -131,46 +131,61 @@ def wait_for_video_pipeline(base_url: str, case_id: str, token: str, timeout_sec
     raise E2EError(f"video pipeline timed out: {summarize_jobs(last_jobs)}")
 
 
-def frame_analysis_summary(upload: dict, require_observations: bool):
+def _observation_summary_items(items: list, limit: int = 8) -> list[dict]:
+    return [
+        {
+            "field": item.get("field"),
+            "value": item.get("value"),
+            "confidence": item.get("confidence"),
+            "frame_refs": item.get("frame_refs") or [],
+        }
+        for item in items[:limit]
+        if isinstance(item, dict)
+    ]
+
+
+def frame_analysis_summary(upload: dict, require_observations: bool, agent_video_summary: dict, video_card: dict):
     metadata = upload.get("metadata") if isinstance(upload.get("metadata"), dict) else {}
     frame_analysis = metadata.get("openai_frame_analysis") if isinstance(metadata.get("openai_frame_analysis"), dict) else {}
     observations = frame_analysis.get("observations") if isinstance(frame_analysis.get("observations"), list) else []
     event_summary = frame_analysis.get("accident_event_summary") if isinstance(frame_analysis.get("accident_event_summary"), dict) else {}
     error_text = str(frame_analysis.get("error") or "")
+    agent_observations = (
+        agent_video_summary.get("accepted_observations", [])
+        + agent_video_summary.get("uncertain_observations", [])
+        + agent_video_summary.get("supporting_observations", [])
+    )
+    agent_observations = [item for item in agent_observations if isinstance(item, dict)]
+    selected_frame_count = frame_analysis.get("selected_frame_count")
+    if selected_frame_count is None:
+        selected_frame_count = video_card.get("representative_frame_count")
+    has_sanitized_debug_observations = bool(agent_observations)
     if require_observations:
-        if frame_analysis.get("enabled") is not True:
+        if frame_analysis.get("enabled") is not True and not has_sanitized_debug_observations:
             raise E2EError(f"OpenAI frame analysis was not enabled: {frame_analysis.get('reason') or 'unknown reason'}")
         if error_text:
             raise E2EError(f"OpenAI frame analysis returned an error: {error_text}")
-        if not observations:
+        if not observations and not has_sanitized_debug_observations:
             raise E2EError("OpenAI frame analysis completed but returned no observations")
     return {
-        "enabled": frame_analysis.get("enabled"),
+        "enabled": frame_analysis.get("enabled") if frame_analysis else (True if has_sanitized_debug_observations else None),
         "provider": frame_analysis.get("provider"),
         "model": frame_analysis.get("model"),
         "detail": frame_analysis.get("detail"),
         "frame_selection_strategy": frame_analysis.get("frame_selection_strategy"),
         "available_frame_count": frame_analysis.get("available_frame_count"),
-        "selected_frame_count": frame_analysis.get("selected_frame_count"),
+        "selected_frame_count": selected_frame_count,
         "frame_selection_max_frames": frame_analysis.get("frame_selection_max_frames"),
         "analyzed_frame_count": len(frame_analysis.get("analyzed_frames") or []),
-        "observation_count": len(observations),
-        "observation_quality_summary": frame_analysis.get("observation_quality_summary"),
+        "observation_count": len(observations) if observations else len(agent_observations),
+        "observation_quality_summary": frame_analysis.get("observation_quality_summary") or agent_video_summary.get("observation_quality_summary"),
         "accident_event_summary": event_summary,
         "zero_observation_retry_used": frame_analysis.get("zero_observation_retry_used"),
         "zero_observation_retry_error": frame_analysis.get("zero_observation_retry_error"),
         "analysis_attempts": frame_analysis.get("analysis_attempts") if isinstance(frame_analysis.get("analysis_attempts"), list) else [],
         "summary": frame_analysis.get("summary"),
-        "observations": [
-            {
-                "field": item.get("field"),
-                "value": item.get("value"),
-                "confidence": item.get("confidence"),
-                "frame_refs": item.get("frame_refs") or [],
-            }
-            for item in observations[:5]
-            if isinstance(item, dict)
-        ],
+        "observations": _observation_summary_items(observations or agent_observations, 8),
+        "metadata_source": "upload_metadata" if frame_analysis else "agent_debug_contract",
         "has_error": bool(error_text),
     }
 
@@ -279,15 +294,9 @@ def agent_video_fact_summary(debug_report: dict, require_agent_video_facts: bool
         "accepted_observation_count": len(accepted),
         "uncertain_observation_count": len(uncertain),
         "supporting_observation_count": len(supporting),
-        "supporting_observations": [
-            {
-                "field": item.get("field"),
-                "value": item.get("value"),
-                "confidence": item.get("confidence"),
-            }
-            for item in supporting[:8]
-            if isinstance(item, dict)
-        ],
+        "accepted_observations": _observation_summary_items(accepted, 8),
+        "uncertain_observations": _observation_summary_items(uncertain, 8),
+        "supporting_observations": _observation_summary_items(supporting, 8),
         "confirmation_candidate_count": len(confirmation_candidates),
         "confirmation_groups": [
             {
@@ -768,8 +777,8 @@ def main():
     debug_report = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/report?debug=1", token=token).get("debug", {})
     uploads = http_json("GET", args.base_url, f"/api/v1/cases/{case_id}/uploads", token=token).get("items", [])
     upload = next((item for item in uploads if item.get("id") == upload_id), {})
-    frame_summary = frame_analysis_summary(upload, args.require_frame_observations)
     agent_video_summary = agent_video_fact_summary(debug_report, args.require_agent_video_facts)
+    frame_summary = frame_analysis_summary(upload, args.require_frame_observations, agent_video_summary, video_card)
     accuracy_summary = evaluate_accuracy_expectations(frame_summary, agent_video_summary, args)
     followup_summary = (
         run_held_observation_followup(args.base_url, case_id, token, report)

@@ -1,5 +1,17 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P0-2 영상 기준선 측정 스크립트 보강
+
+P0-2 사고 1~5 영상 기준선 재측정 중 공개 upload API가 보안상 `openai_frame_analysis` 원문 metadata를 제거하면서, `scripts/video_agent_e2e.py`가 실제 분석이 실행된 샘플도 “OpenAI frame analysis was not enabled”로 오판하는 문제가 확인됐다. 원본 영상 분석 payload는 사용자-facing upload 응답에 노출하지 않는 것이 맞으므로, E2E 스크립트가 Agent debug 계약의 `video_input_contract`와 결과 화면의 `video_fact_explanation_card`를 함께 사용해 영상 관찰값 수, 참고 관찰, 대표 프레임 수를 집계하도록 보강했다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| E2E 측정 | `scripts/video_agent_e2e.py`가 공개 upload metadata에 원문 OpenAI payload가 없더라도 Agent debug contract의 accepted/uncertain/supporting observation을 frame observation summary로 사용할 수 있다. |
+| 보안 경계 | `openai_frame_analysis` 원문 metadata는 계속 public upload 응답에서 제거된다. 측정 스크립트는 원문 payload 노출을 요구하지 않는다. |
+| P0-2 실행 전제 | 사고 영상 reference manifest는 `logs/` 아래 로컬 파일로 유지하고, 실제 원본 영상과 배치 결과는 Git에 포함하지 않는다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. P0-2 결과는 `logs/video_accuracy/` 아래 로컬 산출물로만 관리한다.
+
 ## 2026-05-29 P0-2a 영상 reference 데이터 정책
 
 P0-2 사고 1~5 영상 기준선 재측정 전에, 외부 사고 영상과 사고 설명이 함께 있는 reference 데이터를 안전하게 수집하고 테스트에 사용하는 기준을 추가했다. 목적은 특정 사고에 답을 맞추는 것이 아니라 영상 관찰값 오염, 사고 대상 오인, 사고 시점 후보 누락, 근거 검색 오염을 발견하기 위한 평가 기준을 넓히는 것이다.
