@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P0-1 사고 오염 유형 매트릭스
+
+영상·입력 사실 추출 보강의 첫 단계로 사고를 잘못 인식할 수 있는 오염 유형을 범용 매트릭스로 고정했다. 이 작업은 코드 동작을 바꾸지 않고, 이후 P0-2 기준선 재측정과 P0-3/P0-4 Agent 계약·guard 보강의 기준 자료를 만드는 단계다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 오염 유형 문서 | `docs/VIDEO_CONTAMINATION_RISK_MATRIX.md`를 추가해 객체 존재와 직접 사고 사실을 분리하는 공통 판단 축, 오염 위험 유형, 우선 확인 질문, 구현 적용 기준을 정리했다. |
+| Fixture | `tests/fixtures/video_accuracy/contamination_risk_matrix.json`을 추가해 이후 평가 스크립트나 guard 테스트에서 재사용할 수 있는 machine-readable 오염 유형 목록을 제공한다. 실제 영상 경로, 사용자 정보, 변호사 의견 원문은 포함하지 않는다. |
+| 작업 계획 상태 | `docs/VIDEO_AGENT_WORK_PLAN.md`의 P0-1 상태를 완료로 갱신하고 산출물 경로를 연결했다. |
+| 검증 | `git diff --check`와 JSON parse 검증을 통과했다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 다음 단계는 P0-2 사고 1~5 영상 기준선 재측정이다.
+
 ## 2026-05-29 횡단보도 환경 정보의 보행자 사고 오염 방지
 
 프론트 guided answer -> `structured_facts` 매핑에서 횡단보도 위치 또는 횡단보도 인접 정보만으로 사고 대분류를 `차대사람`으로 승격하던 경로를 제거했다. 이 변경은 사고 영상 2·3처럼 횡단보도나 사람이 화면에 보이더라도 실제 충돌 대상이 차량이면 차대차 사고로 유지되어야 한다는 영상 입력 계약을 프론트 입력 흐름에도 맞춘 것이다.

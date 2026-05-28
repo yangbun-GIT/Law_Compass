@@ -42,6 +42,7 @@
 - 산출물: `contamination_risk_matrix` 형태의 문서 또는 fixture.
 - ReAct 적용: 필수, 1회.
 - 이유: 구현 전 판단 축을 고정하지 않으면 특정 테스트 케이스에 과적합될 위험이 크다.
+- 상태: 완료. `docs/VIDEO_CONTAMINATION_RISK_MATRIX.md`와 `tests/fixtures/video_accuracy/contamination_risk_matrix.json`에 범용 오염 유형, 분리 필드, guard 기준, 우선 확인 질문을 정리했다.
 
 ### P0-2. 사고 1~5 영상 기준선 재측정
 

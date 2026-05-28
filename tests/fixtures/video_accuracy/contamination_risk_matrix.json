@@ -1,0 +1,123 @@
+{
+  "description": "Synthetic contamination risk matrix for video/input fact extraction. It contains no real video path, user secret, or lawyer opinion text.",
+  "version": "contamination-risk-matrix-v1",
+  "principles": [
+    "Object presence alone must not promote accident type.",
+    "Direct collision partner, trigger actor, road context, and legal issue context must be separated.",
+    "Low-confidence video observations must remain uncertain or require confirmation."
+  ],
+  "risks": [
+    {
+      "id": "pedestrian_context_pollution",
+      "observed_context": ["crosswalk", "person_visible", "pedestrian_signal"],
+      "false_promotion": ["car_vs_person", "pedestrian_crosswalk_accident"],
+      "separation_fields": ["direct_collision_partner_type", "road_context", "pedestrian_context"],
+      "guard_rule": "Do not promote to pedestrian accident without direct pedestrian collision evidence.",
+      "priority_question": "actual_collision_partner"
+    },
+    {
+      "id": "bicycle_presence_pollution",
+      "observed_context": ["bicycle_visible", "bicycle_keyword"],
+      "false_promotion": ["car_vs_bicycle", "bicycle_collision"],
+      "separation_fields": ["direct_collision_partner_type", "trigger_actor_type", "non_contact_trigger"],
+      "guard_rule": "Separate bicycle as direct collision partner from non-contact trigger actor.",
+      "priority_question": "direct_bicycle_contact"
+    },
+    {
+      "id": "traffic_signal_presence_pollution",
+      "observed_context": ["traffic_light_visible", "signal_keyword"],
+      "false_promotion": ["signal_violation", "intersection_signal_violation"],
+      "separation_fields": ["ego_signal", "opponent_signal", "signal_transition", "opponent_signal_visible"],
+      "guard_rule": "Do not infer opponent signal or violation when the opponent signal is not visible.",
+      "priority_question": "opponent_signal_state"
+    },
+    {
+      "id": "centerline_presence_pollution",
+      "observed_context": ["centerline_visible", "yellow_solid_line", "centerline_keyword"],
+      "false_promotion": ["centerline_violation_fault"],
+      "separation_fields": ["centerline_crossed_by", "centerline_crossing_reason", "road_obstruction", "oncoming_vehicle_response"],
+      "guard_rule": "Separate who crossed the centerline and why before fault guidance.",
+      "priority_question": "centerline_crossing_actor_and_reason"
+    },
+    {
+      "id": "parked_vehicle_presence_pollution",
+      "observed_context": ["parked_vehicle_visible", "stopped_vehicle_visible", "parking_keyword"],
+      "false_promotion": ["parked_vehicle_collision", "parking_or_stopped_vehicle_accident"],
+      "separation_fields": ["direct_collision_partner_type", "road_obstruction", "visibility_blocker", "target_vehicle_status"],
+      "guard_rule": "Separate direct collision target from road obstruction or visibility blocker.",
+      "priority_question": "parked_vehicle_role"
+    },
+    {
+      "id": "road_obstacle_presence_pollution",
+      "observed_context": ["fallen_object", "facility", "median", "road_obstacle"],
+      "false_promotion": ["object_collision"],
+      "separation_fields": ["direct_collision_partner_type", "trigger_actor_type", "road_context", "avoidability"],
+      "guard_rule": "Separate object collision from obstacle-triggered vehicle collision.",
+      "priority_question": "object_collision_or_trigger"
+    },
+    {
+      "id": "front_rear_role_pollution",
+      "observed_context": ["front_vehicle", "rear_vehicle", "stopped", "rear_end_keyword"],
+      "false_promotion": ["ego_fault_rear_end", "opponent_full_fault_rear_end"],
+      "separation_fields": ["rear_end_role", "collision_role", "front_vehicle_stopped", "rear_vehicle_collision", "secondary_collision"],
+      "guard_rule": "Identify whether ego hit front vehicle or rear vehicle hit ego before fault range.",
+      "priority_question": "rear_end_role"
+    },
+    {
+      "id": "turn_or_curve_pollution",
+      "observed_context": ["camera_turn", "curved_road", "turn_keyword"],
+      "false_promotion": ["left_turn_collision", "right_turn_collision"],
+      "separation_fields": ["ego_turn_direction", "intersection_context", "road_curve_context", "entry_or_exit_context"],
+      "guard_rule": "Do not infer intersection turn from road curvature or camera rotation alone.",
+      "priority_question": "actual_turn_context"
+    },
+    {
+      "id": "lane_change_presence_pollution",
+      "observed_context": ["lane_marking", "side_vehicle", "turn_signal_keyword"],
+      "false_promotion": ["lane_change_collision"],
+      "separation_fields": ["lane_change_actor", "lane_change_manner", "impact_position", "relative_position"],
+      "guard_rule": "Confirm lane-changing actor and collision position before lane-change classification.",
+      "priority_question": "lane_change_actor"
+    },
+    {
+      "id": "visibility_stealth_pollution",
+      "observed_context": ["night", "dark", "unlit_vehicle", "low_visibility"],
+      "false_promotion": ["stealth_illegal_parked_vehicle_collision"],
+      "separation_fields": ["direct_collision_partner_type", "parked_vehicle_lighting", "visibility_condition", "target_vehicle_status"],
+      "guard_rule": "Treat darkness as context unless unlit stopped vehicle is direct collision target.",
+      "priority_question": "unlit_stopped_vehicle_contact"
+    },
+    {
+      "id": "speed_or_highway_pollution",
+      "observed_context": ["highway", "speed_keyword", "fast_motion"],
+      "false_promotion": ["speeding_fault"],
+      "separation_fields": ["reported_speed_kmh", "speed_limit_kmh", "highway_or_expressway", "avoidability"],
+      "guard_rule": "Do not estimate speed as fact from video impression alone.",
+      "priority_question": "speed_evidence"
+    },
+    {
+      "id": "secondary_collision_pollution",
+      "observed_context": ["multiple_impacts", "secondary_collision_keyword"],
+      "false_promotion": ["single_collision_type"],
+      "separation_fields": ["primary_collision", "secondary_collision", "primary_collision_partner", "secondary_collision_partner"],
+      "guard_rule": "Separate primary and secondary collisions before evidence retrieval.",
+      "priority_question": "collision_sequence"
+    },
+    {
+      "id": "injury_damage_pollution",
+      "observed_context": ["injury", "fatality", "vehicle_damage"],
+      "false_promotion": ["accident_type_from_damage"],
+      "separation_fields": ["injury", "fatality", "damage_severity", "criminal_review_context"],
+      "guard_rule": "Use injury and damage for response/legal severity, not accident type promotion.",
+      "priority_question": "damage_and_injury_scope"
+    },
+    {
+      "id": "text_keyword_override_pollution",
+      "observed_context": ["user_selected_type", "strong_keyword"],
+      "false_promotion": ["user_claim_as_verified_fact"],
+      "separation_fields": ["user_claim", "video_observation", "fact_arbitration_conflict", "requires_confirmation"],
+      "guard_rule": "Do not let user-selected accident type override conflicting video observations silently.",
+      "priority_question": "input_video_conflict"
+    }
+  ]
+}
