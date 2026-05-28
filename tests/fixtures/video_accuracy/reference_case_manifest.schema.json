@@ -44,6 +44,41 @@
           "source_url": {
             "type": "string"
           },
+          "source_metadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "platform": {
+                "type": "string"
+              },
+              "platform_video_id": {
+                "type": "string"
+              },
+              "channel_title": {
+                "type": "string"
+              },
+              "published_at": {
+                "type": "string"
+              },
+              "description_excerpt": {
+                "type": "string"
+              },
+              "collection_query": {
+                "type": "string"
+              },
+              "collected_at": {
+                "type": "string"
+              },
+              "collection_status": {
+                "type": "string",
+                "enum": [
+                  "candidate_requires_manual_review",
+                  "reviewed_for_evaluation",
+                  "rejected"
+                ]
+              }
+            }
+          },
           "local_video_path": {
             "type": "string",
             "description": "Local-only path. Do not commit manifests containing real private paths unless they are placeholders."

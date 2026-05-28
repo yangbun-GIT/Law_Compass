@@ -32,6 +32,7 @@ htmlcov/
 # Runtime storage and logs
 /storage/
 /logs/
+/.local/
 *.log
 
 # Local AI Hub / vision datasets. Keep folder guides only.

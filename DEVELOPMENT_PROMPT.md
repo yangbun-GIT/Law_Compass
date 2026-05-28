@@ -483,6 +483,7 @@ The updated Agentic Design Pattern lecture should be applied as durable engineer
 - AI Hub 자료는 승인과 API key가 있는 경우에도 전체 원본 다운로드를 기본값으로 삼지 않고, 샘플 또는 작은 filekey 단위로만 선택 사용한다.
 - AI Hub 원본 데이터, API key, 다운로드 로그 중 민감정보, 공개 영상 원본, 로컬 테스트 영상은 Git에 포함하지 않는다.
 - reference manifest는 `docs/VIDEO_REFERENCE_DATA_POLICY.md`와 `tests/fixtures/video_accuracy/reference_case_manifest.schema.json` 기준을 따른다.
+- 외부 사고 영상 후보가 더 필요하면 `scripts/collect_public_video_references.py`로 공개 링크와 메타데이터만 수집하고, 수집 결과는 `.local/` 같은 Git ignore 대상 경로에 둔다. 자동 수집 후보는 수동 검토 전까지 평가 정답이나 Agent 입력 사실로 사용하지 않는다.
 
 ## 2026-05-26 작업 시작 전 GitHub 동기화 규칙
 

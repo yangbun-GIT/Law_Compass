@@ -37,6 +37,16 @@
 - 금지: 무단 대량 다운로드, 무단 스크래핑, 원본 영상 재배포, 학습 데이터셋으로 편입, Git 커밋
 - 주의: 전문가 의견은 참고 범위이며 법원 판결이나 보험 분쟁심의 결과와 동일하게 취급하지 않는다.
 
+## 공개 reference 후보 자동 수집
+
+외부 사고 영상과 사고 설명은 사용자가 매번 직접 올리지 않아도 후보를 수집할 수 있다. 단, 자동 수집의 대상은 원본 영상 파일이 아니라 공개 링크와 공개 메타데이터다.
+
+- `scripts/collect_public_video_references.py`는 YouTube Data API key가 로컬 환경 변수에 있을 때 검색어 기반 후보를 수집한다.
+- API key가 없으면 `--urls`로 받은 공개 URL만 manifest 후보로 변환할 수 있다.
+- 수집 결과는 `.local/video_reference_candidates.json`처럼 Git ignore 대상 경로에 저장한다.
+- 자동 수집된 후보는 모두 `candidate_requires_manual_review` 상태이며, 사고 상황 요약과 기대 관찰값을 검토하기 전에는 평가 정답으로 쓰지 않는다.
+- 수집 절차와 명령은 `docs/PUBLIC_VIDEO_REFERENCE_COLLECTION.md`를 따른다.
+
 ## AI Hub 사용 기준
 
 AI Hub는 API key와 데이터셋 승인 후 `aihubshell`로 데이터셋 목록과 filekey를 조회하고 선택 다운로드할 수 있다. 전체 원본 데이터는 용량이 크므로 기본적으로 받지 않는다.
@@ -66,10 +76,11 @@ reference case는 `tests/fixtures/video_accuracy/reference_case_manifest.example
 P0-2 기준선 재측정은 아래 순서로 진행한다.
 
 1. 기존 사고 1~5번을 먼저 측정한다.
-2. 확보된 public reference link는 원본 영상 분석 없이 설명/기대 관찰값 manifest만 만든다.
-3. 사용자가 로컬 영상 파일을 제공한 public reference만 영상 파이프라인에 포함한다.
-4. AI Hub는 샘플 또는 작은 라벨 파일이 준비된 경우에만 보조 측정에 포함한다.
-5. 측정 결과는 관찰값 0개, 사고 시점 후보, 직접 충돌 대상, 사고 환경 오염 여부, 근거 검색 오염 여부를 중심으로 기록한다.
+2. 공개 reference 후보는 `scripts/collect_public_video_references.py`로 링크/메타데이터 manifest를 먼저 만든다.
+3. 확보된 public reference link는 원본 영상 분석 없이 설명/기대 관찰값 manifest만 만든다.
+4. 합법적으로 사용할 수 있는 로컬 영상 파일이 준비된 public reference만 영상 파이프라인에 포함한다.
+5. AI Hub는 샘플 또는 작은 라벨 파일이 준비된 경우에만 보조 측정에 포함한다.
+6. 측정 결과는 관찰값 0개, 사고 시점 후보, 직접 충돌 대상, 사고 환경 오염 여부, 근거 검색 오염 여부를 중심으로 기록한다.
 
 ## 커밋 금지 항목
 
