@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 영상 분석 모델 후보 문서화
+
+영상 처리 고도화 과정에서 OpenAI 외의 무료/로컬/모바일 후보를 비교할 수 있도록 `docs/VIDEO_MODEL_OPTIONS.md`를 추가했다. 이 문서는 YOLO, Qwen2.5-VL, Gemini API Free Tier, Google ML Kit, MediaPipe의 역할 차이와 무료 범위 기준 추천 순서를 정리한다.
+
+| 범위 | 정리 내용 |
+| --- | --- |
+| 객체 감지/추적 | YOLO, ML Kit, MediaPipe는 사고 판단 모델이 아니라 차량·사람·신호등 등 객체 후보 관찰값을 만드는 보조 모델로 분류했다. |
+| 영상 이해 | Qwen2.5-VL 로컬과 Gemini API Free Tier는 사고 흐름/장면 의미 후보를 만드는 영상 이해 모델로 분류했다. |
+| 모바일 선처리 | ML Kit은 현재 Docker Worker에 직접 붙이기보다, 향후 Capacitor 기반 모바일 앱에서 업로드 전 온디바이스 1차 관찰값을 만드는 용도가 적합하다고 정리했다. |
+| 적용 우선순위 | 현재 연결된 OpenAI/YOLO 경로 검증, provider 인터페이스 추상화, Qwen 로컬 smoke, Gemini 무료 비교, 모바일 ML Kit 설계 순서로 분류했다. |
+
+이 변경은 코드, API route, DB schema, Redis key, storage path, 환경변수 키를 변경하지 않는 문서 보강이다.
+
 ## 2026-05-29 P0-2 영상 기준선 측정 스크립트 보강
 
 P0-2 사고 1~5 영상 기준선 재측정 중 공개 upload API가 보안상 `openai_frame_analysis` 원문 metadata를 제거하면서, `scripts/video_agent_e2e.py`가 실제 분석이 실행된 샘플도 “OpenAI frame analysis was not enabled”로 오판하는 문제가 확인됐다. 원본 영상 분석 payload는 사용자-facing upload 응답에 노출하지 않는 것이 맞으므로, E2E 스크립트가 Agent debug 계약의 `video_input_contract`와 결과 화면의 `video_fact_explanation_card`를 함께 사용해 영상 관찰값 수, 참고 관찰, 대표 프레임 수를 집계하도록 보강했다.
