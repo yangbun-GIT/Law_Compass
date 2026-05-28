@@ -1293,39 +1293,32 @@ function frameCountLabel(value: any) {
   return count ? `대표 프레임 ${count}장` : "";
 }
 
-function composeConditionalOutcomeCard(result: AnyRecord = {}, report: AnyRecord = {}) {
-  const facts = result.structured_facts ?? {};
+function collectConditionalContext(result: AnyRecord = {}, report: AnyRecord = {}) {
   const contract = result.video_input_contract ?? result.model_info?.video_input_contract ?? {};
-  const conditionalOutcomes = asArray(result.fault_ratio?.conditional_outcomes);
-  if (conditionalOutcomes.length) {
-    return {
-      title: "신호 확인에 따라 달라지는 판단",
-      summary: "상대 차량 신호나 진입 시점이 확인되지 않아 조건별로 과실 방향을 나눠 봐야 합니다.",
-      cases: conditionalOutcomes.slice(0, 3).map((item: AnyRecord) => ({
-        label: cleanText(item.label, "조건별 판단"),
-        likely_direction: `${cleanText(item.my_range, "확인 필요")} / ${cleanText(item.other_range, "확인 필요")} 참고`,
-        explanation: cleanText(item.explanation, "이 조건이 확인되면 과실 방향이 달라질 수 있습니다."),
-        check_points: asArray(item.basis).map((x) => cleanText(x, "")).filter(Boolean).slice(0, 5),
-      })),
-      needed_evidence: ["교차로 CCTV", "신호 주기표 또는 신호체계 자료", "각 차량의 정지선 통과 시점", "블랙박스 원본 전체 구간"],
-      notice: "조건부 결과는 특정 테스트 영상에 맞춘 답이 아니라, 상대 신호가 보이지 않는 교차로 사고에서 공통으로 적용하는 판단 구조입니다.",
-    };
-  }
-  const questionFields = new Set(
+  const arbitration = result.fact_arbitration ?? result.model_info?.fact_arbitration ?? {};
+  const fieldSources = [
+    ...asArray(result.required_input_questions ?? result.input_requirements?.questions),
+    ...asArray(result.missing_info?.questions),
+    ...asArray(report.missing_info?.questions),
+    ...asArray(contract.uncertain_observations),
+    ...asArray(contract.accepted_observations),
+    ...asArray(arbitration.conflicts),
+    ...asArray(arbitration.pending_video_confirmations),
+  ];
+  const fields = new Set(
     [
-      ...asArray(result.required_input_questions ?? result.input_requirements?.questions),
-      ...asArray(result.missing_info?.questions),
-      ...asArray(report.missing_info?.questions),
-      ...asArray(contract.uncertain_observations),
-    ]
-      .map((item: AnyRecord) => String(item?.field ?? ""))
-      .filter(Boolean)
+      ...fieldSources.map((item: AnyRecord) => String(item?.field ?? "")),
+      ...asArray(arbitration.confirmation_fields).map((field) => String(field)),
+      ...asArray(arbitration.held_video_fields).map((field) => String(field)),
+    ].filter(Boolean)
   );
+  const facts = result.structured_facts ?? {};
   const text = [
     result.scenario_type,
     facts.accident_party_type,
     facts.accident_type,
     facts.collision_partner_type,
+    facts.direct_collision_partner_type,
     facts.primary_collision_target,
     facts.intersection,
     facts.ego_turn_direction,
@@ -1336,27 +1329,47 @@ function composeConditionalOutcomeCard(result: AnyRecord = {}, report: AnyRecord
     facts.opponent_signal_visible,
     facts.opponent_signal_violation,
     facts.opponent_behavior,
+    facts.centerline_crossed,
+    facts.centerline_cross_reason,
+    facts.road_obstruction,
+    facts.illegal_parking_obstruction,
+    facts.front_vehicle_stopped,
+    facts.rear_vehicle_collision,
+    facts.non_contact_trigger,
     result.accident_summary,
     report.headline,
     report.summary,
     report.summary_for_user?.short_summary,
     report.missing_info,
   ].map((value) => String(value ?? "")).join(" ");
-  const signalRelevant =
-    result.scenario_type === "intersection_signal_violation" ||
-    facts.intersection === true ||
-    Boolean(facts.user_signal) ||
-    Boolean(facts.signal_transition) ||
-    facts.opponent_signal_visible === false ||
-    /교차로|좌회전|우회전|직진|신호|황색|적색|녹색|intersection|signal/i.test(text) ||
-    ["user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "opponent_signal_violation"].some((field) => questionFields.has(field));
-  const opponentSignalUnclear =
-    facts.opponent_signal_visible === false ||
-    !facts.opponent_signal ||
-    ["unknown", "unclear", "확인 필요", "미확인", "모름"].includes(String(facts.opponent_signal).toLowerCase()) ||
-    questionFields.has("opponent_signal") ||
-    questionFields.has("opponent_signal_visible");
-  if (!signalRelevant || !opponentSignalUnclear) return undefined;
+  return { facts, fields, text };
+}
+
+function hasConditionalField(fields: Set<string>, names: string[]) {
+  return names.some((field) => fields.has(field));
+}
+
+function isUnknownValue(value: any) {
+  if (value === undefined || value === null || value === "") return true;
+  return ["unknown", "unclear", "확인 필요", "미확인", "모름"].includes(String(value).toLowerCase());
+}
+
+function conditionalCardFromOutcomeItems(items: AnyRecord[], title: string, summary: string, neededEvidence: string[], notice: string) {
+  return {
+    title,
+    summary,
+    cases: items.slice(0, 3).map((item: AnyRecord) => ({
+      label: cleanText(item.label, "조건별 판단"),
+      likely_direction: `${cleanText(item.my_range, "확인 필요")} / ${cleanText(item.other_range, "확인 필요")} 참고`,
+      explanation: cleanText(item.explanation, "이 조건이 확인되면 과실 방향이 달라질 수 있습니다."),
+      check_points: asArray(item.basis).map((x) => cleanText(x, "")).filter(Boolean).slice(0, 5),
+    })),
+    needed_evidence: neededEvidence,
+    notice,
+  };
+}
+
+function signalConditionalOutcomeCard() {
   return {
     title: "신호 확인에 따라 달라지는 판단",
     summary: "상대 차량 신호나 진입 시점이 확인되지 않으면 한 가지 과실비율로 단정하기 어렵습니다. 아래 경우를 나눠 확인해야 합니다.",
@@ -1377,6 +1390,120 @@ function composeConditionalOutcomeCard(result: AnyRecord = {}, report: AnyRecord
     needed_evidence: ["교차로 CCTV", "신호 주기표 또는 신호체계 자료", "각 차량의 정지선 통과 시점", "블랙박스 원본 전체 구간"],
     notice: "위 분기는 특정 영상에 맞춘 결론이 아니라, 신호가 보이지 않는 교차로 사고에서 공통으로 확인해야 하는 판단 구조입니다.",
   };
+}
+
+function collisionTargetConditionalOutcomeCard() {
+  return {
+    title: "사고 대상 확인에 따라 달라지는 판단",
+    summary: "영상에 보행자나 자전거가 보이더라도 실제 충돌 대상인지, 단순 주변 환경인지가 확인되어야 사고 유형과 적용 근거가 달라집니다.",
+    cases: [
+      {
+        label: "차량끼리 직접 충돌한 사고라면",
+        likely_direction: "차대차 기준의 신호, 진로, 안전거리, 회피 가능성을 중심으로 봅니다.",
+        explanation: "사람이나 횡단보도가 화면에 보여도 실제 충돌 상대가 차량이면 보행자 사고 기준을 우선 적용하지 않습니다. 직접 충돌 대상과 충돌 지점이 근거 선택의 출발점입니다.",
+        check_points: ["실제 접촉한 대상", "충돌 지점", "각 차량 진행 방향", "보행자 또는 자전거가 충돌에 직접 관여했는지"],
+      },
+      {
+        label: "보행자·자전거·물체가 직접 사고 대상이라면",
+        likely_direction: "보호의무, 비접촉 유발, 도로 장애물 기준을 별도로 검토해야 합니다.",
+        explanation: "차량이 아닌 대상이 직접 충돌 대상이거나 사고를 유발한 주체라면 차대차 과실표만으로 결론을 내리면 안 됩니다. 직접 접촉 여부와 비접촉 유발 여부를 나눠야 합니다.",
+        check_points: ["직접 접촉 여부", "비접촉 유발 대상", "보행자 신호 또는 자전거 진행 방향", "회피 가능성"],
+      },
+    ],
+    needed_evidence: ["충돌 직전·직후 원본 영상", "접촉 부위 사진", "현장 사진", "블랙박스 전후방 영상"],
+    notice: "주변에 보이는 객체를 사고 대상으로 단정하지 않고, 실제 충돌 또는 유발 관계가 확인될 때만 해당 기준을 적용합니다.",
+  };
+}
+
+function centerlineConditionalOutcomeCard() {
+  return {
+    title: "중앙선 침범 사유에 따라 달라지는 판단",
+    summary: "중앙선을 넘은 사실만으로 끝나지 않고, 장애물 회피 필요성·정차 여부·마주오던 차량의 회피 가능성을 함께 나눠 봐야 합니다.",
+    cases: [
+      {
+        label: "장애물 회피 때문에 일시적으로 중앙선을 넘었다면",
+        likely_direction: "내 차량 책임이 줄어들 수 있지만, 반대 차로 안전 확인 의무는 남습니다.",
+        explanation: "불법 주정차나 도로 장애물 때문에 불가피하게 중앙선을 물었다면 침범 사유가 중요한 완화 근거가 됩니다. 다만 마주오던 차량을 확인하고 정지했는지, 충분한 공간을 확보했는지는 별도로 검토합니다.",
+        check_points: ["도로 장애물 또는 불법 주정차 존재", "내 차량 정차 여부", "반대 차로 시야", "마주오던 차량의 감속·회피 가능성"],
+      },
+      {
+        label: "회피 필요성이 부족하거나 무리하게 넘어갔다면",
+        likely_direction: "내 차량의 책임 비율이 더 높아질 수 있습니다.",
+        explanation: "장애물이 없거나 충분히 기다릴 수 있었는데 중앙선을 넘어 진행했다면 차로 유지 의무 위반이 핵심 근거가 됩니다. 상대 차량의 중앙선 침범 여부와 회피 가능성은 별도로 비교해야 합니다.",
+        check_points: ["중앙선 침범 시작 시점", "대기 가능성", "상대 차량의 차로 점유", "양 차량의 정지 또는 감속 여부"],
+      },
+    ],
+    needed_evidence: ["원본 영상 전체 구간", "도로 폭과 차선 사진", "불법 주정차 또는 장애물 사진", "상대 차량 진행 방향 영상"],
+    notice: "중앙선 관련 분기는 모든 중앙선 사고에 공통으로 필요한 확인 구조이며, 특정 테스트 케이스에 맞춘 결론이 아닙니다.",
+  };
+}
+
+function rearStopConditionalOutcomeCard() {
+  return {
+    title: "정차·급정거 사유에 따라 달라지는 판단",
+    summary: "후방 추돌처럼 보이는 사고도 앞차 정차 사유, 급정거 필요성, 비접촉 유발 대상에 따라 책임 방향이 달라질 수 있습니다.",
+    cases: [
+      {
+        label: "앞차 정차나 급정거에 정당한 이유가 있었다면",
+        likely_direction: "뒤차의 안전거리 미확보 책임이 중심이 될 수 있습니다.",
+        explanation: "횡단보도, 신호, 전방 장애물, 자전거 등 때문에 앞차가 멈춘 상황이면 뒤차가 앞차 움직임을 예상하고 안전거리를 유지했는지가 핵심입니다.",
+        check_points: ["앞차 정차 사유", "전방 장애물 또는 신호", "뒤차와의 거리", "정차 후 충돌까지 시간"],
+      },
+      {
+        label: "이유 없는 급정거 또는 차로변경 직후 정차라면",
+        likely_direction: "앞차 또는 유발 차량의 책임이 일부 커질 수 있습니다.",
+        explanation: "앞차가 갑자기 끼어든 직후 급정거했거나 정차 사유가 부족하면 단순 후방 추돌과 달리 앞차 행위도 과실 판단에 들어갑니다.",
+        check_points: ["차로변경 직후 여부", "정차 이유", "비접촉 유발 대상", "뒤차 회피 가능 시간"],
+      },
+    ],
+    needed_evidence: ["충돌 전 최소 5~10초 영상", "전방 차량 정차 사유", "후방 영상", "현장 신호와 횡단보도 상태"],
+    notice: "후방 추돌 분기는 안전거리 원칙과 앞차 정차 사유를 함께 확인하기 위한 공통 판단 구조입니다.",
+  };
+}
+
+function composeConditionalOutcomeCard(result: AnyRecord = {}, report: AnyRecord = {}) {
+  const { facts, fields: questionFields, text } = collectConditionalContext(result, report);
+  const signalRelevant =
+    result.scenario_type === "intersection_signal_violation" ||
+    facts.intersection === true ||
+    Boolean(facts.user_signal) ||
+    Boolean(facts.signal_transition) ||
+    facts.opponent_signal_visible === false ||
+    /교차로|신호|황색|적색|녹색|intersection|signal/i.test(text) ||
+    hasConditionalField(questionFields, ["user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "opponent_signal_violation"]);
+  const opponentSignalUnclear =
+    facts.opponent_signal_visible === false ||
+    isUnknownValue(facts.opponent_signal) ||
+    hasConditionalField(questionFields, ["opponent_signal", "opponent_signal_visible"]);
+  const conditionalOutcomes = asArray(result.fault_ratio?.conditional_outcomes);
+  if (conditionalOutcomes.length) {
+    return conditionalCardFromOutcomeItems(
+      conditionalOutcomes,
+      signalRelevant ? "신호 확인에 따라 달라지는 판단" : "조건 확인에 따라 달라지는 판단",
+      "확인되지 않은 핵심 사실에 따라 과실 방향이 달라질 수 있어 조건별로 나눠 봐야 합니다.",
+      signalRelevant
+        ? ["교차로 CCTV", "신호 주기표 또는 신호체계 자료", "각 차량의 정지선 통과 시점", "블랙박스 원본 전체 구간"]
+        : ["블랙박스 원본 전체 구간", "현장 사진", "상대 차량 진술", "보험사 사고 조사 자료"],
+      "조건부 결과는 특정 테스트 영상에 맞춘 답이 아니라, 확인되지 않은 핵심 사실이 있는 사고에서 공통으로 적용하는 판단 구조입니다."
+    );
+  }
+  if (signalRelevant && opponentSignalUnclear) return signalConditionalOutcomeCard();
+  if (hasConditionalField(questionFields, ["collision_partner_type", "direct_collision_partner_type", "primary_collision_target", "trigger_actor_type"])) {
+    return collisionTargetConditionalOutcomeCard();
+  }
+  if (
+    hasConditionalField(questionFields, ["centerline_cross_reason", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop"]) ||
+    (facts.centerline_crossed === true && /중앙선|centerline|장애물|불법\s*주정차|대향|마주/i.test(text))
+  ) {
+    return centerlineConditionalOutcomeCard();
+  }
+  if (
+    hasConditionalField(questionFields, ["front_vehicle_stopped", "rear_vehicle_collision", "sudden_brake", "stopped", "non_contact_trigger", "trigger_actor_type", "trigger_actor_behavior"]) ||
+    /후방\s*추돌|급정거|정차|뒤에서|rear.?end|rear_collision|non.?contact/i.test(text)
+  ) {
+    return rearStopConditionalOutcomeCard();
+  }
+  return undefined;
 }
 
 export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord {

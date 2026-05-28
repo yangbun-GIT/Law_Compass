@@ -1306,6 +1306,83 @@ describe("report composer", () => {
     expect((enriched as any).missing_info.next_focus.label).toBe("상대 차량 신호");
   });
 
+  it("adds conditional guidance when the direct accident target is ambiguous", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "사고 대상 확인 필요" }), {
+      structured_facts: {
+        accident_party_type: "car_vs_car",
+        collision_partner_type: "vehicle",
+        pedestrian_visible: true,
+      },
+      fact_arbitration: {
+        pending_video_confirmations: [
+          {
+            field: "collision_partner_type",
+            user_value: "vehicle",
+            video_value: "pedestrian",
+            winner: "user",
+            status: "user_video_conflict_video_held",
+            needs_confirmation: true,
+            video_confidence: 0.8,
+          },
+        ],
+        confirmation_fields: ["collision_partner_type"],
+      },
+    });
+
+    const card = (enriched as any).conditional_outcome_card;
+    expect(card.title).toBe("사고 대상 확인에 따라 달라지는 판단");
+    expect(card.cases).toHaveLength(2);
+    expect(JSON.stringify(card)).toContain("차량끼리 직접 충돌");
+    expect(JSON.stringify(card)).toContain("보행자·자전거·물체");
+    expect(JSON.stringify(card)).toContain("실제 충돌");
+    expect(JSON.stringify(card)).not.toContain("collision_partner_type");
+  });
+
+  it("adds conditional guidance for centerline crossing cause ambiguity", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "중앙선 침범 사고" }), {
+      accident_summary: "도로 장애물 때문에 중앙선을 물고 진행하다 마주오던 차량과 충돌했습니다.",
+      structured_facts: {
+        accident_party_type: "car_vs_car",
+        accident_type: "centerline_obstacle_collision",
+        centerline_crossed: true,
+      },
+      input_requirements: {
+        questions: [
+          { field: "centerline_cross_reason", label: "중앙선 침범 사유", question: "중앙선을 넘은 이유는 무엇인가요?" },
+          { field: "opposing_vehicle_did_not_stop", label: "상대 차량 미정지", question: "상대 차량이 감속하거나 정지했나요?" },
+        ],
+      },
+    });
+
+    const card = (enriched as any).conditional_outcome_card;
+    expect(card.title).toBe("중앙선 침범 사유에 따라 달라지는 판단");
+    expect(JSON.stringify(card)).toContain("장애물 회피");
+    expect(JSON.stringify(card)).toContain("무리하게 넘어");
+    expect(card.needed_evidence).toContain("불법 주정차 또는 장애물 사진");
+  });
+
+  it("adds conditional guidance for stop and rear-end cause ambiguity", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "후방 추돌 사고" }), {
+      accident_summary: "우회전 중 앞차가 멈춰 뒤에서 추돌했습니다.",
+      structured_facts: {
+        accident_party_type: "car_vs_car",
+        accident_type: "rear_end_collision",
+      },
+      video_input_contract: {
+        uncertain_observations: [
+          { field: "front_vehicle_stopped", value: true, confidence: 0.72 },
+          { field: "rear_vehicle_collision", value: true, confidence: 0.75 },
+        ],
+      },
+    });
+
+    const card = (enriched as any).conditional_outcome_card;
+    expect(card.title).toBe("정차·급정거 사유에 따라 달라지는 판단");
+    expect(JSON.stringify(card)).toContain("정당한 이유");
+    expect(JSON.stringify(card)).toContain("이유 없는 급정거");
+    expect(card.needed_evidence).toContain("충돌 전 최소 5~10초 영상");
+  });
+
   it("prioritizes non-contact trigger questions before pedestrian context details", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
       video_input_contract: {
