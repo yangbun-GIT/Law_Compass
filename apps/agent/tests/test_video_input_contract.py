@@ -191,12 +191,19 @@ def test_frame_rich_zero_observation_analysis_gets_limited_visual_fallback():
 
     assert contract["fact_patch"] == {}
     assert contract["accepted_observations"] == []
-    assert contract["supporting_observations"][0]["field"] == "visual_evidence_limited"
-    assert contract["supporting_observations"][0]["frame_refs"] == ["frame_004.jpg", "frame_005.jpg"]
+    supporting_by_field = {item["field"]: item for item in contract["supporting_observations"]}
+    assert supporting_by_field["accident_event_candidate"]["frame_refs"] == ["frame_004.jpg", "frame_005.jpg"]
+    assert supporting_by_field["visual_evidence_limited"]["frame_refs"] == ["frame_004.jpg", "frame_005.jpg"]
     assert contract["analysis_recovery"]["status"] == "frame_rich_no_actionable_observation"
     labels = [item["label"] for item in contract["analysis_recovery"]["actions"]]
+    codes = [item["code"] for item in contract["analysis_recovery"]["retry_plan"]]
+    prompt_codes = [item["code"] for item in contract["analysis_recovery"]["confirmation_prompts"]]
+    assert "사고 시점 후보 프레임 재선택" in labels
     assert "프레임 분석 재시도" in labels
     assert "YOLO 보조 관찰 활성화" in labels
+    assert "select_event_window_frames" in codes
+    assert "rerun_openai_frame_analysis" in codes
+    assert "confirm_accident_event_window" in prompt_codes
     assert contract["observation_quality_summary"]["recovery_status"] == "frame_rich_no_actionable_observation"
     assert contract["observation_quality_summary"]["recovery_actions"]
 
@@ -216,6 +223,46 @@ def test_frame_rich_video_without_analysis_gets_recovery_actions_without_fallbac
     labels = [item["label"] for item in contract["analysis_recovery"]["actions"]]
     assert "OpenAI 프레임 분석 활성화" in labels
     assert "YOLO 보조 관찰 활성화" in labels
+    assert contract["analysis_recovery"]["confirmation_prompts"][0]["code"] == "confirm_collision_summary"
+
+
+def test_frame_rich_uncertain_only_observations_get_confirmation_recovery_plan():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "representative_frames": [f"/frames/frame_{index:03d}.jpg" for index in range(1, 9)],
+                "observations": [
+                    {
+                        "field": "collision_partner_type",
+                        "value": "pedestrian",
+                        "confidence": 0.84,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_005.jpg", "frame_006.jpg"],
+                    },
+                    {
+                        "field": "opponent_signal_visible",
+                        "value": True,
+                        "confidence": 0.75,
+                        "source": "vision_model:yolo",
+                        "frame_refs": ["frame_004.jpg", "frame_005.jpg"],
+                    },
+                ],
+                "openai_frame_analysis": {"enabled": True},
+                "yolo_frame_analysis": {"enabled": True},
+            }
+        }
+    )
+
+    assert contract["fact_patch"] == {}
+    assert contract["accepted_observations"] == []
+    assert contract["analysis_recovery"]["status"] == "frame_rich_uncertain_observations_only"
+    retry_codes = [item["code"] for item in contract["analysis_recovery"]["retry_plan"]]
+    prompt_codes = [item["code"] for item in contract["analysis_recovery"]["confirmation_prompts"]]
+    assert "rerun_openai_frame_analysis" in retry_codes
+    assert "include_yolo_object_candidates" in retry_codes
+    assert "ask_user_confirmation" in retry_codes
+    assert "confirm_collision_partner" in prompt_codes
+    assert "confirm_signal_state" in prompt_codes
 
 
 def test_signal_violation_uses_stricter_field_threshold():

@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P0-5 관찰값 0개 Fallback 보강
+
+P0-5 단계에서 대표 프레임은 충분하지만 Agent 판단에 바로 반영할 영상 관찰값이 없거나, 보류 관찰값만 존재하는 경우를 방치하지 않도록 recovery contract를 보강했다. 이번 변경은 특정 사고 영상에 맞춘 보정이 아니라 `프레임 충분 + 확정 사실 부족` 상태를 별도 품질 신호와 재시도 계획으로 남기는 범용 처리다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| fallback 관찰값 | `apps/agent/app/services/video_input_contract_metadata.py`가 사고 시점 후보가 있는 frame-rich 영상에서 `accident_event_candidate`와 `visual_evidence_limited`를 supporting observation으로 함께 남긴다. 두 값은 과실 판단 fact로 승격되지 않고 품질/확인 신호로만 사용한다. |
+| recovery contract | `analysis_recovery`에 `retry_plan`과 `confirmation_prompts`를 추가했다. 프레임 재선택, OpenAI 프레임 재분석, YOLO 후보 검토, 사용자 확인 질문 생성을 구조화해 다음 처리 단계가 흔들리지 않게 했다. |
+| 보류 관찰값 처리 | 확정 fact는 없지만 보류 관찰값이 있는 frame-rich 영상은 `frame_rich_uncertain_observations_only` 상태로 구분한다. 충돌 대상, 충돌 지점, 신호 상태 같은 확인 질문 후보를 생성한다. |
+| 검증 스크립트 | `scripts/verify_agent_regression.ps1`가 Docker 하위 명령의 실패 exit code를 즉시 예외로 처리하도록 변경했다. 내부 회귀 실패가 출력된 뒤 최종 pass로 보이는 검증 신뢰도 문제를 막는다. |
+| 검증 | `PYTHONPATH=apps/agent py -3.13 -m pytest apps/agent/tests/test_video_input_contract.py apps/agent/tests/test_video_input_contract_guards.py apps/agent/tests/test_fact_arbitration.py -q` 43개 통과. OpenAI+YOLO 병합 평가는 `contamination_regression_count=0`, `status=pass`를 유지했다. `powershell -ExecutionPolicy Bypass -File scripts/verify_agent_regression.ps1`도 Docker 빌드 포함 통과했다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 다음 단계는 P1-1 사고 시점 후보 추출 개선으로, 긴 영상이나 휴대폰 재촬영 영상에서도 사고 전·충돌·사고 후 구간을 더 안정적으로 잡는 것이다.
+
 ## 2026-05-29 P0-4 영상 오염 방지 Guard 확장
 
 P0-4 단계에서 영상 관찰값의 객체 존재가 사고유형 확정으로 잘못 승격되는 경로를 더 넓게 막도록 Agent video input guard를 확장했다. 이번 변경은 특정 사고 1~5에 맞춘 보정이 아니라 `객체 존재 != 직접 충돌 대상`, `환경 정보 != 사고 원인 확정` 원칙을 코드 guard로 일반화한 것이다.

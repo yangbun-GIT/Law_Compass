@@ -74,6 +74,7 @@
 - 처리: 프레임 재선택, YOLO 객체 후보, OpenAI 재분석, 확인 필요 후보 생성.
 - ReAct 적용: 필수, 최대 3회.
 - 이유: 영상 처리의 핵심 실패 케이스다.
+- 상태: 완료. `analysis_recovery`에 `retry_plan`과 `confirmation_prompts`를 추가해 프레임 재선택, OpenAI 재분석, YOLO 후보 검토, 사용자 확인 질문 생성을 구조화했다. 사고 시점 후보가 있는 frame-rich 영상은 `accident_event_candidate`와 `visual_evidence_limited`를 supporting observation으로 남기며, 보류 관찰값만 있는 경우 `frame_rich_uncertain_observations_only`로 구분한다. 내부 실패가 최종 pass로 보이지 않도록 `scripts/verify_agent_regression.ps1`의 하위 명령 exit code 처리도 보강했다.
 
 ### P1-1. 사고 시점 후보 추출 개선
 

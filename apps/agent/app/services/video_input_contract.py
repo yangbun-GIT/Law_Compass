@@ -5,7 +5,7 @@ from typing import Any
 from app.services.video_input_contract_guards import apply_video_fact_guards
 from app.services.video_input_contract_metadata import (
     analysis_recovery_plan,
-    frame_rich_zero_observation_fallback,
+    frame_rich_zero_observation_fallbacks,
     technical_metadata,
 )
 from app.services.video_input_contract_observations import (
@@ -37,9 +37,9 @@ def normalize_video_input_contract(
     nested = meta.get("metadata") if isinstance(meta.get("metadata"), dict) else meta
     technical = technical_metadata(meta, nested)
     observations = collect_observations(meta)
-    fallback_observation = frame_rich_zero_observation_fallback(meta, nested, technical, observations)
-    if fallback_observation:
-        observations.append(fallback_observation)
+    fallback_observations = frame_rich_zero_observation_fallbacks(meta, nested, technical, observations)
+    if fallback_observations:
+        observations.extend(fallback_observations)
     fact_patch: dict[str, Any] = {}
     accepted: list[dict[str, Any]] = []
     uncertain: list[dict[str, Any]] = []

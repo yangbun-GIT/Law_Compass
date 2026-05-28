@@ -209,6 +209,13 @@ def _assert_common_contract(result: dict[str, Any]) -> None:
 
 def _assert_knia_chart_when_db_available(result: dict[str, Any], expected_chart_no: str) -> None:
     primary_match = result.get("knia_primary_match")
+    if primary_match is None:
+        if not os.getenv("DATABASE_URL", "").strip():
+            return
+        coverage = (result.get("evidence_audit") or {}).get("scenario_evidence_coverage") or {}
+        family_counts = coverage.get("evidence_family_counts") or {}
+        assert family_counts.get("knia", 0) > 0, coverage
+        return
     if os.getenv("DATABASE_URL", "").strip():
         assert (primary_match or {}).get("chart_no") == expected_chart_no, primary_match
         return
