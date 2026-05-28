@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 Gateway Route SRP 보강 P1-2
+
+`apps/gateway/src/routes/uploads.ts`와 `apps/gateway/src/routes/analysis.ts`가 라우트 등록, DB 조립, 저장소 오류 매핑, 분석 결과 저장, 진행 상태 payload 조립을 한 파일에서 함께 담당하던 구조를 분리했다. 이번 변경은 public API route와 응답 payload를 바꾸지 않고 Gateway route 파일이 요청 검증과 라우팅 흐름에 집중하도록 만든 구조 보강이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Upload service | `apps/gateway/src/services/uploadService.ts`를 추가해 업로드 공개 payload sanitizing, storage key 정규화, storage 오류 코드/사용자 메시지 매핑, DB insert query 조립, 전처리 job enqueue, 로컬/NAS/S3 content streaming, 업로드 완료 검증 책임을 담당한다. |
+| Analysis service | `apps/gateway/src/services/analysisService.ts`를 추가해 분석 진행 상태 payload, 재분석 영상 metadata 구성, 결과 리포트 context 조회, `analysis_results` 저장 책임을 담당한다. |
+| Route facade 유지 | `routes/uploads.ts`와 `routes/analysis.ts`는 기존 route 등록과 인증/응답 흐름을 유지하며, 기존 테스트가 참조하던 `buildUploadInsert`, `publicUpload`, `composeGuidedProgressPayload`, `buildReanalysisVideoMetadata` re-export 계약을 유지한다. |
+| 검증 | Gateway `npm run build`와 `npm test`를 통과했다. 테스트 기준은 8개 파일, 59개 테스트다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. 남은 P1-1 범위는 프론트 guidance 데이터/질문 추론 책임 분리이며, 이후 개발 흐름은 사용자 영상과 입력에서 오염되지 않은 사실 데이터를 추출하고 Agent 판단 계약으로 연결하는 작업으로 이동한다.
+
 ## 2026-05-29 Agent Video Input Guard SRP 보강 P0-4
 
 P0-3 이후 `apps/agent/app/services/video_input_contract.py`에 남아 있던 영상 fact guard 책임을 별도 모듈로 분리했다. 이번 변경은 영상 관찰값이 보행자/횡단보도 context를 실제 보행자 충돌로 오인하거나, 직접 충돌 대상과 broad collision partner가 충돌하는 경우를 방어하는 정책을 명시적인 guard 계층으로 이동한 구조 보강이다.
