@@ -132,3 +132,15 @@
 - `SYSTEM_OVERVIEW.md`에 최종 구조, 검증 결과, 남은 리스크가 반영됐다.
 - 필요한 경우 `DEVELOPMENT_PROMPT.md`에 지속 적용해야 할 원칙이 반영됐다.
 - 팀원이 이어서 볼 수 있는 실행/검증 방법이 최신 상태다.
+
+## 2026-05-29 P0-2a 추가 완료: reference 데이터 수집/사용 정책
+
+P0-2 기준선 재측정 전에 외부 사고 영상과 사고 설명이 함께 있는 자료를 어떻게 테스트 reference로 사용할지 고정했다.
+
+- `docs/VIDEO_REFERENCE_DATA_POLICY.md`를 추가해 기존 사고 1~5, AI Hub 샘플, 공개 영상 링크, 공식 근거 자료의 사용 목적과 금지 항목을 분리했다.
+- `tests/fixtures/video_accuracy/reference_case_manifest.schema.json`을 추가해 reference case의 구조를 고정했다.
+- `tests/fixtures/video_accuracy/reference_case_manifest.example.json`을 추가해 로컬 사용자 제공 영상, 공개 reference 링크, AI Hub 샘플의 안전한 manifest 예시를 제공했다.
+- 공개 영상과 전문가 의견은 Agent 입력 사실이 아니라 평가와 calibration reference로만 사용한다.
+- 원본 영상, AI Hub 원본 데이터, API key, 개인 로컬 경로가 포함된 실제 manifest는 Git에 커밋하지 않는다.
+
+P0-2는 이 정책을 기준으로 기존 사고 1~5를 먼저 재측정하고, 외부 reference는 링크/요약/기대 관찰값 manifest부터 정리한 뒤 로컬 영상 파일이 합법적으로 준비된 경우에만 영상 파이프라인에 포함한다.

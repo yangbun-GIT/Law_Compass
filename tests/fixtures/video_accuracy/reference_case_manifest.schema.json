@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LawCompass video reference case manifest",
+  "type": "object",
+  "required": ["version", "cases"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "source_type",
+          "scenario_summary",
+          "reference_expectations",
+          "evaluation_focus",
+          "usage_policy"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "local_user_provided",
+              "aihub_sample",
+              "public_reference_link",
+              "official_evidence"
+            ]
+          },
+          "source_url": {
+            "type": "string"
+          },
+          "local_video_path": {
+            "type": "string",
+            "description": "Local-only path. Do not commit manifests containing real private paths unless they are placeholders."
+          },
+          "dataset_ref": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "dataset_name": {
+                "type": "string"
+              },
+              "dataset_key": {
+                "type": "string"
+              },
+              "file_key": {
+                "type": "string"
+              },
+              "split": {
+                "type": "string"
+              }
+            }
+          },
+          "scenario_summary": {
+            "type": "string"
+          },
+          "reference_notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reference_expectations": {
+            "type": "object",
+            "required": ["direct_collision_partner_type", "must_not_promote"],
+            "additionalProperties": false,
+            "properties": {
+              "direct_collision_partner_type": {
+                "type": "string",
+                "enum": ["vehicle", "pedestrian", "bicycle", "object", "unknown"]
+              },
+              "trigger_actor_type": {
+                "type": "string"
+              },
+              "accident_event_required": {
+                "type": "boolean"
+              },
+              "expected_context": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "must_not_promote": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ambiguous_branches": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["condition", "expected_guidance"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "condition": {
+                      "type": "string"
+                    },
+                    "expected_guidance": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "evaluation_focus": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "usage_policy": {
+            "type": "object",
+            "required": ["agent_input_allowed", "raw_video_commit_allowed", "notes"],
+            "additionalProperties": false,
+            "properties": {
+              "agent_input_allowed": {
+                "type": "boolean"
+              },
+              "raw_video_commit_allowed": {
+                "type": "boolean"
+              },
+              "notes": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P0-2a 영상 reference 데이터 정책
+
+P0-2 사고 1~5 영상 기준선 재측정 전에, 외부 사고 영상과 사고 설명이 함께 있는 reference 데이터를 안전하게 수집하고 테스트에 사용하는 기준을 추가했다. 목적은 특정 사고에 답을 맞추는 것이 아니라 영상 관찰값 오염, 사고 대상 오인, 사고 시점 후보 누락, 근거 검색 오염을 발견하기 위한 평가 기준을 넓히는 것이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Reference 정책 | `docs/VIDEO_REFERENCE_DATA_POLICY.md`를 추가해 기존 사용자 제공 영상, AI Hub 샘플, 공개 영상 링크, KNIA/법령/판례 등 공식 근거 자료를 어떤 용도로 사용할지 구분했다. |
+| Manifest schema | `tests/fixtures/video_accuracy/reference_case_manifest.schema.json`을 추가해 reference case의 필수 필드, 기대 관찰값, 오염 방지 항목, 사용 제한을 구조화했다. |
+| Manifest example | `tests/fixtures/video_accuracy/reference_case_manifest.example.json`을 추가해 사고 1, 공개 영상 링크 reference, AI Hub 샘플 reference의 안전한 예시를 제공했다. 실제 로컬 영상 경로와 원본 파일은 포함하지 않는다. |
+| 개발 기준 | `DEVELOPMENT_PROMPT.md`와 `docs/VIDEO_AGENT_WORK_PLAN.md`에 공개 영상/AI Hub reference는 Agent 입력 사실이 아니라 평가와 calibration 기준으로만 사용한다는 규칙을 명확히 했다. |
+| 검증 | JSON schema/example parse와 `git diff --check`를 통과했다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 다음 단계는 P0-2 사고 1~5 영상 기준선 재측정이며, 확보 가능한 external reference는 원본 파일 없이 manifest 기반 평가 후보로 먼저 관리한다.
+
 ## 2026-05-29 P0-1 사고 오염 유형 매트릭스
 
 영상·입력 사실 추출 보강의 첫 단계로 사고를 잘못 인식할 수 있는 오염 유형을 범용 매트릭스로 고정했다. 이 작업은 코드 동작을 바꾸지 않고, 이후 P0-2 기준선 재측정과 P0-3/P0-4 Agent 계약·guard 보강의 기준 자료를 만드는 단계다.

@@ -473,6 +473,17 @@ The updated Agentic Design Pattern lecture should be applied as durable engineer
 - Add full token/cost dashboards when OpenAI usage is routinely enabled, user-level billing is needed, or cost risk can no longer be managed with metadata and limits alone.
 - Use LLM-as-Judge only as secondary qualitative evaluation. Deterministic, evidence-based regression remains the primary quality gate for legal and fault-ratio behavior.
 
+## 2026-05-29 영상 reference 데이터 사용 규칙
+
+사고 영상과 사고 설명이 함께 있는 외부 자료는 영상 관찰값 오염을 찾기 위한 평가 reference로 사용한다. 특정 reference의 전문가 의견이나 실제 처리 결과를 Agent 사용자 입력 사실로 주입하지 않는다.
+
+- 기존 사용자 제공 사고 영상은 로컬 테스트 기준선으로 사용하되 원본 영상은 Git에 커밋하지 않는다.
+- 공개 영상 플랫폼 자료는 링크, 제목, 짧은 수동 요약, 전문가 의견 요약, 실제 결과 공개 여부, 평가 focus만 manifest에 기록한다.
+- 공개 영상 원본을 무단 다운로드, 재배포, 스크래핑, 학습 데이터셋 편입하는 흐름을 기본 개발 경로로 두지 않는다.
+- AI Hub 자료는 승인과 API key가 있는 경우에도 전체 원본 다운로드를 기본값으로 삼지 않고, 샘플 또는 작은 filekey 단위로만 선택 사용한다.
+- AI Hub 원본 데이터, API key, 다운로드 로그 중 민감정보, 공개 영상 원본, 로컬 테스트 영상은 Git에 포함하지 않는다.
+- reference manifest는 `docs/VIDEO_REFERENCE_DATA_POLICY.md`와 `tests/fixtures/video_accuracy/reference_case_manifest.schema.json` 기준을 따른다.
+
 ## 2026-05-26 작업 시작 전 GitHub 동기화 규칙
 
 동시 개발 중에는 실제 작업을 시작하기 전에 최신 `main`과 최근 병합/커밋 이력을 확인한다.
