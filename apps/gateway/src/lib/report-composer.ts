@@ -418,7 +418,10 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   const eventCandidate = videoAccidentEventCandidate(technical.accident_event_summary);
   const appliedFields = asArray(arbitration.applied_video_fields).map((field) => String(field));
   const confirmedFields = asArray(arbitration.confirmed_fields).map((field) => String(field));
-  const reviewItems = asArray(arbitration.conflicts);
+  const reviewItems = [
+    ...asArray(arbitration.conflicts),
+    ...asArray(arbitration.pending_video_confirmations),
+  ];
   const hasVideoFacts = accepted.length || uncertain.length || supporting.length || appliedFields.length || confirmedFields.length || reviewItems.length || eventCandidate;
   const hasVideoProcessing = Boolean(contract.version) && (representativeFrameCount > 0 || Boolean(contract.observation_quality_summary));
   if (!hasVideoFacts && !hasVideoProcessing) return undefined;
@@ -464,26 +467,27 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
     .map((item: AnyRecord) => {
       const field = String(item?.field ?? "");
       const winner = String(item?.winner ?? item?.selected_source ?? "");
+      const status = String(item?.status ?? "");
       const videoValue = item.video_value;
       const userValue = item.user_value;
-      const selectedValue = winner === "video" ? item.video_value : item.user_value;
+      const selectedValue = winner === "video" ? item.video_value : winner === "none" ? item.video_value : item.user_value;
       const videoValueLabel = videoFactValueLabel(field, videoValue);
       const userValueLabel = videoFactValueLabel(field, userValue);
       return {
         label: videoFactLabel(field),
-        selected_source: winner === "video" ? "영상" : "사용자 입력",
+        selected_source: winner === "video" ? "영상" : winner === "none" ? "확인 필요" : "사용자 입력",
         selected_value: videoFactValueLabel(field, selectedValue),
         input_label: userValueLabel,
         video_label: videoValueLabel,
-        status_label: winner === "video" ? "영상 기준 반영" : "확인 후 사용자 입력 유지",
+        status_label: videoReviewStatusLabel(winner, status),
         comparison: userValueLabel && videoValueLabel
           ? `사용자 입력은 ${userValueLabel}, 영상 관찰은 ${videoValueLabel}로 달라 보입니다.`
+          : videoValueLabel
+            ? `영상에서는 ${videoValueLabel} 후보가 보였지만 확정 기준을 넘지 못했습니다.`
           : "",
         confidence: confidenceLabel(item.video_confidence ?? item.confidence),
         frame_label: frameCountLabel(item.frame_refs),
-        explanation: winner === "video"
-          ? "영상에서 직접 확인 가능한 물리적 사실이라 영상 기준을 우선 적용했습니다."
-          : "영상 관찰값이 기존 입력과 다르지만, 확정 기준을 넘지 않아 사용자 입력을 유지하고 확인 질문으로 넘겼습니다.",
+        explanation: videoReviewExplanation(winner, status),
       };
     })
     .filter((item) => item.label)
@@ -655,22 +659,60 @@ function videoObservationReasonLabel(value: string) {
   return labels[value] ?? cleanText(value, "");
 }
 
+function videoReviewStatusLabel(winner: string, status: string) {
+  if (winner === "video") return "영상 기준 반영";
+  if (status === "missing_user_fact_video_held") return "영상 후보 확인 필요";
+  if (status === "user_video_conflict_video_held") return "사용자 입력 유지, 영상 후보 확인";
+  if (status === "user_supported_by_held_video_needs_context_confirmation") return "사용자 입력 확인 필요";
+  if (status === "user_supported_by_held_video") return "사용자 입력 보강 후보";
+  return "확인 후 사용자 입력 유지";
+}
+
+function videoReviewExplanation(winner: string, status: string) {
+  if (winner === "video") {
+    return "영상에서 직접 확인 가능한 물리적 사실이라 영상 기준을 우선 적용했습니다.";
+  }
+  if (status === "missing_user_fact_video_held") {
+    return "사용자 입력에는 없지만 영상에서 후보가 보였습니다. 신뢰도나 프레임 근거가 부족해 확인 질문으로 넘겼습니다.";
+  }
+  if (status === "user_video_conflict_video_held") {
+    return "영상 후보가 기존 입력과 다르지만 확정 기준을 넘지 않아 사용자 입력을 유지하고 확인 질문으로 넘겼습니다.";
+  }
+  if (status === "user_supported_by_held_video_needs_context_confirmation") {
+    return "영상 후보가 사용자 입력과 같은 방향이지만 사고유형을 바꿀 수 있는 핵심 맥락이 부족해 확인 질문으로 넘겼습니다.";
+  }
+  if (status === "user_supported_by_held_video") {
+    return "영상 후보가 기존 입력과 같은 방향이지만 확정 기준은 넘지 못해 참고 보강 정보로만 표시합니다.";
+  }
+  return "영상 관찰값이 기존 입력과 다르지만, 확정 기준을 넘지 않아 사용자 입력을 유지하고 확인 질문으로 넘겼습니다.";
+}
+
 function composeVideoConflictQuestions(result: AnyRecord = {}) {
   const arbitration = result.fact_arbitration ?? result.model_info?.fact_arbitration ?? {};
   const questions: AnyRecord[] = [];
-  for (const item of asArray(arbitration.conflicts)) {
+  const reviewItems = [
+    ...asArray(arbitration.conflicts),
+    ...asArray(arbitration.pending_video_confirmations),
+  ].filter((item: AnyRecord) => item?.needs_confirmation !== false);
+  for (const item of reviewItems) {
     const field = String(item?.field ?? "");
     if (!SAFE_INPUT_FIELDS.has(field)) continue;
     const winner = String(item?.winner ?? item?.selected_source ?? "");
-    const selectedValue = winner === "video" ? item.video_value : item.user_value;
+    const status = String(item?.status ?? "");
+    const selectedValue = winner === "video" ? item.video_value : winner === "none" ? item.video_value : item.user_value;
     const alternateValue = winner === "video" ? item.user_value : item.video_value;
     const selectedLabel = videoFactValueLabel(field, selectedValue);
     const alternateLabel = videoFactValueLabel(field, alternateValue);
     const userLabel = videoFactValueLabel(field, item.user_value);
     const videoLabel = videoFactValueLabel(field, item.video_value);
     const label = videoFactLabel(field);
-    const options = unique([selectedLabel, alternateLabel, "확인 필요"]).filter((value: string) => value !== "확인 필요" || selectedLabel !== "확인 필요");
-    const question = videoConflictQuestionText(field, label, videoLabel, userLabel, selectedLabel);
+    const baseOptions = status
+      ? videoFactQuestionOptions(field, item.video_value)
+      : [selectedLabel, alternateLabel, "확인 필요"];
+    const options = unique(baseOptions).filter((value: string) => value && (value !== "확인 필요" || selectedLabel !== "확인 필요"));
+    const question = status
+      ? videoQualityQuestionText(field, label, videoLabel)
+      : videoConflictQuestionText(field, label, videoLabel, userLabel, selectedLabel);
     questions.push({
       field,
       label,

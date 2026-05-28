@@ -90,6 +90,7 @@
 - 원칙: 영상은 객관 정보지만 불완전할 수 있으므로 무조건 우선하지 않는다.
 - ReAct 적용: 필수, 2회.
 - 이유: 실제 사용자 입력은 부정확할 가능성이 크다.
+- 상태: 완료. `fact_arbitration`이 확정 영상 fact뿐 아니라 보류 영상 관찰값도 함께 중재하도록 보강했다. 보류 영상 후보가 사용자 입력과 충돌하면 사용자 값을 유지하되 `pending_video_confirmations`와 `confirmation_fields`로 확인 질문에 넘긴다. 사용자 입력이 비어 있으면 missing fact 확인 후보로 남기고, 사용자 입력과 같은 방향이면 `tentatively_supported_fields`로 참고 보강만 표시한다. Gateway 결과 카드와 missing_info 질문도 이 계약을 사용하도록 연결했다. Agent/Gateway/Frontend 빌드 및 Docker 회귀 검증을 통과했다.
 
 ### P1-3. 애매한 사고의 분기형 결과
 

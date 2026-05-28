@@ -876,3 +876,32 @@ def test_yolo_object_presence_candidates_do_not_become_agent_facts():
     assert arbitration["contract"]["applied_video_fields"] == []
     assert arbitration["contract"]["confirmed_fields"] == []
     assert arbitration["contract"]["conflicts"] == []
+
+
+def test_uncertain_video_conflict_is_visible_in_normalized_analysis_text():
+    normalized = normalize_analysis_input(
+        "차대차 사고라고 생각합니다.",
+        structured_facts={"collision_partner_type": "vehicle", "accident_party_type": "car_vs_car"},
+        video_metadata={
+            "metadata": {
+                "representative_frames": [f"frame_{index:03d}.jpg" for index in range(1, 8)],
+                "observations": [
+                    {
+                        "field": "collision_partner_type",
+                        "value": "pedestrian",
+                        "confidence": 0.8,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    }
+                ],
+            }
+        },
+    )
+
+    facts = normalized["structured_facts"]
+    arbitration = normalized["fact_arbitration"]
+    assert facts["collision_partner_type"] == "vehicle"
+    assert arbitration["held_video_fields"] == ["collision_partner_type"]
+    assert arbitration["pending_video_confirmations"][0]["status"] == "user_video_conflict_video_held"
+    assert "pending_video_confirmations" in normalized["merged_text"]
+    assert "collision_partner_type" in normalized["merged_text"]

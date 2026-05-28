@@ -109,3 +109,110 @@ def test_matching_user_alias_and_video_value_are_canonicalized_and_confirmed():
     assert result["facts"]["opponent_behavior"] == "rear_collision"
     assert result["contract"]["conflicts"] == []
     assert result["contract"]["confirmed_fields"] == ["opponent_behavior"]
+
+
+def test_held_video_observation_conflicting_with_user_input_requires_confirmation():
+    result = arbitrate_facts(
+        user_facts={"collision_partner_type": "vehicle"},
+        video_contract={
+            "fact_patch": {},
+            "accepted_observations": [],
+            "uncertain_observations": [
+                {
+                    "field": "collision_partner_type",
+                    "value": "pedestrian",
+                    "confidence": 0.8,
+                    "source": "frame_analysis:openai",
+                    "frame_refs": ["frame_3.jpg", "frame_4.jpg"],
+                    "reason": "pedestrian_collision_partner_requires_direct_contact_evidence",
+                    "quality_gate": {"status": "rejected", "min_confidence": 0.82, "confidence": 0.8},
+                }
+            ],
+        },
+    )
+
+    assert result["facts"]["collision_partner_type"] == "vehicle"
+    assert result["contract"]["conflicts"] == []
+    assert result["contract"]["held_video_fields"] == ["collision_partner_type"]
+    assert result["contract"]["confirmation_fields"] == ["collision_partner_type"]
+    pending = result["contract"]["pending_video_confirmations"][0]
+    assert pending["status"] == "user_video_conflict_video_held"
+    assert pending["winner"] == "user"
+    assert pending["needs_confirmation"] is True
+    assert result["contract"]["requires_confirmation"][0]["field"] == "collision_partner_type"
+
+
+def test_held_video_observation_for_missing_user_fact_is_confirmation_candidate():
+    result = arbitrate_facts(
+        user_facts={"accident_party_type": "car_vs_car"},
+        video_contract={
+            "fact_patch": {},
+            "uncertain_observations": [
+                {
+                    "field": "opponent_signal_visible",
+                    "value": False,
+                    "confidence": 0.78,
+                    "source": "frame_analysis:openai",
+                    "frame_refs": ["frame_6.jpg"],
+                    "reason": "confidence_below_field_threshold",
+                }
+            ],
+        },
+    )
+
+    assert "opponent_signal_visible" not in result["facts"]
+    assert result["contract"]["held_video_fields"] == ["opponent_signal_visible"]
+    assert result["contract"]["pending_video_confirmations"][0]["status"] == "missing_user_fact_video_held"
+    assert result["contract"]["requires_confirmation"][0]["field"] == "opponent_signal_visible"
+
+
+def test_held_video_observation_matching_user_input_is_tentative_support_only():
+    result = arbitrate_facts(
+        user_facts={"stopped": True},
+        video_contract={
+            "fact_patch": {},
+            "uncertain_observations": [
+                {
+                    "field": "stopped",
+                    "value": True,
+                    "confidence": 0.79,
+                    "source": "frame_analysis:openai",
+                    "frame_refs": ["frame_2.jpg"],
+                    "reason": "confidence_below_field_threshold",
+                }
+            ],
+        },
+    )
+
+    assert result["facts"]["stopped"] is True
+    assert result["contract"]["held_video_fields"] == []
+    assert result["contract"]["tentatively_supported_fields"] == ["stopped"]
+    assert result["contract"]["pending_video_confirmations"][0]["status"] == "user_supported_by_held_video"
+    assert result["contract"]["requires_confirmation"] == []
+
+
+def test_matching_held_video_observation_still_asks_when_context_can_change_accident_type():
+    result = arbitrate_facts(
+        user_facts={"collision_partner_type": "pedestrian"},
+        video_contract={
+            "fact_patch": {},
+            "uncertain_observations": [
+                {
+                    "field": "collision_partner_type",
+                    "value": "pedestrian",
+                    "confidence": 0.84,
+                    "source": "frame_analysis:openai",
+                    "frame_refs": ["frame_4.jpg", "frame_5.jpg"],
+                    "reason": "pedestrian_collision_partner_requires_direct_contact_evidence",
+                }
+            ],
+        },
+    )
+
+    assert result["facts"]["collision_partner_type"] == "pedestrian"
+    assert result["contract"]["held_video_fields"] == ["collision_partner_type"]
+    assert result["contract"]["tentatively_supported_fields"] == []
+    pending = result["contract"]["pending_video_confirmations"][0]
+    assert pending["status"] == "user_supported_by_held_video_needs_context_confirmation"
+    assert pending["needs_confirmation"] is True
+    assert result["contract"]["requires_confirmation"][0]["field"] == "collision_partner_type"

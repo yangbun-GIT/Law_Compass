@@ -72,6 +72,7 @@ def arbitrate_facts(
     contract = video_contract if isinstance(video_contract, dict) else {}
     video_patch = contract.get("fact_patch") if isinstance(contract.get("fact_patch"), dict) else {}
     observations = contract.get("accepted_observations") if isinstance(contract.get("accepted_observations"), list) else []
+    uncertain_observations = contract.get("uncertain_observations") if isinstance(contract.get("uncertain_observations"), list) else []
 
     facts = dict(user)
     fact_sources: dict[str, dict[str, Any]] = {
@@ -83,6 +84,8 @@ def arbitrate_facts(
     applied_video_fields: list[str] = []
     kept_user_fields: list[str] = []
     confirmed_fields: list[str] = []
+    held_video_fields: list[str] = []
+    tentatively_supported_fields: list[str] = []
 
     for field, video_value in video_patch.items():
         if _is_empty(video_value):
@@ -122,12 +125,27 @@ def arbitrate_facts(
 
         conflicts.append(_conflict(field, user_value, video_value, winner, authority, observation, gate_reason))
 
+    pending_video_confirmations = _pending_video_confirmations(user, uncertain_observations)
+    for item in pending_video_confirmations:
+        field = str(item.get("field") or "")
+        if not field:
+            continue
+        if item.get("status") == "user_supported_by_held_video":
+            tentatively_supported_fields.append(field)
+        else:
+            held_video_fields.append(field)
+
+    requires_confirmation = [
+        *[item for item in conflicts if item.get("needs_confirmation")],
+        *[item for item in pending_video_confirmations if item.get("needs_confirmation")],
+    ]
     arbitration_contract = {
         "version": VERSION,
         "policy": {
             "video_primary": "Physical facts visible in frames can fill missing values. When they conflict with user text, they win only after passing the conflict override quality gate.",
             "user_primary": "Accident type, injury, treatment, insurance, and role facts remain user-primary unless later confirmed by a dedicated source.",
             "unknown_field": "Unknown fields keep user input when present; video fills only missing values.",
+            "held_video_observations": "Video observations that fail the fact quality gate do not overwrite user input. They are exposed as pending confirmations when they can change the accident interpretation.",
             "conflict_override_gate": f"Conflicting video-primary observations need verified/manual review or confidence >= {CONFLICT_OVERRIDE_CONFIDENCE} with at least {CONFLICT_OVERRIDE_MIN_FRAME_REFS} frame refs.",
         },
         "video_primary_fields": sorted(VIDEO_PRIMARY_FIELDS),
@@ -136,8 +154,12 @@ def arbitrate_facts(
         "applied_video_fields": sorted(set(applied_video_fields)),
         "kept_user_fields": sorted(set(kept_user_fields)),
         "confirmed_fields": sorted(set(confirmed_fields)),
+        "held_video_fields": sorted(set(held_video_fields)),
+        "tentatively_supported_fields": sorted(set(tentatively_supported_fields)),
         "conflicts": conflicts,
-        "requires_confirmation": [item for item in conflicts if item.get("needs_confirmation")],
+        "pending_video_confirmations": pending_video_confirmations,
+        "requires_confirmation": requires_confirmation,
+        "confirmation_fields": sorted({str(item.get("field")) for item in requires_confirmation if item.get("field")}),
     }
     return {"facts": facts, "contract": arbitration_contract}
 
@@ -240,6 +262,100 @@ def _conflict_reason(field: str, winner: str, authority: str) -> str:
     if winner == "user" and authority == "user_primary":
         return f"{field} is treated as user-primary context."
     return "User input is kept because no source authority is defined for this field."
+
+
+def _pending_video_confirmations(user: dict[str, Any], uncertain_observations: list[Any]) -> list[dict[str, Any]]:
+    pending: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for raw in uncertain_observations:
+        if not isinstance(raw, dict):
+            continue
+        field = str(raw.get("field") or "")
+        if not field:
+            continue
+        video_value = raw.get("value")
+        if _is_empty(video_value):
+            continue
+        authority = _authority(field)
+        user_value = user.get(field)
+        has_user_value = not _is_empty(user_value)
+        if has_user_value and _equivalent(field, user_value, video_value):
+            if _matching_held_video_still_needs_confirmation(field, raw):
+                status = "user_supported_by_held_video_needs_context_confirmation"
+                needs_confirmation = True
+                reason = "held video observation matches user input, but its guard reason can change accident classification and needs confirmation."
+            else:
+                status = "user_supported_by_held_video"
+                needs_confirmation = False
+                reason = "held video observation is consistent with user input but did not pass the fact quality gate."
+            winner = "user"
+        elif has_user_value:
+            status = "user_video_conflict_video_held"
+            needs_confirmation = True
+            reason = "held video observation conflicts with user input and needs confirmation before changing analysis facts."
+            winner = "user"
+        else:
+            status = "missing_user_fact_video_held"
+            needs_confirmation = True
+            reason = "video observation did not pass the fact quality gate, but it can help fill a missing accident fact."
+            winner = "none"
+
+        dedupe_key = (field, status)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        item: dict[str, Any] = {
+            "field": field,
+            "video_value": video_value,
+            "winner": winner,
+            "authority": authority,
+            "status": status,
+            "reason": reason,
+            "needs_confirmation": needs_confirmation,
+            "video_confidence": raw.get("confidence"),
+            "video_source": raw.get("source"),
+        }
+        if has_user_value:
+            item["user_value"] = user_value
+        if raw.get("quality_gate"):
+            item["quality_gate"] = raw.get("quality_gate")
+        if raw.get("frame_refs"):
+            item["frame_refs"] = raw.get("frame_refs")
+        if raw.get("reason"):
+            item["video_reason"] = raw.get("reason")
+        pending.append(item)
+    return sorted(
+        pending,
+        key=lambda item: (
+            0 if item.get("needs_confirmation") else 1,
+            str(item.get("field") or ""),
+            -_as_confidence(item.get("video_confidence")),
+        ),
+    )
+
+
+def _matching_held_video_still_needs_confirmation(field: str, observation: dict[str, Any]) -> bool:
+    reason = str(observation.get("reason") or "")
+    high_risk_fields = {
+        "collision_partner_type",
+        "direct_collision_partner_type",
+        "primary_collision_target",
+        "opponent_signal_violation",
+        "centerline_crossed",
+        "stopped_vehicle_without_lights",
+        "non_contact_trigger",
+    }
+    high_risk_reasons = (
+        "requires_direct_contact",
+        "requires_contact",
+        "requires_collision",
+        "requires_signal",
+        "requires_actor_reason",
+        "requires_trigger",
+        "candidate_requires",
+        "context_when_collision_partner",
+    )
+    return field in high_risk_fields and any(token in reason for token in high_risk_reasons)
 
 
 def _equivalent(field: str, left: Any, right: Any) -> bool:

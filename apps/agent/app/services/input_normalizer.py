@@ -566,7 +566,11 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "applied_video_fields": fact_arbitration.get("applied_video_fields"),
         "kept_user_fields": fact_arbitration.get("kept_user_fields"),
         "confirmed_fields": fact_arbitration.get("confirmed_fields"),
+        "held_video_fields": fact_arbitration.get("held_video_fields"),
+        "tentatively_supported_fields": fact_arbitration.get("tentatively_supported_fields"),
+        "confirmation_fields": fact_arbitration.get("confirmation_fields"),
         "conflicts": fact_arbitration.get("conflicts"),
+        "pending_video_confirmations": fact_arbitration.get("pending_video_confirmations"),
     })
     merged_text = "\n".join([
         clean_text,

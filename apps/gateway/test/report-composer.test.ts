@@ -713,6 +713,60 @@ describe("report composer", () => {
     expect(JSON.stringify(card)).not.toContain("frame_refs");
   });
 
+  it("shows held video observations as review items and confirmation questions", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      video_input_contract: {
+        version: "agent-video-input-contract-v1",
+        technical_metadata: { representative_frame_count: 8 },
+        accepted_observations: [],
+        uncertain_observations: [
+          {
+            field: "collision_partner_type",
+            value: "pedestrian",
+            confidence: 0.8,
+            frame_refs: ["frame_003.jpg", "frame_004.jpg"],
+          },
+        ],
+        observation_quality_summary: {
+          accepted_count: 0,
+          uncertain_count: 1,
+          ignored_count: 0,
+          uncertain_reasons: { confidence_below_field_threshold: 1 },
+        },
+      },
+      fact_arbitration: {
+        pending_video_confirmations: [
+          {
+            field: "collision_partner_type",
+            user_value: "vehicle",
+            video_value: "pedestrian",
+            winner: "user",
+            status: "user_video_conflict_video_held",
+            needs_confirmation: true,
+            video_confidence: 0.8,
+            frame_refs: ["frame_003.jpg", "frame_004.jpg"],
+          },
+        ],
+      },
+    });
+
+    const card = enriched.video_fact_explanation_card!;
+    const review = card.review_items[0];
+    expect(review.label).toBe("사고 대상 유형");
+    expect(review.status_label).toBe("사용자 입력 유지, 영상 후보 확인");
+    expect(review.selected_source).toBe("사용자 입력");
+    expect(review.input_label).toBe("차량");
+    expect(review.video_label).toBe("보행자");
+    expect(review.explanation).toContain("사용자 입력을 유지");
+    const question = (enriched as any).missing_info.questions[0];
+    expect(question.field).toBe("collision_partner_type");
+    expect(question.question).toBe("실제로 충돌하거나 사고에 직접 관여한 대상은 무엇인가요?");
+    expect(question.options).toContain("차량");
+    expect(question.options).toContain("보행자");
+    expect(JSON.stringify(card)).not.toContain("pending_video_confirmations");
+    expect(JSON.stringify(card)).not.toContain("frame_refs");
+  });
+
   it("keeps direction-only video observations as supporting display items", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "direction-support" }), {
       video_input_contract: {

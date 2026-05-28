@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P1-2 사용자 입력과 영상 관찰값 중재 보강
+
+P1-2 단계에서 사용자 입력과 영상 관찰값이 충돌하거나 영상 관찰값이 품질 기준을 넘지 못한 경우를 더 명확히 분리하도록 Agent 중재 계약과 Gateway 표시 계약을 보강했다. 이번 변경은 영상이 애매할 때 사용자 입력을 무조건 덮어쓰지 않고, 확정·보류·확인 필요 상태를 구조화하는 범용 처리다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Agent 중재 계약 | `apps/agent/app/services/fact_arbitration.py`가 `uncertain_observations`를 함께 검토해 `pending_video_confirmations`, `held_video_fields`, `tentatively_supported_fields`, `confirmation_fields`를 생성한다. |
+| 충돌 처리 | 보류 영상 관찰값이 사용자 입력과 충돌하면 사용자 값을 유지하고 `user_video_conflict_video_held` 상태로 확인 질문에 넘긴다. 사용자 입력이 비어 있으면 `missing_user_fact_video_held`로 남기며, 사용자 입력과 같은 방향이면 `user_supported_by_held_video`로 참고 보강만 표시한다. |
+| 분석 입력 전달 | `apps/agent/app/services/input_normalizer.py`의 분석용 중재 요약에 보류 영상 필드와 확인 필요 항목을 포함해 downstream Agent 판단이 이 정보를 볼 수 있게 했다. |
+| 결과 표시 | `apps/gateway/src/lib/report-composer.ts`가 `pending_video_confirmations`를 영상 기반 사실 카드의 검토 항목과 missing_info 확인 질문으로 표시한다. 확정 기준을 넘지 못한 영상 후보는 화면에서 내부 키가 아니라 한국어 질문으로 노출된다. |
+| 표시 안전성 | Gateway/Frontend sanitizer의 기술 키 목록에 새 중재 필드를 추가해 raw contract key가 사용자 화면에 섞이지 않게 했다. |
+| 검증 | Agent 중재/영상 입력 계약 테스트 48개, Agent 중재/영상 입력/오케스트레이터 테스트 57개, Gateway report-composer 테스트 35개, Gateway/Frontend build, Docker 기반 `scripts/verify_agent_regression.ps1`을 통과했다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 응답 내부 metadata의 `fact_arbitration` 계약에는 새 필드가 추가되지만 기존 `conflicts`, `requires_confirmation` 필드는 유지된다. 다음 단계는 P1-3 애매한 사고의 분기형 결과로, 상대 신호 미확인처럼 결론이 갈리는 사고를 근거 기반 시나리오별로 설명하는 출력 정책을 보강하는 것이다.
+
 ## 2026-05-29 P1-1 사고 시점 후보 추출 개선
 
 P1-1 단계에서 영상 초반의 위험 장면이나 배경 객체가 실제 사고로 오인되지 않도록 Worker 프레임 전처리 계약을 보강했다. 이번 변경은 특정 사고 1~5에 맞춘 보정이 아니라, 영상 전체에서 여러 사고 후보 구간을 만들고 각 후보의 사고 전·중·후 흐름을 비교하게 하는 범용 처리다.
