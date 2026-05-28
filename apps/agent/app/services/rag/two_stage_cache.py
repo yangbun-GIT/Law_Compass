@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import os
 import time
 from typing import Any
@@ -14,6 +15,7 @@ from app.providers.embedding import get_embedding_provider, vector_literal
 
 KNIA_JSON_EXACT_CACHE_VERSION = "v2"
 KNIA_JSON_SEMANTIC_DISTANCE_THRESHOLD = 0.20
+logger = logging.getLogger(__name__)
 
 
 def _db_url() -> str | None:
@@ -106,6 +108,107 @@ def _public_items_from_refs(refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def _rows_to_public_items(rows: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "title": row[1],
+            "summary": row[2],
+            "source_url": row[3],
+            "accident_party_type": row[4],
+            "accident_party_label": row[5],
+            "display_tags": row[6] or [],
+            "keywords": row[7] or [],
+            "source": row[8] or "KNIA 자동차사고 과실비율 정보포털",
+            "attribution": "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
+        }
+        for row in rows
+    ]
+
+
+def _keyword_fallback_search(
+    *,
+    query: str,
+    accident_party_type: str | None,
+    scenario_type: str | None,
+    limit: int,
+    cache_key: str,
+    lookup_error: str,
+) -> dict[str, Any]:
+    db_url = _db_url()
+    scenario = scenario_type or "unknown"
+    if not db_url:
+        return {
+            "items": [],
+            "cache": {
+                "exact_hit": False,
+                "semantic_hit": False,
+                "key": cache_key,
+                "scenario_type": scenario,
+                "disabled_reason": "embedding_unavailable",
+                "lookup_error": lookup_error,
+            },
+        }
+    try:
+        with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+            params: list[Any] = [query]
+            where = "kc.source_url IS NOT NULL"
+            if accident_party_type and accident_party_type != "unknown":
+                params.append(accident_party_type)
+                where += " AND kc.accident_party_type=%s"
+            params.append(limit)
+            cur.execute(
+                f"""
+                WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq)
+                SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
+                       kc.display_tags, kc.keywords, kd.source,
+                       (CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) AS fts_rank,
+                       kc.evidence_quality_score
+                FROM knia_reference_chunks kc
+                JOIN knia_reference_documents kd ON kd.id=kc.document_id
+                CROSS JOIN q
+                WHERE {where}
+                ORDER BY ((CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) * 0.80
+                        + kc.evidence_quality_score * 0.20) DESC
+                LIMIT %s
+                """,
+                params,
+            )
+            rows = cur.fetchall()
+            if not rows and accident_party_type:
+                return _keyword_fallback_search(
+                    query=query,
+                    accident_party_type=None,
+                    scenario_type=scenario_type,
+                    limit=limit,
+                    cache_key=cache_key,
+                    lookup_error=lookup_error,
+                )
+            return {
+                "items": _rows_to_public_items(rows),
+                "cache": {
+                    "exact_hit": False,
+                    "semantic_hit": False,
+                    "key": cache_key,
+                    "scenario_type": scenario,
+                    "disabled_reason": "embedding_unavailable",
+                    "lookup_error": lookup_error,
+                },
+            }
+    except Exception as exc:
+        logger.warning("KNIA keyword fallback search failed", extra={"error_type": exc.__class__.__name__})
+        return {
+            "items": [],
+            "cache": {
+                "exact_hit": False,
+                "semantic_hit": False,
+                "key": cache_key,
+                "scenario_type": scenario,
+                "disabled_reason": "embedding_unavailable",
+                "lookup_error": lookup_error,
+            },
+        }
+
+
 def search_knia_json_cached(query: str, accident_party_type: str | None = None, scenario_type: str | None = None, limit: int = 5) -> dict[str, Any]:
     normalized = normalize_query(query)
     qh = query_hash(normalized)
@@ -126,8 +229,19 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
         except Exception:
             r = None
 
-    provider = get_embedding_provider()
-    vec_literal = vector_literal(provider.embed(normalized[:4000]))
+    try:
+        provider = get_embedding_provider()
+        vec_literal = vector_literal(provider.embed(normalized[:4000]))
+    except Exception as exc:
+        logger.warning("KNIA semantic lookup disabled because embedding is unavailable", extra={"error_type": exc.__class__.__name__})
+        return _keyword_fallback_search(
+            query=normalized,
+            accident_party_type=accident_party_type,
+            scenario_type=scenario_type,
+            limit=limit,
+            cache_key=key,
+            lookup_error=f"embedding_unavailable:{exc.__class__.__name__}",
+        )
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -193,15 +307,7 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
         if not rows and accident_party_type:
             return search_knia_json_cached(query, accident_party_type=None, scenario_type=scenario_type, limit=limit)
         refs = [{"chunk_id": str(row[0])} for row in rows]
-        items = [
-            {
-                "title": row[1], "summary": row[2], "source_url": row[3], "accident_party_type": row[4],
-                "accident_party_label": row[5], "display_tags": row[6] or [], "keywords": row[7] or [],
-                "source": row[8] or "KNIA 자동차사고 과실비율 정보포털",
-                "attribution": "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
-            }
-            for row in rows
-        ]
+        items = _rows_to_public_items(rows)
         cur.execute(
             """
             INSERT INTO semantic_query_cache(source_scope, accident_party_type, scenario_type, normalized_query, query_hash, query_embedding, result_refs, kb_version, expires_at)

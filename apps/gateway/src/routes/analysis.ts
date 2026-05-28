@@ -320,11 +320,16 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     if (!requireUser(req as any, reply)) return;
     const traceId = trace(req);
     const { caseId } = req.params as any;
+    const caseRow = await opts.db.query(
+      `SELECT id FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`,
+      [caseId, (req as any).user.id]
+    );
+    if (!caseRow.rowCount) return reply.code(404).send(opts.errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
     const row = await opts.db.query(
       `SELECT * FROM analysis_results WHERE case_id=$1 AND owner_user_id=$2 ORDER BY version DESC LIMIT 1`,
       [caseId, (req as any).user.id]
     );
-    if (!row.rowCount) return reply.code(404).send(opts.errorPayload("RESULT_NOT_FOUND", "분석 결과가 없습니다.", traceId));
+    if (!row.rowCount) return { status: "not_ready", message: "아직 분석 결과가 없습니다.", report: null, trace_id: traceId };
     const result = row.rows[0].result ?? {};
     const stored = row.rows[0].elderly_friendly_report;
     const easyReport = enrichEasyReport(sanitizeEasyReport(

@@ -49,7 +49,24 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       LOCAL_STORAGE_ROOT: ${LOCAL_STORAGE_ROOT:-/app/storage}
+      LOCAL_VIDEO_CACHE_DIR: ${LOCAL_VIDEO_CACHE_DIR:-/app/storage/cache}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-500}
+      NAS_HOST: ${NAS_HOST:-}
+      NAS_PORT: ${NAS_PORT:-22}
+      NAS_USER: ${NAS_USER:-}
+      NAS_PASSWORD: ${NAS_PASSWORD:-}
+      NAS_PRIVATE_KEY_PATH: ${NAS_PRIVATE_KEY_PATH:-}
+      NAS_PRIVATE_KEY_PASSPHRASE: ${NAS_PRIVATE_KEY_PASSPHRASE:-}
+      NAS_BASE_DIR: ${NAS_BASE_DIR:-/lawcompass}
+      NAS_UPLOAD_DIR: ${NAS_UPLOAD_DIR:-/lawcompass/uploads/original}
+      NAS_TMP_DIR: ${NAS_TMP_DIR:-/lawcompass/uploads/tmp}
+      NAS_FRAMES_DIR: ${NAS_FRAMES_DIR:-/lawcompass/processed/frames}
+      NAS_CLIPS_DIR: ${NAS_CLIPS_DIR:-/lawcompass/processed/clips}
+      NAS_REPORTS_DIR: ${NAS_REPORTS_DIR:-/lawcompass/reports}
+      NAS_DB_BACKUP_DIR: ${NAS_DB_BACKUP_DIR:-/lawcompass/db-backups}
+      NAS_QUARANTINE_DIR: ${NAS_QUARANTINE_DIR:-/lawcompass/quarantine}
       AGENT_BASE_URL: ${AGENT_BASE_URL:-http://agent:8000}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       DATABASE_URL: ${DATABASE_URL:-postgresql://law:lawpass@postgres:5432/lawcompass}
@@ -140,7 +157,23 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://law:lawpass@postgres:5432/lawcompass}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       LOCAL_STORAGE_ROOT: ${LOCAL_STORAGE_ROOT:-/app/storage}
+      LOCAL_VIDEO_CACHE_DIR: ${LOCAL_VIDEO_CACHE_DIR:-/app/storage/cache}
+      NAS_HOST: ${NAS_HOST:-}
+      NAS_PORT: ${NAS_PORT:-22}
+      NAS_USER: ${NAS_USER:-}
+      NAS_PASSWORD: ${NAS_PASSWORD:-}
+      NAS_PRIVATE_KEY_PATH: ${NAS_PRIVATE_KEY_PATH:-}
+      NAS_PRIVATE_KEY_PASSPHRASE: ${NAS_PRIVATE_KEY_PASSPHRASE:-}
+      NAS_BASE_DIR: ${NAS_BASE_DIR:-/lawcompass}
+      NAS_UPLOAD_DIR: ${NAS_UPLOAD_DIR:-/lawcompass/uploads/original}
+      NAS_TMP_DIR: ${NAS_TMP_DIR:-/lawcompass/uploads/tmp}
+      NAS_FRAMES_DIR: ${NAS_FRAMES_DIR:-/lawcompass/processed/frames}
+      NAS_CLIPS_DIR: ${NAS_CLIPS_DIR:-/lawcompass/processed/clips}
+      NAS_REPORTS_DIR: ${NAS_REPORTS_DIR:-/lawcompass/reports}
+      NAS_DB_BACKUP_DIR: ${NAS_DB_BACKUP_DIR:-/lawcompass/db-backups}
+      NAS_QUARANTINE_DIR: ${NAS_QUARANTINE_DIR:-/lawcompass/quarantine}
       AGENT_BASE_URL: ${AGENT_BASE_URL:-http://agent:8000}
       ENABLE_OPENAI_FRAME_ANALYSIS: ${ENABLE_OPENAI_FRAME_ANALYSIS:-0}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -192,7 +225,7 @@ services:
       [
         "bash",
         "-lc",
-        "set -e; export PGPASSWORD=\"$$POSTGRES_PASSWORD\"; echo '[db-migrate] applying migrations...'; for file in /migrations/002_*.sql /migrations/003_*.sql /migrations/004_*.sql /migrations/005_*.sql /migrations/006_*.sql /migrations/007_*.sql /migrations/008_*.sql /migrations/010_*.sql /migrations/011_*.sql /migrations/012_*.sql /migrations/013_*.sql; do echo \"[db-migrate] applying $$file\"; psql -v ON_ERROR_STOP=1 -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -f \"$$file\"; done; echo '[db-migrate] done';"
+        "set -e; export PGPASSWORD=\"$$POSTGRES_PASSWORD\"; echo '[db-migrate] applying migrations...'; for file in /migrations/002_*.sql /migrations/003_*.sql /migrations/004_*.sql /migrations/005_*.sql /migrations/006_*.sql /migrations/007_*.sql /migrations/008_*.sql /migrations/010_*.sql /migrations/011_*.sql /migrations/012_*.sql /migrations/013_*.sql /migrations/014_*.sql /migrations/015_*.sql; do echo \"[db-migrate] applying $$file\"; psql -v ON_ERROR_STOP=1 -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -f \"$$file\"; done; echo '[db-migrate] done';"
       ]
     networks:
       - app_net

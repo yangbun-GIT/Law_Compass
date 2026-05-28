@@ -19,17 +19,17 @@ import { registerKniaRoutes } from "./routes/knia.js";
 import { registerKniaAdminRoutes } from "./routes/knia-admin.js";
 import { registerLegalAdminRoutes } from "./routes/legal-admin.js";
 import { registerAgentDiagnosticsRoutes } from "./routes/agent-diagnostics.js";
-import { LocalStorageProvider } from "./storage/provider.js";
+import { createStorageAdapter } from "./lib/storage/index.js";
 
 const app = Fastify({ logger: { level: "info" } });
 const db = new Pool({ connectionString: env.dbUrl, max: 10 });
 const redis = new Redis(env.redisUrl, { maxRetriesPerRequest: 1 });
-const storage = new LocalStorageProvider(env.storageRoot);
+const storage = createStorageAdapter(process.env);
 
 await app.register(cors, { origin: true, credentials: true });
 await app.register(cookie);
 await app.register(jwt, { secret: env.jwtAccessSecret, cookie: { cookieName: "lc_at", signed: false } });
-await app.register(multipart, { limits: { fileSize: 200 * 1024 * 1024, files: 1 } });
+await app.register(multipart, { limits: { fileSize: env.maxUploadMb * 1024 * 1024, files: 1 } });
 
 app.addHook("onRequest", async (req, reply) => {
   const traceId = (req.headers["x-correlation-id"] as string) || randomUUID();

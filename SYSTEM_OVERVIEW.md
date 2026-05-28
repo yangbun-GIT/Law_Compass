@@ -1,5 +1,21 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-28 StorageAdapter 및 Synology NAS 파일 저장소
+
+Synology NAS DS216play는 Docker를 실행하지 않는 파일 저장소로만 사용한다. LawCompass Gateway, Agent, Worker, PostgreSQL, Redis는 기존처럼 Docker 가능한 PC/서버에서 실행하며, PostgreSQL 데이터 디렉터리를 NAS 공유폴더로 옮기지 않는다. DB에는 영상 바이너리를 저장하지 않고 `storage_driver`, `storage_key`, `storage_path`, `original_filename`, `mime_type`, `size_bytes`, `sha256`, `storage_status` 같은 파일 메타데이터만 저장한다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| StorageAdapter | Gateway에 `apps/gateway/src/lib/storage/` 계층을 추가했다. `local`, 기존 비활성 `s3`, 신규 `nas_sftp` 드라이버를 같은 인터페이스로 선택하며, 기존 `apps/gateway/src/storage/provider.ts`는 호환 re-export로 유지한다. |
+| NAS SFTP | `STORAGE_DRIVER=nas_sftp`이면 Gateway 업로드는 NAS의 tmp 경로에 저장 후 original key로 이동하고, Worker는 원본을 `LOCAL_VIDEO_CACHE_DIR`로 내려받아 ffprobe/ffmpeg를 실행한 뒤 추출 프레임을 `processed/frames` key로 다시 업로드한다. Synology SFTP에서 앱이 사용하는 base path는 공유폴더 기준 `/lawcompass`이며, NAS 직접 URL과 SFTP 절대경로는 사용자 응답에 노출하지 않는다. |
+| Worker cache | Worker에 `worker/storage/` 계층을 추가했다. ffmpeg는 SFTP remote path를 직접 읽지 않고 항상 로컬 캐시 파일을 처리한다. 처리 후 로컬 캐시와 임시 프레임 폴더를 정리한다. |
+| DB migration | `infra/postgres/migrations/014_storage_adapter_metadata.sql`와 `015_uploads_storage_adapter_compat.sql`가 uploads 테이블에 storage adapter metadata 컬럼을 idempotent하게 추가한다. 기존 `storage_provider`, `storage_path`, `s3_key`는 backward compatibility로 유지한다. 현재 업로드 500의 핵심 원인은 NAS 권한이 아니라 운영 DB에 `uploads.storage_driver` 등 storage metadata 컬럼이 아직 적용되지 않은 schema mismatch다. |
+| NAS directory layout | Synology 내부 SSH 경로는 `/volume1/lawcompass`일 수 있지만, LawCompass SFTP 설정에는 공유폴더 기준 `/lawcompass`를 사용한다. 하위 경로는 `uploads/original`, `uploads/tmp`, `processed/frames`, `processed/clips`, `reports`, `db-backups`, `quarantine`이다. |
+| DB backup | `scripts/backup_postgres_to_nas.ps1`는 PostgreSQL dump를 임시 로컬 파일로 만든 뒤 SFTP로 `db-backups`에 업로드한다. NAS는 백업 파일 보관 위치일 뿐 DB 실행 위치가 아니다. |
+| Frontend 표시 | 일반 사용자 화면에서는 S3/NAS/SFTP/storage key 같은 내부 용어를 숨기고 “영상 저장하기”, “사고 장면 확인하기” 같은 문구만 표시한다. |
+
+NAS 인증 우선순위는 `NAS_PRIVATE_KEY_PATH`가 있으면 private key를 우선 사용하고, 없을 때 `NAS_PASSWORD`를 사용한다. 실제 비밀번호와 key passphrase는 `.env`에만 두며 문서나 코드에 기록하지 않는다.
+
 ## 2026-05-27 Agent 후미추돌 신호대기 판단 신뢰성 보강
 
 빨간불 신호대기 중 정차 차량을 뒤차가 추돌한 사고가 교차로 신호위반/좌회전 대 직진 KNIA 기준으로 오염되는 문제를 보정했다. 신규 기능이 아니라 Agent 판단 신뢰성 보강이며, 특정 문장 고정이 아닌 정상 정차 사유와 신호위반 진입 맥락을 분리하는 범용 규칙으로 처리한다.

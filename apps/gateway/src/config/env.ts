@@ -15,7 +15,9 @@ export const env = {
   retryCount: Number(process.env.RETRY_COUNT ?? 2),
   localViewExpires: Number(process.env.LOCAL_VIEW_URL_EXPIRES_SEC ?? 120),
   localDownloadExpires: Number(process.env.LOCAL_DOWNLOAD_URL_EXPIRES_SEC ?? 60),
-  storageRoot: process.env.LOCAL_STORAGE_ROOT ?? "/app/storage"
+  storageRoot: process.env.LOCAL_STORAGE_ROOT ?? "/app/storage",
+  storageDriver: process.env.STORAGE_DRIVER ?? process.env.STORAGE_PROVIDER ?? "local",
+  maxUploadMb: Number(process.env.MAX_UPLOAD_MB ?? 500)
 };
 
 export const cookieSecure = (process.env.NODE_ENV ?? "development") === "production";

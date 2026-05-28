@@ -154,4 +154,12 @@ if (visibleLeaks.length) {
   process.exit(1);
 }
 
+const publicStorageText = [caseDetailView, loginView, dashboardView, useCaseWorkspace, readFileSync("src/components/case/CaseUploadStep.vue", "utf8")].join("\n");
+const hiddenStorageTerms = ["S3", "NAS", "SFTP", "/volume1/lawcompass", "storage_key", "storage_path"];
+const storageLeaks = hiddenStorageTerms.filter((token) => publicStorageText.includes(token));
+if (storageLeaks.length) {
+  console.error("default upload UI exposes internal storage terms", storageLeaks);
+  process.exit(1);
+}
+
 console.log("frontend_display_safety=passed");

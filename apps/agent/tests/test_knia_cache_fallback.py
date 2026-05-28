@@ -79,6 +79,48 @@ class KniaCacheFallbackTest(unittest.TestCase):
         self.assertFalse(result["cache"]["semantic_hit"])
         self.assertEqual(result["cache"]["scenario_type"], "rear_end_collision")
 
+    def test_knia_json_search_falls_back_when_embedding_unavailable(self):
+        executed = []
+
+        class Cursor:
+            def execute(self, sql, params=None):
+                executed.append((sql, params))
+            def fetchall(self):
+                return []
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+
+        class Conn:
+            def cursor(self):
+                return Cursor()
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+
+        class Provider:
+            def embed(self, _text):
+                raise RuntimeError("embedding auth failed")
+
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://test"}, clear=False), \
+            patch("app.services.rag.two_stage_cache.get_knia_json_version", return_value="fixture"), \
+            patch("app.services.rag.two_stage_cache._redis", return_value=None), \
+            patch("app.services.rag.two_stage_cache.get_embedding_provider", return_value=Provider()), \
+            patch("app.services.rag.two_stage_cache.psycopg.connect", return_value=Conn()):
+            result = search_knia_json_cached(
+                "정차 중 후방 추돌",
+                accident_party_type="car_vs_car",
+                scenario_type="rear_end_collision",
+            )
+
+        self.assertEqual(result["items"], [])
+        self.assertFalse(result["cache"]["semantic_hit"])
+        self.assertEqual(result["cache"]["disabled_reason"], "embedding_unavailable")
+        self.assertEqual(result["cache"]["lookup_error"], "embedding_unavailable:RuntimeError")
+        self.assertTrue(any("plainto_tsquery" in sql for sql, _params in executed))
+
 
 if __name__ == "__main__":
     unittest.main()

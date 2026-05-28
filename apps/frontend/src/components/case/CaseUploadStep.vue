@@ -4,7 +4,7 @@
       <span class="step-index">2</span>
       <div>
         <h2>영상 업로드</h2>
-        <p class="kv">현재는 S3 없이 로컬 업로드로 작동합니다.</p>
+        <p class="kv">선택한 영상은 안전하게 보관한 뒤 사고 장면 확인에 사용합니다.</p>
       </div>
     </div>
 
@@ -13,12 +13,12 @@
 
     <div class="btn-row">
       <button class="btn" :disabled="!file || !!busy" @click="$emit('uploadLocal')">
-        {{ busy === "upload" ? "업로드 중..." : "로컬 업로드" }}
+        {{ busy === "upload" ? "영상을 저장하고 있습니다..." : "영상 저장하기" }}
       </button>
       <button class="btn secondary" :disabled="!activeUploadId || !!busy" @click="$emit('completeUpload')">
-        {{ busy === "preprocess" ? "전처리 등록 중..." : "전처리 시작" }}
+        {{ busy === "preprocess" ? "영상 분석 준비 중..." : "사고 장면 확인하기" }}
       </button>
-      <button class="btn secondary" :disabled="!!busy" @click="$emit('loadUploads')">업로드 목록 갱신</button>
+      <button class="btn secondary" :disabled="!!busy" @click="$emit('loadUploads')">저장된 영상 불러오기</button>
     </div>
 
     <label>업로드 선택

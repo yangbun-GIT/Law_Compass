@@ -1,5 +1,7 @@
+import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
-import { buildReanalysisVideoMetadata, composeGuidedProgressPayload } from "../src/routes/analysis.js";
+import { buildReanalysisVideoMetadata, composeGuidedProgressPayload, registerAnalysisRoutes } from "../src/routes/analysis.js";
+import { errorPayload } from "../src/lib/errors.js";
 
 describe("analysis route helpers", () => {
   it("preserves latest upload metadata for followup reanalysis", () => {
@@ -48,5 +50,38 @@ describe("analysis route helpers", () => {
     expect(text).not.toContain("video_analyze");
     expect(text).not.toContain("attempts");
     expect(text).not.toContain("job-1");
+  });
+
+  it("returns not_ready easy report instead of 404 when analysis is not created yet", async () => {
+    const app = Fastify({ logger: false });
+    app.addHook("onRequest", async (req) => {
+      (req as any).user = { id: "user-1", role: "user" };
+    });
+    const db = {
+      async query(sql: string) {
+        if (sql.includes("FROM cases")) return { rowCount: 1, rows: [{ id: "case-1" }] };
+        if (sql.includes("FROM analysis_results")) return { rowCount: 0, rows: [] };
+        return { rowCount: 0, rows: [] };
+      },
+    };
+    registerAnalysisRoutes(app, {
+      apiPrefix: "/api/v1",
+      db,
+      redis: {},
+      agentUrl: "http://agent",
+      internalToken: "token",
+      analyzeTimeoutMs: 1000,
+      retryCount: 0,
+      errorPayload,
+    });
+
+    const response = await app.inject({ method: "GET", url: "/api/v1/cases/case-1/easy-report" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      status: "not_ready",
+      message: "아직 분석 결과가 없습니다.",
+      report: null,
+    });
+    await app.close();
   });
 });

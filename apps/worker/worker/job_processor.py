@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ except ModuleNotFoundError:
         return None
 
 from worker.frame_analysis import analyze_frames_with_openai
+from worker.storage.base import frame_key
+from worker.storage.factory import create_storage_adapter
 from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION, extract_event_frames, probe_video, summarize_frame_selection
 from worker.yolo_frame_analysis import analyze_frames_with_yolo
 
@@ -28,7 +31,7 @@ STREAM_KEY = os.getenv("REDIS_STREAM_KEY", "jobs:v1:stream")
 DB_URL = os.getenv("DATABASE_URL", "")
 INTERNAL_AGENT_URL = os.getenv("INTERNAL_AGENT_URL", "http://agent:8000")
 INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "")
-STORAGE_ROOT = Path(os.getenv("LOCAL_STORAGE_ROOT", "/app/storage"))
+LOCAL_VIDEO_CACHE_DIR = Path(os.getenv("LOCAL_VIDEO_CACHE_DIR", "/app/storage/cache"))
 USER_JOB_LABELS = {
     "video_preprocess": "영상 확인 중",
     "video_analyze": "사고 장면 분석 중",
@@ -88,74 +91,133 @@ def process_job(job_id: str, job_type: str, redis_client: Any) -> None:
 
 def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str, Any], redis_client: Any) -> None:
     storage_path = payload.get("storage_path")
-    cur.execute("SELECT storage_path FROM uploads WHERE id=%s", (row[2],))
+    storage_key = payload.get("storage_key")
+    storage_driver = payload.get("storage_driver") or payload.get("storage_provider")
+    cur.execute("SELECT storage_provider, storage_driver, storage_key, storage_path FROM uploads WHERE id=%s", (row[2],))
     up = cur.fetchone()
-    storage_path = storage_path or (up[0] if up else None)
-    if not storage_path:
-        raise RuntimeError("storage_path missing")
+    if up:
+        storage_driver = storage_driver or up[1] or up[0]
+        storage_key = storage_key or up[2]
+        storage_path = storage_path or up[3]
+    storage_driver = storage_driver or "local"
+    storage_adapter = create_storage_adapter(storage_driver)
+    local_video_path: Path | None = None
+    local_frame_dir = str(LOCAL_VIDEO_CACHE_DIR / "frames" / str(row[1]) / str(row[2]))
+    cleanup_video = False
+    try:
+        local_video_path, cleanup_video = _materialize_video_for_processing(storage_adapter, storage_driver, storage_key, storage_path, str(row[1]), str(row[2]))
 
-    metadata = probe_video(storage_path)
-    frame_details = extract_event_frames(storage_path, str(row[1]), str(row[2]), metadata.get("duration_sec"), STORAGE_ROOT)
-    frames = [item["path"] for item in frame_details]
-    frame_selection_summary = summarize_frame_selection(frame_details)
-    cur.execute(
-        """
-        SELECT c.structured_facts, c.selected_keywords, c.analysis_mode
-        FROM cases c WHERE c.id=%s
-        """,
-        (row[1],),
-    )
-    case_inputs = cur.fetchone()
-    frame_analysis_context = build_frame_analysis_context(row, metadata, case_inputs)
-    openai_frame_analysis = analyze_frames_with_openai(frame_details, frame_analysis_context)
-    yolo_frame_analysis = analyze_frames_with_yolo(frame_details, frame_analysis_context)
-    frame_observations = _merge_frame_observations(openai_frame_analysis, yolo_frame_analysis)
-    metadata["representative_frames"] = frames
-    metadata["representative_frame_details"] = frame_details
-    metadata["frame_selection_summary"] = frame_selection_summary
-    metadata["openai_frame_analysis"] = openai_frame_analysis
-    metadata["yolo_frame_analysis"] = yolo_frame_analysis
-    metadata["observations"] = frame_observations
-    metadata["preprocess_summary"] = (
-        f"Local video verified. duration={metadata.get('duration_sec')}s, "
-        f"resolution={metadata.get('width')}x{metadata.get('height')}, frames={len(frames)}, "
-        f"frame_observations={len(frame_observations)}, "
-        f"openai_observations={len(openai_frame_analysis.get('observations') or [])}, "
-        f"yolo_observations={len(yolo_frame_analysis.get('observations') or [])}."
-    )
-    frame_dir = str(STORAGE_ROOT / "frames" / str(row[1]) / str(row[2]))
-    artifacts = {
-        "user_facing_status": user_facing_job_status("video_preprocess", "succeeded"),
-        "video_preprocess_contract_version": VIDEO_PREPROCESS_CONTRACT_VERSION,
-        "duration_sec": metadata.get("duration_sec"),
-        "width": metadata.get("width"),
-        "height": metadata.get("height"),
-        "fps": metadata.get("fps"),
-        "codec": metadata.get("codec"),
-        "extracted_frame_paths": frames,
-        "representative_frame_details": frame_details,
-        "frame_selection_summary": frame_selection_summary,
-        "openai_frame_analysis": openai_frame_analysis,
-        "yolo_frame_analysis": yolo_frame_analysis,
-        "observations": frame_observations,
-        "preprocess_summary": metadata["preprocess_summary"],
-    }
-    cur.execute(
-        """
-        UPDATE uploads
-        SET status='processing',
-            metadata = metadata || %s::jsonb,
-            frame_dir=%s,
-            preprocess_summary=%s
-        WHERE id=%s
-        """,
-        (json.dumps(metadata), frame_dir, metadata["preprocess_summary"], row[2]),
-    )
-    time.sleep(random.uniform(0.1, 0.4))
-    cur.execute("UPDATE uploads SET status='ready', derived_path=%s WHERE id=%s", (frame_dir, row[2]))
-    cur.execute("UPDATE jobs SET status='succeeded', artifacts=%s, finished_at=now() WHERE id=%s", (json.dumps(artifacts), row[0]))
-    if payload.get("auto_analyze_after_preprocess", True) is not False:
-        _enqueue_video_analyze_job(cur, row, payload, redis_client, case_inputs)
+        metadata = probe_video(str(local_video_path))
+        frame_details = extract_event_frames(str(local_video_path), str(row[1]), str(row[2]), metadata.get("duration_sec"), LOCAL_VIDEO_CACHE_DIR)
+        frame_selection_summary = summarize_frame_selection(frame_details)
+        cur.execute(
+            """
+            SELECT c.structured_facts, c.selected_keywords, c.analysis_mode
+            FROM cases c WHERE c.id=%s
+            """,
+            (row[1],),
+        )
+        case_inputs = cur.fetchone()
+        frame_analysis_context = build_frame_analysis_context(row, metadata, case_inputs)
+        openai_frame_analysis = analyze_frames_with_openai(frame_details, frame_analysis_context)
+        yolo_frame_analysis = analyze_frames_with_yolo(frame_details, frame_analysis_context)
+        frame_observations = _merge_frame_observations(openai_frame_analysis, yolo_frame_analysis)
+        frame_details = _persist_processed_frames(storage_adapter, frame_details, str(row[1]), str(row[2]))
+        frames = [item.get("storage_key") or item["path"] for item in frame_details]
+        metadata["representative_frames"] = frames
+        metadata["representative_frame_details"] = frame_details
+        metadata["frame_selection_summary"] = frame_selection_summary
+        metadata["openai_frame_analysis"] = openai_frame_analysis
+        metadata["yolo_frame_analysis"] = yolo_frame_analysis
+        metadata["observations"] = frame_observations
+        metadata["preprocess_summary"] = (
+            f"Local video verified. duration={metadata.get('duration_sec')}s, "
+            f"resolution={metadata.get('width')}x{metadata.get('height')}, frames={len(frames)}, "
+            f"frame_observations={len(frame_observations)}, "
+            f"openai_observations={len(openai_frame_analysis.get('observations') or [])}, "
+            f"yolo_observations={len(yolo_frame_analysis.get('observations') or [])}."
+        )
+        frame_dir = f"processed/frames/{row[1]}/{row[2]}"
+        artifacts = {
+            "user_facing_status": user_facing_job_status("video_preprocess", "succeeded"),
+            "video_preprocess_contract_version": VIDEO_PREPROCESS_CONTRACT_VERSION,
+            "storage_driver": storage_driver,
+            "source_storage_key": storage_key,
+            "processed_frames_key": frame_dir,
+            "duration_sec": metadata.get("duration_sec"),
+            "width": metadata.get("width"),
+            "height": metadata.get("height"),
+            "fps": metadata.get("fps"),
+            "codec": metadata.get("codec"),
+            "extracted_frame_paths": frames,
+            "representative_frame_details": frame_details,
+            "frame_selection_summary": frame_selection_summary,
+            "openai_frame_analysis": openai_frame_analysis,
+            "yolo_frame_analysis": yolo_frame_analysis,
+            "observations": frame_observations,
+            "preprocess_summary": metadata["preprocess_summary"],
+        }
+        cur.execute(
+            """
+            UPDATE uploads
+            SET status='processing',
+                metadata = metadata || %s::jsonb,
+                frame_dir=%s,
+                preprocess_summary=%s
+            WHERE id=%s
+            """,
+            (json.dumps(metadata), frame_dir, metadata["preprocess_summary"], row[2]),
+        )
+        time.sleep(random.uniform(0.1, 0.4))
+        cur.execute("UPDATE uploads SET status='ready', derived_path=%s WHERE id=%s", (frame_dir, row[2]))
+        cur.execute("UPDATE jobs SET status='succeeded', artifacts=%s, finished_at=now() WHERE id=%s", (json.dumps(artifacts), row[0]))
+        if payload.get("auto_analyze_after_preprocess", True) is not False:
+            _enqueue_video_analyze_job(cur, row, payload, redis_client, case_inputs)
+    finally:
+        if local_video_path is not None:
+            _cleanup_processing_cache(cleanup_video, local_video_path, local_frame_dir)
+
+
+def _materialize_video_for_processing(
+    storage_adapter: Any,
+    storage_driver: str,
+    storage_key: str | None,
+    storage_path: str | None,
+    case_id: str,
+    upload_id: str,
+) -> tuple[Path, bool]:
+    if storage_driver == "local" and storage_path and Path(storage_path).exists():
+        return Path(storage_path), False
+    if not storage_key:
+        raise FileNotFoundError("stored video reference missing")
+    local_target = LOCAL_VIDEO_CACHE_DIR / "uploads" / case_id / upload_id / Path(storage_key).name
+    storage_adapter.get_file(storage_key, local_target)
+    return local_target, True
+
+
+def _persist_processed_frames(storage_adapter: Any, frame_details: list[dict[str, Any]], case_id: str, upload_id: str) -> list[dict[str, Any]]:
+    persisted: list[dict[str, Any]] = []
+    for item in frame_details:
+        local_path = Path(str(item.get("path") or ""))
+        if not local_path.exists():
+            continue
+        key = frame_key(case_id, upload_id, local_path.name)
+        stored = storage_adapter.put_file(local_path, key, {"mime_type": "image/jpeg"})
+        persisted.append({
+            **item,
+            "local_cache_path": str(local_path),
+            "path": stored.get("storage_key") or key,
+            "storage_driver": stored.get("storage_driver"),
+            "storage_key": stored.get("storage_key") or key,
+            "storage_path": stored.get("storage_path"),
+        })
+    return persisted
+
+
+def _cleanup_processing_cache(cleanup_video: bool, local_video_path: Path, local_frame_dir: str) -> None:
+    if cleanup_video:
+        local_video_path.unlink(missing_ok=True)
+    shutil.rmtree(local_frame_dir, ignore_errors=True)
 
 
 def _merge_frame_observations(*analysis_payloads: dict[str, Any]) -> list[dict[str, Any]]:
@@ -403,8 +465,22 @@ def mark_failed(job_id: str, err: Exception) -> None:
                         updated_at = now()
                     WHERE id=%s
                     """,
-                    (str(err), str(err), job_id),
+                    (_safe_worker_error_message(err), _safe_worker_error_message(err), job_id),
                 )
                 conn.commit()
     except Exception:
         pass
+
+
+def _safe_worker_error_message(err: Exception) -> str:
+    message = str(err)
+    lowered = message.lower()
+    if isinstance(err, FileNotFoundError) or "not found" in lowered or "no such file" in lowered:
+        return "저장된 영상을 찾지 못했습니다. 다시 업로드해 주세요."
+    if "permission" in lowered or "denied" in lowered:
+        return "영상 저장 권한을 확인해야 합니다. 관리자에게 문의해 주세요."
+    if "space" in lowered or "enospc" in lowered:
+        return "저장 공간이 부족하여 영상을 저장하지 못했습니다. 관리자에게 문의해 주세요."
+    if "connect" in lowered or "timeout" in lowered or "timed out" in lowered:
+        return "영상 저장소에 일시적으로 연결하지 못했습니다. 잠시 후 다시 시도해 주세요."
+    return "영상 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."

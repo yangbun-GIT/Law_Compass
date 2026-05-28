@@ -8,10 +8,10 @@
 - Worker: Redis Streams Consumer Group
 - DB: PostgreSQL + pgvector
 - Cache/Queue: Redis
-- Storage: Local volume (`storage/uploads`) first. S3 SDK dependency exists, but the S3 provider is not active in the current MVP.
+- Storage: StorageAdapter 기반 `local`, 비활성 legacy `s3`, `nas_sftp` 드라이버. NAS는 앱/DB 실행 위치가 아니라 영상, 프레임, 리포트, DB 백업 파일 저장소로만 사용한다.
 
 ## 빠른 시작
-1. `env.example`을 참고해 `.env` 값을 준비 (`OPENAI_API_KEY`, DB/Redis, 로컬 저장소 기본값)
+1. `env.example`을 참고해 `.env` 값을 준비 (`OPENAI_API_KEY`, DB/Redis, `STORAGE_DRIVER` 및 저장소 기본값)
 2. `docker compose --env-file .env up --build`
 3. `docker compose exec agent python scripts/ingest_kb.py`
 4. 브라우저 `http://localhost` 접속

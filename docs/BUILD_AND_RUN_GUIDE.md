@@ -33,7 +33,8 @@
 - `REDIS_URL`
 - `JWT_SECRET`
 - `INTERNAL_SERVICE_TOKEN`
-- `STORAGE_PROVIDER=local`
+- `STORAGE_PROVIDER=nas_sftp` 또는 기존 local/S3 호환 환경의 값
+- `STORAGE_DRIVER=nas_sftp` 또는 기존 local/S3 호환 환경의 값
 - `LOCAL_STORAGE_ROOT`
 
 선택 항목:
@@ -47,6 +48,50 @@
 - `ENABLE_YOLO_FRAME_ANALYSIS`
 - `YOLO_MODEL_PATH`
 - `YOLO_DEVICE`
+
+Synology NAS DS216play를 파일 저장소로 쓸 때는 NAS에서 Docker를 실행하지 않는다. NAS에는 아래 폴더만 만들고, LawCompass 서비스와 PostgreSQL/Redis는 기존 Docker 서버에서 계속 실행한다.
+
+```text
+/lawcompass/uploads/original
+/lawcompass/uploads/tmp
+/lawcompass/processed/frames
+/lawcompass/processed/clips
+/lawcompass/reports
+/lawcompass/db-backups
+/lawcompass/quarantine
+```
+
+NAS SFTP 설정 예시는 다음과 같다. 실제 비밀번호와 key passphrase는 `.env`에만 둔다. `NAS_PRIVATE_KEY_PATH`가 있으면 private key를 우선 사용하고, 없을 때 `NAS_PASSWORD`를 사용한다.
+
+```env
+STORAGE_DRIVER=nas_sftp
+NAS_HOST=192.168.1.164
+NAS_PORT=22
+NAS_USER=lawcompass_storage
+NAS_PASSWORD=
+NAS_PRIVATE_KEY_PATH=
+NAS_PRIVATE_KEY_PASSPHRASE=
+NAS_BASE_DIR=/lawcompass
+LOCAL_VIDEO_CACHE_DIR=/app/storage/cache
+MAX_UPLOAD_MB=500
+```
+
+SFTP 수동 연결 확인은 운영자가 직접 실행한다.
+
+```powershell
+sftp lawcompass_storage@192.168.1.164
+cd /lawcompass/uploads/original
+put test.txt
+ls
+rm test.txt
+bye
+```
+
+업로드 흐름은 Gateway가 NAS에 원본 파일을 저장하고, Worker가 원본을 로컬 캐시에 내려받아 ffmpeg로 처리한 뒤 추출 프레임을 NAS `processed/frames`에 다시 저장하는 방식이다. 사용자 화면에는 NAS/SFTP 경로나 storage key를 표시하지 않는다.
+
+NAS 업로드를 켜기 전에는 `uploads` 테이블에 `storage_driver`, `storage_key`, `size_bytes`, `sha256`, `original_filename`, `mime_type`, `storage_status` 컬럼이 있어야 한다. 기존 DB에서 `/api/v1/uploads/local`이 `column "storage_driver" of relation "uploads" does not exist`로 실패하면 NAS 권한 문제가 아니라 migration 미적용 문제이므로 `db-migrate`를 먼저 실행한다. `storage_provider` 기본값은 기존 local/S3 호환성을 위해 DB default로 강제 변경하지 않고, Gateway가 업로드 시 `nas_sftp`를 명시적으로 저장한다.
+
+업로드 실패 원인은 Gateway 로그에서 확인한다. 사용자 응답에는 NAS 계정, SFTP 절대경로, raw stack trace를 노출하지 않고, DB schema mismatch는 “업로드 정보를 저장하지 못했습니다. 관리자에게 문의해 주세요.”로 표시한다.
 
 기본 운영에서는 비용 방지를 위해 아래 값을 권장합니다.
 
