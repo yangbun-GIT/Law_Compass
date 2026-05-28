@@ -68,29 +68,98 @@ export function publicJobTypeLabel(type?: string) {
   return labels[String(type || "")] || "분석 준비 중";
 }
 
-export function composeGuidedProgressPayload(caseRow: AnyRecord | null | undefined, jobs: AnyRecord[] = []) {
-  const safeJobs = jobs.slice(0, 5).map((job) => ({
-    label: publicJobTypeLabel(job.type),
-    status_label: publicStatusLabel(job.status),
-    is_active: ["queued", "running", "retrying", "processing", "analyzing"].includes(String(job.status || "")),
-  }));
-  const activeJob = safeJobs.find((job) => job.is_active);
-  const status = String(caseRow?.status || "");
-  const stage = activeJob?.label || publicStatusLabel(status);
-  const steps = [
-    { stage: "organizing_input", message: "사고 설명을 정리하고 있습니다." },
-    { stage: "finding_accident_scene", message: "사고 장면을 찾고 있습니다." },
-    { stage: "classifying_accident", message: "어떤 사고유형에 가까운지 확인하고 있습니다." },
-    { stage: "matching_knia", message: "비슷한 KNIA 과실비율 기준을 찾고 있습니다." },
-    { stage: "checking_adjustments", message: "급정거, 제동등, 정차 위치 같은 가감요소를 확인하고 있습니다." },
-    { stage: "composing_result", message: "보험 대응 방법과 결과 화면을 정리하고 있습니다." },
-  ];
+export function composeGuidedProgressPayload(
+  caseRow: AnyRecord | null | undefined,
+  jobs: AnyRecord[] = [],
+  options: { resultReady?: boolean } = {}
+) {
+    const stepDefs = [
+        { key: "input", label: "입력 정리", percent: 15, message: "입력한 사고정보를 정리하고 있습니다." },
+        { key: "upload", label: "영상 확인", percent: 30, message: "영상 파일을 확인하고 있습니다." },
+        { key: "scene", label: "사고 장면 확인", percent: 45, message: "사고 장면을 찾고 있습니다." },
+        { key: "scenario", label: "사고유형 판단", percent: 60, message: "어떤 사고유형인지 확인하고 있습니다." },
+        { key: "knia", label: "KNIA 과실 기준 검색", percent: 75, message: "비슷한 KNIA 과실 기준을 찾고 있습니다." },
+        { key: "adjustment", label: "가감요소 계산", percent: 88, message: "급정거, 제동등, 정차 위치 같은 가감요소를 확인하고 있습니다." },
+        { key: "result", label: "결과 정리", percent: 100, message: "결과 화면을 정리했습니다." },
+    ];
+
+  const normalizedJobs = jobs.slice(0, 5).map((job) => {
+    const status = String(job.status || "");
+    return {
+      label: publicJobTypeLabel(job.type),
+      status_label: publicStatusLabel(status),
+      type: String(job.type || ""),
+      status,
+      is_active: ["queued", "running", "retrying", "processing", "analyzing"].includes(status),
+      is_done: ["completed", "succeeded", "success", "done", "finished"].includes(status),
+      is_failed: ["failed", "error", "cancelled", "canceled"].includes(status),
+    };
+  });
+
+  if (options.resultReady) {
+    return {
+      version: GUIDED_PROGRESS_VERSION,
+        current_stage: "결과 준비 완료",
+        current_message: "분석 결과가 준비되었습니다.",
+      current_step: "result",
+      current_step_index: 6,
+      progress_percent: 100,
+      result_ready: true,
+      can_show_result: true,
+      steps: stepDefs.map((step) => ({ ...step, status: "done" })),
+      remaining_steps: [],
+      jobs: normalizedJobs.map(({ type: _type, ...safe }) => safe),
+      hide_internal_terms: true,
+    };
+  }
+
+  const activeJob = normalizedJobs.find((job) => job.is_active);
+  const failedJob = normalizedJobs.find((job) => job.is_failed);
+  const hasAnyJob = normalizedJobs.length > 0;
+  const hasDoneJob = normalizedJobs.some((job) => job.is_done);
+
+  let currentStep = "input";
+  let currentIndex = 0;
+
+  if (failedJob) {
+    currentStep = "result";
+    currentIndex = 6;
+  } else if (activeJob?.type === "video_preprocess") {
+    currentStep = "scene";
+    currentIndex = 2;
+  } else if (activeJob?.type === "video_analyze") {
+    currentStep = "knia";
+    currentIndex = 4;
+  } else if (hasDoneJob) {
+    currentStep = "adjustment";
+    currentIndex = 5;
+  } else if (hasAnyJob) {
+    currentStep = "upload";
+    currentIndex = 1;
+  } else if (String(caseRow?.status || "") === "analyzing") {
+    currentStep = "scenario";
+    currentIndex = 3;
+  }
+
+  const current = stepDefs[currentIndex];
+
   return {
     version: GUIDED_PROGRESS_VERSION,
-    current_stage: stage,
-    current_message: activeJob?.status_label || publicStatusLabel(status),
-    steps,
-    jobs: safeJobs,
+      current_stage: failedJob ? "확인 필요" : current.label,
+    current_message: failedJob
+        ? "분석 중 문제가 발생했습니다. 다시 시도하거나 고급 진단을 확인해 주세요."
+      : current.message,
+    current_step: currentStep,
+    current_step_index: currentIndex,
+    progress_percent: failedJob ? 100 : current.percent,
+    result_ready: false,
+    can_show_result: false,
+    steps: stepDefs.map((step, index) => ({
+      ...step,
+      status: index < currentIndex ? "done" : index === currentIndex ? "active" : "waiting",
+    })),
+    remaining_steps: stepDefs.slice(currentIndex + 1).map((step) => step.label),
+    jobs: normalizedJobs.map(({ type: _type, ...safe }) => safe),
     hide_internal_terms: true,
   };
 }
@@ -286,7 +355,18 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
        FROM jobs WHERE case_id=$1 AND owner_user_id=$2 ORDER BY created_at DESC LIMIT 5`,
       [caseId, (req as any).user.id]
     );
-    return { ...composeGuidedProgressPayload(caseRow.rows[0], jobs.rows), trace_id: traceId };
+    const latestResult = await opts.db.query(
+      `SELECT id FROM analysis_results
+         WHERE case_id=$1 AND owner_user_id=$2
+         ORDER BY version DESC LIMIT 1`,
+      [caseId, (req as any).user.id]
+    );
+    return {
+      ...composeGuidedProgressPayload(caseRow.rows[0], jobs.rows, {
+        resultReady: latestResult.rowCount > 0,
+      }),
+      trace_id: traceId
+    };
   });
 
   app.get(`${opts.apiPrefix}/cases/:caseId/result`, async (req, reply) => {

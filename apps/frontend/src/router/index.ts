@@ -4,7 +4,6 @@ import SignupView from "../views/SignupView.vue";
 import DashboardView from "../views/DashboardView.vue";
 import CaseDetailView from "../views/CaseDetailView.vue";
 import CaseCreateView from "../views/CaseCreateView.vue";
-import AccidentWizardView from "../views/AccidentWizardView.vue";
 import CaseResultView from "../views/CaseResultView.vue";
 import EvidenceDetailView from "../views/EvidenceDetailView.vue";
 import KniaRankingView from "../views/KniaRankingView.vue";
@@ -21,7 +20,7 @@ export const router = createRouter({
     { path: "/signup", component: SignupView },
     { path: "/cases/new", component: CaseCreateView, meta: { requiresAuth: true } },
     { path: "/cases/:caseId", component: CaseDetailView, meta: { requiresAuth: true } },
-    { path: "/cases/:caseId/wizard", component: AccidentWizardView, meta: { requiresAuth: true } },
+    { path: "/cases/:caseId/wizard", redirect: (to) => `/cases/${to.params.caseId}` },
     { path: "/cases/:caseId/result", component: CaseResultView, meta: { requiresAuth: true } },
     { path: "/evidence/:chunkId", component: EvidenceDetailView, meta: { requiresAuth: true } },
     { path: "/knia/ranking", component: KniaRankingView, meta: { requiresAuth: true } },

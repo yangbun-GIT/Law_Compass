@@ -18,7 +18,7 @@ const TECHNICAL_KEYS = new Set([
   "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "initial_query_terms", "final_missing_requirements", "next_action",
   "expert_guidance_sections", "source_blocked_reason", "retrieval_id", "trace_id", "raw_trace_id", "raw_prompt"
 ]);
-const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi];
+const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi, /Local video verified.?/gi, /duration\s*=\s*[\d.]+s?/gi, /resolution\s*=\s*\d+x\d+/gi, /frames\s*=\s*\d+/gi, /fps\s*=\s*[\d.]+/gi, /codec\s*=\s*[a-z0-9_.-]+/gi, /,\s*=0/g];
 const SAFE_INPUT_FIELDS = new Set(["accident_party_type", "accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "pedestrian_visible", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "pedestrian_signal", "bicycle_location", "bicycle_direction", "centerline_crossed", "centerline_cross_reason", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "non_contact_trigger", "trigger_actor_type", "trigger_actor_behavior", "direct_collision_partner_type", "rear_vehicle_collision", "collision_partner_type", "primary_collision_target", "collision_point_visible", "collision_point_location", "front_vehicle_stopped", "ego_turn_direction", "intersection", "stopped_vehicle_without_lights", "highway_or_expressway"]);
 const KNIA_ALLOWED_LINK_HOSTS = new Set(["accident.knia.or.kr"]);
 const KNIA_SOURCE_LINK_NOTICE = "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.";
@@ -50,7 +50,12 @@ function cleanText(value: any, fallback = "확인이 필요합니다.") {
   if (mapped) return mapped;
   let text = raw;
   for (const pattern of BAD_VALUE_PATTERNS) text = text.replace(pattern, "");
-  text = text.replace(/\s+/g, " ").trim();
+  text = text
+    .replace(/^\s*[,.]\s*/g, "")
+    .replace(/\s*,\s*,\s*/g, ", ")
+    .replace(/\s+\./g, ".")
+    .replace(/\s+/g, " ")
+    .trim();
   return text || fallback;
 }
 function safeHttpUrl(value: any) {
