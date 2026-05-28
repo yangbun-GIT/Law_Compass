@@ -1,4 +1,5 @@
 from app.services.input_normalizer import normalize_analysis_input
+from app.services.fact_arbitration import arbitrate_facts
 from app.services.video_input_contract import VERSION, normalize_video_input_contract
 
 
@@ -770,3 +771,61 @@ def test_text_non_contact_bicycle_trigger_is_normalized_as_vehicle_rear_collisio
     assert facts["collision_partner_type"] == "vehicle"
     assert facts["direct_collision_partner_type"] == "vehicle"
     assert facts["accident_type"] == "non_contact_trigger"
+
+
+def test_yolo_object_presence_candidates_do_not_become_agent_facts():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "representative_frames": [f"frame_{index:03d}.jpg" for index in range(1, 11)],
+                "observations": [
+                    {
+                        "field": "accident_event_candidate",
+                        "value": True,
+                        "confidence": 0.82,
+                        "source": "frame_analysis:openai_debug_contract",
+                        "frame_refs": ["frame_006.jpg", "frame_007.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": True,
+                        "confidence": 0.74,
+                        "source": "vision_model:yolo",
+                        "frame_refs": ["frame_001.jpg", "frame_002.jpg"],
+                    },
+                    {
+                        "field": "opponent_signal_visible",
+                        "value": True,
+                        "confidence": 0.71,
+                        "source": "vision_model:yolo",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "primary_collision_target",
+                        "value": "vehicle_candidate",
+                        "confidence": 0.72,
+                        "source": "vision_model:yolo",
+                        "frame_refs": ["frame_006.jpg", "frame_007.jpg"],
+                    },
+                ],
+                "openai_frame_analysis": {"enabled": True},
+                "yolo_frame_analysis": {"enabled": True},
+            }
+        }
+    )
+
+    assert contract["fact_patch"] == {}
+    assert contract["accepted_observations"] == []
+    supporting_fields = {item["field"] for item in contract["supporting_observations"]}
+    assert "accident_event_candidate" in supporting_fields
+    uncertain_fields = {item["field"] for item in contract["uncertain_observations"]}
+    assert uncertain_fields == {"pedestrian_visible", "opponent_signal_visible", "primary_collision_target"}
+    assert {item["reason"] for item in contract["uncertain_observations"]} == {"confidence_below_field_threshold"}
+
+    arbitration = arbitrate_facts(
+        user_facts={"accident_party_type": "car_vs_car", "collision_partner_type": "vehicle"},
+        video_contract=contract,
+    )
+    assert arbitration["contract"]["applied_video_fields"] == []
+    assert arbitration["contract"]["confirmed_fields"] == []
+    assert arbitration["contract"]["conflicts"] == []

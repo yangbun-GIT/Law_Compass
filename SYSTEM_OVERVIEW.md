@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P0-3 OpenAI+YOLO 관찰값 병합 검증
+
+P0-3 단계에서 OpenAI 프레임 분석 결과와 YOLO 객체 후보를 함께 Agent 입력 계약으로 넣었을 때 사고 대상·환경 정보가 오염 없이 처리되는지 재현 가능한 평가 경로를 추가했다. 목적은 YOLO가 감지한 사람, 신호등, 차량 후보를 사고유형 확정값으로 바로 쓰지 않고, Agent fact contract와 fact arbitration에서 보류/확인 후보로 남기는 것이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 병합 평가 스크립트 | `scripts/evaluate_video_observation_merge.py`를 추가했다. P0-2 OpenAI debug 결과와 YOLO smoke 결과를 같은 `metadata.observations` 계약으로 병합한 뒤 `normalize_video_input_contract()`와 `arbitrate_facts()`를 실행한다. |
+| 오염 방지 측정 | 사고 1~5 로컬 결과 기준 OpenAI 관찰값 8개, YOLO 후보 13개를 병합했다. YOLO 후보 13개는 모두 `uncertain`으로 남았고 `accepted`, `fact_patch`, `applied_video_fields`, `confirmed_fields`로 승격되지 않았다. |
+| 회귀 테스트 | `apps/agent/tests/test_video_input_contract.py`에 YOLO의 객체 존재 후보가 보행자 사고, 상대 신호 확정, 직접 충돌 대상 확정으로 승격되지 않는 회귀 테스트를 추가했다. |
+| 로컬 산출물 | 실행 결과는 `logs/video_accuracy/p0_3_openai_yolo_merge_20260529.json`에 생성되며 Git에는 포함하지 않는다. |
+| 검증 | `PYTHONPATH=apps/agent py -3.13 -m pytest apps/agent/tests/test_video_input_contract.py apps/agent/tests/test_fact_arbitration.py -q` 통과, `scripts/evaluate_video_observation_merge.py` 병합 평가 `status=pass` 통과. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 다음 단계는 P0-4 오염 방지 guard 확장으로, 객체 존재와 사고유형 확정을 분리하는 guard를 자전거, 중앙선, 정차 차량, 장애물, 진행방향, 앞차/뒤차 역할까지 넓히는 것이다.
+
 ## 2026-05-29 영상 분석 모델 후보 문서화
 
 영상 처리 고도화 과정에서 OpenAI 외의 무료/로컬/모바일 후보를 비교할 수 있도록 `docs/VIDEO_MODEL_OPTIONS.md`를 추가했다. 이 문서는 YOLO, Qwen2.5-VL, Gemini API Free Tier, Google ML Kit, MediaPipe의 역할 차이와 무료 범위 기준 추천 순서를 정리한다.

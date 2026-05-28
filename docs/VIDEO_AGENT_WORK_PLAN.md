@@ -58,6 +58,7 @@
 - 예시: 자전거는 직접 충돌 대상일 수도 있고 비접촉 유발 요인일 수도 있다.
 - ReAct 적용: 필수, 최대 3회.
 - 이유: Agent 판단 정확도와 근거 검색 적합도에 직접 영향을 준다.
+- 상태: 완료. `scripts/evaluate_video_observation_merge.py`로 P0-2 OpenAI 프레임 관찰값과 YOLO 후보 관찰값을 병합해 Agent 입력 계약과 fact arbitration을 재측정했다. YOLO의 사람·신호등·차량 객체 후보는 13개 모두 `uncertain`으로 남고, `accepted/fact_patch/applied/confirmed`로 승격되지 않았다. `apps/agent/tests/test_video_input_contract.py`에 같은 계약을 회귀 테스트로 고정했다.
 
 ### P0-4. 오염 방지 guard 확장
 
