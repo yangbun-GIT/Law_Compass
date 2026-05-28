@@ -211,6 +211,7 @@
     <guideline name="security">
       .env, API key, JWT secret, 내부 서비스 토큰, 사용자 비밀번호, refresh token 등 민감값은 절대 출력하지 마십시오.
       문서화하거나 설명할 때는 실제 값 대신 환경변수 이름과 용도만 기록하십시오.
+      NAS, 로그, 테스트 파일, 브랜치, 문서 제목, 사용자 화면처럼 팀원이나 외부 사용자에게 보일 수 있는 이름에는 특정 개발 도구명이나 개인 식별명을 넣지 말고 LawCompass 목적 중심의 중립적인 이름을 사용하십시오.
     </guideline>
 
     <guideline name="git_backup">

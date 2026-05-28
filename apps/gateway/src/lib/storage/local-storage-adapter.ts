@@ -40,13 +40,16 @@ export class LocalStorageAdapter implements StorageAdapter {
       originalFilename: input.fileName,
     });
     await this.move(tmpKey, finalKey);
-      return {
-          ...tmpObject,
-          provider: this.driver,
-          driver: this.driver,
-          storageProvider: this.driver,
-          storageDriver: this.driver,
-      };
+    return {
+      ...tmpObject,
+      provider: this.driver,
+      driver: this.driver,
+      storageProvider: this.driver,
+      storageDriver: this.driver,
+      storageKey: finalKey,
+      storagePath: this.safeJoin(finalKey),
+      tmpPath: tmpObject.storagePath,
+    };
   }
 
   async putFile(localPath: string, destinationPath: string, metadata: PutMetadata = {}): Promise<StoredObject> {
