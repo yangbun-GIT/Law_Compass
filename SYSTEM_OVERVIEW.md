@@ -74,6 +74,19 @@ P3 이후 적용할 구조 보강 항목으로 `apps/frontend/src/composables/us
 
 이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 목적은 화면 동작 변경이 아니라 프론트 소스 책임 경계를 줄여 이후 사고유형/질문지 확장 시 충돌과 회귀 위험을 낮추는 것이다.
 
+## 2026-05-28 Frontend Workspace SRP 보강 P1
+
+P1은 P0 이후 `useCaseWorkspace.ts`에 남아 있던 report/progress 판별 로직을 순수 helper로 분리한 작업이다. 화면 상태 ref와 API 호출 흐름은 기존 composable에 남기고, 상태값 분류와 payload 추출 기준만 별도 파일로 이동했다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Progress helper | `apps/frontend/src/composables/caseWorkspaceProgress.ts`를 추가해 job running/finished/failed 판별, progress step label 정규화, report payload 추출, report ready 판별을 담당한다. |
+| Workspace 축소 | `useCaseWorkspace.ts`는 helper를 import해 사용하며, 직접 보유하던 report/progress 순수 판단 함수를 제거했다. |
+| 표시 계약 테스트 | `apps/frontend/scripts/test-display.mjs`가 `caseWorkspaceProgress.ts`도 검사 범위에 포함해 guided flow와 public storage 표시 계약을 유지한다. |
+| 남은 단계 | P2는 `answerGuidedQuestion()`의 guided answer -> facts 매핑 분리, P3는 upload/progress/report orchestration composable 분리를 검토한다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다.
+
 ## 2026-05-26 P2: 프레임 충분·관찰값 부족 fallback 표시 보강
 
 P2는 “대표 프레임은 충분히 추출됐지만 분석 관찰값이 0개이거나 판단 반영값이 없는 상태”를 실패처럼 방치하지 않고, 안전한 fallback 상태와 다음 조치를 명확히 남기는 작업이다. 특정 사고 영상에 맞춘 보정이 아니라, 영상 입력 전반에서 재시도/보조 분석/사용자 보완 입력 흐름이 끊기지 않도록 Agent-Gateway-Frontend 계약을 보강했다.
