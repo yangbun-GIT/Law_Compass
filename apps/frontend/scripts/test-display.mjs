@@ -29,6 +29,7 @@ const caseDetailView = readFileSync("src/views/CaseDetailView.vue", "utf8");
 const caseCreateView = readFileSync("src/views/CaseCreateView.vue", "utf8");
 const useCaseWorkspace = readFileSync("src/composables/useCaseWorkspace.ts", "utf8");
 const caseWorkspaceGuidance = readFileSync("src/composables/caseWorkspaceGuidance.ts", "utf8");
+const caseWorkspaceGuidanceData = readFileSync("src/data/caseWorkspaceGuidanceData.ts", "utf8");
 const caseWorkspaceFormatters = readFileSync("src/composables/caseWorkspaceFormatters.ts", "utf8");
 const caseWorkspaceProgress = readFileSync("src/composables/caseWorkspaceProgress.ts", "utf8");
 const caseWorkspaceFactMapping = readFileSync("src/composables/caseWorkspaceFactMapping.ts", "utf8");
@@ -76,7 +77,7 @@ const requiredErrorUx = [
   "영상 신뢰도"
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
@@ -150,6 +151,24 @@ if (missingGuidedContracts.length) {
 }
 if (caseCreateView.includes("<select v-model=\"analysisMode\"")) {
   console.error("analysis mode dropdown must not appear on the first create screen");
+  process.exit(1);
+}
+function blockFor(source, marker) {
+  const start = source.indexOf(marker);
+  if (start < 0) return "";
+  const rest = source.slice(start);
+  const next = rest.indexOf("} else if", marker.length);
+  return next >= 0 ? rest.slice(0, next) : rest;
+}
+const crosswalkContextMapping = blockFor(caseWorkspaceFactMapping, 'factKey === "crosswalk_context"');
+if (crosswalkContextMapping.includes("car_vs_person") || crosswalkContextMapping.includes("pedestrian_crosswalk_accident")) {
+  console.error("crosswalk context alone must not promote a case to pedestrian accident");
+  process.exit(1);
+}
+const locationContextMapping = blockFor(caseWorkspaceFactMapping, 'factKey === "accident_location_context"');
+const crosswalkLocation = locationContextMapping.slice(locationContextMapping.indexOf('value === "crosswalk"'));
+if (crosswalkLocation.includes("car_vs_person") || crosswalkLocation.includes("pedestrian_crosswalk_accident")) {
+  console.error("crosswalk location alone must remain road context until collision counterpart is confirmed");
   process.exit(1);
 }
 const defaultCaseDetail = caseDetailView.replace(/<details[\s\S]*?<\/details>/g, "");

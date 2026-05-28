@@ -182,9 +182,9 @@ export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question:
         } else if (factKey === "crosswalk_context") {
             (nextFacts as any).crosswalk_context = value;
             if (value === "crosswalk" || value === "near_crosswalk") {
-                nextFacts.accident_party_type = "car_vs_person";
-                nextFacts.accident_type = "pedestrian_crosswalk_accident";
-                (nextFacts as any).knia_major_party_type = "car_vs_person";
+                (nextFacts as any).crosswalk_nearby = true;
+            } else if (value === "not_crosswalk") {
+                (nextFacts as any).crosswalk_nearby = false;
             }
         } else if (factKey === "pedestrian_signal") {
             (nextFacts as any).pedestrian_signal = value;
@@ -255,9 +255,8 @@ export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question:
                 nextFacts.accident_party_type = "car_vs_car";
                 (nextFacts as any).knia_major_party_type = "car_vs_car";
             } else if (value === "crosswalk") {
-                nextFacts.accident_type = "pedestrian_crosswalk_accident";
-                nextFacts.accident_party_type = "car_vs_person";
-                (nextFacts as any).knia_major_party_type = "car_vs_person";
+                (nextFacts as any).crosswalk_nearby = true;
+                (nextFacts as any).road_context = "crosswalk_nearby";
             } else if (value === "parking_or_roadside") {
                 nextFacts.accident_type = "object_collision";
             } else if (value === "under_bridge" || value === "flowerbed_or_median") {

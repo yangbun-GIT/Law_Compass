@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 횡단보도 환경 정보의 보행자 사고 오염 방지
+
+프론트 guided answer -> `structured_facts` 매핑에서 횡단보도 위치 또는 횡단보도 인접 정보만으로 사고 대분류를 `차대사람`으로 승격하던 경로를 제거했다. 이 변경은 사고 영상 2·3처럼 횡단보도나 사람이 화면에 보이더라도 실제 충돌 대상이 차량이면 차대차 사고로 유지되어야 한다는 영상 입력 계약을 프론트 입력 흐름에도 맞춘 것이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Fact mapping | `apps/frontend/src/composables/caseWorkspaceFactMapping.ts`에서 `crosswalk_context`와 `accident_location_context=crosswalk`는 `crosswalk_nearby`/`road_context`만 보강하고, `car_vs_person` 또는 `pedestrian_crosswalk_accident`를 직접 설정하지 않는다. |
+| 승격 조건 | 보행자 사고 승격은 사용자가 사고 상대를 `person`으로 고르거나, 사고 방향/대분류에서 명시적으로 보행자 사고를 선택한 경우처럼 직접 충돌 대상이 확인되는 입력 경로에 한정한다. |
+| 표시 계약 테스트 | `apps/frontend/scripts/test-display.mjs`에 횡단보도 환경 정보만으로 보행자 사고 승격이 재발하지 않도록 정적 계약 검사를 추가했다. 기존 SRP 분리 이후 분석 모드 상수를 `caseWorkspaceGuidanceData.ts`에서 읽도록 테스트 범위도 동기화했다. |
+| 검증 | Frontend `npm run test:display`와 `npm run build`를 통과했다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 목적은 사용자 입력과 영상 관찰값에서 사고 대상이 오염되지 않도록 하는 P0 계열 보강이다.
+
 ## 2026-05-29 Frontend Guidance SRP 보강 P1-1
 
 `apps/frontend/src/composables/caseWorkspaceGuidance.ts`가 안내용 상수, 사고유형/분석모드 선택지, fallback 질문 데이터, 질문 타입 추론 로직을 한 파일에서 함께 담당하던 구조를 분리했다. 이번 변경은 기존 import 경로를 유지하면서 프론트 guidance 데이터와 추론 로직의 책임 경계를 줄인 구조 보강이다.
