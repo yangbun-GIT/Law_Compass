@@ -150,6 +150,8 @@ def build_case(
         "id": reference_id_for_url(url, title),
         "title": title or "Public accident video reference candidate",
         "source_type": "public_reference_link",
+        "reference_role": "calibration_reference_only",
+        "review_status": "candidate_requires_manual_review",
         "source_url": url,
         "source_metadata": {
             "platform": "youtube" if extract_youtube_video_id(url) else "public_web",
@@ -163,6 +165,12 @@ def build_case(
         },
         "scenario_summary": summary,
         "reference_notes": notes,
+        "reference_outcome": {
+            "expert_opinion_summary": "수동 검토 전까지 비워둔다.",
+            "known_result_status": "unknown",
+            "known_result_summary": "수동 검토 전까지 실제 결과를 알 수 없음",
+            "confidence_note": "자동 수집 후보는 검토 전까지 평가 기준으로 쓰지 않는다.",
+        },
         "reference_expectations": {
             "direct_collision_partner_type": "unknown",
             "accident_event_required": True,

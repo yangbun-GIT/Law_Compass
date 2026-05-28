@@ -18,6 +18,8 @@
         "required": [
           "id",
           "source_type",
+          "reference_role",
+          "review_status",
           "scenario_summary",
           "reference_expectations",
           "evaluation_focus",
@@ -39,6 +41,22 @@
               "aihub_sample",
               "public_reference_link",
               "official_evidence"
+            ]
+          },
+          "reference_role": {
+            "type": "string",
+            "enum": [
+              "evaluation_only_not_agent_input",
+              "calibration_reference_only",
+              "official_evidence_reference_only"
+            ]
+          },
+          "review_status": {
+            "type": "string",
+            "enum": [
+              "candidate_requires_manual_review",
+              "reviewed_for_evaluation",
+              "rejected"
             ]
           },
           "source_url": {
@@ -111,6 +129,31 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "reference_outcome": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "expert_opinion_summary": {
+                "type": "string"
+              },
+              "known_result_status": {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "not_public",
+                  "public_reported",
+                  "court_decision_reported",
+                  "insurer_result_reported"
+                ]
+              },
+              "known_result_summary": {
+                "type": "string"
+              },
+              "confidence_note": {
+                "type": "string"
+              }
             }
           },
           "reference_expectations": {

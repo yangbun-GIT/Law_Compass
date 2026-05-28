@@ -107,6 +107,7 @@
 - 금지: 공식 근거, 정답 데이터, 학습 데이터, 무단 다운로드 산출물로 사용.
 - ReAct 적용: 간단 적용, 1회.
 - 이유: 데이터 사용 경계만 지키면 구현 위험은 낮다.
+- 상태: 완료. Reference case schema에 `reference_role`, `review_status`, `reference_outcome`을 추가해 공개 영상/전문가 의견/실제 결과를 Agent 입력 사실이 아닌 evaluation·calibration 자료로만 구분하게 했다. `scripts/validate_reference_case_manifest.py`를 추가해 manifest의 필수 필드, 직접 충돌 대상 기대값, 오염 방지 항목, raw video commit 금지, Agent 입력 금지, private local path 노출 여부를 검사한다. 공개 링크 수집 스크립트도 새 계약을 생성하도록 맞췄고, 예시 manifest와 수집 smoke manifest preflight를 통과했다.
 
 ### P2-2. 평가 지표 고정
 

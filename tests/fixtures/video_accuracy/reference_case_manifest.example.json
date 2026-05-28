@@ -6,12 +6,20 @@
       "id": "local_accident_1_centerline_obstacle_oncoming_collision",
       "title": "중앙선 회피 중 대향 차량 충돌 및 후속 추돌",
       "source_type": "local_user_provided",
+      "reference_role": "evaluation_only_not_agent_input",
+      "review_status": "reviewed_for_evaluation",
       "local_video_path": "C:/path/to/local-only/car_accident_1.mp4",
       "scenario_summary": "왕복 2차로에서 주차 차량 때문에 중앙선을 일부 넘어 정차했고, 마주오던 차량이 멈추지 못해 충돌한 뒤 후속 추돌이 발생한 사고.",
       "reference_notes": [
         "사용자 제공 전문가 의견은 calibration reference이며 Agent 입력 사실로 주입하지 않는다.",
         "주요 검증 대상은 중앙선 존재를 단순 침범 사고로 오염시키지 않는지와 1차/2차 충돌을 분리하는지다."
       ],
+      "reference_outcome": {
+        "expert_opinion_summary": "전문가 의견은 상대 70~80%, 블박차 20~30% 범위를 참고하되 정답으로 주입하지 않는다.",
+        "known_result_status": "unknown",
+        "known_result_summary": "공개된 실제 처리 결과 없음",
+        "confidence_note": "전문가 의견은 calibration reference이며 공식 판례나 보험 결과가 아니다."
+      },
       "reference_expectations": {
         "direct_collision_partner_type": "vehicle",
         "trigger_actor_type": "parked_vehicle_or_road_obstacle",
@@ -50,12 +58,20 @@
       "id": "public_reference_intersection_signal_unknown",
       "title": "공개 reference 링크 기반 교차로 신호 불명 사고",
       "source_type": "public_reference_link",
+      "reference_role": "calibration_reference_only",
+      "review_status": "candidate_requires_manual_review",
       "source_url": "https://www.youtube.com/watch?v=example",
       "scenario_summary": "좌회전 또는 교차로 진입 중 상대 직진 차량과 충돌했으나 상대 신호가 영상에서 확인되지 않는 사고.",
       "reference_notes": [
         "공개 영상 원본은 다운로드하지 않고 링크와 수동 요약만 기록한다.",
         "전문가 의견은 결과 calibration용이며 공식 판결이나 보험 기준으로 취급하지 않는다."
       ],
+      "reference_outcome": {
+        "expert_opinion_summary": "수동 검토 전까지 비워둔다.",
+        "known_result_status": "unknown",
+        "known_result_summary": "수동 검토 전까지 실제 결과를 알 수 없음",
+        "confidence_note": "자동 수집 후보는 검토 전까지 평가 기준으로 쓰지 않는다."
+      },
       "reference_expectations": {
         "direct_collision_partner_type": "vehicle",
         "accident_event_required": true,
@@ -94,6 +110,8 @@
       "id": "aihub_vehicle_person_detection_sample",
       "title": "AI Hub 차량 및 사람 인지 샘플",
       "source_type": "aihub_sample",
+      "reference_role": "evaluation_only_not_agent_input",
+      "review_status": "candidate_requires_manual_review",
       "dataset_ref": {
         "provider": "AI Hub",
         "dataset_name": "차량 및 사람 인지 영상",
@@ -105,6 +123,11 @@
       "reference_notes": [
         "AI Hub 원본 파일과 라벨은 로컬 전용으로 보관하고 Git에 포함하지 않는다."
       ],
+      "reference_outcome": {
+        "known_result_status": "not_public",
+        "known_result_summary": "사고 과실이나 판결 reference가 아니라 객체 관찰 품질 확인용 샘플이다.",
+        "confidence_note": "객체 탐지 보조 품질 검증에만 사용한다."
+      },
       "reference_expectations": {
         "direct_collision_partner_type": "unknown",
         "accident_event_required": false,

@@ -64,12 +64,25 @@ reference case는 `tests/fixtures/video_accuracy/reference_case_manifest.example
 
 - `id`: reference case 고유 id
 - `source_type`: `local_user_provided`, `aihub_sample`, `public_reference_link`, `official_evidence` 중 하나
+- `reference_role`: `evaluation_only_not_agent_input`, `calibration_reference_only`, `official_evidence_reference_only` 중 하나. 공개 영상과 전문가 의견은 Agent 입력 사실이 아니라 평가/보정 reference임을 명시한다.
+- `review_status`: `candidate_requires_manual_review`, `reviewed_for_evaluation`, `rejected` 중 하나. 자동 수집 후보는 기본적으로 수동 검토 전 상태다.
 - `source_url`: 공개 링크 또는 공식 자료 URL. 로컬 파일만 있으면 생략 가능
 - `local_video_path`: 로컬 테스트 영상 경로. 커밋 금지 manifest에서만 사용
 - `scenario_summary`: 사고 상황의 짧은 요약
+- `reference_outcome`: 전문가 의견 요약, 실제 처리 결과 공개 여부, 신뢰도 메모. 이 항목은 calibration용이며 Agent 사용자 입력으로 주입하지 않는다.
 - `reference_expectations`: 영상 관찰값이 맞춰야 하는 사고 대상, 사고 시점, 환경 맥락, 오염 방지 항목
 - `evaluation_focus`: 이번 case가 검증하려는 오염 유형 또는 판단 축
 - `usage_policy`: 비상업 과제/대회 테스트, 링크만 기록, 원본 미커밋 같은 사용 제한
+
+커밋 전에 example 또는 공유용 manifest는 아래 명령으로 검증한다.
+
+```powershell
+py -3 scripts\validate_reference_case_manifest.py `
+  --manifest tests\fixtures\video_accuracy\reference_case_manifest.example.json `
+  --output logs\video_accuracy\reference_case_manifest_example_preflight.json
+```
+
+로컬 전용 후보 manifest도 같은 스크립트로 검사할 수 있다. 경고는 수동 검토가 덜 된 후보를 알려주는 용도이며, 오류가 있으면 해당 manifest를 평가에 사용하지 않는다.
 
 ## P0-2 적용 방식
 

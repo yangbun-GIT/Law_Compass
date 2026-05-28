@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P2-1 외부 참고 케이스 Manifest 보강
+
+P2-1 단계에서 한문철TV 같은 공개 사고 영상 링크, 사용자 제공 사고 영상 요약, AI Hub 샘플 정보를 Agent 입력 사실이나 정답 데이터로 오용하지 않도록 reference manifest 계약과 preflight 검증을 보강했다. 목적은 외부 사례를 “답 맞추기”가 아니라 영상 관찰값 오염, 사고 대상 오인, 분기형 판단 누락을 찾는 평가/calibration reference로만 관리하는 것이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Manifest 계약 | `tests/fixtures/video_accuracy/reference_case_manifest.schema.json`에 `reference_role`, `review_status`, `reference_outcome`을 추가했다. 전문가 의견 요약과 실제 결과 공개 여부는 기록할 수 있지만 Agent 사용자 입력 사실로 주입하지 않는다. |
+| 예시 fixture | `tests/fixtures/video_accuracy/reference_case_manifest.example.json`을 새 계약에 맞춰 갱신했다. 사고 1번 로컬 예시, 공개 링크 후보, AI Hub 샘플이 모두 원본 영상 미커밋과 Agent 입력 금지 정책을 명시한다. |
+| 수집 스크립트 | `scripts/collect_public_video_references.py`가 공개 URL/YouTube 후보를 수집할 때 `calibration_reference_only`, `candidate_requires_manual_review`, `reference_outcome` 기본값을 함께 생성한다. 원본 영상은 다운로드하지 않는다. |
+| Preflight | `scripts/validate_reference_case_manifest.py`를 추가했다. 필수 필드, 직접 충돌 대상 기대값, `must_not_promote`, raw video commit 금지, Agent 입력 금지, private local path 노출 여부를 검사한다. |
+| 문서 | `docs/VIDEO_REFERENCE_DATA_POLICY.md`, `docs/PUBLIC_VIDEO_REFERENCE_COLLECTION.md`, `docs/VIDEO_AGENT_WORK_PLAN.md`에 새 manifest 필드와 검증 명령을 반영했다. |
+| 검증 | 예시 manifest preflight 통과. 공개 URL 수집 smoke manifest도 error 0으로 통과했으며, 수동 검토 전 후보에 대해서는 expected context 보강 warning이 정상 출력된다. Python compile과 `git diff --check`를 통과했다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 실제 공개 영상 원본, AI Hub 원본, API key, 로컬 개인 경로가 들어간 manifest는 계속 Git에 포함하지 않는다. 다음 단계는 P2-2 평가 지표 고정으로, 사고 대상 정확도·오염률·관찰값 0개 비율·근거 부적합률 등을 반복 측정 가능한 지표로 묶는 것이다.
+
 ## 2026-05-29 P1-3 애매한 사고의 분기형 결과 보강
 
 P1-3 단계에서 입력 또는 영상으로 확인되지 않은 핵심 사실 때문에 결론이 갈리는 사고를 사용자 화면에서 조건별로 나눠 설명하도록 Gateway 결과 표시 정책을 보강했다. 이번 변경은 특정 사고 영상에 결론을 맞추는 처리가 아니라, 신호·사고 대상·중앙선 침범 사유·정차/후방추돌 사유처럼 판단 방향을 바꾸는 공통 불확실성 축을 구조화하는 범용 출력 정책이다.
