@@ -351,10 +351,12 @@ class FrameAnalysisContractTest(unittest.TestCase):
 
         self.assertEqual(len(calls), 2)
         self.assertTrue(result["zero_observation_retry_used"])
-        self.assertEqual(result["observations"][0]["field"], "visual_evidence_limited")
-        self.assertEqual(result["observations"][0]["value"], True)
+        fields = [item["field"] for item in result["observations"]]
+        self.assertEqual(fields, ["accident_event_candidate", "visual_evidence_limited"])
         self.assertEqual(result["observations"][0]["frame_refs"], ["frame_004.jpg"])
-        self.assertEqual(result["observation_quality_summary"]["observation_count"], 1)
+        self.assertEqual(result["observations"][1]["value"], True)
+        self.assertEqual(result["observations"][1]["frame_refs"], ["frame_004.jpg"])
+        self.assertEqual(result["observation_quality_summary"]["observation_count"], 2)
 
     def test_transient_openai_timeout_runs_bounded_error_retry(self):
         calls = []

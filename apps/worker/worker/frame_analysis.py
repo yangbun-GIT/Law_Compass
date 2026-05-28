@@ -476,7 +476,22 @@ def _fallback_limited_visual_observations(selected_frames: list[dict[str, Any]],
     refs = event_refs or frame_refs[: min(len(frame_refs), 6)]
     if not refs:
         return []
-    return [{
+    observations: list[dict[str, Any]] = []
+    if event_refs:
+        observations.append({
+            "field": "accident_event_candidate",
+            "value": True,
+            "confidence": 0.82,
+            "source": "frame_analysis:openai",
+            "detector": OPENAI_VISION_MODEL,
+            "frame_refs": event_refs,
+            "reason": (
+                "OpenAI localized a likely impact/contact window, but did not return enough reliable "
+                "physical facts to apply directly."
+            ),
+            "observation_quality": _observation_quality("accident_event_candidate", 0.82, event_refs),
+        })
+    observations.append({
         "field": "visual_evidence_limited",
         "value": True,
         "confidence": 1.0,
@@ -488,7 +503,8 @@ def _fallback_limited_visual_observations(selected_frames: list[dict[str, Any]],
             "met the observation contract. Treat the video as available but visually insufficient for direct fact application."
         ),
         "observation_quality": _observation_quality("visual_evidence_limited", 1.0, refs),
-    }]
+    })
+    return observations
 
 
 def _run_openai_analysis_attempt(label: str, payload: dict[str, Any], selected_frames: list[dict[str, Any]]) -> dict[str, Any]:

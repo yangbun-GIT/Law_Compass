@@ -145,6 +145,29 @@ def test_limited_visual_evidence_is_supporting_only():
     assert contract["confirmation_candidates"] == []
 
 
+def test_accident_event_candidate_is_supporting_only():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "accident_event_candidate",
+                        "value": True,
+                        "confidence": 0.82,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_4.jpg", "frame_5.jpg"],
+                    }
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"] == {}
+    assert contract["accepted_observations"] == []
+    assert contract["supporting_observations"][0]["field"] == "accident_event_candidate"
+    assert contract["observation_quality_summary"]["supporting_count"] == 1
+
+
 def test_frame_rich_zero_observation_analysis_gets_limited_visual_fallback():
     contract = normalize_video_input_contract(
         {
@@ -427,6 +450,119 @@ def test_crosswalk_and_pedestrian_visibility_are_separate_video_facts():
     assert contract["fact_patch"]["pedestrian_visible"] is False
 
 
+def test_vehicle_collision_demotes_pedestrian_presence_to_context():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "collision_partner_type",
+                        "value": "vehicle",
+                        "confidence": 0.91,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_7.jpg", "frame_8.jpg"],
+                    },
+                    {
+                        "field": "crosswalk_nearby",
+                        "value": True,
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_6.jpg", "frame_7.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": True,
+                        "confidence": 0.93,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_5.jpg", "frame_6.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_signal",
+                        "value": "red",
+                        "confidence": 0.88,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_5.jpg", "frame_6.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"]["collision_partner_type"] == "vehicle"
+    assert contract["fact_patch"]["crosswalk_nearby"] is True
+    assert "pedestrian_visible" not in contract["fact_patch"]
+    assert "pedestrian_signal" not in contract["fact_patch"]
+    reasons = {item["field"]: item["reason"] for item in contract["uncertain_observations"]}
+    assert reasons["pedestrian_visible"] == "pedestrian_presence_is_context_when_collision_partner_is_vehicle"
+    assert reasons["pedestrian_signal"] == "pedestrian_signal_is_context_when_collision_partner_is_vehicle"
+
+
+def test_pedestrian_collision_partner_requires_direct_contact_evidence():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "collision_partner_type",
+                        "value": "pedestrian",
+                        "confidence": 0.93,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_5.jpg", "frame_6.jpg"],
+                    },
+                    {
+                        "field": "crosswalk_nearby",
+                        "value": True,
+                        "confidence": 0.91,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_5.jpg", "frame_6.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert "collision_partner_type" not in contract["fact_patch"]
+    assert contract["fact_patch"]["crosswalk_nearby"] is True
+    assert contract["uncertain_observations"][0]["field"] == "collision_partner_type"
+    assert contract["uncertain_observations"][0]["reason"] == "pedestrian_collision_partner_requires_direct_contact_evidence"
+
+
+def test_direct_collision_partner_vehicle_corrects_broader_partner_type():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "collision_partner_type",
+                        "value": "pedestrian",
+                        "confidence": 0.93,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_4.jpg", "frame_5.jpg"],
+                    },
+                    {
+                        "field": "direct_collision_partner_type",
+                        "value": "truck",
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_7.jpg", "frame_8.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": True,
+                        "confidence": 0.92,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_4.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"]["direct_collision_partner_type"] == "vehicle"
+    assert contract["fact_patch"]["collision_partner_type"] == "vehicle"
+    assert "pedestrian_visible" not in contract["fact_patch"]
+
+
 def test_right_turn_front_vehicle_and_signal_visibility_video_facts():
     contract = normalize_video_input_contract(
         {
@@ -490,7 +626,7 @@ def test_right_turn_front_vehicle_and_signal_visibility_video_facts():
     assert contract["fact_patch"]["front_vehicle_stopped"] is True
     assert contract["fact_patch"]["crosswalk_nearby"] is True
     assert contract["fact_patch"]["ego_turn_direction"] == "right"
-    assert contract["fact_patch"]["pedestrian_signal"] == "red"
+    assert "pedestrian_signal" not in contract["fact_patch"]
     assert contract["fact_patch"]["opponent_signal_visible"] is False
     assert contract["fact_patch"]["signal_transition"] == "yellow_to_red"
 
@@ -616,7 +752,7 @@ def test_analysis_mode_does_not_become_scenario_text():
         analysis_mode="rear-end-focused",
     )
 
-    assert normalized["analysis_mode"] == "rear-end-focused"
+    assert normalized["analysis_mode"] == "quick_summary"
     assert "rear-end-focused" not in normalized["merged_text"]
 
 
