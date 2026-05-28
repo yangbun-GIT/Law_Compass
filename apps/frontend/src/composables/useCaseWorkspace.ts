@@ -27,6 +27,9 @@ type GuidedQuestion = {
 
 type GuidedQuestionType =
     | "rear_end"
+    | "ego_hit_front"
+    | "hit_by_rear"
+    | "rear_end_unknown"
     | "object_collision"
     | "pedestrian"
     | "lane_change"
@@ -34,7 +37,6 @@ type GuidedQuestionType =
     | "bicycle"
     | "single_vehicle"
     | "unknown";
-
 const DEFAULT_KEYWORDS = ["블랙박스", "과실비율", "교통사고", "보험처리"];
 const RUNNING_JOB_STATUSES = ["queued", "running", "retrying", "processing", "analyzing"];
 const FINISHED_JOB_STATUSES = ["completed", "succeeded", "success", "done", "finished"];
@@ -71,6 +73,74 @@ export const guidedAnalysisModes = [
     { value: "legal_precedent_focused", label: "법률/판례 근거 중심", hint: "관련 법규, KNIA 해설, 판례 부족 여부를 함께 봅니다." },
     { value: "insurance_response_focused", label: "보험 대응 중심", hint: "보험사에 말할 핵심 문장과 챙길 자료를 정리합니다." },
     { value: "full_deep_research", label: "전체 심층 리서치 분석", hint: "사실, 영상, KNIA, 법률, 보험 대응을 모두 펼쳐 봅니다." },
+];
+
+export const objectCollisionGuidedQuestions: GuidedQuestion[] = [
+    {
+        question_id: "object.collision_object_type",
+        title: "충돌 대상",
+        plain_question: "부딪힌 대상은 무엇이었나요?",
+        why_it_matters: "상대가 주차 차량인지, 고정 시설물인지, 떨어진 물체인지에 따라 과실 산정 기준이 달라집니다.",
+        choices: [
+            { value: "parked_vehicle", label: "주차 또는 정차된 차량" },
+            { value: "fixed_object", label: "가드레일, 전봇대, 화단, 구조물 같은 고정 시설물" },
+            { value: "fallen_or_movable_object", label: "낙하물, 적재물, 이동 가능한 물체" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "collision_object_type",
+    },
+    {
+        question_id: "object.abnormal_parking",
+        title: "비정상 주차 또는 정차 여부",
+        plain_question: "상대 차량이나 물체가 정상적으로 예상하기 어려운 위치에 있었나요?",
+        why_it_matters: "화단, 교량 아래, 통행 공간, 갓길, 어두운 곳에 비정상적으로 있었는지는 상대 과실을 높이는 핵심 요소입니다.",
+        choices: [
+            { value: "yes", label: "예, 정상 위치가 아니었습니다" },
+            { value: "no", label: "아니요, 정상적으로 보이는 위치였습니다" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "abnormal_parking",
+    },
+    {
+        question_id: "object.visibility_issue",
+        title: "시야와 등화 상태",
+        plain_question: "사고 당시 충돌 대상을 미리 발견하기 어려웠나요?",
+        why_it_matters: "야간 스텔스 상태, 미등·비상등 미점등, 교량 아래 조도 불량은 내 차의 회피 가능성을 낮추고 상대 과실을 높일 수 있습니다.",
+        choices: [
+            { value: "stealth_no_lights", label: "야간에 미등·비상등 없이 스텔스 상태였습니다" },
+            { value: "hard_to_see", label: "교량 아래, 어두운 도로 등으로 보기 어려웠습니다" },
+            { value: "visible", label: "충돌 대상은 비교적 잘 보였습니다" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "visibility_issue",
+    },
+    {
+        question_id: "object.road_environment",
+        title: "도로 환경",
+        plain_question: "사고 장소는 어떤 환경이었나요?",
+        why_it_matters: "교량 아래, 화단 주변, 갓길, 어두운 도로 등은 통상적인 운전자가 장애물을 발견하기 어려운지 판단하는 데 중요합니다.",
+        choices: [
+            { value: "under_bridge", label: "교량 아래 또는 구조물 아래" },
+            { value: "flowerbed_or_median", label: "화단, 중앙분리대, 구조물 주변" },
+            { value: "roadside_or_shoulder", label: "도로 가장자리 또는 갓길" },
+            { value: "normal_road", label: "일반 도로" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "road_environment",
+    },
+    {
+        question_id: "object.avoidance_time",
+        title: "회피 가능성",
+        plain_question: "충돌 직전에 피하거나 멈출 시간이 있었나요?",
+        why_it_matters: "발견 즉시 충돌했거나 피할 시간이 거의 없었다면 내 차 과실을 낮추는 중요한 근거가 됩니다.",
+        choices: [
+            { value: "avoidable", label: "피하거나 멈출 시간이 있었습니다" },
+            { value: "limited", label: "발견했지만 피하기 어려웠습니다" },
+            { value: "nearly_impossible", label: "거의 발견 즉시 충돌했습니다" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "avoidance_time",
+    },
 ];
 
 export const rearEndGuidedQuestions: GuidedQuestion[] = [
@@ -114,71 +184,133 @@ export const rearEndGuidedQuestions: GuidedQuestion[] = [
     },
 ];
 
-export const objectCollisionGuidedQuestions: GuidedQuestion[] = [
+function normalizeAccidentDescriptionText(input: string) {
+    return String(input || "")
+        .replaceAll("눚은밤", "늦은 밤")
+        .replaceAll("늦은밤", "늦은 밤")
+        .replaceAll("부딛", "부딪")
+        .replaceAll("부딧", "부딪")
+        .replaceAll("상태였가", "상태였다")
+        .replaceAll("정차중", "정차 중")
+        .replaceAll("신호대기중", "신호대기 중")
+        .toLowerCase()
+        .trim();
+}
+
+function isStealthParkedVehicleCollision(facts: AccidentFacts, descriptionText: string) {
+    const description = normalizeAccidentDescriptionText(descriptionText);
+    const factsText = JSON.stringify(facts || {}).toLowerCase();
+    const haystack = `${description} ${factsText}`;
+
+    const hasVehicle = ["트럭", "화물차", "차량", "상대차", "상대 차량", "앞차"].some((keyword) =>
+        haystack.includes(keyword)
+    );
+    const hasParkedOrStopped = ["주차", "정차", "방치", "세워", "서 있", "서있", "화단", "갓길"].some((keyword) =>
+        haystack.includes(keyword)
+    );
+    const hasStealthOrLowVisibility = [
+        "스텔스",
+        "무등화",
+        "등화 없이",
+        "미등",
+        "비상등",
+        "차폭등",
+        "불빛",
+        "어두",
+        "야간",
+        "밤",
+        "새벽",
+        "교량 밑",
+        "교량밑",
+        "교량 아래",
+    ].some((keyword) => haystack.includes(keyword));
+    const hasImpact = ["부딪", "충돌", "들이받", "들이박", "박", "파손", "폐차"].some((keyword) =>
+        haystack.includes(keyword)
+    );
+
+    return hasVehicle && hasParkedOrStopped && hasStealthOrLowVisibility && hasImpact;
+}
+
+export const stealthParkedVehicleGuidedQuestions: GuidedQuestion[] = [
     {
-        question_id: "object_collision.parked_vehicle_or_object",
+        question_id: "stealth_parked_vehicle.target",
         title: "충돌 대상",
-        plain_question: "부딪힌 대상이 차량이었나요, 시설물이나 물체였나요?",
-        why_it_matters: "주차된 차량과 시설물 충돌은 확인해야 할 법적 쟁점과 보험 처리 기준이 다를 수 있습니다.",
+        plain_question: "충돌한 대상은 주차 또는 정차된 차량이었나요?",
+        why_it_matters: "야간에 정차·방치된 차량과의 충돌은 단순 시설물 충돌과 과실 판단 축이 다릅니다.",
         choices: [
-            { value: "parked_vehicle", label: "주차된 차량" },
-            { value: "fixed_object", label: "기둥·벽·화단·가드레일 같은 시설물" },
-            { value: "fallen_or_movable_object", label: "낙하물이나 움직일 수 있는 물체" },
+            { value: "parked_truck", label: "주차·정차된 트럭 또는 화물차" },
+            { value: "parked_vehicle", label: "주차·정차된 일반 차량" },
+            { value: "fixed_object", label: "화단·기둥·벽 같은 시설물" },
             { value: "unknown", label: "잘 모르겠어요" },
         ],
-        fact_key: "collision_object_type",
+        fact_key: "stealth_collision_target",
     },
     {
-        question_id: "object_collision.illegal_or_abnormal_parking",
-        title: "주차 위치",
-        plain_question: "상대 차량이나 물체가 통행에 방해되는 위치에 있었나요?",
-        why_it_matters: "불법 주정차, 도로 침범, 교량 밑 어두운 곳의 비정상 주차는 상대방 책임 또는 과실 감경 요소가 될 수 있습니다.",
+        question_id: "stealth_parked_vehicle.position",
+        title: "상대 차량 위치",
+        plain_question: "상대 차량은 정상 주차구역이 아닌 위험한 위치에 있었나요?",
+        why_it_matters: "화단, 교량 아래, 통행 공간 침범, 갓길 방치 여부는 상대 과실을 올리는 핵심 요소입니다.",
         choices: [
-            { value: "yes", label: "예, 통행에 방해되는 위치였습니다" },
-            { value: "no", label: "아니오, 정상 위치로 보입니다" },
+            { value: "under_bridge_flowerbed", label: "교량 아래 화단 또는 구조물 부근" },
+            { value: "traffic_space", label: "통행 공간에 걸쳐 있었습니다" },
+            { value: "roadside_or_shoulder", label: "도로 가장자리 또는 갓길" },
+            { value: "normal_parking", label: "정상 주차구역" },
             { value: "unknown", label: "잘 모르겠어요" },
         ],
-        fact_key: "abnormal_parking",
+        fact_key: "stealth_parked_position",
     },
     {
-        question_id: "object_collision.lights_or_visibility",
-        title: "시야와 등화",
-        plain_question: "상대 차량이 어두운 곳에 등화 없이 있거나 잘 보이지 않았나요?",
-        why_it_matters: "야간 무등화, 스텔스 주차, 시야장애는 운전자 과실을 줄이거나 상대방 책임을 검토할 수 있는 핵심 요소입니다.",
+        question_id: "stealth_parked_vehicle.lighting",
+        title: "등화와 식별 가능성",
+        plain_question: "상대 차량의 미등, 비상등, 차폭등 등 식별 조치가 있었나요?",
+        why_it_matters: "야간 스텔스 상태는 후속 차량의 발견 가능성을 낮추고 상대 과실을 크게 올릴 수 있습니다.",
         choices: [
-            { value: "stealth_no_lights", label: "어두운 곳에 등화 없이 있었습니다" },
-            { value: "hard_to_see", label: "잘 보이지 않았습니다" },
-            { value: "visible", label: "충분히 보였습니다" },
+            { value: "unlit_stealth", label: "등화 없이 스텔스 상태였습니다" },
+            { value: "hazard_only", label: "비상등만 켜져 있었습니다" },
+            { value: "lights_on", label: "식별 가능한 등화가 있었습니다" },
             { value: "unknown", label: "잘 모르겠어요" },
         ],
-        fact_key: "visibility_issue",
+        fact_key: "stealth_lighting",
     },
     {
-        question_id: "object_collision.road_environment",
-        title: "도로 환경",
-        plain_question: "사고 장소가 교량 밑, 커브, 좁은 도로, 조명이 약한 곳이었나요?",
-        why_it_matters: "도로 구조와 조명 상태는 회피 가능성과 주의의무 판단에 영향을 줍니다.",
+        question_id: "stealth_parked_vehicle.visibility",
+        title: "시야와 조도",
+        plain_question: "사고 장소가 야간 또는 교량 아래처럼 발견하기 어려운 환경이었나요?",
+        why_it_matters: "교량 아래 조도 불량, 야간, 그림자 구간은 내 차량의 회피 가능성을 낮추는 요소입니다.",
         choices: [
-            { value: "under_bridge_dark", label: "교량 밑 또는 어두운 곳" },
-            { value: "curve_or_narrow", label: "커브길 또는 좁은 도로" },
-            { value: "parking_lot_or_private_road", label: "주차장 또는 사유지 통로" },
-            { value: "normal", label: "일반 도로" },
+            { value: "under_bridge_dark", label: "교량 아래라 매우 어두웠습니다" },
+            { value: "night_dark", label: "야간이고 주변이 어두웠습니다" },
+            { value: "night_lit", label: "야간이지만 조명이 있었습니다" },
+            { value: "daylight", label: "주간이었습니다" },
             { value: "unknown", label: "잘 모르겠어요" },
         ],
-        fact_key: "road_environment",
+        fact_key: "stealth_visibility",
     },
     {
-        question_id: "object_collision.speed_and_avoidance",
+        question_id: "stealth_parked_vehicle.impairment",
+        title: "상대 음주운전",
+        plain_question: "상대 차량이 음주운전으로 인해 비정상 정차 또는 방치된 상태였나요?",
+        why_it_matters: "음주운전 자체는 민사 100:0 자동 확정은 아니지만, 위험 상태를 만든 강한 가산 요소입니다.",
+        choices: [
+            { value: "drunk_confirmed", label: "음주운전이 확인되었습니다" },
+            { value: "drunk_suspected", label: "음주운전이 의심됩니다" },
+            { value: "not_drunk", label: "음주운전은 아닙니다" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "opponent_drunk_driving",
+    },
+    {
+        question_id: "stealth_parked_vehicle.avoidability",
         title: "회피 가능성",
-        plain_question: "사고 직전 속도를 줄이거나 피할 시간이 있었나요?",
-        why_it_matters: "운전자가 충분히 피할 수 있었는지, 상대 차량이 너무 발견하기 어려웠는지가 과실 판단에 중요합니다.",
+        plain_question: "상대 차량을 발견한 뒤 피하거나 감속할 시간이 있었나요?",
+        why_it_matters: "발견 즉시 충돌한 수준이면 내 차량 과실을 낮추는 핵심 근거가 됩니다.",
         choices: [
-            { value: "no_time", label: "발견하자마자 바로 충돌했습니다" },
-            { value: "some_time", label: "조금은 피할 시간이 있었습니다" },
-            { value: "enough_time", label: "충분히 피할 수 있었던 상황일 수 있습니다" },
+            { value: "nearly_impossible", label: "발견하자마자 거의 바로 충돌했습니다" },
+            { value: "limited", label: "조금 보였지만 피하기 어려웠습니다" },
+            { value: "avoidable", label: "피할 시간이 어느 정도 있었습니다" },
             { value: "unknown", label: "잘 모르겠어요" },
         ],
-        fact_key: "avoidance_time",
+        fact_key: "stealth_avoidability",
     },
 ];
 
@@ -411,17 +543,6 @@ export const unknownGuidedQuestions: GuidedQuestion[] = [
     },
 ];
 
-const GUIDED_QUESTION_SETS: Record<GuidedQuestionType, GuidedQuestion[]> = {
-    rear_end: rearEndGuidedQuestions,
-    object_collision: objectCollisionGuidedQuestions,
-    pedestrian: pedestrianGuidedQuestions,
-    lane_change: laneChangeGuidedQuestions,
-    intersection: intersectionGuidedQuestions,
-    bicycle: bicycleGuidedQuestions,
-    single_vehicle: singleVehicleGuidedQuestions,
-    unknown: unknownGuidedQuestions,
-};
-
 export const rearHitByOtherGuidedQuestions = rearEndGuidedQuestions;
 export const egoHitFrontVehicleGuidedQuestions = [
     {
@@ -488,6 +609,35 @@ export const egoHitFrontVehicleGuidedQuestions = [
         fact_key: "rear_end_avoidance_time",
     },
 ];
+
+const rearEndUnknownGuidedQuestions: GuidedQuestion[] = [
+    {
+        question_id: "rear_end.role",
+        title: "추돌 방향",
+        plain_question: "이번 사고는 어느 쪽에 더 가까운가요?",
+        why_it_matters: "내가 앞차를 들이받은 사고인지, 정차 중인 내 차를 뒤차가 들이받은 사고인지에 따라 질문과 과실 판단이 달라집니다.",
+        choices: [
+            { value: "ego_hit_front", label: "내 차가 앞차를 들이받았습니다" },
+            { value: "hit_by_rear", label: "내 차를 뒤차가 들이받았습니다" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "rear_end_role",
+    },
+];
+
+const GUIDED_QUESTION_SETS: Record<GuidedQuestionType, GuidedQuestion[]> = {
+    rear_end: rearEndGuidedQuestions,
+    ego_hit_front: egoHitFrontVehicleGuidedQuestions,
+    hit_by_rear: rearHitByOtherGuidedQuestions,
+    rear_end_unknown: rearEndUnknownGuidedQuestions,
+    object_collision: objectCollisionGuidedQuestions,
+    pedestrian: pedestrianGuidedQuestions,
+    lane_change: laneChangeGuidedQuestions,
+    intersection: intersectionGuidedQuestions,
+    bicycle: bicycleGuidedQuestions,
+    single_vehicle: singleVehicleGuidedQuestions,
+    unknown: unknownGuidedQuestions,
+};
 
 export const caseKeywordPool = [
     "후미추돌",
@@ -588,54 +738,101 @@ function inferRearEndRole(facts: AccidentFacts, descriptionText: string) {
     return "unknown";
 }
 
-function inferGuidedQuestionType(facts: AccidentFacts, descriptionText: string) {
+function normalizeAccidentDescriptionForQuestionType(descriptionText: string) {
+    return String(descriptionText || "")
+        .toLowerCase()
+        .replaceAll("눚은밤", "늦은 밤")
+        .replaceAll("늦은밤", "늦은 밤")
+        .replaceAll("부딛", "부딪")
+        .replaceAll("부딧", "부딪")
+        .replaceAll("정차중", "정차 중")
+        .replaceAll("신호대기중", "신호대기 중");
+}
+
+function inferGuidedQuestionType(facts: AccidentFacts, descriptionText: string): GuidedQuestionType {
     const accidentType = String((facts as any).accident_type || "").toLowerCase();
     const partyType = String((facts as any).accident_party_type || "").toLowerCase();
-    const description = String(descriptionText || "").toLowerCase();
+    const collisionPartnerType = String((facts as any).collision_partner_type || "").toLowerCase();
+    const description = normalizeAccidentDescriptionForQuestionType(descriptionText);
 
-    const objectKeywords = [
-        "화단",
-        "교량",
-        "교각",
-        "기둥",
-        "벽",
-        "가드레일",
-        "시설물",
-        "물체",
-        "장애물",
-        "주차",
-        "정차",
+    const stealthObjectKeywords = [
         "스텔스",
         "무등화",
-        "어두운",
-        "폐차",
+        "미등",
+        "비상등",
+        "차폭등",
+        "교량 밑",
+        "교량밑",
+        "교량 아래",
+        "화단",
+        "주차",
+        "정차",
         "트럭",
+        "화물차",
+        "시설물",
+        "가드레일",
+        "전봇대",
+        "중앙분리대",
+        "낙하물",
+        "적재물",
     ];
 
+    const hasObjectCollisionText =
+        stealthObjectKeywords.some((keyword) => description.includes(keyword)) &&
+        ["부딪", "충돌", "박", "들이받", "들이박", "파손", "폐차"].some((keyword) => description.includes(keyword));
+
+    // 스텔스 주차 트럭, 화단 주차 차량, 시설물 충돌은 후미추돌보다 먼저 object_collision으로 보냅니다.
     if (
-        accidentType.includes("object") ||
-        accidentType.includes("single_vehicle") ||
-        accidentType.includes("parked") ||
-        partyType.includes("object") ||
-        partyType.includes("single") ||
-        objectKeywords.some((keyword) => description.includes(keyword))
+        accidentType.includes("stealth_illegal_parked_vehicle") ||
+        accidentType.includes("parked_vehicle_collision") ||
+        accidentType.includes("object_collision") ||
+        partyType.includes("car_vs_parked_vehicle") ||
+        partyType.includes("car_vs_object") ||
+        collisionPartnerType === "object" ||
+        hasObjectCollisionText
     ) {
         return "object_collision";
     }
 
     if (
         accidentType.includes("pedestrian") ||
-        partyType.includes("person") ||
+        partyType.includes("car_vs_person") ||
+        collisionPartnerType === "pedestrian" ||
         description.includes("보행자") ||
+        description.includes("사람") ||
         description.includes("횡단보도")
     ) {
         return "pedestrian";
     }
 
     if (
+        accidentType.includes("bicycle") ||
+        partyType.includes("car_vs_bicycle") ||
+        collisionPartnerType === "bicycle" ||
+        description.includes("자전거")
+    ) {
+        return "bicycle";
+    }
+
+    if (
+        accidentType.includes("single_vehicle") ||
+        partyType.includes("single_vehicle") ||
+        description.includes("단독사고") ||
+        description.includes("혼자") ||
+        description.includes("전복") ||
+        description.includes("도로 이탈") ||
+        description.includes("미끄러")
+    ) {
+        return "single_vehicle";
+    }
+
+    if (
         accidentType.includes("lane_change") ||
         description.includes("차선변경") ||
-        description.includes("끼어들")
+        description.includes("진로변경") ||
+        description.includes("끼어들") ||
+        description.includes("방향지시등") ||
+        description.includes("깜빡이")
     ) {
         return "lane_change";
     }
@@ -643,7 +840,9 @@ function inferGuidedQuestionType(facts: AccidentFacts, descriptionText: string) 
     if (
         accidentType.includes("intersection") ||
         description.includes("교차로") ||
-        description.includes("신호위반")
+        description.includes("신호위반") ||
+        description.includes("좌회전") ||
+        description.includes("우회전")
     ) {
         return "intersection";
     }
@@ -672,38 +871,11 @@ function inferGuidedQuestionType(facts: AccidentFacts, descriptionText: string) 
     return "unknown";
 }
 
-function getFallbackGuidedQuestions(facts: AccidentFacts, descriptionText: string) {
+
+function getFallbackGuidedQuestions(facts: AccidentFacts, descriptionText: string): GuidedQuestion[] {
     const type = inferGuidedQuestionType(facts, descriptionText);
-
-    if (type === "object_collision") return objectCollisionGuidedQuestions;
-    if (type === "pedestrian") return pedestrianGuidedQuestions;
-    if (type === "lane_change") return laneChangeGuidedQuestions;
-    if (type === "intersection") return intersectionGuidedQuestions;
-
-    if (type === "ego_hit_front") return egoHitFrontVehicleGuidedQuestions;
-    if (type === "hit_by_rear") return rearHitByOtherGuidedQuestions;
-
-    if (type === "rear_end_unknown") {
-        return [
-            {
-                question_id: "rear_end.role",
-                title: "추돌 방향",
-                plain_question: "이번 사고는 어느 쪽에 더 가까운가요?",
-                why_it_matters: "내가 앞차를 들이받은 사고인지, 정차 중인 내 차를 뒤차가 들이받은 사고인지에 따라 질문과 과실 판단이 달라집니다.",
-                choices: [
-                    { value: "ego_hit_front", label: "내 차가 앞차를 들이받았습니다" },
-                    { value: "hit_by_rear", label: "내 차를 뒤차가 들이받았습니다" },
-                    { value: "unknown", label: "잘 모르겠어요" },
-                ],
-                fact_key: "rear_end_role",
-            },
-        ];
-    }
-
-    return unknownGuidedQuestions;
+    return GUIDED_QUESTION_SETS[type] || unknownGuidedQuestions;
 }
-
-
 
 function normalizeProgressStepLabel(step: any) {
     const key = String(step?.key ?? step?.stage ?? "").toLowerCase();
@@ -1401,6 +1573,61 @@ export function useCaseWorkspace(caseId: string) {
         const factKey = question.fact_key || question.knia_factor_key || String(question.question_id || "").split(".").pop();
         const nextFacts: AccidentFacts = { ...facts.value };
 
+        function markStealthParkedVehicleCollision() {
+            nextFacts.accident_party_type = "car_vs_parked_vehicle";
+            nextFacts.accident_type = "stealth_illegal_parked_vehicle_collision";
+
+            (nextFacts as any).accident_subtype = "night_unlit_illegal_parked_vehicle_collision";
+            (nextFacts as any).is_parked_vehicle_collision = true;
+            (nextFacts as any).is_stealth_parked_vehicle_collision = true;
+            (nextFacts as any).requires_high_opponent_fault_review = true;
+
+            const lighting = String((nextFacts as any).parked_vehicle_lighting || "");
+            const visibility = String((nextFacts as any).visibility_condition || "");
+            const position = String((nextFacts as any).parked_vehicle_position || "");
+            const impairment = String((nextFacts as any).opponent_impairment || "");
+            const avoidability = String((nextFacts as any).avoidability || "");
+
+            const isUnlit =
+                lighting === "unlit_stealth" ||
+                lighting === "no_lights" ||
+                lighting === "unknown_but_dark";
+
+            const isDark =
+                visibility === "night_dark" ||
+                visibility === "under_bridge_dark" ||
+                visibility === "low_visibility";
+
+            const isAbnormalPosition =
+                position === "traffic_space" ||
+                position === "flowerbed_or_median" ||
+                position === "under_bridge" ||
+                position === "roadside";
+
+            const isDrunk =
+                impairment === "drunk_driving_confirmed" ||
+                impairment === "suspected_drunk";
+
+            const isHardToAvoid =
+                avoidability === "nearly_impossible" ||
+                avoidability === "limited";
+
+            (nextFacts as any).night_no_lights_or_low_visibility = isUnlit || isDark;
+            (nextFacts as any).abnormal_parking = isAbnormalPosition;
+            (nextFacts as any).opponent_drunk_or_abnormal_operation = isDrunk;
+            (nextFacts as any).low_avoidability = isHardToAvoid;
+
+            if (isUnlit && isDark && isAbnormalPosition && isDrunk && isHardToAvoid) {
+                (nextFacts as any).fault_ratio_claim_target = "opponent_100_ego_0_possible";
+                (nextFacts as any).fault_ratio_realistic_target = "opponent_90_ego_10";
+                (nextFacts as any).fault_ratio_minimum_target = "opponent_80_ego_20";
+            } else if ((isUnlit && isDark && isAbnormalPosition) || (isDrunk && isAbnormalPosition)) {
+                (nextFacts as any).fault_ratio_claim_target = "opponent_90_ego_10";
+                (nextFacts as any).fault_ratio_realistic_target = "opponent_80_ego_20";
+                (nextFacts as any).fault_ratio_minimum_target = "opponent_70_ego_30";
+            }
+        }
+
         if (factKey === "stopped") {
             nextFacts.stopped = value === "yes" ? true : value === "no" ? false : undefined;
         } else if (factKey === "sudden_brake_without_reason" || factKey === "sudden_brake") {
@@ -1421,15 +1648,84 @@ export function useCaseWorkspace(caseId: string) {
                 nextFacts.accident_party_type = "car_vs_object";
                 nextFacts.accident_type = "object_collision";
             }
+        } else if (factKey === "collision_target") {
+            (nextFacts as any).collision_target = value;
+
+            if (value === "parked_vehicle" || value === "truck") {
+                markStealthParkedVehicleCollision();
+            } else if (value === "facility" || value === "fixed_object") {
+                nextFacts.accident_party_type = "car_vs_object";
+                nextFacts.accident_type = "object_collision";
+            }
+        } else if (factKey === "parked_vehicle_position") {
+            (nextFacts as any).parked_vehicle_position = value;
+
+            if (
+                value === "traffic_space" ||
+                value === "flowerbed_or_median" ||
+                value === "under_bridge" ||
+                value === "roadside"
+            ) {
+                markStealthParkedVehicleCollision();
+            }
+        } else if (factKey === "parked_vehicle_lighting") {
+            (nextFacts as any).parked_vehicle_lighting = value;
+
+            if (
+                value === "unlit_stealth" ||
+                value === "no_lights" ||
+                value === "unknown_but_dark"
+            ) {
+                markStealthParkedVehicleCollision();
+            }
+        } else if (factKey === "visibility_condition") {
+            (nextFacts as any).visibility_condition = value;
+
+            if (
+                value === "night_dark" ||
+                value === "under_bridge_dark" ||
+                value === "low_visibility"
+            ) {
+                markStealthParkedVehicleCollision();
+            }
+        } else if (factKey === "opponent_impairment") {
+            (nextFacts as any).opponent_impairment = value;
+
+            if (value === "drunk_driving_confirmed" || value === "suspected_drunk") {
+                markStealthParkedVehicleCollision();
+            }
+        } else if (factKey === "avoidability") {
+            (nextFacts as any).avoidability = value;
+
+            if (value === "limited" || value === "nearly_impossible") {
+                markStealthParkedVehicleCollision();
+            }
         } else if (factKey === "abnormal_parking") {
             (nextFacts as any).abnormal_parking = value === "yes" ? true : value === "no" ? false : undefined;
+
+            if (value === "yes") {
+                markStealthParkedVehicleCollision();
+            }
         } else if (factKey === "visibility_issue") {
             (nextFacts as any).visibility_issue = value;
             (nextFacts as any).night_no_lights_or_low_visibility = value === "stealth_no_lights" || value === "hard_to_see";
+
+            if (value === "stealth_no_lights" || value === "hard_to_see") {
+                markStealthParkedVehicleCollision();
+            }
         } else if (factKey === "road_environment") {
             (nextFacts as any).road_environment = value;
+
+            if (value === "under_bridge" || value === "flowerbed_or_median" || value === "dark_road") {
+                markStealthParkedVehicleCollision();
+            }
         } else if (factKey === "avoidance_time") {
             (nextFacts as any).avoidance_time = value;
+
+            if (value === "limited" || value === "nearly_impossible") {
+                (nextFacts as any).avoidability = value;
+                markStealthParkedVehicleCollision();
+            }
         } else if (factKey === "crosswalk_context") {
             (nextFacts as any).crosswalk_context = value;
             if (value === "crosswalk" || value === "near_crosswalk") {
@@ -1476,8 +1772,7 @@ export function useCaseWorkspace(caseId: string) {
                 nextFacts.accident_party_type = "car_vs_bicycle";
                 nextFacts.accident_type = "bicycle_collision";
             } else if (value === "parked_vehicle") {
-                nextFacts.accident_party_type = "car_vs_parked_vehicle";
-                nextFacts.accident_type = "parked_vehicle_collision";
+                markStealthParkedVehicleCollision();
             } else if (value === "object") {
                 nextFacts.accident_party_type = "car_vs_object";
                 nextFacts.accident_type = "object_collision";
@@ -1495,10 +1790,16 @@ export function useCaseWorkspace(caseId: string) {
                 nextFacts.accident_type = "pedestrian_crosswalk_accident";
             } else if (value === "parking_or_roadside") {
                 nextFacts.accident_type = "object_collision";
+            } else if (value === "under_bridge" || value === "flowerbed_or_median") {
+                markStealthParkedVehicleCollision();
             }
         } else if (factKey === "visibility_or_weather") {
             (nextFacts as any).visibility_or_weather = value;
             (nextFacts as any).night_no_lights_or_low_visibility = value === "night_or_dark";
+
+            if (value === "night_or_dark") {
+                markStealthParkedVehicleCollision();
+            }
         } else if (factKey === "rear_end_role") {
             (nextFacts as any).rear_end_role = value;
 
@@ -1536,6 +1837,8 @@ export function useCaseWorkspace(caseId: string) {
             } else if (value === "pedestrian") {
                 nextFacts.accident_type = "pedestrian_crosswalk_accident";
                 nextFacts.accident_party_type = "car_vs_person";
+            } else if (value === "parked_vehicle" || value === "stealth_parked_vehicle") {
+                markStealthParkedVehicleCollision();
             }
         } else if (factKey === "front_vehicle_status") {
             (nextFacts as any).front_vehicle_status = value;
