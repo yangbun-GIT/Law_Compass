@@ -24,6 +24,7 @@ export type GuidedQuestionType =
     | "intersection"
     | "bicycle"
     | "single_vehicle"
+    | "car_vs_car_subtype"
     | "unknown";
 
 export const DEFAULT_KEYWORDS = ["블랙박스", "과실비율", "교통사고", "보험처리"];
@@ -46,9 +47,39 @@ export const DEFAULT_PROGRESS_STEPS = [
 export const guidedAccidentTypeOptions = [
     {
         label: "차대차 사고",
-        scenario_type: "general_vehicle_collision",
+        scenario_type: "",
         accident_party_type: "car_vs_car",
         hint: "자동차, 트럭, 버스, 주차·정차 차량 등 차량과 차량 사이의 사고",
+    },
+    {
+        label: "차대사람 사고",
+        scenario_type: "pedestrian_crosswalk_accident",
+        accident_party_type: "car_vs_person",
+        hint: "보행자, 횡단보도, 어린이보호구역 등이 관련된 경우",
+    },
+    {
+        label: "차대자전거 사고",
+        scenario_type: "bicycle_collision",
+        accident_party_type: "car_vs_bicycle",
+        hint: "자전거와 직접 충돌한 경우",
+    },
+    {
+        label: "차대오토바이 사고",
+        scenario_type: "motorcycle_collision",
+        accident_party_type: "car_vs_motorcycle",
+        hint: "오토바이, 이륜차, 원동기장치자전거와 직접 충돌한 경우",
+    },
+    {
+        label: "차대기물 사고",
+        scenario_type: "object_collision",
+        accident_party_type: "car_vs_object",
+        hint: "가드레일, 전봇대, 벽, 낙하물, 시설물과 충돌한 경우",
+    },
+    {
+        label: "차량단독 사고",
+        scenario_type: "single_vehicle_accident",
+        accident_party_type: "single_vehicle",
+        hint: "다른 차량·사람·자전거 없이 내 차량만 사고가 난 경우",
     },
     {
         label: "야간 스텔스 주차·정차 차량과 충돌",
@@ -81,34 +112,31 @@ export const guidedAccidentTypeOptions = [
         hint: "끼어들기, 진로변경, 방향지시등이 쟁점인 경우",
     },
     {
-        label: "차대사람 사고",
-        scenario_type: "pedestrian_crosswalk_accident",
-        accident_party_type: "car_vs_person",
-        hint: "보행자, 횡단보도, 어린이보호구역 등이 관련된 경우",
-    },
-    {
-        label: "차대자전거 사고",
-        scenario_type: "bicycle_collision",
-        accident_party_type: "car_vs_bicycle",
-        hint: "자전거와 직접 충돌한 경우",
-    },
-    {
-        label: "차대기물 사고",
-        scenario_type: "object_collision",
-        accident_party_type: "car_vs_object",
-        hint: "가드레일, 전봇대, 벽, 낙하물, 시설물과 충돌한 경우",
-    },
-    {
-        label: "차량단독 사고",
-        scenario_type: "single_vehicle_accident",
-        accident_party_type: "single_vehicle",
-        hint: "다른 차량·사람·자전거 없이 내 차량만 사고가 난 경우",
-    },
-    {
         label: "잘 모르겠어요",
         scenario_type: "",
         accident_party_type: "unknown",
         hint: "설명과 영상으로 가장 가능성 높은 KNIA 대분류를 추정합니다.",
+    },
+];
+
+export const carVsCarSubtypeGuidedQuestions: GuidedQuestion[] = [
+    {
+        question_id: "car_vs_car.subtype",
+        title: "세부 사고유형",
+        plain_question: "차대차 사고 중 어떤 유형에 가장 가깝나요?",
+        why_it_matters: "차대차 안에서도 후미추돌, 차선변경, 교차로, 주정차 차량 기준이 서로 다릅니다.",
+        choices: [
+            { value: "rear_end_collision", label: "후미추돌" },
+            { value: "ego_hit_front", label: "내가 앞차 추돌" },
+            { value: "lane_change_collision", label: "차선변경" },
+            { value: "intersection_collision", label: "교차로" },
+            { value: "intersection_signal_violation", label: "신호위반" },
+            { value: "centerline_obstacle_collision", label: "중앙선/장애물 회피" },
+            { value: "parking_or_stopped_vehicle_accident", label: "주차·정차 차량" },
+            { value: "stealth_illegal_parked_vehicle_collision", label: "야간 스텔스 정차 차량" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "car_vs_car_scenario_type",
     },
 ];
 
@@ -638,6 +666,7 @@ export const GUIDED_QUESTION_SETS: Record<GuidedQuestionType, GuidedQuestion[]> 
     intersection: intersectionGuidedQuestions,
     bicycle: bicycleGuidedQuestions,
     single_vehicle: singleVehicleGuidedQuestions,
+    car_vs_car_subtype: carVsCarSubtypeGuidedQuestions,
     unknown: unknownGuidedQuestions,
 };
 

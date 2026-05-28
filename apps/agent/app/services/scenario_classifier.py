@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from app.services.knia.party_guard import canonicalize_party_type, filter_tags_by_party
 from app.services.knia.taxonomy import infer_party_type_from_text, party_label
 
 
@@ -13,11 +14,14 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
     scenario_type = "general_collision"
     tags: set[str] = set()
     accident_type = str(facts.get("accident_type") or "").strip().lower()
-    accident_party_type = infer_party_type_from_text(haystack, facts)
+    fixed_party_type = canonicalize_party_type(facts.get("knia_major_party_type") or facts.get("accident_party_type"))
+    accident_party_type = fixed_party_type if fixed_party_type != "unknown" else infer_party_type_from_text(haystack, facts)
 
     collision_partner_type = str(facts.get("collision_partner_type") or "").strip().lower()
     if accident_party_type == "unknown" and collision_partner_type == "vehicle":
         accident_party_type = "car_vs_car"
+    if fixed_party_type != "unknown":
+        accident_party_type = fixed_party_type
     vehicle_collision_declared = accident_party_type == "car_vs_car" or collision_partner_type == "vehicle"
 
     pedestrian_context = (
@@ -109,15 +113,31 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["non_contact_trigger", "safe_distance", "rear_end", "bicycle"])
-    elif collision_partner_type in {"bicycle", "motorcycle"} or accident_type == "bicycle_collision" or ("자전거" in haystack and facts.get("non_contact_trigger") is not True):
+    elif (
+            fixed_party_type in {"unknown", "car_vs_bicycle"}
+            and (collision_partner_type == "bicycle" or accident_type == "bicycle_collision" or ("자전거" in haystack and facts.get("non_contact_trigger") is not True))
+    ):
         scenario_type = "bicycle_collision"
         accident_party_type = "car_vs_bicycle"
         tags.update(["bicycle", "vulnerable_road_user", "injury"])
-    elif collision_partner_type == "object" or accident_type == "object_collision" or any(w in haystack for w in ["가드레일", "전봇대", "중앙분리대", "시설물", "기물", "기둥", "벽"]):
+    elif (
+            fixed_party_type in {"unknown", "car_vs_motorcycle"}
+            and (collision_partner_type == "motorcycle" or accident_type == "motorcycle_collision" or any(w in haystack for w in ["오토바이", "이륜차", "원동기장치자전거"]))
+    ):
+        scenario_type = "motorcycle_collision"
+        accident_party_type = "car_vs_motorcycle"
+        tags.update(["motorcycle", "two_wheeler", "vulnerable_road_user"])
+    elif (
+            fixed_party_type in {"unknown", "car_vs_object"}
+            and (collision_partner_type == "object" or accident_type == "object_collision" or any(w in haystack for w in ["가드레일", "전봇대", "중앙분리대", "시설물", "기물", "기둥", "벽"]))
+    ):
         scenario_type = "object_collision"
         accident_party_type = "car_vs_object"
         tags.update(["object", "property_damage", "single_vehicle"])
-    elif accident_type == "single_vehicle_accident" or any(w in haystack for w in ["혼자", "단독", "전복", "미끄러", "빗길", "눈길", "도로 이탈"]):
+    elif (
+            fixed_party_type in {"unknown", "single_vehicle"}
+            and (accident_type == "single_vehicle_accident" or any(w in haystack for w in ["혼자", "단독", "전복", "미끄러", "빗길", "눈길", "도로 이탈"]))
+    ):
         scenario_type = "single_vehicle_accident"
         accident_party_type = "single_vehicle"
         tags.update(["single_vehicle", "road_condition"])
@@ -151,6 +171,10 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance", "stopped_vehicle"])
+
+    if fixed_party_type != "unknown":
+        accident_party_type = fixed_party_type
+        scenario_type = _coerce_scenario_to_party(scenario_type, accident_party_type, facts, haystack)
 
     if facts.get("injury"):
         tags.add("injury")
@@ -211,15 +235,19 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         tags.add("pedestrian")
     elif accident_party_type == "car_vs_bicycle":
         tags.add("bicycle")
+    elif accident_party_type == "car_vs_motorcycle":
+        tags.add("motorcycle")
+        tags.add("two_wheeler")
     elif accident_party_type == "car_vs_object":
         tags.add("object")
     elif accident_party_type == "single_vehicle":
         tags.add("single_vehicle")
 
+    filtered_tags = filter_tags_by_party(sorted(tags), accident_party_type, facts)
     confidence = 0.86 if scenario_type != "general_collision" and accident_party_type != "unknown" else 0.48
     return {
         "scenario_type": scenario_type,
-        "scenario_tags": sorted(tags),
+        "scenario_tags": filtered_tags,
         "accident_party_type": accident_party_type,
         "accident_party_label": party_label(accident_party_type),
         "confidence": confidence,
@@ -345,3 +373,49 @@ def _is_non_contact_trigger_context(facts: dict[str, Any], haystack: str) -> boo
         accident_party_type = "car_vs_car"
         tags.discard("bicycle")
         tags.discard("pedestrian")
+
+
+def _coerce_scenario_to_party(scenario_type: str, party_type: str, facts: dict[str, Any], haystack: str) -> str:
+    allowed = {
+        "car_vs_car": {
+            "general_collision",
+            "general_vehicle_collision",
+            "rear_end_collision",
+            "lane_change_collision",
+            "intersection_signal_violation",
+            "intersection_collision",
+            "centerline_obstacle_collision",
+            "parking_or_stopped_vehicle_accident",
+            "stealth_illegal_parked_vehicle_collision",
+            "drunk_or_unlicensed_accident",
+            "hit_and_run_risk",
+        },
+        "car_vs_person": {"general_collision", "pedestrian_crosswalk_accident", "school_zone_child_accident"},
+        "car_vs_bicycle": {"general_collision", "bicycle_collision"},
+        "car_vs_motorcycle": {"general_collision", "motorcycle_collision"},
+        "car_vs_object": {"general_collision", "object_collision"},
+        "single_vehicle": {"general_collision", "single_vehicle_accident"},
+    }.get(party_type, {"general_collision"})
+    if scenario_type in allowed:
+        return scenario_type
+    if party_type == "car_vs_car":
+        if facts.get("is_stealth_parked_vehicle_collision"):
+            return "stealth_illegal_parked_vehicle_collision"
+        if any(w in haystack for w in ["차선변경", "진로변경", "끼어들", "방향지시등", "깜빡이"]):
+            return "lane_change_collision"
+        if any(w in haystack for w in ["교차로", "신호위반", "적색", "빨간불", "좌회전", "직진"]):
+            return "intersection_signal_violation"
+        if any(w in haystack for w in ["중앙선", "황색 실선", "장애물"]):
+            return "centerline_obstacle_collision"
+        if any(w in haystack for w in ["주차", "정차 차량", "주정차", "스텔스", "무등화"]):
+            return "parking_or_stopped_vehicle_accident"
+        if any(w in haystack for w in ["후미", "후방", "뒤차", "뒷차", "앞차", "추돌"]):
+            return "rear_end_collision"
+        return "general_vehicle_collision"
+    return {
+        "car_vs_person": "pedestrian_crosswalk_accident",
+        "car_vs_bicycle": "bicycle_collision",
+        "car_vs_motorcycle": "motorcycle_collision",
+        "car_vs_object": "object_collision",
+        "single_vehicle": "single_vehicle_accident",
+    }.get(party_type, scenario_type)

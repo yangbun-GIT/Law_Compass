@@ -498,7 +498,7 @@ export function useCaseWorkspace(caseId: string) {
     }
 
     function selectAccidentType(option: { scenario_type: string; accident_party_type: string }) {
-        const scenarioType = option.scenario_type || facts.value.accident_type || "";
+        const scenarioType = option.scenario_type || "";
         const partyType = option.accident_party_type || facts.value.accident_party_type || "unknown";
 
         const nextFacts: AccidentFacts = {
