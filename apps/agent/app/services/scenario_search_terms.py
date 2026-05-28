@@ -14,6 +14,17 @@ SCENARIO_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "object_collision": ("시설물 충돌", "기물 파손", "가드레일", "전봇대", "중앙분리대", "대물배상"),
     "single_vehicle_accident": ("단독사고", "도로이탈", "전복", "빗길", "눈길", "운전자 부주의"),
     "parking_or_stopped_vehicle_accident": ("주차 차량", "정차 차량", "주정차", "개문 사고", "정차 중 접촉"),
+    "stealth_illegal_parked_vehicle_collision": (
+        "야간 스텔스 정차 차량",
+        "무등화 주차 차량",
+        "교량 아래 주차 차량",
+        "화단 비정상 주차",
+        "음주운전 후 정차",
+        "불법 주정차 야간 시인성",
+        "stopped vehicle without lights",
+        "unlit parked truck",
+        "night visibility avoidability",
+    ),
     "drunk_or_unlicensed_accident": ("음주운전", "무면허운전", "12대 중과실", "형사책임", "보험 면책"),
     "hit_and_run_risk": ("뺑소니", "도주", "사고 후 미조치", "신고의무", "구호조치"),
     "general_collision": ("교통사고", "과실비율", "보험접수", "블랙박스", "사고 경위"),
@@ -32,6 +43,19 @@ SCENARIO_SEARCH_TERMS["parking_or_stopped_vehicle_accident"] = (
     "avoidability analysis",
     "stopped vehicle",
     "parking vehicle",
+)
+
+SCENARIO_SEARCH_TERMS["stealth_illegal_parked_vehicle_collision"] = (
+    "야간 스텔스 정차 차량",
+    "무등화 주차 차량",
+    "교량 아래 주차 차량",
+    "화단 비정상 주차",
+    "음주운전 후 정차",
+    "불법 주정차 야간 시인성",
+    "정차 차량 회피 가능성",
+    "stopped vehicle without lights",
+    "unlit parked truck",
+    "night visibility avoidability",
 )
 
 TAG_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
@@ -53,6 +77,11 @@ TAG_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "centerline": ("centerline crossing", "centerline obstacle avoidance", "oncoming vehicle collision"),
     "secondary_collision": ("secondary collision", "front and rear collision", "rear-end after primary collision"),
     "visibility": ("unlit stopped vehicle", "night visibility", "avoidability analysis"),
+    "unlit_stopped_vehicle": ("무등화 정차 차량", "스텔스 차량", "야간 시인성", "stopped vehicle without lights"),
+    "abnormal_parking_position": ("비정상 주차", "화단 주차", "교량 아래 주차", "통행 공간 주차"),
+    "road_obstruction": ("도로 장애물", "불법 주정차", "통행 방해", "road obstruction"),
+    "avoidability": ("회피 가능성", "발견 가능성", "야간 시야", "avoidability analysis"),
+    "drunk_driving": ("음주운전", "12대 중과실", "형사책임", "보험 과실 가산"),
     "speed": ("speeding", "speed limit", "avoidability analysis"),
     "fatality": ("fatal traffic accident", "criminal civil liability split", "criminal liability"),
     "non_contact_trigger": ("non-contact bicycle trigger", "bicycle induced accident", "reaction time gap", "자전거 비접촉 유발", "후방 버스 추돌"),
@@ -64,21 +93,41 @@ PARTY_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "car_vs_person": ("차대 보행자", "보행자 보호의무"),
     "car_vs_bicycle": ("차대 자전거", "자전거 사고"),
     "car_vs_object": ("차대 시설물", "대물배상"),
+    "car_vs_parked_vehicle": ("차대 주차 차량", "정차 차량 충돌", "불법 주정차", "야간 무등화 차량"),
     "single_vehicle": ("단독사고", "운전자 부주의"),
 }
 
 
 def scenario_search_terms(
-    *,
-    scenario_type: str | None,
-    scenario_tags: list[str] | None = None,
-    facts: dict[str, Any] | None = None,
-    selected_keywords: list[str] | None = None,
-    accident_party_type: str | None = None,
-    max_terms: int = 18,
+        *,
+        scenario_type: str | None,
+        scenario_tags: list[str] | None = None,
+        facts: dict[str, Any] | None = None,
+        selected_keywords: list[str] | None = None,
+        accident_party_type: str | None = None,
+        max_terms: int = 18,
 ) -> list[str]:
     facts = facts or {}
     terms: list[str] = []
+    if scenario_type == "stealth_illegal_parked_vehicle_collision":
+        _extend_unique(
+            terms,
+            (
+                "야간 스텔스 정차 차량",
+                "무등화 주차 차량",
+                "교량 아래 주차 차량",
+                "화단 비정상 주차",
+                "음주운전 후 정차",
+                "불법 주정차 야간 시인성",
+                "정차 차량 회피 가능성",
+                "주차 차량 등화 의무",
+                "상대 차량 80 20",
+                "상대 차량 90 10",
+                "stopped vehicle without lights",
+                "unlit parked truck",
+                "night visibility avoidability",
+            ),
+        )
     if scenario_type == "rear_end_collision":
         _extend_unique(
             terms,
@@ -115,6 +164,21 @@ def scenario_search_terms(
             _extend_unique(terms, ("횡단보도", "보행자 보호의무"))
         else:
             _extend_unique(terms, ("횡단보도 앞 정차", "교차로 횡단보도 차대차", "crosswalk vehicle collision"))
+    if facts.get("is_stealth_parked_vehicle_collision") or facts.get("stopped_vehicle_without_lights") or facts.get("night_no_lights_or_low_visibility"):
+        _extend_unique(
+            terms,
+            (
+                "야간 스텔스 정차 차량",
+                "무등화 주차 차량",
+                "불법 주정차 야간 시인성",
+                "회피 가능성",
+                "정차 차량 등화 의무",
+            ),
+        )
+    if facts.get("opponent_drunk_or_abnormal_operation") or facts.get("opponent_impairment") in {"drunk_driving_confirmed", "suspected_drunk"}:
+        _extend_unique(terms, ("음주운전", "12대 중과실", "형사책임", "보험 과실 가산"))
+    if facts.get("parked_vehicle_position") in {"under_bridge", "flowerbed_or_median", "traffic_space"}:
+        _extend_unique(terms, ("교량 아래 주차 차량", "화단 비정상 주차", "통행 공간 정차 차량"))
     if facts.get("school_zone"):
         _extend_unique(terms, ("어린이보호구역", "제한속도"))
 
@@ -128,18 +192,22 @@ def scenario_search_terms(
     deduped = _dedupe(terms)
     if scenario_type == "rear_end_collision" and not (facts.get("user_signal_violation") or facts.get("opponent_signal_violation")):
         deduped = _filter_rear_end_query_pollution(deduped)
+    if (scenario_type == "stealth_illegal_parked_vehicle_collision") or (
+        str(facts.get("accident_type") or "") == "stealth_illegal_parked_vehicle_collision"
+    ):
+        deduped = _filter_stealth_parked_vehicle_bicycle_pollution(deduped)
     return deduped[:max_terms]
 
 
 def expand_query_text(
-    base_text: str,
-    *,
-    scenario_type: str | None,
-    scenario_tags: list[str] | None = None,
-    facts: dict[str, Any] | None = None,
-    selected_keywords: list[str] | None = None,
-    accident_party_type: str | None = None,
-    max_terms: int = 18,
+        base_text: str,
+        *,
+        scenario_type: str | None,
+        scenario_tags: list[str] | None = None,
+        facts: dict[str, Any] | None = None,
+        selected_keywords: list[str] | None = None,
+        accident_party_type: str | None = None,
+        max_terms: int = 18,
 ) -> str:
     terms = scenario_search_terms(
         scenario_type=scenario_type,
@@ -157,13 +225,13 @@ def expand_query_text(
 
 
 def evidence_query_payload(
-    *,
-    description_text: str,
-    facts: dict[str, Any] | None,
-    selected_keywords: list[str] | None,
-    scenario_type: str | None,
-    scenario_tags: list[str] | None,
-    accident_party_type: str | None,
+        *,
+        description_text: str,
+        facts: dict[str, Any] | None,
+        selected_keywords: list[str] | None,
+        scenario_type: str | None,
+        scenario_tags: list[str] | None,
+        accident_party_type: str | None,
 ) -> dict[str, Any]:
     terms = scenario_search_terms(
         scenario_type=scenario_type,
@@ -182,7 +250,7 @@ def evidence_query_payload(
                 json.dumps(facts or {}, ensure_ascii=False),
                 " ".join(selected_keywords or []),
                 " ".join(terms),
-            ]
+                ]
         ).strip(),
     }
 
@@ -272,6 +340,22 @@ def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
             "속도위반",
             "회피 가능성",
         ])
+    if facts.get("is_stealth_parked_vehicle_collision") or facts.get("accident_type") == "stealth_illegal_parked_vehicle_collision":
+        terms.extend([
+            "야간 스텔스 정차 차량",
+            "무등화 주차 차량",
+            "교량 아래 주차 차량",
+            "화단 비정상 주차",
+            "음주운전 후 정차",
+            "정차 차량 회피 가능성",
+            "불법 주정차 야간 시인성",
+        ])
+    if facts.get("parked_vehicle_lighting") == "unlit_stealth":
+        terms.extend(["무등화 정차 차량", "스텔스 차량", "stopped vehicle without lights"])
+    if facts.get("visibility_condition") in {"night_dark", "under_bridge_dark"}:
+        terms.extend(["야간 시인성", "교량 아래 조도", "night visibility"])
+    if facts.get("opponent_impairment") in {"drunk_driving_confirmed", "suspected_drunk"}:
+        terms.extend(["음주운전", "12대 중과실", "형사책임"])
     if facts.get("fatality"):
         terms.extend([
             "fatal traffic accident",
@@ -335,3 +419,16 @@ def _dedupe(values: list[str]) -> list[str]:
 
 def _compact_text(value: str | None) -> str:
     return " ".join(str(value or "").lower().split())
+
+
+def _filter_stealth_parked_vehicle_bicycle_pollution(values: list[str]) -> list[str]:
+    blocked = (
+        "자전거",
+        "차대자전거",
+        "bicycle",
+        "cyclist",
+        "non-contact bicycle trigger",
+        "자전거 비접촉 유발",
+        "자전거 회피 정지",
+    )
+    return [value for value in values if not any(token in str(value).lower() for token in blocked)]

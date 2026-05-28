@@ -17,11 +17,11 @@ from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage, mark_l
 
 
 def analyze_fault_ratio(
-    *,
-    scenario_type: str,
-    facts: dict[str, Any],
-    evidence: list[dict[str, Any]],
-    text: str,
+        *,
+        scenario_type: str,
+        facts: dict[str, Any],
+        evidence: list[dict[str, Any]],
+        text: str,
 ) -> dict[str, Any]:
     llm_usage = evaluate_llm_usage(section="fault_ratio_analysis", evidence=evidence, facts=facts)
     llm = generate_fault_ratio_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence) if llm_usage["allowed"] else None
@@ -36,8 +36,19 @@ def analyze_fault_ratio(
 
     signal_uncertainty = _uncertain_signal_transition_context(facts, text)
     conditional_outcomes: list[dict[str, Any]] = []
+    extra_payload: dict[str, Any] = {}
+    stealth_context = _stealth_illegal_parked_vehicle_context(facts, text, scenario_type)
     centerline_context = _centerline_obstacle_context(facts, text)
-    if centerline_context:
+    if stealth_context:
+        score = _stealth_illegal_parked_vehicle_score(facts, text)
+        my = score["my"]
+        other = score["other"]
+        confidence = score["confidence"]
+        key_factors = score["key_factors"]
+        conditional_outcomes = score["conditional_outcomes"]
+        extra_payload = score["extra_payload"]
+        fault_estimate_source = "stealth_illegal_parked_vehicle_rule"
+    elif centerline_context:
         stopped_or_nearly_stopped = centerline_context.get("stopped_or_nearly_stopped")
         opposing_non_stop = centerline_context.get("opposing_non_stop")
         my, other = (30, 70) if stopped_or_nearly_stopped and opposing_non_stop else (40, 60)
@@ -117,6 +128,8 @@ def analyze_fault_ratio(
         "fault_estimate_source": fault_estimate_source,
         "evidence_ids": [ev.get("chunk_id") for ev in evidence[:6] if ev.get("chunk_id")],
     }
+    if extra_payload:
+        payload.update(extra_payload)
     if scenario_type == "rear_end_collision" and user_vehicle_role == FRONT_VEHICLE:
         payload["caveats"] = [
             "기본적으로 뒤차 과실이 높게 검토되지만, 이유 없는 급정지, 제동등 고장, 비정상 정차, 선행사고 후 도로상 정차, 야간 무등화, 시야장애 여부는 추가 확인이 필요합니다."
@@ -135,6 +148,159 @@ def _normalize(data: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str
     return data
 
 
+
+def _stealth_illegal_parked_vehicle_context(facts: dict[str, Any], text: str = "", scenario_type: str = "") -> bool:
+    haystack = " ".join(
+        [
+            text or "",
+            scenario_type or "",
+            str(facts.get("accident_type") or ""),
+            str(facts.get("accident_subtype") or ""),
+            str(facts.get("collision_target") or ""),
+            str(facts.get("parked_vehicle_position") or ""),
+            str(facts.get("parked_vehicle_lighting") or ""),
+            str(facts.get("visibility_condition") or ""),
+            str(facts.get("opponent_impairment") or ""),
+            str(facts.get("analysis_uncertainty") or ""),
+            ]
+    ).lower()
+
+    if scenario_type == "stealth_illegal_parked_vehicle_collision":
+        return True
+    if facts.get("is_stealth_parked_vehicle_collision") is True:
+        return True
+
+    collision = any(token in haystack for token in ("부딪", "충돌", "박", "들이받", "들이박", "파손", "폐차"))
+    parked_vehicle = any(
+        token in haystack
+        for token in ("주차", "정차", "방치", "트럭", "화물차", "parked", "stopped vehicle", "truck")
+    )
+    visibility_risk = (
+            facts.get("stopped_vehicle_without_lights") is True
+            or facts.get("night_no_lights_or_low_visibility") is True
+            or any(token in haystack for token in ("스텔스", "무등화", "미등", "비상등", "차폭등", "야간", "밤", "교량 밑", "교량 아래", "unlit"))
+    )
+    abnormal_or_drunk = (
+            facts.get("abnormal_parking") is True
+            or facts.get("opponent_drunk_or_abnormal_operation") is True
+            or any(token in haystack for token in ("화단", "중앙분리대", "통행 공간", "음주", "음주운전", "drunk"))
+    )
+
+    return collision and parked_vehicle and (visibility_risk or abnormal_or_drunk)
+
+
+def _stealth_illegal_parked_vehicle_score(facts: dict[str, Any], text: str = "") -> dict[str, Any]:
+    haystack = " ".join(
+        [
+            text or "",
+            str(facts.get("collision_target") or ""),
+            str(facts.get("parked_vehicle_position") or ""),
+            str(facts.get("parked_vehicle_lighting") or ""),
+            str(facts.get("visibility_condition") or ""),
+            str(facts.get("opponent_impairment") or ""),
+            str(facts.get("avoidability") or ""),
+            ]
+    ).lower()
+
+    reasoning: list[str] = []
+    opponent_score = 60
+
+    is_unlit = (
+            facts.get("stopped_vehicle_without_lights") is True
+            or str(facts.get("parked_vehicle_lighting") or "") in {"unlit_stealth", "no_lights", "unknown_but_dark"}
+            or any(token in haystack for token in ("스텔스", "무등화", "미등", "비상등", "차폭등", "unlit"))
+    )
+    is_dark = (
+            facts.get("night_no_lights_or_low_visibility") is True
+            or str(facts.get("visibility_condition") or "") in {"night_dark", "under_bridge_dark", "low_visibility"}
+            or any(token in haystack for token in ("야간", "밤", "늦은 밤", "새벽", "어두", "교량 밑", "교량 아래"))
+    )
+    abnormal_position = (
+            facts.get("abnormal_parking") is True
+            or str(facts.get("parked_vehicle_position") or "") in {"traffic_space", "flowerbed_or_median", "under_bridge", "roadside"}
+            or any(token in haystack for token in ("화단", "중앙분리대", "통행 공간", "갓길", "교량 밑", "교량 아래"))
+    )
+    drunk = (
+            facts.get("opponent_drunk_or_abnormal_operation") is True
+            or str(facts.get("opponent_impairment") or "") in {"drunk_driving_confirmed", "suspected_drunk"}
+            or any(token in haystack for token in ("음주", "음주운전", "만취", "술", "drunk"))
+    )
+    hard_to_avoid = (
+            facts.get("low_avoidability") is True
+            or str(facts.get("avoidability") or "") in {"limited", "nearly_impossible"}
+            or any(token in haystack for token in ("피하지 못", "발견 즉시", "회피 불가", "못 피"))
+    )
+
+    if is_unlit:
+        opponent_score += 10
+        reasoning.append("상대 차량이 야간에 미등·비상등·차폭등 등 식별 조치가 없는 스텔스 상태로 보입니다.")
+    if is_dark:
+        opponent_score += 8
+        reasoning.append("야간 또는 교량 아래 조도 불량으로 후속 차량의 발견 가능성이 낮습니다.")
+    if abnormal_position:
+        opponent_score += 10
+        reasoning.append("상대 차량이 화단, 교량 아래, 통행 공간 등 정상 주차구역이 아닌 위험 위치에 있었습니다.")
+    if drunk:
+        opponent_score += 7
+        reasoning.append("상대 차량의 음주운전 또는 음주운전 기인 비정상 정차 정황이 있어 상대 과실 가산 요소입니다.")
+    if hard_to_avoid:
+        opponent_score += 5
+        reasoning.append("충돌 직전 발견·회피 가능성이 낮은 정황이 있어 내 차량 과실 감산 요소입니다.")
+
+    opponent_score = max(80, min(opponent_score, 90))
+    my_score = 100 - opponent_score
+
+    can_argue_100_0 = is_unlit and is_dark and abnormal_position and drunk and hard_to_avoid
+    if can_argue_100_0:
+        my_score, opponent_score = 0, 100
+        confidence = 0.62
+        reasoning.append("위 조건이 모두 사실로 입증되면 상대 100 대 내 차량 0 주장을 별도로 제시할 수 있습니다.")
+    else:
+        confidence = 0.66 if opponent_score >= 90 else 0.61
+
+    return {
+        "my": my_score,
+        "other": opponent_score,
+        "confidence": confidence,
+        "key_factors": [
+            "야간 스텔스 정차 차량",
+            "비정상 주차 위치",
+            "등화·경고조치 부재",
+            "상대 음주운전 정황",
+            "발견·회피 가능성",
+        ],
+        "conditional_outcomes": [
+            {
+                "label": "현실적 협상 기준",
+                "my_range": "10~20%",
+                "other_range": "80~90%",
+                "explanation": "야간, 스텔스, 비정상 위치, 음주운전 기인 정차가 인정되면 상대 차량 과실을 80~90%로 강하게 주장할 수 있습니다.",
+                "basis": ["블랙박스", "현장 사진", "등화 상태", "주차 위치", "음주운전 확인 자료"],
+            },
+            {
+                "label": "100:0 주장 가능 조건",
+                "my_range": "0%",
+                "other_range": "100%",
+                "explanation": "내 차량의 과속·전방주시 태만이 없고, 상대 차량이 통행 공간에 식별 불가능한 상태로 있었으며 회피가 거의 불가능했다는 점이 입증되어야 합니다.",
+                "basis": ["속도 자료", "조도", "교량 아래 시야", "상대 차량 등화", "충돌 직전 인지 가능성"],
+            },
+        ],
+        "extra_payload": {
+            "scenario_subtype": "night_unlit_illegal_parked_vehicle_collision",
+            "recommended_claim": "상대 차량 100 : 내 차량 0을 우선 주장하되, 현실 목표는 상대 90 : 내 차량 10, 최소 수용선은 상대 80 : 내 차량 20입니다.",
+            "legal_caution": "음주운전은 형사상 중대 위반이자 민사상 강한 과실 가산 요소이지만, 그 자체만으로 민사 과실 100:0이 자동 확정되는 것은 아닙니다.",
+            "adjustment_review_factors": [
+                "상대 차량 음주운전 확인 여부",
+                "미등·비상등·차폭등 점등 여부",
+                "교량 아래 조도와 시야",
+                "화단 또는 통행 공간 침범 정도",
+                "내 차량 과속 여부",
+                "충돌 직전 회피 가능성",
+            ],
+            "reasoning": reasoning,
+        },
+    }
+
 def _centerline_obstacle_context(facts: dict[str, Any], text: str = "") -> dict[str, bool] | None:
     haystack = " ".join(
         [
@@ -143,15 +309,15 @@ def _centerline_obstacle_context(facts: dict[str, Any], text: str = "") -> dict[
             str(facts.get("centerline_cross_reason") or ""),
             str(facts.get("opponent_behavior") or ""),
             str(facts.get("analysis_uncertainty") or ""),
-        ]
+            ]
     ).lower()
     centerline = facts.get("centerline_crossed") is True or any(
         token in haystack for token in ("중앙선", "황색 실선", "centerline", "yellow line")
     )
     obstruction = (
-        facts.get("road_obstruction") is True
-        or facts.get("illegal_parking_obstruction") is True
-        or any(token in haystack for token in ("주차", "주정차", "불법", "장애", "가구", "사물", "obstacle", "parking"))
+            facts.get("road_obstruction") is True
+            or facts.get("illegal_parking_obstruction") is True
+            or any(token in haystack for token in ("주차", "주정차", "불법", "장애", "가구", "사물", "obstacle", "parking"))
     )
     oncoming = facts.get("opposing_vehicle_present") is True or any(
         token in haystack for token in ("마주오", "대향", "반대편", "상대차", "oncoming")
@@ -180,17 +346,17 @@ def _unlit_stopped_vehicle_context(facts: dict[str, Any]) -> bool:
 def _bicycle_trigger_rear_end_context(facts: dict[str, Any]) -> bool:
     trigger = str(facts.get("trigger_actor_type") or facts.get("possible_trigger_vehicle") or facts.get("bicycle_behavior") or "").lower()
     return (
-        (
-            facts.get("non_contact_trigger") is True
-            or facts.get("bicycle_involved") is True
-            or "bicycle" in trigger
-            or "자전거" in trigger
-        )
-        and (
-            facts.get("rear_vehicle_collision") is True
-            or facts.get("direct_collision_partner_type") == "vehicle"
-            or facts.get("stopped") is True
-        )
+            (
+                    facts.get("non_contact_trigger") is True
+                    or facts.get("bicycle_involved") is True
+                    or "bicycle" in trigger
+                    or "자전거" in trigger
+            )
+            and (
+                    facts.get("rear_vehicle_collision") is True
+                    or facts.get("direct_collision_partner_type") == "vehicle"
+                    or facts.get("stopped") is True
+            )
     )
 
 
@@ -203,11 +369,11 @@ def _uncertain_signal_transition_context(facts: dict[str, Any], text: str = "") 
         str(facts.get("user_signal") or ""),
         str(facts.get("opponent_signal") or ""),
         str(facts.get("opponent_behavior") or ""),
-    ]).lower()
+        ]).lower()
     return (
-        facts.get("signal_timing_uncertain") is True
-        or facts.get("cctv_needed") is True
-        or (facts.get("intersection") is True and facts.get("opponent_signal_visible") is False and bool(facts.get("user_signal") or facts.get("signal_transition")))
-        or ("황색" in signal_state and "적색" in signal_state)
-        or ("yellow" in haystack and "red" in haystack and ("left" in haystack or "좌회전" in haystack or facts.get("ego_turn_direction") == "left"))
+            facts.get("signal_timing_uncertain") is True
+            or facts.get("cctv_needed") is True
+            or (facts.get("intersection") is True and facts.get("opponent_signal_visible") is False and bool(facts.get("user_signal") or facts.get("signal_transition")))
+            or ("황색" in signal_state and "적색" in signal_state)
+            or ("yellow" in haystack and "red" in haystack and ("left" in haystack or "좌회전" in haystack or facts.get("ego_turn_direction") == "left"))
     )

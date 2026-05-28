@@ -4,6 +4,7 @@ import json
 from typing import Any
 from app.services.analysis_modes import normalize_analysis_mode
 from app.services.fact_arbitration import arbitrate_facts
+from app.services.llm_client import generate_accident_input_filter
 from app.services.security_filter import sanitize_input
 from app.services.video_input_contract import normalize_video_input_contract
 
@@ -26,15 +27,38 @@ FIELD_LABELS = {
     "opponent_signal_violation": "상대 신호위반",
     "weather": "날씨",
     "light_condition": "주야 상태",
+    "collision_target": "충돌 대상",
+    "parked_vehicle_position": "상대 차량 위치",
+    "parked_vehicle_lighting": "상대 차량 등화",
+    "visibility_condition": "시야 조건",
+    "opponent_impairment": "상대 운전자 상태",
+    "avoidability": "회피 가능성",
+    "fault_ratio_claim_target": "과실비율 주장 목표",
 }
 VALUE_LABELS = {
     "rear_end_collision": "후미추돌 사고",
+    "stealth_illegal_parked_vehicle_collision": "야간 스텔스 불법 정차 차량 충돌",
     "intersection_collision": "교차로 충돌",
     "lane_change_collision": "차선변경 충돌",
     "pedestrian": "보행자 사고",
     "red": "적색 신호",
     "green": "녹색 신호",
     "yellow": "황색 신호",
+    "truck": "트럭 또는 대형 차량",
+    "parked_vehicle": "주차 또는 정차 차량",
+    "traffic_space": "통행 공간에 걸침",
+    "flowerbed_or_median": "화단 또는 중앙분리대 주변",
+    "under_bridge": "교량 아래",
+    "unlit_stealth": "스텔스 상태",
+    "night_dark": "야간 어두운 환경",
+    "under_bridge_dark": "교량 아래 조도 불량",
+    "drunk_driving_confirmed": "음주운전 확인",
+    "suspected_drunk": "음주운전 의심",
+    "limited": "회피 제한",
+    "nearly_impossible": "회피 거의 불가능",
+    "opponent_100_ego_0_possible": "상대 100 대 내 차량 0 주장 가능",
+    "opponent_90_ego_10": "상대 90 대 내 차량 10",
+    "opponent_80_ego_20": "상대 80 대 내 차량 20",
     True: "예",
     False: "아니오",
 }
@@ -90,6 +114,260 @@ def _contains_any(text: str, tokens: tuple[str, ...]) -> bool:
 def _set_if_empty(facts: dict[str, Any], key: str, value: Any) -> None:
     if _is_empty(facts.get(key)):
         facts[key] = value
+
+
+def _normalize_accident_typos(text: str) -> str:
+    return (
+        str(text or "")
+        .replace("눚은밤", "늦은 밤")
+        .replace("늦은밤", "늦은 밤")
+        .replace("부딛", "부딪")
+        .replace("부딧", "부딪")
+        .replace("상태였가", "상태였다")
+        .replace("정차중", "정차 중")
+        .replace("신호대기중", "신호대기 중")
+    )
+
+
+def _has_stealth_illegal_parked_vehicle_context(text: str) -> bool:
+    hay = _normalize_accident_typos(text).lower()
+    collision = _contains_any(hay, ("부딪", "충돌", "박", "들이받", "들이박", "파손", "폐차"))
+    parked_vehicle = _contains_any(
+        hay,
+        (
+            "주차",
+            "정차",
+            "방치",
+            "세워",
+            "세워진",
+            "서있",
+            "서 있",
+            "트럭",
+            "화물차",
+            "주차해둔",
+            "주차된",
+            "정차된",
+        ),
+    )
+    visibility_or_place = _contains_any(
+        hay,
+        (
+            "스텔스",
+            "무등화",
+            "미등",
+            "비상등",
+            "차폭등",
+            "불빛",
+            "등화",
+            "야간",
+            "밤",
+            "늦은 밤",
+            "새벽",
+            "어두",
+            "교량 밑",
+            "교량밑",
+            "교량 아래",
+            "화단",
+            "중앙분리대",
+            "갓길",
+        ),
+    )
+    impairment = _contains_any(hay, ("음주", "술", "만취", "음주운전"))
+    return collision and parked_vehicle and (visibility_or_place or impairment)
+
+
+def _enrich_stealth_illegal_parked_vehicle_facts(facts: dict[str, Any], text: str) -> dict[str, Any]:
+    enriched = dict(facts)
+    hay = _normalize_accident_typos(text).lower()
+    if not _has_stealth_illegal_parked_vehicle_context(hay):
+        return enriched
+
+    enriched["accident_type"] = "stealth_illegal_parked_vehicle_collision"
+    enriched["knia_major_party_type"] = "car_vs_car"
+    enriched["accident_party_type"] = "car_vs_car"
+    enriched["accident_subtype"] = "night_unlit_illegal_parked_vehicle_collision"
+    enriched["collision_partner_type"] = "vehicle"
+    enriched["direct_collision_partner_type"] = "vehicle"
+    enriched["target_vehicle_status"] = "abnormal_parked"
+    enriched["is_parked_vehicle_collision"] = True
+    enriched["is_stealth_parked_vehicle_collision"] = True
+    enriched["requires_high_opponent_fault_review"] = True
+
+    _set_if_empty(enriched, "collision_target", "truck" if _contains_any(hay, ("트럭", "화물차")) else "parked_vehicle")
+
+    if _contains_any(hay, ("화단", "중앙분리대")):
+        _set_if_empty(enriched, "parked_vehicle_position", "flowerbed_or_median")
+        enriched["abnormal_parking"] = True
+    elif _contains_any(hay, ("교량 밑", "교량밑", "교량 아래")):
+        _set_if_empty(enriched, "parked_vehicle_position", "under_bridge")
+        enriched["abnormal_parking"] = True
+    elif _contains_any(hay, ("갓길", "도로 가장자리", "통행 공간")):
+        _set_if_empty(enriched, "parked_vehicle_position", "traffic_space")
+        enriched["abnormal_parking"] = True
+
+    if _contains_any(hay, ("스텔스", "무등화", "미등", "비상등", "차폭등", "등화 없이", "불빛 없이")):
+        _set_if_empty(enriched, "parked_vehicle_lighting", "unlit_stealth")
+        enriched["stopped_vehicle_without_lights"] = True
+        enriched["night_no_lights_or_low_visibility"] = True
+
+    if _contains_any(hay, ("교량 밑", "교량밑", "교량 아래")):
+        _set_if_empty(enriched, "visibility_condition", "under_bridge_dark")
+        enriched["night_no_lights_or_low_visibility"] = True
+    elif _contains_any(hay, ("밤", "야간", "늦은 밤", "새벽", "어두")):
+        _set_if_empty(enriched, "visibility_condition", "night_dark")
+        enriched["night_no_lights_or_low_visibility"] = True
+
+    if _contains_any(hay, ("음주운전", "음주", "만취", "술")):
+        _set_if_empty(enriched, "opponent_impairment", "drunk_driving_confirmed")
+        enriched["opponent_drunk_or_abnormal_operation"] = True
+        enriched["twelve_gross_negligence_context"] = True
+
+    if _contains_any(hay, ("피하지 못", "발견 즉시", "못 피", "회피 불가", "시야", "어두")):
+        _set_if_empty(enriched, "avoidability", "nearly_impossible")
+        enriched["low_avoidability"] = True
+
+    lighting = str(enriched.get("parked_vehicle_lighting") or "")
+    visibility = str(enriched.get("visibility_condition") or "")
+    position = str(enriched.get("parked_vehicle_position") or "")
+    impairment = str(enriched.get("opponent_impairment") or "")
+    avoidability = str(enriched.get("avoidability") or "")
+
+    strong_visibility = lighting == "unlit_stealth" and visibility in {"night_dark", "under_bridge_dark"}
+    abnormal_position = position in {"traffic_space", "flowerbed_or_median", "under_bridge", "roadside"}
+    drunk = impairment in {"drunk_driving_confirmed", "suspected_drunk"}
+    hard_to_avoid = avoidability in {"limited", "nearly_impossible"}
+
+    if strong_visibility and abnormal_position and drunk and hard_to_avoid:
+        enriched["fault_ratio_claim_target"] = "opponent_100_ego_0_possible"
+        enriched["fault_ratio_realistic_target"] = "opponent_90_ego_10"
+        enriched["fault_ratio_minimum_target"] = "opponent_80_ego_20"
+    elif strong_visibility and (abnormal_position or drunk):
+        enriched["fault_ratio_claim_target"] = "opponent_90_ego_10"
+        enriched["fault_ratio_realistic_target"] = "opponent_80_ego_20"
+        enriched["fault_ratio_minimum_target"] = "opponent_70_ego_30"
+    else:
+        enriched["fault_ratio_realistic_target"] = "opponent_80_ego_20"
+
+    return enriched
+
+
+def _deterministic_accident_input_filter(text: str, facts: dict[str, Any] | None = None) -> dict[str, Any]:
+    base_facts = dict(facts or {})
+    hay = _normalize_accident_typos(text).lower()
+
+    collision = _contains_any(hay, ("부딪", "충돌", "박", "들이받", "들이박", "파손", "폐차"))
+    vehicle = _contains_any(hay, ("트럭", "화물차", "차량", "상대차", "앞차", "승용차"))
+    parked = _contains_any(hay, ("주차", "정차", "방치", "세워", "서 있", "서있", "화단", "갓길"))
+    risk = _contains_any(
+        hay,
+        (
+            "스텔스",
+            "무등화",
+            "등화 없이",
+            "미등",
+            "비상등",
+            "차폭등",
+            "야간",
+            "밤",
+            "새벽",
+            "교량 밑",
+            "교량 아래",
+            "어두",
+            "음주",
+            "음주운전",
+        ),
+    )
+
+    if not (collision and vehicle and parked and risk):
+        return {
+            "matched": False,
+            "confidence": 0.0,
+            "facts_patch": {},
+            "exclude_party_types": [],
+            "scenario_tags": [],
+            "reason": "deterministic_criteria_not_matched",
+        }
+
+    patch: dict[str, Any] = {
+        "knia_major_party_type": "car_vs_car",
+        "accident_party_type": "car_vs_car",
+        "accident_type": "stealth_illegal_parked_vehicle_collision",
+        "accident_subtype": "night_unlit_illegal_parked_vehicle_collision",
+        "collision_partner_type": "vehicle",
+        "direct_collision_partner_type": "vehicle",
+        "target_vehicle_status": "abnormal_parked",
+        "is_parked_vehicle_collision": True,
+        "is_stealth_parked_vehicle_collision": True,
+        "night_no_lights_or_low_visibility": True,
+        "abnormal_parking": True,
+        "parked_vehicle_lighting": "unlit_stealth",
+        "fault_ratio_claim_target": "opponent_100_ego_0_possible",
+        "fault_ratio_realistic_target": "opponent_90_ego_10",
+        "fault_ratio_minimum_target": "opponent_80_ego_20",
+    }
+    patch["collision_target"] = "truck" if _contains_any(hay, ("트럭", "화물차")) else "parked_vehicle"
+    if _contains_any(hay, ("교량 밑", "교량 아래", "교량밑")):
+        patch["parked_vehicle_position"] = "under_bridge"
+        patch["visibility_condition"] = "under_bridge_dark"
+    else:
+        patch["parked_vehicle_position"] = "flowerbed_or_median" if _contains_any(hay, ("화단", "중앙분리대")) else "under_bridge"
+        patch["visibility_condition"] = "night_dark"
+
+    if _contains_any(hay, ("음주", "음주운전", "만취", "술")):
+        patch["opponent_impairment"] = "drunk_driving_confirmed"
+        patch["opponent_drunk_or_abnormal_operation"] = True
+        patch["twelve_gross_negligence_context"] = True
+
+    return {
+        "matched": True,
+        "confidence": 0.92,
+        "knia_major_party_type": "car_vs_car",
+        "accident_type": "stealth_illegal_parked_vehicle_collision",
+        "accident_subtype": "night_unlit_illegal_parked_vehicle_collision",
+        "collision_partner_type": "vehicle",
+        "direct_collision_target": patch.get("collision_target"),
+        "target_vehicle_status": "abnormal_parked",
+        "scenario_tags": [
+            "parking",
+            "stopped_vehicle",
+            "unlit_stopped_vehicle",
+            "visibility",
+            "night",
+            "road_obstruction",
+            "avoidability",
+        ],
+        "facts_patch": patch,
+        "exclude_party_types": ["car_vs_bicycle", "car_vs_person"],
+        "reason": "deterministic_stealth_parked_vehicle_collision",
+    }
+
+
+def _apply_accident_input_filter_result(
+    facts: dict[str, Any],
+    filter_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not filter_result:
+        return facts
+    patched = dict(facts)
+    patch = filter_result.get("facts_patch")
+    if isinstance(patch, dict):
+        patched.update(patch)
+    for key in ("knia_major_party_type", "accident_type", "accident_subtype", "collision_partner_type", "target_vehicle_status"):
+        value = filter_result.get(key)
+        if value not in (None, "", "unknown"):
+            patched[key] = value
+    if patched.get("accident_type") == "stealth_illegal_parked_vehicle_collision":
+        patched["accident_party_type"] = "car_vs_car"
+        patched["knia_major_party_type"] = "car_vs_car"
+        patched["collision_partner_type"] = "vehicle"
+        patched["direct_collision_partner_type"] = "vehicle"
+        patched.pop("bicycle_involved", None)
+        patched.pop("possible_trigger_vehicle", None)
+        patched.pop("trigger_actor_type", None)
+        patched.pop("bicycle_location", None)
+        patched.pop("bicycle_movement", None)
+    return patched
+
 
 def _has_lawful_red_light_stop_context(text: str) -> bool:
     stop_tokens = (
@@ -166,7 +444,7 @@ def _has_rear_end_victim_context(text: str) -> bool:
 def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str, Any]:
     """Fill broadly applicable traffic facts that the UI can express but users often write in free text."""
     enriched = dict(facts)
-    hay = text.lower()
+    hay = _normalize_accident_typos(text).lower()
     party = str(enriched.get("accident_party_type") or "").strip().lower()
     partner = str(enriched.get("collision_partner_type") or "").strip().lower()
     vehicle_declared = party == "car_vs_car" or partner in {"vehicle", "car", "truck", "bus", "van"}
@@ -243,6 +521,8 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
         _set_if_empty(enriched, "direct_collision_partner_type", "vehicle")
         _set_if_empty(enriched, "accident_party_type", "car_vs_car")
         _set_if_empty(enriched, "accident_type", "non_contact_trigger")
+    enriched = _enrich_stealth_illegal_parked_vehicle_facts(enriched, hay)
+
     if _has_rear_end_victim_context(hay):
         _set_if_empty(enriched, "collision_partner_type", "vehicle")
         _set_if_empty(enriched, "direct_collision_partner_type", "vehicle")
@@ -254,12 +534,22 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
 
 def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None) -> dict[str, Any]:
     clean_text, security_flags = sanitize_input(description_text or "")
+    clean_text = _normalize_accident_typos(clean_text)
     video_contract = normalize_video_input_contract(video_metadata, preprocessed_summary=clean_text)
     user_facts = _normalize_fact_aliases(_compact_for_analysis(structured_facts or {}))
     user_facts = _enrich_textual_traffic_facts(user_facts, clean_text)
+    deterministic_filter = _deterministic_accident_input_filter(clean_text, user_facts)
+    llm_filter = generate_accident_input_filter(
+        description_text=clean_text,
+        structured_facts=user_facts,
+        selected_keywords=selected_keywords or [],
+    )
+    selected_filter = deterministic_filter if float(deterministic_filter.get("confidence") or 0.0) >= 0.85 else llm_filter
+    user_facts = _apply_accident_input_filter_result(user_facts, selected_filter)
     arbitration = arbitrate_facts(user_facts=user_facts, video_contract=video_contract)
     fact_arbitration = arbitration["contract"]
     facts = _enrich_textual_traffic_facts(_compact_for_analysis(arbitration["facts"]), clean_text)
+    facts = _apply_accident_input_filter_result(facts, selected_filter)
     keywords = [str(x).strip() for x in (selected_keywords or []) if str(x).strip()]
     missing_fields = [field for field in REQUIRED_FACTS if _is_empty(facts.get(field))]
     facts_display = clean_structured_facts_for_display(facts)
@@ -284,7 +574,7 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "분석용 선택 키워드: " + ", ".join(keywords),
         "분석용 영상 입력 계약: " + json.dumps(video_contract_for_text, ensure_ascii=False, separators=(",", ":")),
         "분석용 사실 중재 계약: " + json.dumps(arbitration_for_text, ensure_ascii=False, separators=(",", ":")),
-    ])
+        ])
     canonical_analysis_mode = normalize_analysis_mode(analysis_mode)
     return {
         "description_text": clean_text,

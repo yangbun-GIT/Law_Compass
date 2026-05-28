@@ -27,6 +27,7 @@ SCENARIO_TO_TAGS = {
     "object_collision": ["object", "single_vehicle"],
     "single_vehicle_accident": ["single_vehicle"],
     "parking_or_stopped_vehicle_accident": ["parking", "stopped_vehicle"],
+    "stealth_illegal_parked_vehicle_collision": ["parking", "stopped_vehicle", "unlit_stopped_vehicle", "visibility", "night", "road_obstruction", "avoidability"],
 }
 
 
@@ -51,7 +52,12 @@ def match_knia_charts(
 ) -> dict[str, Any]:
     facts = structured_facts or {}
     keywords = selected_keywords or []
+    if scenario_type == "stealth_illegal_parked_vehicle_collision":
+        facts = {**facts, "accident_party_type": "car_vs_car"}
+        accident_party_type = "car_vs_car"
     party = accident_party_type or facts.get("accident_party_type") or infer_party_type_from_text(description_text, {**facts, "accident_type": scenario_type or facts.get("accident_type")})
+    if scenario_type == "stealth_illegal_parked_vehicle_collision":
+        party = "car_vs_car"
     expansion_terms = scenario_search_terms(
         scenario_type=scenario_type,
         scenario_tags=SCENARIO_TO_TAGS.get(scenario_type or "", []),
@@ -59,9 +65,16 @@ def match_knia_charts(
         selected_keywords=keywords,
         accident_party_type=party,
     )
+    if scenario_type == "stealth_illegal_parked_vehicle_collision":
+        expansion_terms = _strip_bicycle_pollution(expansion_terms)
+        keywords = _strip_bicycle_pollution(keywords)
     q = normalize_query(" ".join([description_text or "", json.dumps(facts, ensure_ascii=False), " ".join(keywords), scenario_type or "", party or "", " ".join(expansion_terms)]))
+    if scenario_type == "stealth_illegal_parked_vehicle_collision":
+        q = " ".join(_strip_bicycle_pollution([q]))
     chart_direct = re.search(r"[차보자기단]\d{1,3}(?:-\d+)?", q)
     tags = list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)]))
+    if scenario_type == "stealth_illegal_parked_vehicle_collision":
+        tags = [tag for tag in tags if tag != "bicycle"]
     cache_key = "knia:match:v7:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
     cache = _redis_client()
     if cache:
@@ -237,6 +250,7 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
         "intersection_signal_violation": {"car_vs_car"},
         "lane_change_collision": {"car_vs_car"},
         "rear_end_collision": {"car_vs_car"},
+        "stealth_illegal_parked_vehicle_collision": {"car_vs_car"},
     }.get(scenario_type or "")
     if expected_parties and party not in expected_parties:
         return True
@@ -252,6 +266,8 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
         return not (chart_no.startswith("차43") or has_lane_terms)
     if scenario_type == "rear_end_collision":
         return _rear_end_primary_exclusion_reason(row, joined_text) is not None
+    if scenario_type == "stealth_illegal_parked_vehicle_collision":
+        return chart_no.startswith(("자", "거", "보")) or any(token in joined_text for token in ("자전거", "bicycle", "cyclist", "보행자"))
     return False
 
 
@@ -413,6 +429,11 @@ def _scenario_chart_score_adjustment(row: dict[str, Any], tags: list[str], joine
             adjustment += 0.24
         if chart_no.startswith(("차41", "차42")):
             adjustment -= 0.18
+    if "parking" in tags or "stopped_vehicle" in tags or "unlit_stopped_vehicle" in tags:
+        if chart_no.startswith(("차41", "차42")):
+            adjustment += 0.18
+        if chart_no.startswith(("자", "거", "보")):
+            adjustment -= 0.45
 
     return adjustment
 
@@ -508,3 +529,23 @@ def _party_from_chart_no(chart_no: Any) -> str | None:
     if text.startswith("단"):
         return "single_vehicle"
     return None
+
+
+def _strip_bicycle_pollution(values: list[str]) -> list[str]:
+    blocked = (
+        "자전거",
+        "차대자전거",
+        "bicycle",
+        "cyclist",
+        "non-contact bicycle trigger",
+        "자전거 비접촉 유발",
+        "자전거 회피 정지",
+    )
+    out: list[str] = []
+    for value in values:
+        text = str(value or "")
+        lower = text.lower()
+        if any(token in text for token in blocked) or any(token in lower for token in blocked):
+            continue
+        out.append(text)
+    return out

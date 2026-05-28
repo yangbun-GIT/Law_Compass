@@ -119,3 +119,41 @@ def generate_with_openai(
         specialist_roles=specialist_roles or [],
         video_metadata=video_metadata or {},
     )
+
+
+def generate_accident_input_filter(
+    *,
+    description_text: str,
+    structured_facts: dict[str, Any] | None = None,
+    selected_keywords: list[str] | None = None,
+) -> dict[str, Any] | None:
+    return _generate_json(
+        (
+            "너는 교통사고 입력 정규화 필터다. "
+            "반드시 JSON 객체만 반환한다. "
+            "트럭, 주차 차량, 정차 차량, 앞차, 상대 차량이 명시되면 자전거로 분류하지 않는다. "
+            "사용자가 자전거와 직접 충돌했다고 말하지 않았으면 car_vs_bicycle을 선택하지 않는다. "
+            "야간, 스텔스, 무등화, 교량 아래, 화단, 음주운전 후 정차가 있으면 "
+            "car_vs_car + stealth_illegal_parked_vehicle_collision으로 본다. "
+            "LLM은 과실비율 숫자를 산정하지 않는다."
+        ),
+        {
+            "description_text": description_text,
+            "structured_facts": structured_facts or {},
+            "selected_keywords": selected_keywords or [],
+            "required_keys": [
+                "knia_major_party_type",
+                "accident_type",
+                "accident_subtype",
+                "collision_partner_type",
+                "direct_collision_target",
+                "target_vehicle_status",
+                "scenario_tags",
+                "facts_patch",
+                "exclude_party_types",
+                "confidence",
+                "reason",
+            ],
+        },
+        max_tokens=900,
+    )

@@ -21,19 +21,35 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
     vehicle_collision_declared = accident_party_type == "car_vs_car" or collision_partner_type == "vehicle"
 
     pedestrian_context = (
-        not vehicle_collision_declared
-        and (
-            collision_partner_type == "pedestrian"
-            or accident_party_type == "car_vs_person"
-            or accident_type == "pedestrian_crosswalk_accident"
-            or facts.get("victim_is_child")
-            or facts.get("pedestrian")
-            or facts.get("pedestrian_visible")
-            or any(w in haystack for w in ["보행자를", "사람을", "사람과", "무단횡단"])
-        )
+            not vehicle_collision_declared
+            and (
+                    collision_partner_type == "pedestrian"
+                    or accident_party_type == "car_vs_person"
+                    or accident_type == "pedestrian_crosswalk_accident"
+                    or facts.get("victim_is_child")
+                    or facts.get("pedestrian")
+                    or facts.get("pedestrian_visible")
+                    or any(w in haystack for w in ["보행자를", "사람을", "사람과", "무단횡단"])
+            )
     )
 
-    if pedestrian_context and (facts.get("school_zone") or "어린이보호구역" in haystack or "민식이" in haystack):
+    if _is_stealth_illegal_parked_vehicle_context(facts, haystack):
+        scenario_type = "stealth_illegal_parked_vehicle_collision"
+        accident_party_type = "car_vs_car"
+        tags.update([
+            "parking",
+            "stopped_vehicle",
+            "unlit_stopped_vehicle",
+            "visibility",
+            "night",
+            "road_obstruction",
+            "avoidability",
+        ])
+        if facts.get("opponent_drunk_or_abnormal_operation") or "음주" in haystack:
+            tags.update(["drunk_driving", "twelve_gross_negligence"])
+        if facts.get("parked_vehicle_position") in {"under_bridge", "flowerbed_or_median", "traffic_space"}:
+            tags.add("abnormal_parking_position")
+    elif pedestrian_context and (facts.get("school_zone") or "어린이보호구역" in haystack or "민식이" in haystack):
         scenario_type = "school_zone_child_accident"
         accident_party_type = "car_vs_person"
         tags.update(["school_zone", "child_protection", "injury", "speed_limit", "pedestrian"])
@@ -74,9 +90,9 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance", "stopped_vehicle", "lawful_stop_reason", "stopped_at_red_light"])
     elif (
-        collision_partner_type == "vehicle"
-        and facts.get("front_vehicle_stopped")
-        and (facts.get("ego_turn_direction") == "right" or facts.get("crosswalk_nearby"))
+            collision_partner_type == "vehicle"
+            and facts.get("front_vehicle_stopped")
+            and (facts.get("ego_turn_direction") == "right" or facts.get("crosswalk_nearby"))
     ):
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
@@ -156,6 +172,13 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         tags.add("front_vehicle_stopped")
     if facts.get("ego_turn_direction"):
         tags.add(f"ego_turn_{facts.get('ego_turn_direction')}")
+    if facts.get("is_stealth_parked_vehicle_collision"):
+        tags.add("stealth_illegal_parked_vehicle")
+    if facts.get("abnormal_parking"):
+        tags.add("abnormal_parking_position")
+    if facts.get("opponent_drunk_or_abnormal_operation"):
+        tags.add("drunk_driving")
+        tags.add("twelve_gross_negligence")
     if facts.get("stopped_vehicle_without_lights"):
         tags.add("unlit_stopped_vehicle")
     if facts.get("highway_or_expressway"):
@@ -203,6 +226,66 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
     }
 
 
+
+def _is_stealth_illegal_parked_vehicle_context(facts: dict[str, Any], haystack: str) -> bool:
+    accident_type = str(facts.get("accident_type") or "").strip().lower()
+    if accident_type == "stealth_illegal_parked_vehicle_collision":
+        return True
+    if facts.get("is_stealth_parked_vehicle_collision") is True:
+        return True
+
+    collision = any(token in haystack for token in ("부딪", "충돌", "박", "들이받", "들이박", "파손", "폐차"))
+    parked_vehicle = any(
+        token in haystack
+        for token in (
+            "주차",
+            "정차",
+            "방치",
+            "세워",
+            "서있",
+            "서 있",
+            "트럭",
+            "화물차",
+            "parked",
+            "stopped vehicle",
+        )
+    )
+    stealth_or_dark = any(
+        token in haystack
+        for token in (
+            "스텔스",
+            "무등화",
+            "등화 없이",
+            "미등",
+            "비상등",
+            "차폭등",
+            "야간",
+            "밤",
+            "늦은 밤",
+            "새벽",
+            "어두",
+            "교량 밑",
+            "교량밑",
+            "교량 아래",
+            "under bridge",
+            "unlit",
+        )
+    )
+    abnormal_place = any(token in haystack for token in ("화단", "중앙분리대", "갓길", "통행 공간", "flowerbed", "median"))
+    drunk = any(token in haystack for token in ("음주", "음주운전", "만취", "술", "drunk"))
+
+    fact_match = (
+            facts.get("stopped_vehicle_without_lights") is True
+            or facts.get("night_no_lights_or_low_visibility") is True
+            or facts.get("abnormal_parking") is True
+            or str(facts.get("parked_vehicle_lighting") or "") == "unlit_stealth"
+            or str(facts.get("visibility_condition") or "") in {"night_dark", "under_bridge_dark"}
+            or str(facts.get("opponent_impairment") or "") in {"drunk_driving_confirmed", "suspected_drunk"}
+    )
+
+    return collision and parked_vehicle and (stealth_or_dark or abnormal_place or drunk or fact_match)
+
+
 def _is_intersection_signal_turning_conflict(facts: dict[str, Any], accident_type: str, haystack: str) -> bool:
     if facts.get("stopped_due_to_signal") and _has_rear_end_tokens(haystack):
         return False
@@ -214,14 +297,14 @@ def _is_intersection_signal_turning_conflict(facts: dict[str, Any], accident_typ
     left_turn = any(token in turning_text.lower() for token in ("left_turn", "left")) or "좌회전" in haystack
     straight_opponent = "직진" in opponent_text or "직진" in haystack
     signal_context = (
-        bool(facts.get("signal_transition"))
-        or bool(facts.get("signal_timing_uncertain"))
-        or bool(facts.get("cctv_needed"))
-        or any(token in signal_text for token in ("황색", "적색", "빨간", "yellow", "red"))
-        or "신호" in haystack
+            bool(facts.get("signal_transition"))
+            or bool(facts.get("signal_timing_uncertain"))
+            or bool(facts.get("cctv_needed"))
+            or any(token in signal_text for token in ("황색", "적색", "빨간", "yellow", "red"))
+            or "신호" in haystack
     )
     declared_intersection = accident_type in {"intersection_collision", "intersection_signal_violation"} or (
-        "교차로" in haystack and ("좌회전" in haystack or "직진" in haystack)
+            "교차로" in haystack and ("좌회전" in haystack or "직진" in haystack)
     )
     return signal_context and (declared_intersection or (left_turn and straight_opponent))
 
@@ -248,13 +331,17 @@ def _has_red_light_violation_context(text: str) -> bool:
 def _is_non_contact_trigger_context(facts: dict[str, Any], haystack: str) -> bool:
     trigger = str(facts.get("trigger_actor_type") or facts.get("possible_trigger_vehicle") or "").strip().lower()
     return (
-        facts.get("non_contact_trigger") is True
-        or (
-            trigger == "bicycle"
-            and (
-                facts.get("rear_vehicle_collision") is True
-                or facts.get("stopped") is True
-                or any(token in haystack for token in ("뒤에서", "후방", "뒤차", "후미", "rear", "bus"))
+            facts.get("non_contact_trigger") is True
+            or (
+                    trigger == "bicycle"
+                    and (
+                            facts.get("rear_vehicle_collision") is True
+                            or facts.get("stopped") is True
+                            or any(token in haystack for token in ("뒤에서", "후방", "뒤차", "후미", "rear", "bus"))
+                    )
             )
-        )
     )
+    if scenario_type == "stealth_illegal_parked_vehicle_collision":
+        accident_party_type = "car_vs_car"
+        tags.discard("bicycle")
+        tags.discard("pedestrian")

@@ -106,15 +106,26 @@ def classify_knia_accident_party_type(chart_data: dict[str, Any]) -> dict[str, A
 def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -> str:
     facts = facts or {}
     hay = " ".join([text or "", str(facts)]).lower()
+    declared_party = str(facts.get("accident_party_type") or "").strip().lower()
+    if declared_party in {"car_vs_parked_vehicle", "vehicle", "car", "truck", "parked_vehicle", "stopped_vehicle"}:
+        return "car_vs_car"
     if facts.get("accident_party_type") in PARTY_TYPES:
         return str(facts["accident_party_type"])
+    if str(facts.get("accident_type") or "").strip().lower() == "stealth_illegal_parked_vehicle_collision":
+        return "car_vs_car"
     partner_type = str(facts.get("collision_partner_type") or "").strip().lower()
-    if partner_type in {"vehicle", "car", "truck", "bus", "van", "motor_vehicle", "other_vehicle"}:
+    if partner_type in {"vehicle", "car", "truck", "bus", "van", "motor_vehicle", "other_vehicle", "parked_vehicle", "stopped_vehicle"}:
         return "car_vs_car"
     if partner_type in {"pedestrian", "person"}:
         return "car_vs_person"
-    if partner_type in {"bicycle", "bike", "cyclist", "motorcycle", "two_wheeler"}:
+    direct_bicycle_collision_text = any(
+        token in hay
+        for token in ("자전거와 충돌", "자전거와 부딪", "자전거를 쳤", "자전거 추돌", "hit bicycle", "collided with bicycle")
+    )
+    if partner_type in {"bicycle", "bike", "cyclist", "motorcycle", "two_wheeler"} and direct_bicycle_collision_text:
         return "car_vs_bicycle"
+    if any(token in hay for token in ("트럭", "화물차", "주차", "정차", "스텔스", "무등화", "교량 아래", "교량 밑", "화단")):
+        return "car_vs_car"
     if partner_type in {"object", "fixed_object", "road_object", "obstacle"}:
         return "car_vs_object"
     if facts.get("pedestrian") or facts.get("pedestrian_visible") or facts.get("victim_is_child"):
@@ -123,7 +134,7 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         return "car_vs_person"
     if facts.get("accident_type") in {"intersection_collision", "intersection_signal_violation"}:
         return "car_vs_car"
-    if facts.get("accident_type") == "bicycle_collision":
+    if facts.get("accident_type") == "bicycle_collision" and direct_bicycle_collision_text:
         return "car_vs_bicycle"
     if facts.get("accident_type") == "object_collision":
         return "car_vs_object"
@@ -133,7 +144,7 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         return "car_vs_car"
     checks = [
         ("car_vs_person", ["차대사람", "보행자", "무단횡단", "어린이보호구역", "민식이", "사람을", "사람과", "아이와", "인명피해"]),
-        ("car_vs_bicycle", ["차대자전거", "자전거", "자전거도로", "자전거 운전자"]),
+        ("car_vs_bicycle", ["차대자전거", "자전거와 충돌", "자전거를 쳤", "자전거 추돌", "자전거 운전자"]),
         ("car_vs_object", ["차대기물", "기물", "시설물", "가드레일", "전봇대", "중앙분리대", "주차장 기둥", "벽", "낙하물", "물체"]),
         ("single_vehicle", ["차량단독", "단독사고", "혼자", "미끄러", "빗길", "눈길", "졸음운전", "운전미숙", "전복", "도로 이탈"]),
         ("car_vs_car", ["차대차", "후미", "뒤차", "차선변경", "진로변경", "교차로", "신호위반", "좌회전", "우회전", "직진", "끼어들", "차량", "car-to-car", "vehicle", "intersection", "left-turn", "straight vehicle"]),
