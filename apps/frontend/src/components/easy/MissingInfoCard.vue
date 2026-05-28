@@ -135,9 +135,9 @@ function text(value: unknown) {
 }
 
 .priority-section {
-  background: rgba(103, 232, 249, 0.08);
-  border: 1px solid rgba(103, 232, 249, 0.22);
-  border-radius: 8px;
+  background: rgba(120, 215, 207, 0.12);
+  border: 1px solid rgba(68, 185, 176, 0.18);
+  border-radius: 16px;
   display: grid;
   gap: 12px;
   padding: 14px;
@@ -150,20 +150,20 @@ function text(value: unknown) {
 
 .priority-head span,
 .priority-item span {
-  color: #67e8f9;
+  color: var(--primary-content);
   font-size: 0.85rem;
   font-weight: 900;
 }
 
 .priority-head strong,
 .priority-item strong {
-  color: #f1f7ff;
+  color: var(--base-content);
   overflow-wrap: anywhere;
 }
 
 .priority-section p,
 .priority-item p {
-  color: #cbd5e1;
+  color: var(--text-sub);
   margin: 0;
 }
 
@@ -174,9 +174,9 @@ function text(value: unknown) {
 }
 
 .priority-item {
-  background: rgba(15, 23, 42, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(87, 75, 99, 0.12);
+  border-radius: 16px;
   display: grid;
   gap: 6px;
   padding: 12px;
@@ -194,13 +194,13 @@ function text(value: unknown) {
 
 .followup-grid span {
   display: block;
-  color: #e5f7ff;
+  color: var(--base-content);
   font-weight: 800;
   line-height: 1.45;
 }
 
 .followup-grid small {
-  color: #b7c8d9;
+  color: var(--text-sub);
   display: block;
   line-height: 1.4;
   margin-top: 6px;

@@ -10,8 +10,14 @@
   car_vs_car: "차대차 사고",
   car_vs_person: "차대사람 사고",
   car_vs_bicycle: "차대자전거 사고",
+  car_vs_motorcycle: "차대오토바이 사고",
   car_vs_object: "차대기물 사고",
   single_vehicle: "차량단독 사고",
+  unknown: "추가 확인 필요",
+  reference_only: "참고용 기준",
+  fallback_used: "같은 대분류의 참고 기준",
+  review_required: "추가 검토가 필요한 참고 기준",
+  structured_chart_used: "구조화 KNIA 기준 사용",
   REAR_END_SAFE_DISTANCE: "앞차와 안전거리를 지켜야 하는 의무",
   ROAD_ACCIDENT_REPORTING_DUTY: "사고가 났을 때 정차하고 필요한 조치를 해야 하는 의무",
   SAFE_DRIVING_DUTY: "주변 상황을 살피며 안전하게 운전해야 하는 의무",
@@ -22,9 +28,13 @@
   TWELVE_GROSS_NEGLIGENCE: "중대한 교통법규 위반 여부 확인",
   HIT_AND_RUN_RISK: "사고 후 필요한 조치를 하지 않았는지 확인"
 };
-const TECHNICAL_KEYS = new Set(["model_info", "technical_model_info", "scenario_classifier", "retrieval", "cache_key", "evidence_cache_key", "chunk_id", "score", "rag_top_k", "ai_profile", "llm_enabled", "llm_usage", "llm_policy", "analysis_source", "provider_enabled", "allowed_outputs", "deterministic_authority", "orchestrator", "security_flags", "scenario_tags", "scenario_type", "document_id", "source_uri", "evidence_ids", "used_evidence_ids", "claim_evidence", "claim_id", "evidence_refs", "required_evidence_family", "support_level", "unsupported_claims", "evidence_support_level", "decision_status", "judgment_status", "agent_judgment", "stage_statuses", "blocking_reasons", "must_not_present_as_final", "user_reference_allowed", "agent_judgment_contract_version", "agent_judgment_overall_status", "decision_blockers", "decision_readiness", "knia_basis", "presentation_policy", "presentation_status", "restricted_sections", "finality", "input_requirements", "followup_loop", "required_input_questions", "blocking_fields", "optional_fields", "video_input_contract", "_video_input_contract", "accepted_observations", "uncertain_observations", "supporting_observations", "ignored_observations", "fact_patch", "confirmation_candidates", "confirmation_groups", "observation_quality", "observation_quality_summary", "quality_gate", "frame_refs", "fact_arbitration", "_fact_arbitration", "fact_sources", "_fact_sources", "video_primary_fields", "user_primary_fields", "applied_video_fields", "kept_user_fields", "confirmed_fields", "held_video_fields", "tentatively_supported_fields", "pending_video_confirmations", "confirmation_fields", "conflicts", "requires_confirmation", "agent_trace", "reflection_loop", "trace_policy", "packet", "step_count", "requery_attempted", "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "initial_query_terms", "final_missing_requirements", "next_action", "expert_guidance_sections", "source_blocked_reason", "retrieval_id", "trace_id", "raw_trace_id", "raw_prompt"]);
+const TECHNICAL_KEYS = new Set(["model_info", "technical_model_info", "scenario_classifier", "retrieval", "cache_key", "evidence_cache_key", "chunk_id", "score", "rag_top_k", "ai_profile", "llm_enabled", "llm_usage", "llm_policy", "analysis_source", "provider_enabled", "allowed_outputs", "deterministic_authority", "orchestrator", "security_flags", "scenario_tags", "scenario_type", "document_id", "source_uri", "source_type", "source_family", "evidence_ids", "used_evidence_ids", "claim_evidence", "claim_id", "evidence_refs", "required_evidence_family", "support_level", "unsupported_claims", "evidence_support_level", "decision_status", "judgment_status", "agent_judgment", "stage_statuses", "blocking_reasons", "must_not_present_as_final", "user_reference_allowed", "agent_judgment_contract_version", "agent_judgment_overall_status", "decision_blockers", "decision_readiness", "knia_basis", "presentation_policy", "presentation_status", "restricted_sections", "finality", "input_requirements", "followup_loop", "required_input_questions", "blocking_fields", "optional_fields", "video_input_contract", "_video_input_contract", "accepted_observations", "uncertain_observations", "supporting_observations", "ignored_observations", "fact_patch", "confirmation_candidates", "confirmation_groups", "observation_quality", "observation_quality_summary", "quality_gate", "frame_refs", "fact_arbitration", "_fact_arbitration", "fact_sources", "_fact_sources", "video_primary_fields", "user_primary_fields", "applied_video_fields", "kept_user_fields", "confirmed_fields", "held_video_fields", "tentatively_supported_fields", "pending_video_confirmations", "confirmation_fields", "conflicts", "requires_confirmation", "agent_trace", "reflection_loop", "trace_policy", "packet", "internal_packet", "metadata", "payload", "trace", "debug", "raw", "raw_payload", "raw_metadata", "raw_trace", "step_count", "requery_attempted", "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "initial_query_terms", "final_missing_requirements", "next_action", "expert_guidance_sections", "source_blocked_reason", "retrieval_id", "trace_id", "raw_trace_id", "raw_prompt", "structured_chart_used", "party_guard_policy", "rejected_mismatch_count", "fallback_used", "parsing_confidence", "review_required", "reference_only"]);
 const BAD_PATTERNS = [/\?\?+/g, /\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi, /Local video verified.?/gi, /duration\s*=\s*[\d.]+s?/gi, /resolution\s*=\s*\d+x\d+/gi, /frames\s*=\s*\d+/gi, /fps\s*=\s*[\d.]+/gi, /codec\s*=\s*[a-z0-9_.-]+/gi, /,\s*=0/g];
-export function shouldHideTechnicalKey(key: string) { return TECHNICAL_KEYS.has(key); }
+export function shouldHideTechnicalKey(key: string) {
+  const normalized = String(key || "").trim();
+  if (TECHNICAL_KEYS.has(normalized)) return true;
+  return /(^|_)(trace|debug|metadata|payload|packet|chunk_id|raw)(_|$)/i.test(normalized);
+}
 export function mapInternalCodeToKorean(value: string): string { return INTERNAL_MAP[value] || value; }
 export function hasBadDebugText(value: unknown): boolean {
   const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
@@ -40,6 +50,11 @@ export function sanitizeDisplayText(value: unknown): string {
   const mappedLevel = { medium: "보통", high: "높음", low: "낮음" }[text.toLowerCase()];
   if (mappedLevel) return mappedLevel;
   text = text.replace(/^unknown$|^모름$/gi, "확인이 필요합니다");
+  text = text.replace(/^true$/gi, "예").replace(/^false$/gi, "아니오");
+  text = text.replace(/\breference_only\b/gi, "참고용 기준");
+  text = text.replace(/\bfallback_used\b/gi, "같은 대분류의 참고 기준");
+  text = text.replace(/\breview_required\b/gi, "추가 검토가 필요한 참고 기준");
+  text = text.replace(/\bstructured_chart_used\b/gi, "구조화 KNIA 기준 사용");
   for (const pattern of BAD_PATTERNS) text = text.replace(pattern, "");
   return text.replace(/\s+/g, " ").trim() || "확인이 필요합니다";
 }

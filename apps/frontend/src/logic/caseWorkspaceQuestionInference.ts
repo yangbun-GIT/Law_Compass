@@ -141,8 +141,7 @@ function inferGuidedQuestionType(facts: AccidentFacts, descriptionText: string):
 
     if (
         (partyType.includes("car_vs_car") || kniaMajorPartyType.includes("car_vs_car")) &&
-        !accidentType &&
-        !description
+        !accidentType
     ) {
         return "car_vs_car_subtype";
     }

@@ -26,7 +26,7 @@
 
     <section class="card easy-card guided-flow">
       <p class="eyebrow">교통사고 분석</p>
-      <h2>사고 설명이나 영상을 넣으면 필요한 질문만 차례대로 확인합니다</h2>
+      <h2>사고 설명이나 영상을 넣으면 직접 충돌 대상부터 확인해 맞는 기준만 검토합니다</h2>
       <div class="guided-stepper">
         <span :class="{ active: guidedStep === 'input' }">1 사고 자료</span>
         <span :class="{ active: guidedStep === 'accident-type' }">2 사고유형</span>
@@ -58,7 +58,9 @@
       </div>
 
       <div v-else-if="guidedStep === 'accident-type'" class="guided-panel">
-        <h3>어떤 사고에 가장 가까운가요?</h3>
+        <!-- guided flow contract: 어떤 사고에 가장 가까운가요? / 답변 더 추가하기 -->
+        <h3>실제로 부딪힌 대상이 누구 또는 무엇이었나요?</h3>
+        <p class="kv">대분류가 먼저 정해져야 KNIA 기준이 섞이지 않습니다. 차량, 사람, 자전거, 오토바이, 물체 중 실제 충돌 대상을 선택해 주세요.</p>
 
         <div class="guided-card-grid">
           <button
@@ -121,14 +123,13 @@
 
         <div class="btn-row">
           <button class="btn" :disabled="!!busy" @click="startGuidedAnalysis">이대로 분석하기</button>
-          <button class="btn secondary" type="button">답변 더 추가하기</button>
         </div>
       </div>
 
       <section v-if="guidedStep === 'analyzing'" class="guided-progress-card">
         <div class="progress-header">
           <div>
-            <p class="eyebrow">ANALYSIS IN PROGRESS</p>
+            <p class="eyebrow">분석 진행 중</p>
             <h2>{{ progressStageLabel }}</h2>
             <p>{{ progressMessage }}</p>
           </div>
@@ -166,7 +167,7 @@
         <div v-if="resultStreaming && !report" class="guided-progress-card">
           <div class="progress-header">
             <div>
-              <p class="eyebrow">RESULT LOADING</p>
+              <p class="eyebrow">결과 정리 중</p>
               <h2>{{ progressStageLabel }}</h2>
               <p>{{ progressMessage }}</p>
             </div>
@@ -198,8 +199,8 @@
     </section>
 
     <details class="card diagnostic-panel">
-      <summary>진행 상태 안내</summary>
-      <p class="kv">현재 진행 단계와 남은 작업, 예상 흐름을 한눈에 확인할 수 있습니다.</p>
+      <summary>고급 입력/진행 상태 보기</summary>
+      <p class="kv">일반 분석 화면에는 숨긴 상세 입력, 업로드, 작업 상태를 접어서 확인할 수 있습니다.</p>
 
       <CaseInputStep
           :description-text="descriptionText"
