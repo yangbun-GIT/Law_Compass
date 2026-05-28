@@ -9,7 +9,8 @@ from app.services.party_agents.base import PARTY_TYPES, canonical_party
 PARTY_PREFIXES = {
     "car_vs_car": ("차",),
     "car_vs_person": ("보",),
-    "car_vs_bicycle": ("자", "거"),
+    "car_vs_bicycle": ("거", "자"),
+    "car_vs_motorcycle": ("차",),
     "car_vs_object": ("기",),
     "single_vehicle": ("단",),
 }
@@ -49,6 +50,10 @@ def is_chart_allowed_for_party(chart_no: Any, party_type: Any) -> bool:
     if not chart:
         return False
     prefixes = allowed_chart_prefixes(party)
+    if party == "car_vs_object" and chart.startswith(("보", "거", "자")):
+        return False
+    if party == "single_vehicle" and chart.startswith(("보", "거", "자")):
+        return False
     if prefixes:
         return chart.startswith(prefixes)
     return False
@@ -106,7 +111,7 @@ def reject_mismatched_knia_items(items: Iterable[dict[str, Any]], party_type: An
     kept: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     for item in items or []:
-        item_party = canonicalize_party_type(item.get("accident_party_type") or _party_from_chart_no(item.get("chart_no")))
+        item_party = canonicalize_party_type(item.get("major_party_type") or item.get("accident_party_type") or _party_from_chart_no(item.get("chart_no")))
         chart_no = str(item.get("chart_no") or "")
         text = _item_text(item)
         allowed = True
@@ -119,7 +124,10 @@ def reject_mismatched_knia_items(items: Iterable[dict[str, Any]], party_type: An
                 allowed = is_chart_allowed_for_party(chart_no, party)
                 reason = "chart_prefix_mismatch"
             if party == "car_vs_motorcycle":
-                allowed = item_party == "car_vs_motorcycle" or _contains_any(text, ("오토바이", "이륜", "원동기장치자전거", "motorcycle"))
+                allowed = item_party == "car_vs_motorcycle" or (
+                    chart_no.startswith("차")
+                    and _contains_any(text, ("오토바이", "이륜", "원동기장치자전거", "motorcycle"))
+                )
                 reason = "motorcycle_keyword_mismatch"
         if allowed:
             kept.append(item)
@@ -137,7 +145,7 @@ def _party_from_chart_no(chart_no: Any) -> str:
 
 
 def _item_text(item: dict[str, Any]) -> str:
-    return " ".join(str(item.get(key) or "") for key in ("chart_no", "title", "accident_summary", "basic_fault_text", "display_tags", "keywords")).lower()
+    return " ".join(str(item.get(key) or "") for key in ("chart_no", "title", "scenario_type", "scenario_subtype", "accident_summary", "accident_situation", "basic_fault_text", "display_tags", "keywords")).lower()
 
 
 def _contains_any(text: str, tokens: tuple[str, ...]) -> bool:

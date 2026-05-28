@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from app.services.knia.knia_fault_adjuster import estimate_knia_fault
+from app.services.knia.knia_fault_adjuster import calculate_fault_from_structured_chart, estimate_knia_fault
 from app.services.knia.knia_matcher import (
     _is_centerline_primary_mismatch,
     is_knia_match_compatible_with_scenario,
@@ -60,6 +60,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         evidence_query["query_text"],
         accident_party_type=scenario.get("accident_party_type"),
         scenario_type=scenario.get("scenario_type"),
+        chart_no=(knia_matches[0].get("chart_no") if knia_matches else None),
         limit=5,
     )
     knia_json_evidence = _filter_primary_knia_evidence(knia_json_result.get("items") or [], scenario_tags, scenario.get("scenario_type"))
@@ -71,6 +72,13 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         primary = knia_matches[0]
         if primary.get("is_static_fallback"):
             knia_fault_estimate = _static_knia_match_to_fault_estimate(primary)
+            knia_reference_evidence.extend(_knia_estimate_to_evidence(knia_fault_estimate))
+        elif primary.get("structured_chart_used"):
+            knia_fault_estimate = calculate_fault_from_structured_chart(
+                primary,
+                normalized["structured_facts"],
+                user_vehicle_role=normalized["structured_facts"].get("user_vehicle_role"),
+            )
             knia_reference_evidence.extend(_knia_estimate_to_evidence(knia_fault_estimate))
         else:
             try:

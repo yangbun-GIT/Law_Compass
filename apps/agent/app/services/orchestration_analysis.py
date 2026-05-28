@@ -185,6 +185,14 @@ def _apply_knia_fault_estimate(
         return
     final_fault = knia_fault_estimate.get("final_fault") or {}
     fault_ratio["knia_reference_fault"] = final_fault
+    if knia_fault_estimate.get("reference_only"):
+        fault_ratio["knia_override_policy"] = "structured_chart_reference_only"
+        fault_ratio["knia_reference_only"] = True
+        fault_ratio["basis"] = (
+            f"{fault_ratio.get('basis') or '사고 사실 기반 참고용 과실 추정입니다.'} "
+            "구조화 KNIA 기준이 검수 필요 또는 기본과실 불완전 상태라 최종 과실값을 덮어쓰지 않고 참고 기준으로만 표시합니다."
+        ).strip()
+        return
     source_chart = knia_fault_estimate.get("source_chart") or {}
     if source_chart and not is_knia_match_compatible_with_scenario(source_chart, scenario.get("scenario_type")):
         fault_ratio["rejected_knia_fault_estimate"] = {
@@ -235,6 +243,11 @@ def _apply_adjustment_registry(
     source_chart = (knia_fault_estimate or {}).get("source_chart") or {}
     if source_chart and not is_knia_match_compatible_with_scenario(source_chart, scenario.get("scenario_type")):
         fault_ratio.setdefault("rejected_knia_fault_estimate", {"source_chart": source_chart, "reason": "knia_basis_mismatch"})
+        return
+    if (knia_fault_estimate or {}).get("reference_only"):
+        fault_ratio["knia_adjustment_policy"] = (knia_fault_estimate or {}).get("policy") or {"reference_only": True}
+        fault_ratio["knia_reference_fault"] = (knia_fault_estimate or {}).get("final_fault") or fault_ratio.get("knia_reference_fault")
+        fault_ratio["knia_reference_only"] = True
         return
     evaluation = evaluate_adjustments(
         scenario.get("scenario_type") or "general_collision",

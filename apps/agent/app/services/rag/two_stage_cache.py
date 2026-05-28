@@ -13,7 +13,7 @@ import redis
 from app.providers.embedding import get_embedding_provider, vector_literal
 
 
-KNIA_JSON_EXACT_CACHE_VERSION = "v2"
+KNIA_JSON_EXACT_CACHE_VERSION = "v3"
 KNIA_JSON_SEMANTIC_DISTANCE_THRESHOLD = 0.20
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,8 @@ def _public_items_from_refs(refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         cur.execute(
             """
             SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
-                   kc.display_tags, kc.keywords, kd.source
+                   kc.display_tags, kc.keywords, kd.source, kc.chart_no, kc.major_party_type, kc.scenario_type,
+                   kc.chunk_type, kc.review_required, kc.metadata
             FROM knia_reference_chunks kc JOIN knia_reference_documents kd ON kd.id=kc.document_id
             WHERE kc.id::text = ANY(%s)
             """,
@@ -103,6 +104,12 @@ def _public_items_from_refs(refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "display_tags": r[6] or [],
             "keywords": r[7] or [],
             "source": r[8] or "KNIA 자동차사고 과실비율 정보포털",
+            "chart_no": r[9],
+            "major_party_type": r[10],
+            "scenario_type": r[11],
+            "chunk_type": r[12],
+            "review_required": bool(r[13]),
+            "metadata": r[14] or {},
             "attribution": "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
         })
     return out
@@ -119,6 +126,12 @@ def _rows_to_public_items(rows: list[Any]) -> list[dict[str, Any]]:
             "display_tags": row[6] or [],
             "keywords": row[7] or [],
             "source": row[8] or "KNIA 자동차사고 과실비율 정보포털",
+            "chart_no": row[9] if len(row) > 9 else None,
+            "major_party_type": row[10] if len(row) > 10 else None,
+            "scenario_type": row[11] if len(row) > 11 else None,
+            "chunk_type": row[12] if len(row) > 12 else None,
+            "review_required": bool(row[13]) if len(row) > 13 else False,
+            "metadata": row[14] if len(row) > 14 else {},
             "attribution": "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
         }
         for row in rows
@@ -130,6 +143,7 @@ def _keyword_fallback_search(
     query: str,
     accident_party_type: str | None,
     scenario_type: str | None,
+    chart_no: str | None,
     limit: int,
     cache_key: str,
     lookup_error: str,
@@ -152,15 +166,20 @@ def _keyword_fallback_search(
         with psycopg.connect(db_url) as conn, conn.cursor() as cur:
             params: list[Any] = [query]
             where = "kc.source_url IS NOT NULL"
+            if chart_no:
+                params.append(chart_no)
+                where += " AND kc.chart_no=%s"
             if accident_party_type and accident_party_type != "unknown":
                 params.append(accident_party_type)
-                where += " AND kc.accident_party_type=%s"
+                where += " AND (kc.major_party_type=%s OR kc.accident_party_type=%s)"
+                params.append(accident_party_type)
             params.append(limit)
             cur.execute(
                 f"""
                 WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq)
                 SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
-                       kc.display_tags, kc.keywords, kd.source,
+                       kc.display_tags, kc.keywords, kd.source, kc.chart_no, kc.major_party_type, kc.scenario_type,
+                       kc.chunk_type, kc.review_required, kc.metadata,
                        (CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) AS fts_rank,
                        kc.evidence_quality_score
                 FROM knia_reference_chunks kc
@@ -174,15 +193,6 @@ def _keyword_fallback_search(
                 params,
             )
             rows = cur.fetchall()
-            if not rows and accident_party_type:
-                return _keyword_fallback_search(
-                    query=query,
-                    accident_party_type=None,
-                    scenario_type=scenario_type,
-                    limit=limit,
-                    cache_key=cache_key,
-                    lookup_error=lookup_error,
-                )
             return {
                 "items": _rows_to_public_items(rows),
                 "cache": {
@@ -209,13 +219,14 @@ def _keyword_fallback_search(
         }
 
 
-def search_knia_json_cached(query: str, accident_party_type: str | None = None, scenario_type: str | None = None, limit: int = 5) -> dict[str, Any]:
+def search_knia_json_cached(query: str, accident_party_type: str | None = None, scenario_type: str | None = None, limit: int = 5, chart_no: str | None = None) -> dict[str, Any]:
     normalized = normalize_query(query)
     qh = query_hash(normalized)
     version = get_knia_json_version()
     party = accident_party_type or "unknown"
     scenario = scenario_type or "unknown"
-    key = f"knia_json:exact:{KNIA_JSON_EXACT_CACHE_VERSION}:{version}:{party}:{scenario}:{qh}"
+    chart_scope = chart_no or "any"
+    key = f"knia_json:exact:{KNIA_JSON_EXACT_CACHE_VERSION}:{version}:{party}:{scenario}:{chart_scope}:{qh}"
     db_url = _db_url()
     if not db_url:
         return {"items": [], "cache": {"exact_hit": False, "semantic_hit": False, "key": key, "scenario_type": scenario, "disabled_reason": "DATABASE_URL missing"}}
@@ -238,25 +249,28 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
             query=normalized,
             accident_party_type=accident_party_type,
             scenario_type=scenario_type,
+            chart_no=chart_no,
             limit=limit,
             cache_key=key,
             lookup_error=f"embedding_unavailable:{exc.__class__.__name__}",
         )
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT result_refs, query_hash, query_embedding <=> %s::vector AS distance
-            FROM semantic_query_cache
-            WHERE source_scope='knia_json'
-              AND coalesce(accident_party_type,'unknown')=%s
-              AND coalesce(scenario_type,'unknown')=%s
-              AND (expires_at IS NULL OR expires_at > now())
-            ORDER BY query_embedding <=> %s::vector ASC
-            LIMIT 1
-            """,
-            (vec_literal, party, scenario, vec_literal),
-        )
-        semantic = cur.fetchone()
+        semantic = None
+        if not chart_no:
+            cur.execute(
+                """
+                SELECT result_refs, query_hash, query_embedding <=> %s::vector AS distance
+                FROM semantic_query_cache
+                WHERE source_scope='knia_json'
+                  AND coalesce(accident_party_type,'unknown')=%s
+                  AND coalesce(scenario_type,'unknown')=%s
+                  AND (expires_at IS NULL OR expires_at > now())
+                ORDER BY query_embedding <=> %s::vector ASC
+                LIMIT 1
+                """,
+                (vec_literal, party, scenario, vec_literal),
+            )
+            semantic = cur.fetchone()
         if semantic and float(semantic[2] or 1.0) <= KNIA_JSON_SEMANTIC_DISTANCE_THRESHOLD:
             refs = semantic[0]
             cur.execute("UPDATE semantic_query_cache SET hit_count=hit_count+1, updated_at=now() WHERE query_hash=%s AND source_scope='knia_json'", (semantic[1],))
@@ -280,15 +294,20 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
 
         params: list[Any] = [normalized, vec_literal]
         where = "kc.source_url IS NOT NULL"
+        if chart_no:
+            params.append(chart_no)
+            where += " AND kc.chart_no=%s"
         if accident_party_type and accident_party_type != "unknown":
             params.append(accident_party_type)
-            where += f" AND kc.accident_party_type=%s"
+            where += " AND (kc.major_party_type=%s OR kc.accident_party_type=%s)"
+            params.append(accident_party_type)
         params.append(limit)
         cur.execute(
             f"""
             WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq, %s::vector AS qvec)
             SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
-                   kc.display_tags, kc.keywords, kd.source,
+                   kc.display_tags, kc.keywords, kd.source, kc.chart_no, kc.major_party_type, kc.scenario_type,
+                   kc.chunk_type, kc.review_required, kc.metadata,
                    (CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) AS fts_rank,
                    (CASE WHEN kc.embedding IS NOT NULL THEN 1 - (kc.embedding <=> q.qvec) ELSE 0 END) AS vector_score,
                    kc.evidence_quality_score
@@ -304,17 +323,16 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
             params,
         )
         rows = cur.fetchall()
-        if not rows and accident_party_type:
-            return search_knia_json_cached(query, accident_party_type=None, scenario_type=scenario_type, limit=limit)
         refs = [{"chunk_id": str(row[0])} for row in rows]
         items = _rows_to_public_items(rows)
-        cur.execute(
-            """
-            INSERT INTO semantic_query_cache(source_scope, accident_party_type, scenario_type, normalized_query, query_hash, query_embedding, result_refs, kb_version, expires_at)
-            VALUES ('knia_json', %s, %s, %s, %s, %s::vector, %s::jsonb, %s, now() + interval '7 days')
-            """,
-            (party, scenario_type, normalized, qh, vec_literal, json.dumps(refs, ensure_ascii=False), version),
-        )
+        if not chart_no:
+            cur.execute(
+                """
+                INSERT INTO semantic_query_cache(source_scope, accident_party_type, scenario_type, normalized_query, query_hash, query_embedding, result_refs, kb_version, expires_at)
+                VALUES ('knia_json', %s, %s, %s, %s, %s::vector, %s::jsonb, %s, now() + interval '7 days')
+                """,
+                (party, scenario_type, normalized, qh, vec_literal, json.dumps(refs, ensure_ascii=False), version),
+            )
         conn.commit()
         if r:
             try:

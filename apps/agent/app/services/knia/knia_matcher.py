@@ -17,6 +17,7 @@ from app.services.knia.party_guard import (
     filter_terms_by_party,
     reject_mismatched_knia_items,
 )
+from app.services.knia.knia_json_repository import get_knia_fault_chart, list_knia_fault_charts_by_party, search_knia_fault_charts
 from app.services.knia.taxonomy import infer_party_type_from_text, party_actions, party_label
 from app.services.scenario_search_terms import scenario_search_terms
 
@@ -100,7 +101,51 @@ def match_knia_charts(
     tags = filter_tags_by_party(list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)])), party, facts)
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         tags = [tag for tag in tags if tag != "bicycle"]
-    cache_key = "knia:match:v9:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+    structured_lookup_error = None
+    structured_items: list[dict[str, Any]] = []
+    structured_rejected: list[dict[str, Any]] = []
+    try:
+        structured_items = _structured_chart_lookup(
+            party=party,
+            scenario_type=scenario_type,
+            query_terms=expansion_terms,
+            chart_no=chart_direct.group(0) if chart_direct else None,
+            limit=limit,
+        )
+        structured_items, structured_rejected = reject_mismatched_knia_items(structured_items, party)
+        if not structured_items and not chart_direct and party != "unknown":
+            fallback_rows = list_knia_fault_charts_by_party(party, limit=limit)
+            structured_items, fallback_rejected = reject_mismatched_knia_items(
+                [_structured_chart_to_match(row, 0.28, "같은 대분류 안에서 참고할 수 있는 구조화 KNIA 기준입니다.", reference_only=True) for row in fallback_rows],
+                party,
+            )
+            structured_rejected.extend(fallback_rejected)
+    except Exception as exc:
+        structured_lookup_error = _safe_error(exc)
+    if structured_items:
+        fallback_used = not chart_direct and not any(item.get("scenario_type") == scenario_type for item in structured_items)
+        primary = structured_items[0]
+        return {
+            "items": structured_items,
+            "cache_hit": False,
+            "cache_key": None,
+            "accident_party_type": party,
+            "requested_party_type": party,
+            "query_expansion_terms": expansion_terms,
+            "lookup_error": None,
+            "structured_lookup_error": structured_lookup_error,
+            "structured_chart_used": True,
+            "chart_no": primary.get("chart_no"),
+            "party_guard_policy": _party_guard_policy(party),
+            "rejected_mismatch_count": len(structured_rejected),
+            "fallback_used": fallback_used,
+            "no_knia_match_reason": None,
+            "review_required": bool(primary.get("review_required", False)),
+            "parsing_confidence": primary.get("parsing_confidence"),
+            "excluded_items": structured_rejected,
+        }
+
+    cache_key = "knia:match:v10:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
     cache = _redis_client()
     if cache:
         cached = cache.get(cache_key)
@@ -116,6 +161,8 @@ def match_knia_charts(
                 "party_guard_policy": _party_guard_policy(party),
                 "rejected_mismatch_count": 0,
                 "fallback_used": False,
+                "structured_chart_used": False,
+                "chart_no": cached_items[0].get("chart_no") if cached_items else None,
                 "no_knia_match_reason": None if cached_items else "no_same_party_knia_match",
             }
     lookup_error = None
@@ -172,16 +219,87 @@ def match_knia_charts(
         "query_expansion_terms": expansion_terms,
         "lookup_error": lookup_error,
         "fallback_lookup_error": fallback_lookup_error,
+        "structured_lookup_error": structured_lookup_error,
+        "structured_chart_used": False,
+        "chart_no": items[0].get("chart_no") if items else None,
         "party_guard_policy": _party_guard_policy(party),
-        "rejected_mismatch_count": rejected_mismatch_count,
+        "rejected_mismatch_count": rejected_mismatch_count + len(structured_rejected),
         "fallback_used": fallback_used,
         "no_knia_match_reason": no_match_reason,
+        "review_required": bool(items[0].get("review_required", False)) if items else None,
+        "parsing_confidence": items[0].get("parsing_confidence") if items else None,
         "excluded_items": excluded_items,
     }
 
 
 def _should_use_static_lane_change_fallback(scenario_type: str | None, party: str | None) -> bool:
     return scenario_type == "lane_change_collision" and canonicalize_party_type(party) in {"car_vs_car", "unknown"}
+
+
+def _structured_chart_lookup(
+        *,
+        party: str | None,
+        scenario_type: str | None,
+        query_terms: list[str],
+        chart_no: str | None,
+        limit: int,
+) -> list[dict[str, Any]]:
+    if chart_no:
+        chart = get_knia_fault_chart(chart_no)
+        if not chart:
+            return []
+        return [_structured_chart_to_match(chart, 0.95, "입력 내용에 구조화 KNIA 기준번호가 직접 포함되어 있습니다.")]
+    rows = search_knia_fault_charts(party, scenario_type, query_terms, limit=limit)
+    matches: list[dict[str, Any]] = []
+    for row in rows:
+        score = float(row.get("match_score") or 0.55)
+        if row.get("scenario_type") == scenario_type:
+            score = max(score, 0.72)
+        reference_only = bool(row.get("review_required")) or not bool(row.get("base_fault"))
+        reason = "구조화된 2023.6 KNIA JSON chart가 사고 대분류와 사고유형에 맞습니다."
+        if reference_only:
+            reason += " 다만 검수 필요 또는 기본과실 후보라 참고 기준으로 표시합니다."
+        matches.append(_structured_chart_to_match(row, score, reason, reference_only=reference_only))
+    return matches
+
+
+def _structured_chart_to_match(
+        row: dict[str, Any],
+        score: float,
+        reason: str,
+        *,
+        reference_only: bool | None = None,
+) -> dict[str, Any]:
+    match = _to_match(row, score, reason)
+    review_required = bool(row.get("review_required", False))
+    no_base_fault = not bool(row.get("base_fault"))
+    match.update(
+        {
+            "structured_chart_used": True,
+            "source_type": "knia_structured_chart",
+            "source_family": "knia",
+            "major_party_type": row.get("major_party_type") or row.get("accident_party_type"),
+            "scenario_type": row.get("scenario_type"),
+            "scenario_subtype": row.get("scenario_subtype"),
+            "vehicle_roles": row.get("vehicle_roles") or {},
+            "base_fault": row.get("base_fault") or {},
+            "adjustments": row.get("adjustments") or row.get("adjustment_factors") or [],
+            "related_laws": row.get("related_laws") or [],
+            "accident_situation": row.get("accident_situation") or row.get("accident_summary"),
+            "base_fault_explanation": row.get("base_fault_explanation") or row.get("basic_fault_text"),
+            "usage_notes": row.get("usage_notes"),
+            "raw_text": row.get("raw_text"),
+            "parsing_confidence": row.get("parsing_confidence"),
+            "review_required": review_required,
+            "reference_only": bool(reference_only) or review_required or no_base_fault,
+            "final_fault_eligible": not (review_required or no_base_fault),
+            "page_start": row.get("page_start"),
+            "page_end": row.get("page_end"),
+        }
+    )
+    if match["reference_only"]:
+        match["match_label"] = "검수 필요 구조화 KNIA 참고 기준입니다." if review_required else "구조화 KNIA 참고 기준입니다."
+    return match
 
 
 def _static_lane_change_matches(*, limit: int) -> list[dict[str, Any]]:
@@ -473,8 +591,12 @@ def _match_joined_text(row: dict[str, Any]) -> str:
             "chart_no",
             "title",
             "accident_summary",
+            "accident_situation",
             "scenario_summary_easy",
+            "scenario_type",
+            "scenario_subtype",
             "basic_fault_text",
+            "base_fault_explanation",
             "plain_summary",
             "summary",
             "related_reason",
@@ -589,6 +711,10 @@ def _reason(row: dict[str, Any], tags: list[str], party: str | None = None) -> s
 def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
     media = select_media(row)
     party = _row_party_type(row)
+    base_a = row.get("base_fault_a")
+    base_b = row.get("base_fault_b")
+    if (base_a is None or base_b is None) and isinstance(row.get("base_fault"), dict):
+        base_a, base_b = _base_fault_pair(row.get("base_fault"))
     return {
         "chart_id": str(row.get("id")),
         "chart_no": row.get("chart_no"),
@@ -598,12 +724,13 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
         "match_label": "관련성이 높은 기준입니다." if score >= 0.35 else "참고할 수 있는 기준입니다.",
         "match_reason": reason,
         "accident_party_type": party,
+        "major_party_type": row.get("major_party_type") or party,
         "accident_party_label": party_label(party),
-        "base_fault_a": row.get("base_fault_a"),
-        "base_fault_b": row.get("base_fault_b"),
-        "accident_summary": row.get("accident_summary"),
+        "base_fault_a": base_a,
+        "base_fault_b": base_b,
+        "accident_summary": row.get("accident_summary") or row.get("accident_situation"),
         "scenario_summary_easy": row.get("scenario_summary_easy"),
-        "basic_fault_text": row.get("basic_fault_text"),
+        "basic_fault_text": row.get("basic_fault_text") or row.get("base_fault_explanation"),
         "recommended_user_actions": row.get("recommended_user_actions") or party_actions(party),
         "display_tags": row.get("display_tags") or [],
         "source_url": row.get("source_url"),
@@ -615,7 +742,22 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
 
 
 def _row_party_type(row: dict[str, Any]) -> str:
-    return _party_from_chart_no(row.get("chart_no")) or row.get("accident_party_type") or "unknown"
+    return row.get("major_party_type") or _party_from_chart_no(row.get("chart_no")) or row.get("accident_party_type") or "unknown"
+
+
+def _base_fault_pair(base_fault: dict[str, Any]) -> tuple[int | None, int | None]:
+    for candidate in base_fault.get("candidates") or []:
+        if not isinstance(candidate, dict):
+            continue
+        a = candidate.get("A")
+        b = candidate.get("B")
+        if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            return int(a), int(b)
+    a = base_fault.get("A")
+    b = base_fault.get("B")
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return int(a), int(b)
+    return None, None
 
 
 def _safe_error(exc: Exception) -> dict[str, str]:

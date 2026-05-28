@@ -321,7 +321,7 @@ def _clean_doc_text(text: str) -> str:
     seen = set()
     for raw in (text or "").splitlines():
         line = _norm(raw)
-        if _should_skip_label(line):
+        if not line or line in BLACKLIST_TEXTS or line.startswith("http") or re.fullmatch(r"[\W_]+", line):
             continue
         if line in seen:
             continue
@@ -334,13 +334,19 @@ def build_rag_chunks_from_document(doc: dict[str, Any]) -> list[dict[str, Any]]:
     title = _norm(doc.get("title") or doc.get("label") or "KNIA 과실비율 기준")
     source_url = doc.get("source_url") or BASE_URL
     headings = doc.get("headings") or []
-    text = _clean_doc_text(doc.get("text") or "")
+    text = _clean_doc_text(doc.get("body") or doc.get("text") or "")
     if len(text) < 50:
         return []
-    party = infer_accident_party_type(" ".join([title, text]), source_url, headings)
+    party_type = doc.get("major_party_type") or doc.get("accident_party_type")
+    party = (
+        {"accident_party_type": party_type, "accident_party_label": PARTY_LABELS.get(str(party_type), party_label(str(party_type))), "display_tags": infer_display_tags(text)}
+        if party_type
+        else infer_accident_party_type(" ".join([title, text]), source_url, headings)
+    )
     my_no = infer_myaccident_no(source_url)
     prefix = "\n".join([title, *[str(h) for h in headings[:5] if h]])
     body = f"{prefix}\n{text}".strip()
+    metadata = _document_metadata(doc)
     chunks: list[dict[str, Any]] = []
     size = 1100
     overlap = 120
@@ -352,16 +358,21 @@ def build_rag_chunks_from_document(doc: dict[str, Any]) -> list[dict[str, Any]]:
             kws = _keywords(chunk_text)
             chunks.append({
                 "chunk_index": idx,
-                "chunk_type": "rag",
+                "chunk_type": doc.get("chunk_type") or "rag",
                 "chunk_text": chunk_text,
                 "plain_summary": chunk_text[:220].replace("\n", " "),
                 "source_url": source_url,
                 "myaccident_no": my_no,
                 "accident_party_type": party["accident_party_type"],
                 "accident_party_label": party["accident_party_label"],
-                "scenario_tags": kws,
+                "scenario_tags": _scenario_tags(doc, kws),
                 "keywords": kws,
                 "display_tags": party.get("display_tags") or kws[:5],
+                "chart_no": doc.get("chart_no"),
+                "major_party_type": doc.get("major_party_type"),
+                "scenario_type": doc.get("scenario_type"),
+                "review_required": bool(doc.get("review_required", False)),
+                "metadata": metadata,
                 "content_hash": _hash(chunk_text),
                 "evidence_quality_score": _quality_score(chunk_text, source_url),
             })
@@ -373,10 +384,16 @@ def build_rag_chunks_from_document(doc: dict[str, Any]) -> list[dict[str, Any]]:
 def normalize_document(doc: dict[str, Any]) -> dict[str, Any]:
     source_url = doc.get("source_url") or BASE_URL
     title = _norm(doc.get("title") or doc.get("label") or "KNIA 과실비율 기준")
-    text = _clean_doc_text(doc.get("text") or "")
+    text = _clean_doc_text(doc.get("body") or doc.get("text") or "")
     headings = doc.get("headings") or []
-    party = infer_accident_party_type(" ".join([title, text]), source_url, headings)
+    party_type = doc.get("major_party_type") or doc.get("accident_party_type")
+    party = (
+        {"accident_party_type": party_type, "accident_party_label": PARTY_LABELS.get(str(party_type), party_label(str(party_type))), "display_tags": infer_display_tags(text)}
+        if party_type
+        else infer_accident_party_type(" ".join([title, text]), source_url, headings)
+    )
     doc_id = doc.get("doc_id") or _hash(source_url + title)
+    metadata = _document_metadata(doc)
     return {
         "id": doc_id,
         "source": doc.get("source") or "KNIA 자동차사고 과실비율 정보포털",
@@ -389,5 +406,48 @@ def normalize_document(doc: dict[str, Any]) -> dict[str, Any]:
         "myaccident_no": infer_myaccident_no(source_url),
         "accident_party_type": party["accident_party_type"],
         "accident_party_label": party["accident_party_label"],
-        "metadata": doc.get("metadata") or {},
+        "chart_no": doc.get("chart_no"),
+        "major_party_type": doc.get("major_party_type"),
+        "scenario_type": doc.get("scenario_type"),
+        "scenario_subtype": doc.get("scenario_subtype"),
+        "chunk_type": doc.get("chunk_type"),
+        "page_start": _page_value(doc, "page_start"),
+        "page_end": _page_value(doc, "page_end"),
+        "review_required": bool(doc.get("review_required", False)),
+        "metadata": metadata,
     }
+
+
+def _page_value(doc: dict[str, Any], key: str) -> Any:
+    return doc.get(key) if doc.get(key) is not None else doc.get(f"{key}_pdf")
+
+
+def _document_metadata(doc: dict[str, Any]) -> dict[str, Any]:
+    metadata = dict(doc.get("metadata") or {})
+    for key in (
+        "chart_no",
+        "major_party_type",
+        "scenario_type",
+        "scenario_subtype",
+        "chunk_type",
+        "review_required",
+    ):
+        if doc.get(key) is not None:
+            metadata[key] = doc.get(key)
+    metadata["page_start"] = _page_value(doc, "page_start")
+    metadata["page_end"] = _page_value(doc, "page_end")
+    if doc.get("page_start_printed") is not None:
+        metadata["page_start_printed"] = doc.get("page_start_printed")
+    if doc.get("page_end_printed") is not None:
+        metadata["page_end_printed"] = doc.get("page_end_printed")
+    return metadata
+
+
+def _scenario_tags(doc: dict[str, Any], keywords: list[str]) -> list[str]:
+    tags: list[str] = []
+    for key in ("scenario_type", "scenario_subtype", "chunk_type"):
+        value = doc.get(key)
+        if value:
+            tags.append(str(value))
+    tags.extend(keywords)
+    return list(dict.fromkeys(tags))

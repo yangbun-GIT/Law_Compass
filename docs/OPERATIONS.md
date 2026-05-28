@@ -36,6 +36,19 @@ docker compose --env-file .env up --build
 docker compose exec agent python scripts/ingest_kb.py
 ```
 
+## 2-0) KNIA 2023.6 구조화 JSON 적재
+PDF를 다시 파싱하지 않고 이미 생성된 검수용 JSON을 구조화 KNIA chart와 RAG 근거로 적재한다.
+
+```bash
+python apps/agent/scripts/import_knia_fault_ratio_json.py --path scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_review.json --rebuild-embeddings
+```
+
+주의:
+- `codex_review.json`은 PDF 자동 추출 기반 검수용 데이터다.
+- `review_required: true`인 chart는 최종 확정 기준처럼 단정하지 않고 reference 또는 낮은 confidence 기준으로 표시한다.
+- 과실 숫자는 구조화 chart가 source of truth 후보이며, RAG는 해설·법규·활용 참고사항 설명에 사용한다.
+- 원본 PDF, 실제 secret, `.env` 값, 대용량 산출물은 저장소에 포함하지 않는다.
+
 ## 2-1) 외부 법률 API 기반 KB 적재(선택)
 사전 조건:
 - `.env`에 `LAW_API_OC` 설정(국가법령정보센터 OPEN API 사용자 OC)
