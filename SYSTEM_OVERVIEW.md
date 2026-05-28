@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P2-2 영상 Reference 평가 지표 고정
+
+P2-2 단계에서 영상/입력 사실 추출 개선이 실제로 좋아졌는지 반복 측정할 수 있도록 reference manifest와 batch aggregate를 연결하는 고정 지표 평가 경로를 추가했다. 이 작업은 외부 모델 호출이나 실제 영상 재분석을 수행하지 않고, 이미 생성된 batch 결과를 기준으로 사고 대상 오염과 근거 부적합을 재현 가능하게 측정한다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 평가 스크립트 | `scripts/evaluate_video_reference_metrics.py`를 추가했다. `reference_case_manifest`와 `video_accuracy_batch.py`의 `aggregate.json`을 받아 sample별 reference를 연결하고 지표 JSON을 생성한다. |
+| 고정 지표 | 직접 충돌 대상 정확도, 사고 대분류 정확도, context 오염률, 관찰값 0개 비율, 근거 부적합률, 분기형 판단 coverage를 산출한다. |
+| Fixture | `tests/fixtures/video_accuracy/reference_metrics_manifest.json`과 `reference_metrics_batch_aggregate.json`을 추가해 실제 영상 없이도 지표 계산을 검증할 수 있게 했다. |
+| 문서 | `docs/VIDEO_REFERENCE_METRICS.md`에 지표 의미, 기본 threshold, 실행 순서, 해석 기준을 정리했다. `DEVELOPMENT_PROMPT.md`의 evaluation 규칙에도 P2-2 지표 사용 기준을 추가했다. |
+| 검증 | Reference metrics manifest preflight 통과. Synthetic aggregate 평가 결과 `direct_collision_target_accuracy=1.0`, `accident_party_accuracy=1.0`, `context_pollution_rate=0.0`, `zero_observation_rate=0.0`, `evidence_mismatch_rate=0.0`, `conditional_branch_coverage=1.0`으로 threshold 통과. Python compile과 `git diff --check`도 통과했다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 실제 사고 영상 1~5나 공개 reference 후보는 같은 스크립트에 로컬 manifest와 batch aggregate를 넣어 평가한다. 다음 단계는 P2-3 Agent 근거 검색·표시 정합성으로, 사고유형이 맞게 잡힌 뒤 KNIA/법령/판례 근거도 같은 사고축으로 검색되는지 보강하는 것이다.
+
 ## 2026-05-29 P2-1 외부 참고 케이스 Manifest 보강
 
 P2-1 단계에서 한문철TV 같은 공개 사고 영상 링크, 사용자 제공 사고 영상 요약, AI Hub 샘플 정보를 Agent 입력 사실이나 정답 데이터로 오용하지 않도록 reference manifest 계약과 preflight 검증을 보강했다. 목적은 외부 사례를 “답 맞추기”가 아니라 영상 관찰값 오염, 사고 대상 오인, 분기형 판단 누락을 찾는 평가/calibration reference로만 관리하는 것이다.

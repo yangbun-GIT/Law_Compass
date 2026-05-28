@@ -115,6 +115,7 @@
 - 지표: 사고 대상 정확도, 직접 충돌 대상 정확도, 보조 환경 오염률, 관찰값 0개 비율, 근거 부적합률, 분기형 판단 생성 여부.
 - ReAct 적용: 필수, 2회.
 - 이유: 이후 개발이 좋아졌는지 나빠졌는지 판단 기준이 필요하다.
+- 상태: 완료. `scripts/evaluate_video_reference_metrics.py`를 추가해 reference case manifest와 `video_accuracy_batch.py`의 aggregate 결과를 연결하고, 직접 충돌 대상 정확도, 사고 대분류 정확도, context 오염률, 관찰값 0개 비율, 근거 부적합률, 분기형 판단 coverage를 계산하도록 했다. `tests/fixtures/video_accuracy/reference_metrics_manifest.json`과 `reference_metrics_batch_aggregate.json` synthetic fixture를 추가해 지표 계산을 재현 가능하게 고정했다. `docs/VIDEO_REFERENCE_METRICS.md`에 실행 순서와 해석 기준을 문서화했다.
 
 ### P2-3. Agent 근거 검색·표시 정합성
 

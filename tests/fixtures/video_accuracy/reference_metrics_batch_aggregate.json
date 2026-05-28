@@ -1,0 +1,101 @@
+{
+  "video_accuracy_batch": "completed",
+  "sample_count": 2,
+  "passed_count": 2,
+  "mismatch_count": 0,
+  "failed_count": 0,
+  "samples": [
+    {
+      "name": "metrics_centerline_vehicle",
+      "status": "passed",
+      "frame_observation_count": 3,
+      "agent_accepted_count": 2,
+      "agent_uncertain_count": 1,
+      "agent_supporting_count": 1,
+      "field_metrics": [
+        {
+          "field": "direct_collision_partner_type",
+          "value": "vehicle",
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false
+        },
+        {
+          "field": "accident_party_type",
+          "value": "car_vs_car",
+          "from_observation": false,
+          "applied": false,
+          "confirmed": true,
+          "conflict": false
+        }
+      ],
+      "conditional_outcome_card": {
+        "title": "중앙선 침범 사유에 따라 달라지는 판단",
+        "summary": "장애물 회피 필요성과 대향 차량 회피 가능성을 나누어 봅니다."
+      },
+      "expert_guidance": {
+        "present": true,
+        "basis": [
+          {
+            "family_label": "KNIA 기준",
+            "title": "Centerline obstacle avoidance fault guide",
+            "reason": "centerline, parked obstacle, oncoming vehicle, and secondary rear collision are directly relevant."
+          }
+        ],
+        "legal_points": [
+          "중앙선 침범 사유와 대향 차량 회피 가능성을 확인합니다."
+        ],
+        "legal_limits": [
+          "장애물 회피 필요성이 확인되어야 합니다."
+        ]
+      }
+    },
+    {
+      "name": "metrics_intersection_signal_unknown",
+      "status": "passed",
+      "frame_observation_count": 2,
+      "agent_accepted_count": 1,
+      "agent_uncertain_count": 1,
+      "agent_supporting_count": 0,
+      "field_metrics": [
+        {
+          "field": "direct_collision_partner_type",
+          "value": "vehicle",
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false
+        },
+        {
+          "field": "accident_party_type",
+          "value": "car_vs_car",
+          "from_observation": false,
+          "applied": false,
+          "confirmed": true,
+          "conflict": false
+        }
+      ],
+      "conditional_outcome_card": {
+        "title": "신호 확인에 따라 달라지는 판단",
+        "summary": "상대 신호가 보이지 않는 교차로 사고라 조건별로 나누어 봅니다."
+      },
+      "expert_guidance": {
+        "present": true,
+        "basis": [
+          {
+            "family_label": "법률 근거",
+            "title": "Intersection signal timing guide",
+            "reason": "intersection, signal timing, and opponent signal unknown require CCTV or signal-cycle evidence."
+          }
+        ],
+        "legal_points": [
+          "교차로 신호 변경 시점과 상대 신호 확인이 필요합니다."
+        ],
+        "legal_limits": [
+          "상대 신호가 확인되지 않으면 신호위반으로 단정하지 않습니다."
+        ]
+      }
+    }
+  ]
+}

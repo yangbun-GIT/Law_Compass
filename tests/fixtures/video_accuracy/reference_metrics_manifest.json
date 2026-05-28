@@ -1,0 +1,87 @@
+{
+  "version": "2026-05-29",
+  "purpose": "Synthetic reference metrics fixture. No real video, no private path, no lawyer opinion text.",
+  "cases": [
+    {
+      "id": "metrics_centerline_vehicle",
+      "title": "중앙선 장애물 회피 후 차대차 충돌",
+      "source_type": "local_user_provided",
+      "reference_role": "evaluation_only_not_agent_input",
+      "review_status": "reviewed_for_evaluation",
+      "local_video_path": "C:/path/to/local-only/metrics_centerline_vehicle.mp4",
+      "scenario_summary": "주차 차량을 피하려 중앙선을 일부 넘은 뒤 마주오던 차량과 충돌하고 후속 추돌이 이어진 synthetic reference.",
+      "reference_expectations": {
+        "direct_collision_partner_type": "vehicle",
+        "accident_event_required": true,
+        "expected_context": [
+          "centerline_context",
+          "parked_vehicle_obstacle",
+          "oncoming_vehicle",
+          "secondary_rear_collision"
+        ],
+        "must_not_promote": [
+          "pedestrian_crosswalk_accident",
+          "simple_rear_end_only"
+        ],
+        "ambiguous_branches": [
+          {
+            "condition": "centerline crossing was forced by a parked obstacle",
+            "expected_guidance": "중앙선 침범 사유와 상대 회피 가능성을 나누어 설명한다."
+          }
+        ]
+      },
+      "evaluation_focus": [
+        "direct_collision_target_accuracy",
+        "context_pollution_rate",
+        "conditional_branch_coverage"
+      ],
+      "usage_policy": {
+        "agent_input_allowed": false,
+        "raw_video_commit_allowed": false,
+        "notes": "Synthetic fixture only. Raw video is not committed."
+      }
+    },
+    {
+      "id": "metrics_intersection_signal_unknown",
+      "title": "교차로 신호 불명 차대차 충돌",
+      "source_type": "public_reference_link",
+      "reference_role": "calibration_reference_only",
+      "review_status": "reviewed_for_evaluation",
+      "source_url": "https://www.youtube.com/watch?v=example",
+      "scenario_summary": "교차로 좌회전 중 직진 차량과 충돌했으나 상대 신호가 확인되지 않는 synthetic reference.",
+      "reference_expectations": {
+        "direct_collision_partner_type": "vehicle",
+        "accident_event_required": true,
+        "expected_context": [
+          "intersection_context",
+          "ego_signal_timing",
+          "opponent_signal_unknown"
+        ],
+        "must_not_promote": [
+          "pedestrian_crosswalk_accident",
+          "opponent_signal_violation_when_not_visible"
+        ],
+        "ambiguous_branches": [
+          {
+            "condition": "opponent signal was green",
+            "expected_guidance": "내 차량 책임이 커질 가능성을 분기한다."
+          },
+          {
+            "condition": "opponent signal was red",
+            "expected_guidance": "상대 차량 책임이 커질 가능성을 분기한다."
+          }
+        ]
+      },
+      "evaluation_focus": [
+        "direct_collision_target_accuracy",
+        "conditional_branch_coverage",
+        "evidence_mismatch_rate"
+      ],
+      "usage_policy": {
+        "agent_input_allowed": false,
+        "raw_video_commit_allowed": false,
+        "notes": "Public-link style synthetic fixture. Do not download or commit raw media."
+      }
+    }
+  ]
+}
