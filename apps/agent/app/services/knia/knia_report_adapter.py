@@ -26,6 +26,8 @@ def build_knia_evidence(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
         chart_no = match.get("chart_no") or "기준번호 미확인"
         evidence.append({
             "source_type": "knia_fault_standard",
+            "source_family": match.get("source_family") or "knia",
+            "evidence_family": match.get("evidence_family") or "knia",
             "title": f"{chart_no} {title}",
             "chart_no": match.get("chart_no"),
             "chart_type": match.get("chart_type"),

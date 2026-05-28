@@ -43,7 +43,22 @@ PARTY_TERM_PROFILES = {
 
 SCENARIO_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "rear_end_collision": ("후미추돌", "뒤차 추돌", "안전거리", "정차 중 추돌", "급정거"),
-    "lane_change_collision": ("차선변경", "진로변경", "방향지시등", "깜빡이", "측면충돌", "사각지대"),
+    "lane_change_collision": (
+        "진로변경",
+        "차로변경",
+        "차선변경",
+        "끼어들기",
+        "동일방향",
+        "후행 직진차",
+        "진로변경차",
+        "차로 변경 중 충돌",
+        "방향지시등",
+        "깜빡이",
+        "측면충돌",
+        "사각지대",
+        "차43",
+        "차43-2",
+    ),
     "intersection_signal_violation": ("교차로", "신호위반", "적색신호", "좌회전", "직진", "우선권"),
     "pedestrian_crosswalk_accident": ("보행자", "횡단보도", "보행자 보호의무", "무단횡단", "인명피해"),
     "school_zone_child_accident": ("어린이보호구역", "민식이법", "어린이", "제한속도", "보행자 보호의무"),
@@ -105,7 +120,16 @@ TAG_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "single_vehicle": ("단독사고", "도로이탈"),
     "intersection": ("교차로", "우선권"),
     "signal_violation": ("신호위반", "적색신호"),
-    "lane_change": ("차선변경", "진로변경"),
+    "lane_change": (
+        "진로변경",
+        "차로변경",
+        "차선변경",
+        "끼어들기",
+        "동일방향",
+        "후행 직진차",
+        "진로변경차",
+        "차로 변경 중 충돌",
+    ),
     "rear_end": ("후미추돌", "안전거리"),
     "parking": ("주정차", "정차 차량"),
     "safe_distance": ("안전거리", "급정거"),
@@ -193,8 +217,22 @@ def scenario_search_terms(
         _extend_unique(terms, ("부상", "진단서", "대인접수", "인명피해"))
     if facts.get("stopped"):
         _extend_unique(terms, ("정차 중", "정차 차량", "후미추돌", "앞차 정지", "정지 사유"))
-    if facts.get("lane_change"):
-        _extend_unique(terms, ("차선변경", "진로변경", "방향지시등"))
+    if scenario_type == "lane_change_collision" or facts.get("lane_change"):
+        _extend_unique(
+            terms,
+            (
+                "진로변경",
+                "차로변경",
+                "차선변경",
+                "끼어들기",
+                "동일방향",
+                "후행 직진차",
+                "진로변경차",
+                "차로 변경 중 충돌",
+                "방향지시등",
+                "차43-2",
+            ),
+        )
     if facts.get("intersection") and scenario_type != "rear_end_collision":
         _extend_unique(terms, ("교차로", "우선권", "신호"))
     if facts.get("crosswalk_nearby"):
@@ -313,9 +351,25 @@ def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
     if opponent_behavior in {"rear_collision", "rear_vehicle_collision"}:
         terms.extend(["뒤차 추돌", "후미추돌", "정차 차량 추돌"])
     if opponent_behavior in {"lane_change", "opponent_lane_change"} or lane_change_actor == "opponent":
-        terms.extend(["상대 차량 차선변경", "상대 진로변경", "끼어들기 사고"])
+        terms.extend([
+            "상대 차량 차선변경",
+            "상대 진로변경",
+            "상대 진로변경차",
+            "내 차량 후행 직진차",
+            "동일방향 차로 변경 중 충돌",
+            "끼어들기 사고",
+            "차43-2",
+        ])
     if lane_change_actor == "user":
-        terms.extend(["내 차량 차선변경", "진로변경 차량", "차선변경 가해"])
+        terms.extend([
+            "내 차량 차선변경",
+            "내 차량 진로변경차",
+            "상대 후행 직진차",
+            "동일방향 차로 변경 중 충돌",
+            "진로변경 차량",
+            "차선변경 가해",
+            "차43-2",
+        ])
     if facts.get("opponent_signal_violation") or opponent_signal in {"red", "red_light", "signal_violation"}:
         terms.extend(["상대 신호위반", "적색신호 위반", "교차로 신호위반"])
     if signal_state in {"red", "red_light"} and not (facts.get("stopped_due_to_signal") or facts.get("stopped_at_red_light")):

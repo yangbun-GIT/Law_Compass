@@ -45,6 +45,8 @@ PARTY_FALLBACK_TERMS = {
     "single_vehicle": ("차량단독", "단독사고", "도로이탈", "전복"),
 }
 
+STATIC_LANE_CHANGE_CHART_NO = "차43-2"
+
 
 def normalize_query(text: str) -> str:
     return " ".join(re.sub(r"[^0-9A-Za-z가-힣\-\s]", " ", text or "").split()).lower()
@@ -98,7 +100,7 @@ def match_knia_charts(
     tags = filter_tags_by_party(list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)])), party, facts)
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         tags = [tag for tag in tags if tag != "bicycle"]
-    cache_key = "knia:match:v8:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+    cache_key = "knia:match:v9:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
     cache = _redis_client()
     if cache:
         cached = cache.get(cache_key)
@@ -117,10 +119,11 @@ def match_knia_charts(
                 "no_knia_match_reason": None if cached_items else "no_same_party_knia_match",
             }
     lookup_error = None
+    fallback_lookup_error = None
     fallback_used = False
     rejected_mismatch_count = 0
+    excluded_items: list[dict[str, Any]] = []
     try:
-        excluded_items: list[dict[str, Any]] = []
         if chart_direct:
             raw_items = _direct_lookup(chart_direct.group(0), limit)
             items, excluded_items = _filter_scenario_compatible_matches(raw_items, scenario_type)
@@ -140,7 +143,21 @@ def match_knia_charts(
             rejected_mismatch_count += len(fallback_rejected)
     except Exception as exc:
         items = []
-        lookup_error = _safe_error(exc)
+        fallback_lookup_error = _safe_error(exc)
+    if not items and _should_use_static_lane_change_fallback(scenario_type, party):
+        fallback_used = True
+        items, fallback_rejected = reject_mismatched_knia_items(
+            _static_lane_change_matches(limit=limit),
+            party,
+        )
+        excluded_items.extend(fallback_rejected)
+        rejected_mismatch_count += len(fallback_rejected)
+        if items:
+            lookup_error = None
+        else:
+            lookup_error = fallback_lookup_error
+    elif fallback_lookup_error:
+        lookup_error = fallback_lookup_error
     if cache:
         cache.setex(cache_key, 900, json.dumps(items, ensure_ascii=False))
     no_match_reason = None
@@ -154,12 +171,52 @@ def match_knia_charts(
         "requested_party_type": party,
         "query_expansion_terms": expansion_terms,
         "lookup_error": lookup_error,
+        "fallback_lookup_error": fallback_lookup_error,
         "party_guard_policy": _party_guard_policy(party),
         "rejected_mismatch_count": rejected_mismatch_count,
         "fallback_used": fallback_used,
         "no_knia_match_reason": no_match_reason,
-        "excluded_items": excluded_items if "excluded_items" in locals() else [],
+        "excluded_items": excluded_items,
     }
+
+
+def _should_use_static_lane_change_fallback(scenario_type: str | None, party: str | None) -> bool:
+    return scenario_type == "lane_change_collision" and canonicalize_party_type(party) in {"car_vs_car", "unknown"}
+
+
+def _static_lane_change_matches(*, limit: int) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+    return [
+        {
+            "chart_id": "static-knia-lane-change-43-2",
+            "chart_no": STATIC_LANE_CHANGE_CHART_NO,
+            "chart_type": "1",
+            "title": "동일방향 후행 직진차와 선행 진로변경차 사고",
+            "match_score": 0.52,
+            "match_label": "대분류는 맞지만 세부유형 일치도가 낮은 참고 기준입니다.",
+            "match_reason": "KNIA 조회가 비어 있거나 실패하여 차대차 차선변경 사고의 정적 참고 기준을 사용했습니다.",
+            "accident_party_type": "car_vs_car",
+            "accident_party_label": party_label("car_vs_car"),
+            "base_fault_a": 30,
+            "base_fault_b": 70,
+            "accident_summary": "같은 방향으로 진행하던 후행 직진차와 선행 진로변경차의 충돌 구조입니다.",
+            "scenario_summary_easy": "직진 차량보다 차로를 바꾸는 차량의 주의의무가 더 크게 반영되는 차대차 차선변경 기준입니다.",
+            "basic_fault_text": "기본 참고 과실: A 후행 직진차 30%, B 선행 진로변경차 70%",
+            "recommended_user_actions": party_actions("car_vs_car"),
+            "display_tags": ["vehicle", "lane_change", "fault_ratio", "차43-2"],
+            "scenario_tags": ["lane_change", "fault_ratio"],
+            "keywords": ["진로변경", "차로변경", "차선변경", "끼어들기", "후행 직진차", "진로변경차"],
+            "source_type": "knia_fault_standard_static_fallback",
+            "source_family": "knia",
+            "evidence_family": "knia",
+            "source": "과실비율정보포털 KNIA 차선변경 기준 fallback",
+            "used_for": "KNIA 차선변경 기본과실 참고",
+            "is_static_fallback": True,
+            "fallback_used": True,
+            "attribution": "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
+        }
+    ][:limit]
 
 
 def _tags_from_text(text: str, party: str | None = None) -> list[str]:

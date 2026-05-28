@@ -69,22 +69,30 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
     knia_reference_evidence: list[dict[str, Any]] = []
     if knia_matches:
         primary = knia_matches[0]
-        try:
-            knia_fault_estimate = estimate_knia_fault(
-                chart_no=primary.get("chart_no"),
-                chart_type=primary.get("chart_type") or "1",
-                description_text=normalized["description_text"],
-                selected_keywords=normalized["selected_keywords"],
-                structured_facts=normalized["structured_facts"],
-                video_metadata=video_metadata or {},
-                scenario_type=scenario.get("scenario_type"),
-                accident_party_type=scenario.get("accident_party_type"),
-            )
+        if primary.get("is_static_fallback"):
+            knia_fault_estimate = _static_knia_match_to_fault_estimate(primary)
             knia_reference_evidence.extend(_knia_estimate_to_evidence(knia_fault_estimate))
-            refs = KniaRepository().get_chart_references(primary.get("chart_no"), primary.get("chart_type") or "1")
-            knia_reference_evidence.extend(_knia_refs_to_evidence(primary, refs))
-        except Exception:
-            knia_fault_estimate = None
+        else:
+            try:
+                knia_fault_estimate = estimate_knia_fault(
+                    chart_no=primary.get("chart_no"),
+                    chart_type=primary.get("chart_type") or "1",
+                    description_text=normalized["description_text"],
+                    selected_keywords=normalized["selected_keywords"],
+                    structured_facts=normalized["structured_facts"],
+                    video_metadata=video_metadata or {},
+                    scenario_type=scenario.get("scenario_type"),
+                    accident_party_type=scenario.get("accident_party_type"),
+                )
+                knia_reference_evidence.extend(_knia_estimate_to_evidence(knia_fault_estimate))
+                refs = KniaRepository().get_chart_references(primary.get("chart_no"), primary.get("chart_type") or "1")
+                knia_reference_evidence.extend(_knia_refs_to_evidence(primary, refs))
+            except Exception:
+                knia_fault_estimate = None
+
+    if knia_matches and knia_fault_estimate is None and knia_matches[0].get("is_static_fallback"):
+        knia_fault_estimate = _static_knia_match_to_fault_estimate(knia_matches[0])
+        knia_reference_evidence.extend(_knia_estimate_to_evidence(knia_fault_estimate))
 
     knia_evidence = normalize_evidence_items(
         [*build_knia_evidence(knia_matches), *knia_reference_evidence, *knia_json_evidence],
@@ -116,6 +124,41 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         legal_evidence=legal_evidence,
         evidence=[*knia_evidence, *legal_evidence],
     )
+
+
+def _static_knia_match_to_fault_estimate(match: dict[str, Any]) -> dict[str, Any]:
+    base_a = _as_fault_int(match.get("base_fault_a"), 30)
+    base_b = _as_fault_int(match.get("base_fault_b"), 100 - base_a)
+    base_b = max(0, min(100, base_b))
+    base_a = max(0, min(100, 100 - base_b if base_a + base_b != 100 else base_a))
+    final = {"A": base_a, "B": 100 - base_a}
+    source_chart = {
+        **match,
+        "source_type": match.get("source_type") or "knia_fault_standard_static_fallback",
+        "source_family": "knia",
+        "evidence_family": "knia",
+    }
+    return {
+        "base_fault": final,
+        "selected_adjustments": [],
+        "rejected_adjustments": [],
+        "final_fault": final,
+        "calculation_steps": [f"정적 KNIA fallback 기본과실 A{final['A']}:B{final['B']}"],
+        "evidence_used": [{"type": "static_knia_fallback", "value": match.get("chart_no")}],
+        "source_chart": source_chart,
+        "notice": "KNIA DB/JSON 조회가 불가능한 환경에서 차선변경 regression을 위한 정적 차대차 참고 기준입니다.",
+    }
+
+
+def _as_fault_int(value: Any, default: int) -> int:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float)):
+        return int(round(value))
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return default
 
 
 def _filter_primary_knia_evidence(
