@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 Frontend Guidance SRP 보강 P1-1
+
+`apps/frontend/src/composables/caseWorkspaceGuidance.ts`가 안내용 상수, 사고유형/분석모드 선택지, fallback 질문 데이터, 질문 타입 추론 로직을 한 파일에서 함께 담당하던 구조를 분리했다. 이번 변경은 기존 import 경로를 유지하면서 프론트 guidance 데이터와 추론 로직의 책임 경계를 줄인 구조 보강이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Guidance data | `apps/frontend/src/data/caseWorkspaceGuidanceData.ts`를 추가해 기본 키워드, 진행 단계, 분석 모드, 사고유형 선택지, fallback 질문 세트와 질문 세트 매핑을 담당한다. |
+| Question inference | `apps/frontend/src/logic/caseWorkspaceQuestionInference.ts`를 추가해 사고 설명과 구조화 입력을 바탕으로 fallback 질문 유형을 고르는 추론 로직을 담당한다. |
+| Facade 유지 | `caseWorkspaceGuidance.ts`는 기존 화면과 composable import가 깨지지 않도록 data/logic re-export만 담당한다. |
+| 검증 | Frontend `npm run build`를 통과했다. |
+
+이 변경은 public route, API payload, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. P1-1까지 완료되었으므로 다음 개발 흐름은 사용자 영상과 입력에서 오염되지 않은 사실 데이터를 추출하고 Agent 판단 계약으로 연결하는 작업으로 이동한다.
+
+
 ## 2026-05-29 Gateway Route SRP 보강 P1-2
 
 `apps/gateway/src/routes/uploads.ts`와 `apps/gateway/src/routes/analysis.ts`가 라우트 등록, DB 조립, 저장소 오류 매핑, 분석 결과 저장, 진행 상태 payload 조립을 한 파일에서 함께 담당하던 구조를 분리했다. 이번 변경은 public API route와 응답 payload를 바꾸지 않고 Gateway route 파일이 요청 검증과 라우팅 흐름에 집중하도록 만든 구조 보강이다.
