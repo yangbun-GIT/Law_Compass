@@ -26,6 +26,13 @@ import {
     getRunningJobProgress,
     type GuidedStep,
 } from "./caseWorkspaceOrchestration";
+import {
+    buildCaseInputPayload,
+    buildFollowupAnalysisPayload,
+    buildTextAnalysisPayload,
+    buildVideoAnalysisPayload,
+    normalizeCaseDescription,
+} from "./caseWorkspacePayloads";
 
 export { formatDate, prettySize, statusClass, statusLabel } from "./caseWorkspaceFormatters";
 export { guidedAccidentTypeOptions, guidedAnalysisModes } from "./caseWorkspaceGuidance";
@@ -97,12 +104,12 @@ export function useCaseWorkspace(caseId: string) {
             : [...selectedKeywords.value, kw];
     }
 
-    function payload() {
+    function payloadInput() {
         return {
-            description_text: descriptionText.value,
-            structured_facts: facts.value,
-            selected_keywords: selectedKeywords.value,
-            analysis_mode: analysisMode.value,
+            descriptionText: descriptionText.value,
+            facts: facts.value,
+            selectedKeywords: selectedKeywords.value,
+            analysisMode: analysisMode.value,
         };
     }
 
@@ -121,17 +128,12 @@ export function useCaseWorkspace(caseId: string) {
     }
 
     async function saveCaseInputs() {
-        if (!descriptionText.value.trim()) descriptionText.value = "영상 자료 기반 사고 분석";
+        descriptionText.value = normalizeCaseDescription(descriptionText.value);
 
         busy.value = "save";
 
         try {
-            const data = await api.updateCase(caseId, {
-                description_text: descriptionText.value,
-                structured_facts: facts.value,
-                selected_keywords: selectedKeywords.value,
-                analysis_mode: analysisMode.value,
-            });
+            const data = await api.updateCase(caseId, buildCaseInputPayload(payloadInput()));
 
             caseData.value = data.case;
             showMessage("입력값을 저장했습니다.");
@@ -339,7 +341,7 @@ export function useCaseWorkspace(caseId: string) {
                 message: "입력한 사고정보를 바탕으로 분석을 시작합니다.",
             });
 
-            await api.analyzeText(caseId, payload());
+            await api.analyzeText(caseId, buildTextAnalysisPayload(payloadInput()));
             showMessage("분석 결과를 정리하고 있습니다.");
 
             await loadCase();
@@ -375,7 +377,7 @@ export function useCaseWorkspace(caseId: string) {
                 message: "입력한 사고정보와 영상을 함께 확인하고 있습니다.",
             });
 
-            await api.analyzeVideo(caseId, { upload_id: activeUploadId.value, ...payload() });
+            await api.analyzeVideo(caseId, buildVideoAnalysisPayload(activeUploadId.value, payloadInput()));
 
             applyLocalProgress({
                 percent: 55,
@@ -402,7 +404,7 @@ export function useCaseWorkspace(caseId: string) {
         reanalyzing.value = true;
 
         try {
-            await api.reanalyzeText(caseId, { ...payload(), followup_answers: answers });
+            await api.reanalyzeText(caseId, buildFollowupAnalysisPayload(payloadInput(), answers));
             await Promise.all([loadCase(), loadReport()]);
 
             if (isReadyReport(report.value)) {
