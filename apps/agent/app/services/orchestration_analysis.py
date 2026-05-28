@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.services.accident_perspective import map_fault_ratio_to_user
-from app.services.knia.knia_adjustment_agent import apply_knia_adjustment_agent
+from app.services.knia.adjustments.registry import evaluate_adjustments
+from app.services.knia.party_guard import canonicalize_party_type
 from app.services.knia.knia_matcher import is_knia_match_compatible_with_scenario
 from app.services.analysts.action_plan_analyst import analyze_action_plan
 from app.services.analysts.criminal_liability_analyst import analyze_criminal_liability
@@ -62,12 +63,12 @@ def run_analysis_stage(context: CaseContext, evidence_bundle: EvidenceBundle) ->
         scenario=scenario,
         normalized=normalized,
     )
-    apply_knia_adjustment_agent(
+    _apply_adjustment_registry(
         fault_ratio=fault_ratio,
         knia_fault_estimate=evidence_bundle.knia_fault_estimate,
-        scenario_type=scenario["scenario_type"],
-        description_text=normalized["description_text"],
-        structured_facts=normalized["structured_facts"],
+        scenario=scenario,
+        normalized=normalized,
+        knia_result=evidence_bundle.knia_result,
     )
     legal_liability = analyze_criminal_liability(
         scenario_type=scenario["scenario_type"],
@@ -219,3 +220,46 @@ def _apply_knia_fault_estimate(
         fault_ratio["other"] = mapped_fault["other"]
         fault_ratio["user_vehicle_role"] = mapped_fault.get("user_vehicle_role")
         fault_ratio["user_vehicle_role_label"] = mapped_fault.get("user_vehicle_role_label")
+
+
+def _apply_adjustment_registry(
+    *,
+    fault_ratio: dict[str, Any],
+    knia_fault_estimate: dict[str, Any] | None,
+    scenario: dict[str, Any],
+    normalized: dict[str, Any],
+    knia_result: dict[str, Any],
+) -> None:
+    facts = normalized["structured_facts"]
+    party = canonicalize_party_type(facts.get("knia_major_party_type") or scenario.get("accident_party_type"))
+    source_chart = (knia_fault_estimate or {}).get("source_chart") or {}
+    if source_chart and not is_knia_match_compatible_with_scenario(source_chart, scenario.get("scenario_type")):
+        fault_ratio.setdefault("rejected_knia_fault_estimate", {"source_chart": source_chart, "reason": "knia_basis_mismatch"})
+        return
+    evaluation = evaluate_adjustments(
+        scenario.get("scenario_type") or "general_collision",
+        party,
+        facts,
+        knia_fault_estimate,
+        normalized["description_text"],
+    )
+    if evaluation.get("base_fault"):
+        fault_ratio["base_fault"] = evaluation["base_fault"]
+    if evaluation.get("final_fault"):
+        fault_ratio["final_fault"] = evaluation["final_fault"]
+        fault_ratio["my"] = evaluation["final_fault"].get("my", fault_ratio.get("my"))
+        fault_ratio["other"] = evaluation["final_fault"].get("other", fault_ratio.get("other"))
+    if evaluation.get("fault_range"):
+        fault_ratio["fault_range"] = evaluation["fault_range"]
+    for key in ("applied_adjustments", "not_applied_adjustments", "unknown_adjustments", "conditional_outcomes"):
+        if evaluation.get(key):
+            existing = fault_ratio.get(key)
+            if isinstance(existing, list) and key == "conditional_outcomes":
+                fault_ratio[key] = [*existing, *evaluation[key]]
+            else:
+                fault_ratio[key] = evaluation[key]
+    fault_ratio["knia_adjustment_policy"] = evaluation.get("policy") or {}
+    fault_ratio["knia_adjustment_registry"] = evaluation
+    fault_ratio["knia_reference_fault"] = (knia_fault_estimate or {}).get("final_fault") or fault_ratio.get("knia_reference_fault")
+    if not knia_fault_estimate:
+        fault_ratio["no_knia_match_reason"] = knia_result.get("no_knia_match_reason") or "knia_fault_estimate_unavailable"

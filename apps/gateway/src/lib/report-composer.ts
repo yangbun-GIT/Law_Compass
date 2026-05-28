@@ -1511,6 +1511,7 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
     const processCard = composeAgentProcessCard(result);
     const videoFactCard = composeVideoFactExplanationCard(result);
     const expertGuidanceCard = composeExpertGuidanceCard(result);
+    const kniaAdjustmentCards = composeKniaAdjustmentCards(result);
     const videoQuestions = combineVideoQuestions(
         composeVideoConflictQuestions(result),
         composeVideoQualityQuestions(result),
@@ -1535,6 +1536,7 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
         ...(processCard ? { agent_process_card: processCard } : {}),
         ...(videoFactCard ? { video_fact_explanation_card: videoFactCard } : {}),
         ...(expertGuidanceCard ? { expert_guidance_card: expertGuidanceCard } : {}),
+        ...kniaAdjustmentCards,
         ...(conditionalOutcomeCard ? { conditional_outcome_card: conditionalOutcomeCard } : {}),
         ...(result.guided_questionnaire ? { guided_questionnaire: sanitizeGuidedQuestionnaire(result.guided_questionnaire) } : {}),
     };
@@ -1564,8 +1566,94 @@ function sanitizeGuidedQuestionnaire(value: AnyRecord = {}) {
       default_choice: cleanText(item.default_choice, "unknown"),
       affects_fault_ratio: item.affects_fault_ratio === true,
       knia_factor_key: cleanText(item.knia_factor_key, ""),
+      fact_key: cleanText(item.fact_key, ""),
     })).filter((item) => item.plain_question).slice(0, 12),
   };
+}
+
+function composeKniaAdjustmentCards(result: AnyRecord = {}) {
+  const fault = result.fault_ratio ?? {};
+  const primary = result.knia_primary_match ?? asArray(result.knia_matches)[0] ?? fault.knia_reference_fault?.source_chart ?? {};
+  const baseFault = fault.base_fault ?? fault.knia_adjustment_registry?.base_fault;
+  const finalFault = fault.final_fault ?? fault.knia_adjustment_registry?.final_fault ?? { my: fault.my, other: fault.other };
+  const faultRange = fault.fault_range ?? fault.knia_adjustment_registry?.fault_range;
+  const applied = asArray(fault.applied_adjustments ?? fault.knia_adjustment_registry?.applied_adjustments);
+  const notApplied = asArray(fault.not_applied_adjustments ?? fault.knia_adjustment_registry?.not_applied_adjustments);
+  const unknown = asArray(fault.unknown_adjustments ?? fault.knia_adjustment_registry?.unknown_adjustments);
+  const conditional = asArray(fault.conditional_outcomes ?? fault.knia_adjustment_registry?.conditional_outcomes);
+  const hasAnyAdjustment = baseFault || finalFault || applied.length || notApplied.length || unknown.length || conditional.length;
+  if (!hasAnyAdjustment) return {};
+  const baseLabel = userFaultLabel(baseFault);
+  const finalLabel = userFaultLabel(finalFault);
+  const basicFaultCard = {
+    title: "기본 과실",
+    summary: finalLabel ? `현재 입력 기준 최종 과실은 ${finalLabel}입니다.` : "현재 입력 기준 과실을 참고 범위로 표시합니다.",
+    chart_no: cleanText(primary.chart_no, ""),
+    chart_title: cleanText(primary.title ?? primary.chart_title, ""),
+    source_url: safeHttpUrl(primary.source_url ?? primary.source_detail_url ?? primary.video_url),
+    base_fault: baseFault ? safeFaultPair(baseFault) : undefined,
+    final_fault: finalFault ? safeFaultPair(finalFault) : undefined,
+    fault_range: faultRange ? safeFaultRange(faultRange) : undefined,
+    notice: cleanText(fault.no_knia_match_reason, "") || "과실비율은 보험사, 분쟁심의위, 법원 판단에 따라 달라질 수 있습니다.",
+  };
+  return {
+    knia_basic_fault_card: basicFaultCard,
+    ...(applied.length ? { knia_applied_adjustment_card: adjustmentListCard("적용된 가감요소", applied, "적용된 항목과 적용 전후 과실을 정리했습니다.") } : {}),
+    ...(notApplied.length ? { knia_not_applied_adjustment_card: adjustmentListCard("적용하지 않은 가감요소", notApplied, "답변상 적용하지 않은 항목과 이유입니다.") } : {}),
+    ...(unknown.length ? { knia_unknown_adjustment_card: adjustmentListCard("모름/불확실 항목", unknown, "확인되면 과실 범위가 달라질 수 있는 항목입니다.") } : {}),
+    ...(conditional.length ? { knia_conditional_outcome_card: conditionalOutcomeListCard(conditional) } : {}),
+  };
+}
+
+function adjustmentListCard(title: string, items: AnyRecord[], summary: string) {
+  return {
+    title,
+    summary,
+    items: items.map((item) => ({
+      label: cleanText(item.label, "가감요소"),
+      before_fault: item.before_fault ? userFaultLabel(item.before_fault) : undefined,
+      after_fault: item.after_fault ? userFaultLabel(item.after_fault) : undefined,
+      delta: item.delta_my !== undefined ? `내 과실 ${Number(item.delta_my) > 0 ? "+" : ""}${toNumber(item.delta_my, 0)}%p` : cleanText(item.possible_delta_my, ""),
+      reason: cleanText(item.reason, "입력 답변과 KNIA 수정요소 기준에 따라 판단했습니다."),
+      source_label: cleanText(item.source, "KNIA 수정요소"),
+    })).filter((item) => item.label).slice(0, 8),
+  };
+}
+
+function conditionalOutcomeListCard(items: AnyRecord[]) {
+  return {
+    title: "조건별 결과",
+    summary: "확인 결과에 따라 달라질 수 있는 과실 범위를 접힘 카드로 표시할 수 있게 정리했습니다.",
+    items: items.map((item) => ({
+      label: cleanText(item.label, "조건별 결과"),
+      my_range: cleanText(item.my_range, ""),
+      other_range: cleanText(item.other_range, ""),
+      explanation: cleanText(item.explanation, ""),
+    })).filter((item) => item.label).slice(0, 8),
+  };
+}
+
+function safeFaultPair(value: AnyRecord = {}) {
+  if (value.my === undefined || value.other === undefined) return undefined;
+  const my = toNumber(value.my);
+  const other = toNumber(value.other);
+  if (!Number.isFinite(my) || !Number.isFinite(other)) return undefined;
+  return { my: Math.round(my), other: Math.round(other) };
+}
+
+function safeFaultRange(value: AnyRecord = {}) {
+  return {
+    my: cleanText(value.my, ""),
+    other: cleanText(value.other, ""),
+  };
+}
+
+function userFaultLabel(value: AnyRecord = {}) {
+  if (value.my === undefined || value.other === undefined) return "";
+  const my = toNumber(value.my);
+  const other = toNumber(value.other);
+  if (!Number.isFinite(my) || !Number.isFinite(other)) return "";
+  return `내 책임 ${Math.round(my)}% / 상대 ${Math.round(other)}%`;
 }
 
 function composeAgentProcessCard(result: AnyRecord = {}) {

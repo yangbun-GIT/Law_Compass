@@ -243,6 +243,18 @@ export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question:
                 nextFacts.accident_party_type = "car_vs_car";
                 (nextFacts as any).knia_major_party_type = "car_vs_car";
             }
+        } else if (factKey === "car_vs_car_scenario_type") {
+            nextFacts.accident_party_type = "car_vs_car";
+            (nextFacts as any).knia_major_party_type = "car_vs_car";
+            (nextFacts as any).collision_partner_type = "vehicle";
+            (nextFacts as any).direct_collision_partner_type = "vehicle";
+            if (value === "ego_hit_front") {
+                nextFacts.accident_type = "rear_end_collision";
+                (nextFacts as any).rear_end_role = "ego_hit_front";
+                (nextFacts as any).collision_role = "ego_hit_front";
+            } else if (value !== "unknown") {
+                nextFacts.accident_type = value;
+            }
         } else if (factKey === "accident_location_context") {
             (nextFacts as any).accident_location_context = value;
 

@@ -11,6 +11,12 @@ import redis
 
 from app.providers.embedding import get_embedding_provider, vector_literal
 from app.services.knia.knia_media_selector import select_media
+from app.services.knia.party_guard import (
+    canonicalize_party_type,
+    filter_tags_by_party,
+    filter_terms_by_party,
+    reject_mismatched_knia_items,
+)
 from app.services.knia.taxonomy import infer_party_type_from_text, party_actions, party_label
 from app.services.scenario_search_terms import scenario_search_terms
 
@@ -28,6 +34,15 @@ SCENARIO_TO_TAGS = {
     "single_vehicle_accident": ["single_vehicle"],
     "parking_or_stopped_vehicle_accident": ["parking", "stopped_vehicle"],
     "stealth_illegal_parked_vehicle_collision": ["parking", "stopped_vehicle", "unlit_stopped_vehicle", "visibility", "night", "road_obstruction", "avoidability"],
+}
+
+PARTY_FALLBACK_TERMS = {
+    "car_vs_car": ("차대차", "차량 사고", "과실비율", "후미추돌", "차선변경", "교차로"),
+    "car_vs_person": ("차대사람", "보행자", "횡단보도", "보행자 보호의무"),
+    "car_vs_bicycle": ("차대자전거", "자전거", "자전거도로", "자전거 통행 위치"),
+    "car_vs_motorcycle": ("차대오토바이", "차대이륜차", "오토바이", "이륜차", "원동기장치자전거"),
+    "car_vs_object": ("차대기물", "시설물", "가드레일", "전봇대", "중앙분리대"),
+    "single_vehicle": ("차량단독", "단독사고", "도로이탈", "전복"),
 }
 
 
@@ -55,7 +70,12 @@ def match_knia_charts(
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         facts = {**facts, "accident_party_type": "car_vs_car"}
         accident_party_type = "car_vs_car"
-    party = accident_party_type or facts.get("accident_party_type") or infer_party_type_from_text(description_text, {**facts, "accident_type": scenario_type or facts.get("accident_type")})
+    party = canonicalize_party_type(
+        accident_party_type
+        or facts.get("knia_major_party_type")
+        or facts.get("accident_party_type")
+        or infer_party_type_from_text(description_text, {**facts, "accident_type": scenario_type or facts.get("accident_type")})
+    )
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         party = "car_vs_car"
     expansion_terms = scenario_search_terms(
@@ -65,23 +85,40 @@ def match_knia_charts(
         selected_keywords=keywords,
         accident_party_type=party,
     )
+    expansion_terms = filter_terms_by_party(expansion_terms, party, facts)
+    keywords = filter_terms_by_party(keywords, party, facts)
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         expansion_terms = _strip_bicycle_pollution(expansion_terms)
         keywords = _strip_bicycle_pollution(keywords)
     q = normalize_query(" ".join([description_text or "", json.dumps(facts, ensure_ascii=False), " ".join(keywords), scenario_type or "", party or "", " ".join(expansion_terms)]))
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         q = " ".join(_strip_bicycle_pollution([q]))
-    chart_direct = re.search(r"[차보자기단]\d{1,3}(?:-\d+)?", q)
-    tags = list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)]))
+    direct_lookup_text = normalize_query(" ".join([description_text or "", " ".join(keywords)]))
+    chart_direct = re.search(r"[차보자기단]\d{1,3}(?:-\d+)?", direct_lookup_text)
+    tags = filter_tags_by_party(list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)])), party, facts)
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         tags = [tag for tag in tags if tag != "bicycle"]
-    cache_key = "knia:match:v7:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+    cache_key = "knia:match:v8:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
     cache = _redis_client()
     if cache:
         cached = cache.get(cache_key)
         if cached:
-            return {"items": json.loads(cached), "cache_hit": True, "cache_key": cache_key, "accident_party_type": party, "query_expansion_terms": expansion_terms}
+            cached_items = json.loads(cached)
+            return {
+                "items": cached_items,
+                "cache_hit": True,
+                "cache_key": cache_key,
+                "accident_party_type": party,
+                "requested_party_type": party,
+                "query_expansion_terms": expansion_terms,
+                "party_guard_policy": _party_guard_policy(party),
+                "rejected_mismatch_count": 0,
+                "fallback_used": False,
+                "no_knia_match_reason": None if cached_items else "no_same_party_knia_match",
+            }
     lookup_error = None
+    fallback_used = False
+    rejected_mismatch_count = 0
     try:
         excluded_items: list[dict[str, Any]] = []
         if chart_direct:
@@ -89,20 +126,38 @@ def match_knia_charts(
             items, excluded_items = _filter_scenario_compatible_matches(raw_items, scenario_type)
         else:
             items = _hybrid_lookup(q, tags, party, limit, scenario_type=scenario_type)
-            if not items and party != "unknown":
-                items = _hybrid_lookup(q, tags, None, limit, scenario_type=scenario_type)
+        items, party_rejected = reject_mismatched_knia_items(items, party)
+        excluded_items.extend(party_rejected)
+        rejected_mismatch_count = len(party_rejected)
+        if not items and not chart_direct:
+            fallback_used = True
+            fallback_query = normalize_query(" ".join([party, scenario_type or "", " ".join(PARTY_FALLBACK_TERMS.get(party, ())), " ".join(expansion_terms[:6])]))
+            fallback_items = _hybrid_lookup(fallback_query, tags, None if party == "car_vs_motorcycle" else party, limit, scenario_type=scenario_type)
+            if party == "car_vs_motorcycle" and not fallback_items:
+                fallback_items = _hybrid_lookup(fallback_query, ["motorcycle", "two_wheeler"], None, limit, scenario_type=None)
+            items, fallback_rejected = reject_mismatched_knia_items(fallback_items, party)
+            excluded_items.extend(fallback_rejected)
+            rejected_mismatch_count += len(fallback_rejected)
     except Exception as exc:
         items = []
         lookup_error = _safe_error(exc)
     if cache:
         cache.setex(cache_key, 900, json.dumps(items, ensure_ascii=False))
+    no_match_reason = None
+    if not items:
+        no_match_reason = "lookup_error" if lookup_error else "no_same_party_knia_match"
     return {
         "items": items,
         "cache_hit": False,
         "cache_key": cache_key,
         "accident_party_type": party,
+        "requested_party_type": party,
         "query_expansion_terms": expansion_terms,
         "lookup_error": lookup_error,
+        "party_guard_policy": _party_guard_policy(party),
+        "rejected_mismatch_count": rejected_mismatch_count,
+        "fallback_used": fallback_used,
+        "no_knia_match_reason": no_match_reason,
         "excluded_items": excluded_items if "excluded_items" in locals() else [],
     }
 
@@ -120,6 +175,8 @@ def _tags_from_text(text: str, party: str | None = None) -> list[str]:
         ("signal_violation", ["신호", "빨간불", "적색"]),
         ("pedestrian", ["보행자", "횡단보도", "아이", "사람"]),
         ("bicycle", ["자전거"]),
+        ("motorcycle", ["오토바이", "이륜차", "원동기장치자전거", "motorcycle"]),
+        ("two_wheeler", ["오토바이", "이륜차", "two wheeler", "two_wheeler"]),
         ("non_contact_trigger", ["비접촉", "유발", "non contact", "non-contact", "trigger"]),
         ("time_gap", ["시간적 여유", "4초", "반응 시간", "reaction time", "time gap", "급제동", "급정거"]),
         ("object", ["기물", "시설물", "가드레일", "전봇대", "중앙분리대", "기둥", "벽"]),
@@ -129,7 +186,7 @@ def _tags_from_text(text: str, party: str | None = None) -> list[str]:
     for tag, words in checks:
         if any(w in text for w in words):
             tags.append(tag)
-    party_tag = {"car_vs_person": "pedestrian", "car_vs_bicycle": "bicycle", "car_vs_object": "object", "single_vehicle": "single_vehicle", "car_vs_car": "vehicle"}.get(party or "")
+    party_tag = {"car_vs_person": "pedestrian", "car_vs_bicycle": "bicycle", "car_vs_motorcycle": "motorcycle", "car_vs_object": "object", "single_vehicle": "single_vehicle", "car_vs_car": "vehicle"}.get(party or "")
     if party_tag:
         tags.append(party_tag)
     return list(dict.fromkeys(tags or ["general_collision"]))
@@ -245,6 +302,7 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
         "pedestrian_crosswalk_accident": {"car_vs_person"},
         "school_zone_child_accident": {"car_vs_person"},
         "bicycle_collision": {"car_vs_bicycle"},
+        "motorcycle_collision": {"car_vs_motorcycle"},
         "object_collision": {"car_vs_object"},
         "single_vehicle_accident": {"single_vehicle"},
         "intersection_signal_violation": {"car_vs_car"},
@@ -257,6 +315,8 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
 
     has_signal_terms = any(w in joined_text for w in ["신호위반", "적색", "빨간불", "교차로 신호", "녹색신호"])
     has_lane_terms = any(w in joined_text for w in ["진로 변경", "진로변경", "차로를 변경", "차선변경", "끼어들", "방향지시"])
+    if scenario_type == "motorcycle_collision":
+        return party != "car_vs_motorcycle" and not any(token in joined_text for token in ("오토바이", "이륜", "motorcycle"))
     if scenario_type == "intersection_signal_violation":
         # Vehicle-vs-vehicle signal violation standards should stay in the 차12 family.
         # Do not let pedestrian/bicycle signal charts win only because they contain
@@ -423,6 +483,11 @@ def _scenario_chart_score_adjustment(row: dict[str, Any], tags: list[str], joine
             adjustment += 0.32
         if chart_no.startswith(("차", "보")):
             adjustment -= 0.12
+    if "motorcycle" in tags or "two_wheeler" in tags:
+        if any(token in joined_text for token in ["오토바이", "이륜", "원동기", "motorcycle"]):
+            adjustment += 0.32
+        if chart_no.startswith(("보", "자", "거", "기", "단")):
+            adjustment -= 0.32
 
     if "centerline" in tags or "oncoming_vehicle" in tags or "road_obstruction" in tags:
         if chart_no.startswith("차43") or has_lane_terms:
@@ -455,6 +520,8 @@ def _reason(row: dict[str, Any], tags: list[str], party: str | None = None) -> s
         return "보행자와 접촉한 사고라는 점이 유사합니다."
     if party == "car_vs_bicycle" or "bicycle" in tags:
         return "자전거와 충돌한 사고라는 점이 유사합니다."
+    if party == "car_vs_motorcycle" or "motorcycle" in tags or "two_wheeler" in tags:
+        return "오토바이 또는 이륜차와 충돌한 사고라는 점이 유사합니다."
     if party == "car_vs_object" or "object" in tags:
         return "시설물이나 기물과 충돌한 사고라는 점이 유사합니다."
     if party == "single_vehicle" or "single_vehicle" in tags:
@@ -509,11 +576,22 @@ def _party_chart_prefixes(party: str | None) -> list[str]:
         "vehicle_vs_bicycle": ["자%", "거%"],
         "bicycle": ["자%", "거%"],
         "two_wheeler": ["자%", "거%"],
+        "car_vs_motorcycle": [],
+        "motorcycle": [],
         "car_vs_object": ["기%"],
         "single_vehicle": ["단%"],
         "vehicle_single": ["단%"],
     }
     return prefixes.get(party or "", [])
+
+
+def _party_guard_policy(party: str) -> dict[str, Any]:
+    return {
+        "requested_party_type": party or "unknown",
+        "policy": "final_knia_candidates_must_match_major_party_type",
+        "fallback_scope": "same_party_only",
+        "mismatched_party_display": "rejected",
+    }
 
 
 def _party_from_chart_no(chart_no: Any) -> str | None:

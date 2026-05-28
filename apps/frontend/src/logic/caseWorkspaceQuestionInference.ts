@@ -118,6 +118,14 @@ function inferGuidedQuestionType(facts: AccidentFacts, descriptionText: string):
     const description = normalizeAccidentText(descriptionText);
 
     if (
+        (partyType.includes("car_vs_car") || kniaMajorPartyType.includes("car_vs_car")) &&
+        !accidentType &&
+        !description
+    ) {
+        return "car_vs_car_subtype";
+    }
+
+    if (
         accidentType.includes("stealth_illegal_parked_vehicle") ||
         (facts as any).is_stealth_parked_vehicle_collision === true ||
         isStealthParkedVehicleCollision(facts, descriptionText)
@@ -227,6 +235,10 @@ function inferGuidedQuestionType(facts: AccidentFacts, descriptionText: string):
         if (rearEndRole === "ego_hit_front") return "ego_hit_front";
         if (rearEndRole === "hit_by_rear") return "hit_by_rear";
         return "rear_end_unknown";
+    }
+
+    if (partyType.includes("car_vs_car") || kniaMajorPartyType.includes("car_vs_car")) {
+        return "car_vs_car_subtype";
     }
 
     return "unknown";

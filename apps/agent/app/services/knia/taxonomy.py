@@ -23,6 +23,12 @@ PARTY_TYPES: dict[str, dict[str, Any]] = {
         "keywords": ["차대자전거", "자전거", "자전거도로", "우회전 자전거", "횡단보도 자전거", "측면 충돌", "자전거 운전자"],
         "actions": ["자전거 운전자의 부상 여부를 먼저 확인하세요.", "필요하면 119와 112에 신고하세요.", "자전거 진행 방향과 충돌 위치를 기록하세요.", "블랙박스와 현장 사진을 보관하세요."],
     },
+    "car_vs_motorcycle": {
+        "label": "차대오토바이 사고",
+        "description": "자동차와 오토바이 또는 이륜차 사이의 사고입니다.",
+        "keywords": ["차대오토바이", "차대이륜차", "오토바이", "이륜차", "원동기장치자전거", "바이크"],
+        "actions": ["이륜차 운전자의 부상 여부를 먼저 확인하세요.", "필요하면 119와 112에 신고하세요.", "진행 방향과 충돌 위치를 기록하세요.", "블랙박스와 현장 사진을 보관하세요."],
+    },
     "car_vs_object": {
         "label": "차대기물 사고",
         "description": "자동차와 시설물, 가드레일, 전봇대, 주차장 기둥 같은 물체 사이의 사고입니다.",
@@ -43,7 +49,7 @@ PARTY_TYPES: dict[str, dict[str, Any]] = {
     },
 }
 
-PRIORITY = ["car_vs_person", "car_vs_bicycle", "car_vs_object", "single_vehicle", "car_vs_car"]
+PRIORITY = ["car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle", "car_vs_car"]
 
 DISPLAY_TAG_RULES: list[tuple[str, list[str]]] = [
     ("후미추돌", ["후미", "뒤차", "후방", "안전거리", "추돌"]),
@@ -54,6 +60,7 @@ DISPLAY_TAG_RULES: list[tuple[str, list[str]]] = [
     ("횡단보도", ["횡단보도"]),
     ("보행자", ["보행자", "사람", "어린이"]),
     ("자전거", ["자전거"]),
+    ("오토바이", ["오토바이", "이륜차", "원동기장치자전거"]),
     ("기물", ["기물", "시설물", "가드레일", "전봇대", "중앙분리대", "벽", "기둥"]),
     ("단독사고", ["단독", "혼자", "전복", "미끄러짐", "도로 이탈", "빗길", "눈길"]),
 ]
@@ -122,8 +129,10 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         token in hay
         for token in ("자전거와 충돌", "자전거와 부딪", "자전거를 쳤", "자전거 추돌", "hit bicycle", "collided with bicycle")
     )
-    if partner_type in {"bicycle", "bike", "cyclist", "motorcycle", "two_wheeler"} and direct_bicycle_collision_text:
+    if partner_type in {"bicycle", "bike", "cyclist"} and direct_bicycle_collision_text:
         return "car_vs_bicycle"
+    if partner_type in {"motorcycle", "two_wheeler", "motorbike"}:
+        return "car_vs_motorcycle"
     if any(token in hay for token in ("트럭", "화물차", "주차", "정차", "스텔스", "무등화", "교량 아래", "교량 밑", "화단")):
         return "car_vs_car"
     if partner_type in {"object", "fixed_object", "road_object", "obstacle"}:
@@ -145,6 +154,7 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
     checks = [
         ("car_vs_person", ["차대사람", "보행자", "무단횡단", "어린이보호구역", "민식이", "사람을", "사람과", "아이와", "인명피해"]),
         ("car_vs_bicycle", ["차대자전거", "자전거와 충돌", "자전거를 쳤", "자전거 추돌", "자전거 운전자"]),
+        ("car_vs_motorcycle", ["차대오토바이", "차대이륜차", "오토바이", "이륜차", "원동기장치자전거", "바이크"]),
         ("car_vs_object", ["차대기물", "기물", "시설물", "가드레일", "전봇대", "중앙분리대", "주차장 기둥", "벽", "낙하물", "물체"]),
         ("single_vehicle", ["차량단독", "단독사고", "혼자", "미끄러", "빗길", "눈길", "졸음운전", "운전미숙", "전복", "도로 이탈"]),
         ("car_vs_car", ["차대차", "후미", "뒤차", "차선변경", "진로변경", "교차로", "신호위반", "좌회전", "우회전", "직진", "끼어들", "차량", "car-to-car", "vehicle", "intersection", "left-turn", "straight vehicle"]),
@@ -160,6 +170,7 @@ def _vehicle_role_a(party: str) -> str | None:
         "car_vs_car": "A차량",
         "car_vs_person": "차량",
         "car_vs_bicycle": "차량",
+        "car_vs_motorcycle": "차량",
         "car_vs_object": "차량",
         "single_vehicle": "사고 차량",
     }.get(party)
@@ -169,12 +180,13 @@ def _vehicle_role_b(party: str) -> str | None:
         "car_vs_car": "B차량",
         "car_vs_person": "보행자",
         "car_vs_bicycle": "자전거 운전자",
+        "car_vs_motorcycle": "오토바이 운전자",
         "car_vs_object": "시설물 또는 물체",
         "single_vehicle": "없음",
     }.get(party)
 
 def _vulnerable_type(party: str) -> str | None:
-    return {"car_vs_person": "보행자", "car_vs_bicycle": "자전거 운전자"}.get(party)
+    return {"car_vs_person": "보행자", "car_vs_bicycle": "자전거 운전자", "car_vs_motorcycle": "오토바이 운전자"}.get(party)
 
 def _object_type(text: str) -> str | None:
     for word in ["가드레일", "전봇대", "중앙분리대", "주차장 기둥", "기둥", "벽", "시설물", "낙하물"]:

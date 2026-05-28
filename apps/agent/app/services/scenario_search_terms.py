@@ -3,6 +3,43 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from app.services.knia.party_guard import canonicalize_party_type, filter_terms_by_party
+
+
+CAR_VS_CAR_TERMS = (
+    "차대차",
+    "후미추돌",
+    "정차 차량 추돌",
+    "신호대기 정차",
+    "안전거리",
+    "차선변경",
+    "진로변경",
+    "교차로",
+    "신호위반",
+    "직진 좌회전",
+    "중앙선 침범",
+    "불법 주정차",
+    "주차 차량",
+    "정차 차량",
+    "야간 무등화 정차 차량",
+    "스텔스 차량",
+    "음주운전",
+    "12대 중과실",
+)
+
+CAR_VS_PERSON_TERMS = ("차대사람", "보행자", "횡단보도", "보행자 보호의무", "어린이보호구역")
+CAR_VS_BICYCLE_TERMS = ("차대자전거", "자전거", "차대 자전거", "자전거도로", "자전거 통행 위치")
+CAR_VS_MOTORCYCLE_TERMS = ("차대오토바이", "오토바이", "이륜차", "차대 이륜차", "진로변경 이륜차")
+CAR_VS_OBJECT_TERMS = ("차대기물", "시설물", "낙하물", "가드레일", "전봇대", "중앙분리대")
+
+PARTY_TERM_PROFILES = {
+    "car_vs_car": CAR_VS_CAR_TERMS,
+    "car_vs_person": CAR_VS_PERSON_TERMS,
+    "car_vs_bicycle": CAR_VS_BICYCLE_TERMS,
+    "car_vs_motorcycle": CAR_VS_MOTORCYCLE_TERMS,
+    "car_vs_object": CAR_VS_OBJECT_TERMS,
+    "single_vehicle": ("단독사고", "차량단독", "도로이탈", "전복", "운전자 부주의"),
+}
 
 SCENARIO_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "rear_end_collision": ("후미추돌", "뒤차 추돌", "안전거리", "정차 중 추돌", "급정거"),
@@ -92,6 +129,7 @@ PARTY_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "car_vs_car": ("차대차", "상대 차량"),
     "car_vs_person": ("차대 보행자", "보행자 보호의무"),
     "car_vs_bicycle": ("차대 자전거", "자전거 사고"),
+    "car_vs_motorcycle": ("차대 이륜차", "오토바이 사고"),
     "car_vs_object": ("차대 시설물", "대물배상"),
     "car_vs_parked_vehicle": ("차대 주차 차량", "정차 차량 충돌", "불법 주정차", "야간 무등화 차량"),
     "single_vehicle": ("단독사고", "운전자 부주의"),
@@ -109,6 +147,7 @@ def scenario_search_terms(
 ) -> list[str]:
     facts = facts or {}
     terms: list[str] = []
+    party = canonicalize_party_type(accident_party_type or facts.get("knia_major_party_type") or facts.get("accident_party_type") or facts.get("party_type"))
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         _extend_unique(
             terms,
@@ -148,7 +187,6 @@ def scenario_search_terms(
     _extend_unique(terms, _fact_value_terms(facts))
     _extend_unique(terms, SCENARIO_SEARCH_TERMS.get(scenario_type or "", ()))
 
-    party = accident_party_type or facts.get("accident_party_type") or facts.get("party_type")
     _extend_unique(terms, PARTY_SEARCH_TERMS.get(str(party or ""), ()))
 
     if facts.get("injury"):
@@ -189,7 +227,9 @@ def scenario_search_terms(
     for tag in scenario_tags or []:
         _extend_unique(terms, TAG_SEARCH_TERMS.get(str(tag), ()))
 
-    deduped = _dedupe(terms)
+    _extend_unique(terms, PARTY_TERM_PROFILES.get(party, ()))
+
+    deduped = filter_terms_by_party(_dedupe(terms), party, facts)
     if scenario_type == "rear_end_collision" and not (facts.get("user_signal_violation") or facts.get("opponent_signal_violation")):
         deduped = _filter_rear_end_query_pollution(deduped)
     if (scenario_type == "stealth_illegal_parked_vehicle_collision") or (
