@@ -18,9 +18,14 @@ import {
     isFinishedJob,
     isReadyReport,
     isRunningJob,
-    normalizeProgressSteps,
     type JobItem,
 } from "./caseWorkspaceProgress";
+import {
+    createCaseWorkspaceProgressController,
+    delay,
+    getRunningJobProgress,
+    type GuidedStep,
+} from "./caseWorkspaceOrchestration";
 
 export { formatDate, prettySize, statusClass, statusLabel } from "./caseWorkspaceFormatters";
 export { guidedAccidentTypeOptions, guidedAnalysisModes } from "./caseWorkspaceGuidance";
@@ -54,7 +59,7 @@ export function useCaseWorkspace(caseId: string) {
     const followupError = ref("");
     const reanalyzing = ref(false);
     const busy = ref<CaseWorkspaceBusyState>("");
-    const guidedStep = ref<"input" | "accident-type" | "purpose" | "questions" | "analyzing" | "result">("input");
+    const guidedStep = ref<GuidedStep>("input");
     const guidedAnswers = ref<Record<string, string>>({});
     let pollTimer: number | null = null;
 
@@ -65,40 +70,13 @@ export function useCaseWorkspace(caseId: string) {
         messageOk.value = ok;
     }
 
-    function delay(ms: number) {
-        return new Promise((resolve) => window.setTimeout(resolve, ms));
-    }
-
-    function applyLocalProgress(next: { percent?: number; stage?: string; message?: string; steps?: any[] }) {
-        if (typeof next.percent === "number") {
-            progressPercent.value = Math.max(progressPercent.value, Math.min(100, Math.max(0, next.percent)));
-        }
-
-        if (next.stage) progressStageLabel.value = next.stage;
-        if (next.message) progressMessage.value = next.message;
-        if (Array.isArray(next.steps) && next.steps.length) progressSteps.value = normalizeProgressSteps(next.steps);
-    }
-
-    function applyBackendProgress(data: any) {
-        if (!data) return;
-
-        applyLocalProgress({
-            percent: Number(data.progress_percent ?? data.percent ?? progressPercent.value),
-            stage: data.current_stage || data.stage_label || progressStageLabel.value,
-            message: data.current_message || data.message || progressMessage.value,
-            steps: Array.isArray(data.steps) ? normalizeProgressSteps(data.steps) : undefined,
-        });
-
-        if (data.result_ready === true || data.can_show_result === true) {
-            progressPercent.value = 100;
-            progressStageLabel.value = "결과 준비 완료";
-            progressMessage.value = "분석 결과가 준비되었습니다.";
-
-            if (guidedStep.value === "analyzing") {
-                guidedStep.value = "result";
-            }
-        }
-    }
+    const { applyBackendProgress, applyLocalProgress, markReportReady } = createCaseWorkspaceProgressController({
+        progressPercent,
+        progressStageLabel,
+        progressMessage,
+        progressSteps,
+        guidedStep,
+    });
 
     function onFile(e: Event) {
         const nextFile = (e.target as HTMLInputElement).files?.[0] || null;
@@ -291,9 +269,7 @@ export function useCaseWorkspace(caseId: string) {
                 await loadReport();
 
                 if (isReadyReport(report.value)) {
-                    progressPercent.value = 100;
-                    progressStageLabel.value = "결과 준비 완료";
-                    progressMessage.value = "분석 결과가 준비되었습니다.";
+                    markReportReady();
                     resultStreaming.value = false;
                     guidedStep.value = "result";
                 }
@@ -330,9 +306,7 @@ export function useCaseWorkspace(caseId: string) {
             await Promise.all([loadReport(), loadProgress()]);
 
             if (isReadyReport(report.value)) {
-                progressPercent.value = 100;
-                progressStageLabel.value = "결과 준비 완료";
-                progressMessage.value = "분석 결과가 준비되었습니다.";
+                markReportReady();
                 guidedStep.value = "result";
                 resultStreaming.value = false;
                 showMessage("분석 결과가 준비되었습니다.");
@@ -475,26 +449,7 @@ export function useCaseWorkspace(caseId: string) {
 
             if (hasRunningJob) {
                 const runningJob = jobs.value.find(isRunningJob);
-
-                if (runningJob?.type === "video_preprocess") {
-                    applyLocalProgress({
-                        percent: Math.max(progressPercent.value, 45),
-                        stage: "영상 확인 중",
-                        message: "영상에서 사고 장면을 찾고 있습니다.",
-                    });
-                } else if (runningJob?.type === "video_analyze") {
-                    applyLocalProgress({
-                        percent: Math.max(progressPercent.value, 65),
-                        stage: "사고 분석 중",
-                        message: "입력한 답변과 영상을 바탕으로 과실비율을 계산하고 있습니다.",
-                    });
-                } else {
-                    applyLocalProgress({
-                        percent: Math.max(progressPercent.value, 55),
-                        stage: "분석 중",
-                        message: "사고 내용을 분석하고 있습니다.",
-                    });
-                }
+                applyLocalProgress(getRunningJobProgress(runningJob?.type, progressPercent.value));
 
                 return;
             }

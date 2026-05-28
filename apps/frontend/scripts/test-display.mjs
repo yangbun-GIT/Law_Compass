@@ -32,6 +32,7 @@ const caseWorkspaceGuidance = readFileSync("src/composables/caseWorkspaceGuidanc
 const caseWorkspaceFormatters = readFileSync("src/composables/caseWorkspaceFormatters.ts", "utf8");
 const caseWorkspaceProgress = readFileSync("src/composables/caseWorkspaceProgress.ts", "utf8");
 const caseWorkspaceFactMapping = readFileSync("src/composables/caseWorkspaceFactMapping.ts", "utf8");
+const caseWorkspaceOrchestration = readFileSync("src/composables/caseWorkspaceOrchestration.ts", "utf8");
 const caseWorkspaceHeader = readFileSync("src/components/case/CaseWorkspaceHeader.vue", "utf8");
 const loginView = readFileSync("src/views/LoginView.vue", "utf8");
 const signupView = readFileSync("src/views/SignupView.vue", "utf8");
@@ -74,7 +75,7 @@ const requiredErrorUx = [
   "영상 신뢰도"
 ];
 const styles = readFileSync("src/styles.css", "utf8");
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
@@ -158,7 +159,7 @@ if (visibleLeaks.length) {
   process.exit(1);
 }
 
-const publicStorageText = [caseDetailView, loginView, dashboardView, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, readFileSync("src/components/case/CaseUploadStep.vue", "utf8")].join("\n");
+const publicStorageText = [caseDetailView, loginView, dashboardView, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, readFileSync("src/components/case/CaseUploadStep.vue", "utf8")].join("\n");
 const hiddenStorageTerms = ["S3", "NAS", "SFTP", "/volume1/lawcompass", "storage_key", "storage_path"];
 const storageLeaks = hiddenStorageTerms.filter((token) => publicStorageText.includes(token));
 if (storageLeaks.length) {
