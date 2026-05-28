@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-28 Gateway Report Composer SRP 보강 P0-1
+
+`apps/gateway/src/lib/report-composer.ts`가 사용자 결과 리포트 조립, KNIA 링크 표시, 전문가 안내 카드, 분석 모드 표시 정책, 공통 sanitizing을 한 파일에서 함께 담당하던 구조를 일부 분리했다. 이번 변경은 출력 payload와 public API route를 바꾸지 않고 Gateway 내부 책임 경계를 줄이는 구조 보강이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 공통 표시 유틸 | `apps/gateway/src/lib/report-composer-common.ts`를 추가해 `AnyRecord`, 안전 텍스트 정제, 배열/숫자 변환, KNIA URL 검증, 표시용 공통 상수와 helper를 담당한다. |
+| 분석 모드 정책 | `apps/gateway/src/lib/report-analysis-mode.ts`를 추가해 `quick_summary`, `fault_ratio_focused`, `legal_precedent_focused`, `insurance_response_focused`, `full_deep_research` 표시 계약과 legacy mode 호환 처리를 담당한다. |
+| KNIA 링크 카드 | `apps/gateway/src/lib/report-knia-links.ts`를 추가해 KNIA 후보 수집, 원문/영상 URL 검증, 중복 제거, 링크 카드 생성을 담당한다. |
+| 전문가 안내 카드 | `apps/gateway/src/lib/report-expert-guidance-card.ts`를 추가해 Agent의 `expert_guidance_sections`를 사용자용 법률/보험 안내 카드로 변환한다. |
+| 기존 facade 유지 | `report-composer.ts`는 `composeClientReport`, `composeDebugReport`, `enrichEasyReport`, `sanitizeEasyReport`, `composeEasyFallback`, `composeReanalysisChangeCard` 공개 함수를 유지하고, 분리된 모듈을 조립하는 역할로 축소했다. |
+| 검증 | Gateway `npm run build`와 `npm test`를 통과했다. 테스트 기준은 8개 파일, 59개 테스트다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. 남은 SRP 후보는 `report-composer.ts` 내부의 영상 사실 카드/보완 질문 조립과 missing-info 우선순위 로직이며, 이는 영상/Agent 판단 회귀 위험이 높아 별도 단계에서 테스트를 고정한 뒤 분리한다.
+
 ## 2026-05-28 StorageAdapter 및 Synology NAS 파일 저장소
 
 Synology NAS DS216play는 Docker를 실행하지 않는 파일 저장소로만 사용한다. LawCompass Gateway, Agent, Worker, PostgreSQL, Redis는 기존처럼 Docker 가능한 PC/서버에서 실행하며, PostgreSQL 데이터 디렉터리를 NAS 공유폴더로 옮기지 않는다. DB에는 영상 바이너리를 저장하지 않고 `storage_driver`, `storage_key`, `storage_path`, `original_filename`, `mime_type`, `size_bytes`, `sha256`, `storage_status` 같은 파일 메타데이터만 저장한다.
