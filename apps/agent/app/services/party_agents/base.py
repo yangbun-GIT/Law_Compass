@@ -24,6 +24,15 @@ PARTY_TO_COLLISION_PARTNER = {
     "single_vehicle": "none",
 }
 
+PARTY_ALLOWED_PREFIXES = {
+    "car_vs_car": ["차"],
+    "car_vs_person": ["보"],
+    "car_vs_bicycle": ["거"],
+    "car_vs_motorcycle": ["차"],
+    "car_vs_object": ["기"],
+    "single_vehicle": ["단"],
+}
+
 
 @dataclass
 class PartyAgentResult:
@@ -85,7 +94,11 @@ class BasePartyAgent:
             facts_patch=patch,
             scenario_tags=tags,
             question_profile={"party_type": party, "scenario_type": scenario_type or self.default_scenario},
-            knia_query_profile={"party_type": party, "excluded_party_types": excluded},
+            knia_query_profile={
+                "party_type": party,
+                "allowed_prefixes": PARTY_ALLOWED_PREFIXES.get(party, []),
+                "excluded_party_types": excluded,
+            },
             excluded_party_types=excluded,
             reason=reason,
         )

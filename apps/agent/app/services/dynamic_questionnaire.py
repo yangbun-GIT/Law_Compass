@@ -220,6 +220,129 @@ SCENARIO_QUESTIONS: dict[str, list[dict[str, Any]]] = {
 SCENARIO_QUESTIONS["stealth_illegal_parked_vehicle_collision"] = SCENARIO_QUESTIONS["parking_or_stopped_vehicle_accident"]
 SCENARIO_QUESTIONS["intersection_collision"] = SCENARIO_QUESTIONS["intersection_signal_violation"]
 
+PEDESTRIAN_DIRECT_COLLISION_QUESTIONS = [
+    _question(
+        question_id="pedestrian.role",
+        title="상대 유형",
+        plain_question="충돌한 상대가 보행자, 도로 작업자, 공사 담당자, 신호수 또는 교통 통제원이었나요?",
+        why_it_matters="직접 충돌 대상이 사람이면 차대사람 보 계열 기준 안에서만 과실 기준을 찾아야 합니다.",
+        choices=[
+            _choice("pedestrian", "일반 보행자"),
+            _choice("road_worker", "도로 작업자 또는 공사 담당자"),
+            _choice("traffic_controller", "신호수 또는 교통 통제원"),
+            UNKNOWN_CHOICE,
+        ],
+        fact_key="pedestrian_role",
+        priority=0,
+        required_for_modes=["quick_summary", "fault_ratio_focused", "full_deep_research"],
+    ),
+    _question(
+        question_id="pedestrian.worker",
+        title="업무 중 여부",
+        plain_question="상대가 도로 폭 측정, 공사, 교통 통제 같은 업무 중이었나요?",
+        why_it_matters="도로 작업자 사고는 일반 횡단 보행자 사고와 다른 위치·안전조치·예견 가능성 판단이 필요합니다.",
+        affects_fault_ratio=True,
+        fact_key="pedestrian_worker",
+        priority=1,
+    ),
+    _question(
+        question_id="pedestrian.location",
+        title="보행자 위치",
+        plain_question="상대는 횡단보도, 도로 작업구역, 차도, 도로 가장자리 중 어디에 있었나요?",
+        why_it_matters="보행자 위치는 보 계열 기준과 가감요소를 고르는 핵심 사실입니다.",
+        choices=[
+            _choice("crosswalk", "횡단보도"),
+            _choice("road_work_zone", "도로 작업구역"),
+            _choice("roadway", "차도"),
+            _choice("road_edge", "도로 가장자리"),
+            _choice("no_crosswalk", "횡단보도 없음"),
+            UNKNOWN_CHOICE,
+        ],
+        affects_fault_ratio=True,
+        fact_key="pedestrian_location",
+        priority=2,
+    ),
+    _question(
+        question_id="pedestrian.sudden_entry",
+        title="갑작스러운 진입",
+        plain_question="상대가 차량 진행 방향을 보지 않고 갑자기 차도 안으로 들어왔나요?",
+        why_it_matters="갑작스러운 차도 진입은 보행자 측 주의의무와 운전자의 회피 가능성을 함께 판단해야 합니다.",
+        affects_fault_ratio=True,
+        fact_key="pedestrian_sudden_entry",
+        priority=3,
+    ),
+    _question(
+        question_id="pedestrian.safety_measures",
+        title="공사 안전조치",
+        plain_question="도로공사 표지판, 라바콘, 안전요원, 신호수, 조명 같은 안전조치가 있었나요?",
+        why_it_matters="공사구역 안전조치 유무는 운전자의 예견 가능성과 작업자 측 관리 책임을 나누는 단서입니다.",
+        choices=[
+            _choice("adequate", "충분히 있었다"),
+            _choice("partial", "일부만 있었다"),
+            _choice("none", "없었다"),
+            UNKNOWN_CHOICE,
+        ],
+        affects_fault_ratio=True,
+        fact_key="road_work_safety_measures",
+        priority=4,
+    ),
+    _question(
+        question_id="pedestrian.driver_visibility",
+        title="사전 발견 가능성",
+        plain_question="운전자가 상대를 사전에 볼 수 있었나요?",
+        why_it_matters="사전 발견 가능성은 운전자 전방주시·감속 의무와 보행자 갑작스러운 진입 항변을 가르는 요소입니다.",
+        choices=[
+            _choice("visible", "미리 볼 수 있었다"),
+            _choice("blocked", "가려져 있었다"),
+            _choice("sudden", "갑자기 나타났다"),
+            UNKNOWN_CHOICE,
+        ],
+        affects_fault_ratio=True,
+        fact_key="driver_visibility_of_pedestrian",
+        priority=5,
+    ),
+    _question(
+        question_id="pedestrian.speed",
+        title="차량 속도",
+        plain_question="차량 속도는 제한속도 이내였나요?",
+        why_it_matters="과속 여부는 회피 가능성과 손해 확대의 가감요소가 될 수 있습니다.",
+        choices=[
+            _choice("within_limit", "제한속도 이내"),
+            _choice("speeding", "과속 가능성 있음"),
+            UNKNOWN_CHOICE,
+        ],
+        affects_fault_ratio=True,
+        fact_key="vehicle_speed_context",
+        priority=6,
+    ),
+    _question(
+        question_id="pedestrian.video",
+        title="영상 증거",
+        plain_question="블랙박스, CCTV 또는 목격자 증거가 있나요?",
+        why_it_matters="영상은 상대의 진입 방향, 시야, 안전조치, 속도 판단을 확인하는 가장 직접적인 자료입니다.",
+        choices=[
+            _choice("blackbox", "블랙박스 있음"),
+            _choice("cctv", "CCTV 가능"),
+            _choice("witness", "목격자 있음"),
+            _choice("none", "없음"),
+            UNKNOWN_CHOICE,
+        ],
+        fact_key="cctv_or_blackbox_available",
+        priority=7,
+    ),
+]
+
+for _pedestrian_scenario in (
+    "pedestrian_crosswalk_accident",
+    "pedestrian_near_crosswalk_accident",
+    "pedestrian_no_crosswalk_road_crossing",
+    "pedestrian_road_work_worker_accident",
+    "pedestrian_sudden_entry_accident",
+    "pedestrian_on_road_edge_accident",
+    "pedestrian_construction_zone_accident",
+):
+    SCENARIO_QUESTIONS[_pedestrian_scenario] = PEDESTRIAN_DIRECT_COLLISION_QUESTIONS
+
 
 MODE_QUESTION_LIMITS = {
     "quick_summary": 3,

@@ -86,8 +86,18 @@ function collectKniaDisplayCandidates(result: AnyRecord = {}, report: AnyRecord 
   push(fault.knia_fault_estimate?.source_chart ?? fault.knia_fault_estimate, "knia_fault_estimate");
 
   const seen = new Set<string>();
+  const requestedParty = canonicalPartyType(
+    result.knia_major_party_type ??
+    result.accident_party_type ??
+    result.scenario?.accident_party_type ??
+    result.scenario?.knia_major_party_type ??
+    result.normalized?.knia_major_party_type ??
+    result.normalized?.structured_facts?.knia_major_party_type ??
+    result.structured_facts?.knia_major_party_type,
+  );
   return candidates
     .map(normalizeKniaCandidate)
+    .filter((item) => isKniaCandidateAllowedForParty(item, requestedParty))
     .filter((item) => {
       const key = kniaCandidateKey(item);
       if (!key || seen.has(key)) return false;
@@ -120,6 +130,8 @@ function normalizeKniaCandidate(item: AnyRecord = {}) {
     chart_no: cleanText(item.chart_no, ""),
     chart_type: cleanText(item.chart_type, ""),
     title: cleanText(item.title ?? item.chart_title ?? item.article_title, ""),
+    accident_party_type: cleanText(item.accident_party_type ?? item.major_party_type, ""),
+    major_party_type: cleanText(item.major_party_type ?? item.accident_party_type, ""),
     accident_party_label: cleanText(item.accident_party_label, ""),
     video_url: videoUrl,
     source_detail_url: sourceDetailUrl,
@@ -134,6 +146,31 @@ function normalizeKniaCandidate(item: AnyRecord = {}) {
     score: toNumber(item.score ?? item.match_score, 0),
     has_knia_candidate: true,
   };
+}
+
+function canonicalPartyType(value: any) {
+  const text = String(value ?? "").toLowerCase();
+  if (["car_vs_car", "vehicle_vs_vehicle", "vehicle"].includes(text)) return "car_vs_car";
+  if (["car_vs_person", "vehicle_vs_pedestrian", "pedestrian", "person"].includes(text)) return "car_vs_person";
+  if (["car_vs_bicycle", "vehicle_vs_bicycle", "bicycle", "cyclist"].includes(text)) return "car_vs_bicycle";
+  if (["car_vs_motorcycle", "motorcycle", "two_wheeler"].includes(text)) return "car_vs_motorcycle";
+  if (["car_vs_object", "object", "fixed_object"].includes(text)) return "car_vs_object";
+  if (["single_vehicle", "vehicle_single"].includes(text)) return "single_vehicle";
+  return "";
+}
+
+function isKniaCandidateAllowedForParty(item: AnyRecord, requestedParty: string) {
+  if (!requestedParty) return true;
+  const party = canonicalPartyType(item.major_party_type || item.accident_party_type);
+  if (party && party !== requestedParty) return false;
+  const chart = String(item.chart_no || "");
+  if (!chart) return true;
+  if (requestedParty === "car_vs_person") return chart.startsWith("보") || chart.startsWith("蹂");
+  if (requestedParty === "car_vs_car") return chart.startsWith("차") || chart.startsWith("李");
+  if (requestedParty === "car_vs_bicycle") return chart.startsWith("거") || chart.startsWith("자") || chart.startsWith("嫄");
+  if (requestedParty === "car_vs_object") return !(chart.startsWith("보") || chart.startsWith("蹂") || chart.startsWith("거") || chart.startsWith("자") || chart.startsWith("嫄"));
+  if (requestedParty === "single_vehicle") return !(chart.startsWith("보") || chart.startsWith("蹂") || chart.startsWith("거") || chart.startsWith("자") || chart.startsWith("嫄"));
+  return true;
 }
 
 function isVideoUrl(value: string) {

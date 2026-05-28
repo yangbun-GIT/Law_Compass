@@ -12,6 +12,7 @@ import redis
 from app.providers.embedding import get_embedding_provider, vector_literal
 from app.services.knia.knia_media_selector import select_media
 from app.services.knia.party_guard import (
+    allowed_chart_prefixes,
     canonicalize_party_type,
     filter_tags_by_party,
     filter_terms_by_party,
@@ -33,6 +34,12 @@ SCENARIO_TO_TAGS = {
     "lane_change_collision": ["lane_change", "fault_ratio"],
     "intersection_signal_violation": ["intersection", "signal_violation", "fault_ratio"],
     "pedestrian_crosswalk_accident": ["pedestrian", "fault_ratio"],
+    "pedestrian_near_crosswalk_accident": ["pedestrian", "crosswalk", "fault_ratio"],
+    "pedestrian_no_crosswalk_road_crossing": ["pedestrian", "roadway", "fault_ratio"],
+    "pedestrian_road_work_worker_accident": ["pedestrian", "road_work", "worker", "fault_ratio"],
+    "pedestrian_sudden_entry_accident": ["pedestrian", "sudden_entry", "fault_ratio"],
+    "pedestrian_on_road_edge_accident": ["pedestrian", "road_edge", "fault_ratio"],
+    "pedestrian_construction_zone_accident": ["pedestrian", "road_work", "worker", "fault_ratio"],
     "school_zone_child_accident": ["pedestrian", "school_zone", "fault_ratio"],
     "bicycle_collision": ["bicycle", "fault_ratio"],
     "object_collision": ["object", "single_vehicle"],
@@ -145,6 +152,8 @@ def match_knia_charts(
             "rejected_mismatch_count": len(structured_rejected),
             "fallback_used": fallback_used,
             "no_knia_match_reason": None,
+            "chart_prefix_allowed": list(allowed_chart_prefixes(party)),
+            "direct_collision_partner_type": facts.get("direct_collision_partner_type"),
             "review_required": bool(primary.get("review_required", False)),
             "parsing_confidence": primary.get("parsing_confidence"),
             "excluded_items": structured_rejected,
@@ -169,6 +178,8 @@ def match_knia_charts(
                 "structured_chart_used": False,
                 "chart_no": cached_items[0].get("chart_no") if cached_items else None,
                 "no_knia_match_reason": None if cached_items else "no_same_party_knia_match",
+                "chart_prefix_allowed": list(allowed_chart_prefixes(party)),
+                "direct_collision_partner_type": facts.get("direct_collision_partner_type"),
             }
     lookup_error = None
     fallback_lookup_error = None
@@ -208,6 +219,15 @@ def match_knia_charts(
             lookup_error = None
         else:
             lookup_error = fallback_lookup_error
+    elif not items and _should_use_static_person_fallback(party):
+        fallback_used = True
+        items, fallback_rejected = reject_mismatched_knia_items(
+            _static_person_matches(scenario_type=scenario_type, facts=facts, limit=limit),
+            party,
+        )
+        excluded_items.extend(fallback_rejected)
+        rejected_mismatch_count += len(fallback_rejected)
+        lookup_error = None if items else fallback_lookup_error
     elif fallback_lookup_error:
         lookup_error = fallback_lookup_error
     if cache:
@@ -231,6 +251,8 @@ def match_knia_charts(
         "rejected_mismatch_count": rejected_mismatch_count + len(structured_rejected),
         "fallback_used": fallback_used,
         "no_knia_match_reason": no_match_reason,
+        "chart_prefix_allowed": list(allowed_chart_prefixes(party)),
+        "direct_collision_partner_type": facts.get("direct_collision_partner_type"),
         "review_required": bool(items[0].get("review_required", False)) if items else None,
         "parsing_confidence": items[0].get("parsing_confidence") if items else None,
         "excluded_items": excluded_items,
@@ -239,6 +261,10 @@ def match_knia_charts(
 
 def _should_use_static_lane_change_fallback(scenario_type: str | None, party: str | None) -> bool:
     return scenario_type == "lane_change_collision" and canonicalize_party_type(party) in {"car_vs_car", "unknown"}
+
+
+def _should_use_static_person_fallback(party: str | None) -> bool:
+    return canonicalize_party_type(party) == "car_vs_person"
 
 
 def _structured_chart_lookup(
@@ -399,6 +425,51 @@ def _static_lane_change_matches(*, limit: int) -> list[dict[str, Any]]:
     ][:limit]
 
 
+def _static_person_matches(*, scenario_type: str | None, facts: dict[str, Any], limit: int) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+    worker = bool(facts.get("pedestrian_worker") or facts.get("road_work_context"))
+    sudden = bool(facts.get("pedestrian_sudden_entry"))
+    title = "도로 작업자 또는 보행자 차도 진입 사고 참고 기준" if worker else "보행자 차도 진입 사고 참고 기준"
+    summary = (
+        "공사 담당자나 도로 작업자와 직접 충돌한 차대사람 사고로 보행자 위치, 갑작스러운 진입, 안전조치, 시야와 속도를 확인해야 합니다."
+        if worker
+        else "차량과 보행자가 직접 충돌한 차대사람 사고로 횡단보도, 신호, 보행자 위치와 운전자 발견 가능성을 확인해야 합니다."
+    )
+    return [
+        {
+            "chart_id": "static-knia-person-reference",
+            "chart_no": "보-참고",
+            "chart_type": "reference",
+            "title": title,
+            "match_score": 0.38,
+            "match_label": "같은 차대사람 대분류 안에서 가장 가까운 참고 기준입니다.",
+            "match_reason": "구조화 KNIA chart 조회가 비어 있어 차대사람 대분류 안의 정적 참고 기준을 사용했습니다.",
+            "accident_party_type": "car_vs_person",
+            "major_party_type": "car_vs_person",
+            "accident_party_label": party_label("car_vs_person"),
+            "accident_summary": summary,
+            "scenario_summary_easy": "직접 충돌 대상이 사람으로 확인되어 차대차 교차로·차선변경 기준은 표시하지 않습니다.",
+            "basic_fault_text": "구조화 chart의 base_fault가 없는 참고 기준이므로 최종 과실 숫자는 확정하지 않습니다.",
+            "recommended_user_actions": party_actions("car_vs_person"),
+            "display_tags": ["pedestrian", "fault_ratio", "보", "road_work" if worker else "direct_collision"],
+            "scenario_tags": SCENARIO_TO_TAGS.get(scenario_type or "", ["pedestrian", "fault_ratio"]),
+            "keywords": ["차대사람", "보행자", "작업자", "공사 담당자", "도로 작업자", "갑작스러운 진입"] if worker or sudden else ["차대사람", "보행자", "횡단보도", "보행자 보호의무"],
+            "source_type": "knia_fault_standard_static_fallback",
+            "source_family": "knia",
+            "evidence_family": "knia",
+            "source": "과실비율정보포털 KNIA 차대사람 기준 fallback",
+            "used_for": "KNIA 차대사람 참고 기준",
+            "is_static_fallback": True,
+            "fallback_used": True,
+            "reference_only": True,
+            "final_fault_eligible": False,
+            "requested_party_type": "car_vs_person",
+            "attribution": "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
+        }
+    ][:limit]
+
+
 def _tags_from_text(text: str, party: str | None = None) -> list[str]:
     tags: list[str] = []
     checks = [
@@ -537,6 +608,12 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
     party = _row_party_type(row)
     expected_parties = {
         "pedestrian_crosswalk_accident": {"car_vs_person"},
+        "pedestrian_near_crosswalk_accident": {"car_vs_person"},
+        "pedestrian_no_crosswalk_road_crossing": {"car_vs_person"},
+        "pedestrian_road_work_worker_accident": {"car_vs_person"},
+        "pedestrian_sudden_entry_accident": {"car_vs_person"},
+        "pedestrian_on_road_edge_accident": {"car_vs_person"},
+        "pedestrian_construction_zone_accident": {"car_vs_person"},
         "school_zone_child_accident": {"car_vs_person"},
         "bicycle_collision": {"car_vs_bicycle"},
         "motorcycle_collision": {"car_vs_motorcycle"},

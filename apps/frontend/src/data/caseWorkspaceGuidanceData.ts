@@ -465,6 +465,47 @@ export const pedestrianGuidedQuestions: GuidedQuestion[] = [
     },
 ];
 
+pedestrianGuidedQuestions.unshift(
+    {
+        question_id: "pedestrian.role",
+        title: "상대 유형",
+        plain_question: "충돌한 상대가 보행자, 도로 작업자, 공사 담당자, 신호수 또는 교통 통제원이었나요?",
+        why_it_matters: "직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.",
+        choices: [
+            { value: "pedestrian", label: "일반 보행자" },
+            { value: "road_worker", label: "도로 작업자 또는 공사 담당자" },
+            { value: "traffic_controller", label: "신호수 또는 교통 통제원" },
+            { value: "unknown", label: "모르겠어요" },
+        ],
+        fact_key: "pedestrian_role",
+    },
+    {
+        question_id: "pedestrian.sudden_entry",
+        title: "갑작스러운 진입",
+        plain_question: "상대가 차량 진행 방향을 보지 않고 갑자기 차도 안으로 들어왔나요?",
+        why_it_matters: "갑작스러운 차도 진입은 운전자 회피 가능성과 보행자 측 주의의무 판단에 중요합니다.",
+        choices: [
+            { value: "yes", label: "예" },
+            { value: "no", label: "아니요" },
+            { value: "unknown", label: "모르겠어요" },
+        ],
+        fact_key: "pedestrian_sudden_entry",
+    },
+    {
+        question_id: "pedestrian.safety_measures",
+        title: "공사 안전조치",
+        plain_question: "도로공사 표지판, 라바콘, 신호수, 조명 같은 안전조치가 있었나요?",
+        why_it_matters: "공사구역 안전조치 유무는 예견 가능성과 책임 분담의 중요한 단서입니다.",
+        choices: [
+            { value: "adequate", label: "충분히 있었다" },
+            { value: "partial", label: "일부만 있었다" },
+            { value: "none", label: "없었다" },
+            { value: "unknown", label: "모르겠어요" },
+        ],
+        fact_key: "road_work_safety_measures",
+    },
+);
+
 export const laneChangeGuidedQuestions: GuidedQuestion[] = [
     {
         question_id: "lane_change.signal",

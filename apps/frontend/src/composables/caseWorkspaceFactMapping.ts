@@ -61,8 +61,41 @@ export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question:
             }
         }
 
+        function markCarVsPersonAccident(scenarioType = "pedestrian_crosswalk_accident") {
+            nextFacts.accident_party_type = "car_vs_person";
+            nextFacts.accident_type = scenarioType;
+            (nextFacts as any).knia_major_party_type = "car_vs_person";
+            (nextFacts as any).collision_partner_type = "pedestrian";
+            (nextFacts as any).direct_collision_partner_type = "pedestrian";
+            (nextFacts as any).excluded_knia_party_types = ["car_vs_car", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"];
+        }
+
         if (factKey === "stopped") {
             nextFacts.stopped = value === "yes" ? true : value === "no" ? false : undefined;
+        } else if (factKey === "pedestrian_role") {
+            (nextFacts as any).pedestrian_role = value;
+            markCarVsPersonAccident(value === "road_worker" || value === "traffic_controller" ? "pedestrian_road_work_worker_accident" : "pedestrian_crosswalk_accident");
+            if (value === "road_worker" || value === "traffic_controller") {
+                (nextFacts as any).pedestrian_worker = true;
+                (nextFacts as any).road_work_context = true;
+                (nextFacts as any).direct_collision_target = "road_work_worker";
+            }
+        } else if (factKey === "pedestrian_worker") {
+            (nextFacts as any).pedestrian_worker = value === "yes" ? true : value === "no" ? false : undefined;
+            if (value === "yes") {
+                (nextFacts as any).road_work_context = true;
+                (nextFacts as any).direct_collision_target = "road_work_worker";
+                markCarVsPersonAccident("pedestrian_road_work_worker_accident");
+            }
+        } else if (factKey === "pedestrian_location") {
+            (nextFacts as any).pedestrian_location = value;
+            markCarVsPersonAccident(value === "road_work_zone" ? "pedestrian_road_work_worker_accident" : value === "roadway" || value === "no_crosswalk" ? "pedestrian_no_crosswalk_road_crossing" : "pedestrian_crosswalk_accident");
+        } else if (factKey === "pedestrian_sudden_entry") {
+            (nextFacts as any).pedestrian_sudden_entry = value === "yes" ? true : value === "no" ? false : undefined;
+            markCarVsPersonAccident("pedestrian_sudden_entry_accident");
+        } else if (factKey === "road_work_safety_measures" || factKey === "driver_visibility_of_pedestrian" || factKey === "vehicle_speed_context" || factKey === "cctv_or_blackbox_available") {
+            (nextFacts as any)[factKey] = value;
+            markCarVsPersonAccident((nextFacts as any).pedestrian_worker ? "pedestrian_road_work_worker_accident" : "pedestrian_crosswalk_accident");
         } else if (factKey === "sudden_brake_without_reason" || factKey === "sudden_brake") {
             nextFacts.sudden_brake = value === "yes";
         } else if (factKey === "lawful_stop_reason" || factKey === "stop_reason") {
@@ -226,9 +259,7 @@ export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question:
             (nextFacts as any).accident_counterpart = value;
 
             if (value === "person") {
-                nextFacts.accident_party_type = "car_vs_person";
-                nextFacts.accident_type = "pedestrian_crosswalk_accident";
-                (nextFacts as any).knia_major_party_type = "car_vs_person";
+                markCarVsPersonAccident("pedestrian_crosswalk_accident");
             } else if (value === "bicycle") {
                 nextFacts.accident_party_type = "car_vs_bicycle";
                 nextFacts.accident_type = "bicycle_collision";
@@ -323,9 +354,7 @@ export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question:
                 nextFacts.accident_party_type = "car_vs_car";
                 (nextFacts as any).knia_major_party_type = "car_vs_car";
             } else if (value === "pedestrian") {
-                nextFacts.accident_type = "pedestrian_crosswalk_accident";
-                nextFacts.accident_party_type = "car_vs_person";
-                (nextFacts as any).knia_major_party_type = "car_vs_person";
+                markCarVsPersonAccident("pedestrian_crosswalk_accident");
             } else if (value === "parked_vehicle" || value === "stealth_parked_vehicle") {
                 markStealthParkedVehicleCollision();
             }

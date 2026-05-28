@@ -159,6 +159,72 @@ PARTY_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
     "single_vehicle": ("단독사고", "운전자 부주의"),
 }
 
+CLEAN_CAR_VS_PERSON_TERMS = (
+    "차대사람",
+    "보행자",
+    "사람",
+    "작업자",
+    "공사 담당자",
+    "도로 작업자",
+    "도로 공사",
+    "도로 폭 측정",
+    "차도 보행자",
+    "보행자 갑작스러운 진입",
+    "횡단보도 없음",
+    "보도와 차도 구분 없음",
+    "보행자 보호의무",
+    "도로교통법 제8조",
+    "보행자의 통행",
+    "보행자 사고",
+)
+
+PARTY_TERM_PROFILES["car_vs_person"] = (*PARTY_TERM_PROFILES.get("car_vs_person", ()), *CLEAN_CAR_VS_PERSON_TERMS)
+PARTY_SEARCH_TERMS["car_vs_person"] = (*PARTY_SEARCH_TERMS.get("car_vs_person", ()), "차대사람", "보행자 사고", "보행자 보호의무")
+SCENARIO_SEARCH_TERMS["pedestrian_road_work_worker_accident"] = (
+    "차대사람",
+    "보행자",
+    "작업자",
+    "공사 담당자",
+    "도로 작업자",
+    "도로 공사",
+    "도로 폭 측정",
+    "차도 보행자",
+    "보행자 갑작스러운 진입",
+    "보행자의 통행",
+)
+SCENARIO_SEARCH_TERMS["pedestrian_sudden_entry_accident"] = (
+    "차대사람",
+    "보행자",
+    "사람",
+    "차도 보행자",
+    "보행자 갑작스러운 진입",
+    "횡단보도 없음",
+    "보도와 차도 구분 없음",
+)
+SCENARIO_SEARCH_TERMS["pedestrian_no_crosswalk_road_crossing"] = (
+    "차대사람",
+    "보행자",
+    "횡단보도 없음",
+    "차도 보행자",
+    "도로교통법 제8조",
+)
+SCENARIO_SEARCH_TERMS["pedestrian_on_road_edge_accident"] = (
+    "차대사람",
+    "보행자",
+    "도로 가장자리 보행자",
+    "차도 보행자",
+)
+SCENARIO_SEARCH_TERMS["pedestrian_construction_zone_accident"] = (
+    "차대사람",
+    "보행자",
+    "작업자",
+    "공사구역 보행자",
+    "도로 공사",
+)
+TAG_SEARCH_TERMS["road_work"] = ("도로 공사", "공사 담당자", "도로 작업자", "도로 폭 측정")
+TAG_SEARCH_TERMS["worker"] = ("작업자", "공사 담당자", "도로 작업자", "측량 작업자", "신호수")
+TAG_SEARCH_TERMS["sudden_entry"] = ("갑작스러운 진입", "차도 진입", "튀어나옴", "뛰어나옴")
+
 
 def scenario_search_terms(
         *,
@@ -235,6 +301,8 @@ def scenario_search_terms(
         )
     if facts.get("intersection") and scenario_type != "rear_end_collision":
         _extend_unique(terms, ("교차로", "우선권", "신호"))
+    if party == "car_vs_person" and facts.get("intersection") and scenario_type != "rear_end_collision":
+        _extend_unique(terms, ("교차로 보행자", "횡단보도", "보행자 신호", "보행자 보호의무"))
     if facts.get("crosswalk_nearby"):
         if facts.get("pedestrian_visible") is True or str(party or "") == "car_vs_person":
             _extend_unique(terms, ("횡단보도", "보행자 보호의무"))
@@ -266,6 +334,13 @@ def scenario_search_terms(
         _extend_unique(terms, TAG_SEARCH_TERMS.get(str(tag), ()))
 
     _extend_unique(terms, PARTY_TERM_PROFILES.get(party, ()))
+    if party == "car_vs_person":
+        if facts.get("crosswalk_nearby"):
+            _extend_unique(terms, ("횡단보도", "보행자 보호의무", "보행자 신호"))
+        if facts.get("pedestrian_worker") or facts.get("road_work_context"):
+            _extend_unique(terms, ("작업자", "공사 담당자", "도로 작업자", "도로 폭 측정", "도로 공사"))
+        if facts.get("pedestrian_sudden_entry"):
+            _extend_unique(terms, ("보행자 갑작스러운 진입", "차도 보행자"))
 
     deduped = filter_terms_by_party(_dedupe(terms), party, facts)
     if scenario_type == "rear_end_collision" and not (facts.get("user_signal_violation") or facts.get("opponent_signal_violation")):

@@ -13,9 +13,19 @@ import redis
 from app.providers.embedding import get_embedding_provider, vector_literal
 
 
-KNIA_JSON_EXACT_CACHE_VERSION = "v3"
+KNIA_JSON_EXACT_CACHE_VERSION = "v4"
 KNIA_JSON_SEMANTIC_DISTANCE_THRESHOLD = 0.20
 logger = logging.getLogger(__name__)
+
+
+def _chart_prefix_patterns(party_type: str | None) -> list[str]:
+    return {
+        "car_vs_car": ["차%", "李%"],
+        "car_vs_person": ["보%", "蹂%"],
+        "car_vs_bicycle": ["거%", "자%", "嫄%"],
+        "car_vs_object": ["기%", "湲%"],
+        "single_vehicle": ["단%"],
+    }.get(str(party_type or ""), [])
 
 
 def _db_url() -> str | None:
@@ -171,8 +181,13 @@ def _keyword_fallback_search(
                 where += " AND kc.chart_no=%s"
             if accident_party_type and accident_party_type != "unknown":
                 params.append(accident_party_type)
-                where += " AND (kc.major_party_type=%s OR kc.accident_party_type=%s)"
+                prefixes = _chart_prefix_patterns(accident_party_type)
+                where += " AND (kc.major_party_type=%s OR kc.accident_party_type=%s"
                 params.append(accident_party_type)
+                if prefixes:
+                    params.append(prefixes)
+                    where += " OR kc.chart_no LIKE ANY(%s::text[])"
+                where += ")"
             params.append(limit)
             cur.execute(
                 f"""
@@ -299,8 +314,13 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
             where += " AND kc.chart_no=%s"
         if accident_party_type and accident_party_type != "unknown":
             params.append(accident_party_type)
-            where += " AND (kc.major_party_type=%s OR kc.accident_party_type=%s)"
+            prefixes = _chart_prefix_patterns(accident_party_type)
+            where += " AND (kc.major_party_type=%s OR kc.accident_party_type=%s"
             params.append(accident_party_type)
+            if prefixes:
+                params.append(prefixes)
+                where += " OR kc.chart_no LIKE ANY(%s::text[])"
+            where += ")"
         params.append(limit)
         cur.execute(
             f"""
