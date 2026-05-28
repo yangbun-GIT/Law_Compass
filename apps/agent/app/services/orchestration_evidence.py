@@ -60,7 +60,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         evidence_query["query_text"],
         accident_party_type=scenario.get("accident_party_type"),
         scenario_type=scenario.get("scenario_type"),
-        chart_no=(knia_matches[0].get("chart_no") if knia_matches else None),
+        chart_no=_rag_lookup_chart_no(knia_matches[0]) if knia_matches else None,
         limit=5,
     )
     knia_json_evidence = _filter_primary_knia_evidence(knia_json_result.get("items") or [], scenario_tags, scenario.get("scenario_type"))
@@ -156,6 +156,11 @@ def _static_knia_match_to_fault_estimate(match: dict[str, Any]) -> dict[str, Any
         "source_chart": source_chart,
         "notice": "KNIA DB/JSON 조회가 불가능한 환경에서 차선변경 regression을 위한 정적 차대차 참고 기준입니다.",
     }
+
+
+def _rag_lookup_chart_no(match: dict[str, Any]) -> str | None:
+    value = match.get("aggregate_chart_no") or match.get("chart_no")
+    return str(value) if value else None
 
 
 def _as_fault_int(value: Any, default: int) -> int:
@@ -273,6 +278,10 @@ def _knia_estimate_to_evidence(estimate: dict[str, Any]) -> list[dict[str, Any]]
                 "title": f"KNIA 원문 기본과실 A{base.get('A')}:B{base.get('B')}",
                 "plain_summary": "KNIA 상세 기준에서 수집한 기본과실을 사용했습니다.",
                 "source_url": source_chart.get("source_detail_url"),
+                "chart_no": source_chart.get("chart_no"),
+                "scenario_tags": source_chart.get("scenario_tags") or [],
+                "display_tags": source_chart.get("display_tags") or [],
+                "keywords": source_chart.get("keywords") or [],
                 "used_for": "과실비율 기본값",
             }
         )

@@ -17,6 +17,10 @@ from app.services.knia.party_guard import (
     filter_terms_by_party,
     reject_mismatched_knia_items,
 )
+from app.services.knia.knia_fault_adjuster import (
+    select_structured_base_fault_candidate,
+    structured_chart_final_fault_eligible,
+)
 from app.services.knia.knia_json_repository import get_knia_fault_chart, list_knia_fault_charts_by_party, search_knia_fault_charts
 from app.services.knia.taxonomy import infer_party_type_from_text, party_actions, party_label
 from app.services.scenario_search_terms import scenario_search_terms
@@ -136,6 +140,7 @@ def match_knia_charts(
             "structured_lookup_error": structured_lookup_error,
             "structured_chart_used": True,
             "chart_no": primary.get("chart_no"),
+            "aggregate_chart_no": primary.get("aggregate_chart_no"),
             "party_guard_policy": _party_guard_policy(party),
             "rejected_mismatch_count": len(structured_rejected),
             "fallback_used": fallback_used,
@@ -255,11 +260,10 @@ def _structured_chart_lookup(
         score = float(row.get("match_score") or 0.55)
         if row.get("scenario_type") == scenario_type:
             score = max(score, 0.72)
-        reference_only = bool(row.get("review_required")) or not bool(row.get("base_fault"))
         reason = "구조화된 2023.6 KNIA JSON chart가 사고 대분류와 사고유형에 맞습니다."
-        if reference_only:
-            reason += " 다만 검수 필요 또는 기본과실 후보라 참고 기준으로 표시합니다."
-        matches.append(_structured_chart_to_match(row, score, reason, reference_only=reference_only))
+        if not structured_chart_final_fault_eligible(row):
+            reason += " 다만 기본과실 또는 원문 근거가 불완전해 참고 기준으로 표시합니다."
+        matches.append(_structured_chart_to_match(row, score, reason))
     return matches
 
 
@@ -272,17 +276,31 @@ def _structured_chart_to_match(
 ) -> dict[str, Any]:
     match = _to_match(row, score, reason)
     review_required = bool(row.get("review_required", False))
-    no_base_fault = not bool(row.get("base_fault"))
+    selected_candidate = select_structured_base_fault_candidate(row)
+    selected_fault = _base_fault_pair_from_candidate(selected_candidate)
+    aggregate_chart_no = row.get("aggregate_chart_no") or row.get("chart_no")
+    display_chart_no = (selected_candidate or {}).get("subchart_no") or row.get("chart_no")
+    forced_reference_only = bool(reference_only)
+    final_fault_eligible = (not forced_reference_only) and structured_chart_final_fault_eligible(row, selected_candidate)
+    no_base_fault = not bool(selected_fault)
+    if selected_fault:
+        match["base_fault_a"] = selected_fault["A"]
+        match["base_fault_b"] = selected_fault["B"]
+    if display_chart_no:
+        match["chart_no"] = display_chart_no
     match.update(
         {
             "structured_chart_used": True,
             "source_type": "knia_structured_chart",
             "source_family": "knia",
+            "evidence_family": "knia",
+            "aggregate_chart_no": aggregate_chart_no if aggregate_chart_no != display_chart_no else None,
             "major_party_type": row.get("major_party_type") or row.get("accident_party_type"),
             "scenario_type": row.get("scenario_type"),
             "scenario_subtype": row.get("scenario_subtype"),
             "vehicle_roles": row.get("vehicle_roles") or {},
             "base_fault": row.get("base_fault") or {},
+            "selected_base_fault_candidate": selected_candidate or {},
             "adjustments": row.get("adjustments") or row.get("adjustment_factors") or [],
             "related_laws": row.get("related_laws") or [],
             "accident_situation": row.get("accident_situation") or row.get("accident_summary"),
@@ -291,15 +309,59 @@ def _structured_chart_to_match(
             "raw_text": row.get("raw_text"),
             "parsing_confidence": row.get("parsing_confidence"),
             "review_required": review_required,
-            "reference_only": bool(reference_only) or review_required or no_base_fault,
-            "final_fault_eligible": not (review_required or no_base_fault),
+            "reference_only": not final_fault_eligible,
+            "reference_only_forced": forced_reference_only,
+            "final_fault_eligible": final_fault_eligible,
             "page_start": row.get("page_start"),
             "page_end": row.get("page_end"),
+            "display_tags": _structured_display_tags(row),
+            "scenario_tags": SCENARIO_TO_TAGS.get(str(row.get("scenario_type") or ""), []),
+            "keywords": _structured_keywords(row, selected_candidate),
         }
     )
     if match["reference_only"]:
         match["match_label"] = "검수 필요 구조화 KNIA 참고 기준입니다." if review_required else "구조화 KNIA 참고 기준입니다."
+    elif review_required:
+        match["match_label"] = "검수 표시가 있지만 기본과실과 원문 근거가 확인된 구조화 KNIA 기준입니다."
     return match
+
+
+def _base_fault_pair_from_candidate(candidate: dict[str, Any] | None) -> dict[str, int] | None:
+    if not candidate:
+        return None
+    a = candidate.get("A")
+    b = candidate.get("B")
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        a_i = max(0, min(100, int(a)))
+        b_i = max(0, min(100, int(b)))
+        if a_i + b_i != 100:
+            b_i = 100 - a_i
+        return {"A": a_i, "B": b_i}
+    return None
+
+
+def _structured_display_tags(row: dict[str, Any]) -> list[str]:
+    tags = list(row.get("display_tags") or [])
+    scenario_type = str(row.get("scenario_type") or "")
+    tags.extend(SCENARIO_TO_TAGS.get(scenario_type, []))
+    party = row.get("major_party_type") or row.get("accident_party_type")
+    if party:
+        tags.append(str(party))
+    return list(dict.fromkeys(str(tag) for tag in tags if tag))
+
+
+def _structured_keywords(row: dict[str, Any], selected_candidate: dict[str, Any] | None) -> list[str]:
+    keywords = list(row.get("keywords") or [])
+    scenario_type = str(row.get("scenario_type") or "")
+    if scenario_type == "lane_change_collision":
+        keywords.extend(["lane_change", "진로변경", "차로변경", "차선변경", "끼어들기"])
+    if scenario_type == "rear_end_collision":
+        keywords.extend(["rear_end", "후미추돌", "후방추돌", "안전거리"])
+    for key in ("subchart_no", "source_text", "vehicle_roles"):
+        value = (selected_candidate or {}).get(key)
+        if value:
+            keywords.append(str(value))
+    return list(dict.fromkeys(str(keyword) for keyword in keywords if keyword))
 
 
 def _static_lane_change_matches(*, limit: int) -> list[dict[str, Any]]:

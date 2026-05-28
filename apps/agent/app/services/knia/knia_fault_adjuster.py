@@ -37,9 +37,10 @@ def calculate_fault_from_structured_chart(
     user_vehicle_role: str | None = None,
 ) -> dict[str, Any]:
     facts = facts or {}
-    base = _select_structured_base_fault(chart.get("base_fault") or {})
+    selected_candidate = select_structured_base_fault_candidate(chart, facts, user_vehicle_role)
+    base = _candidate_fault_pair(selected_candidate)
     review_required = bool(chart.get("review_required", False))
-    reference_only = review_required or not base
+    reference_only = not structured_chart_final_fault_eligible(chart, selected_candidate)
     if not base:
         return {
             "base_fault": {},
@@ -53,7 +54,7 @@ def calculate_fault_from_structured_chart(
             "review_required": review_required,
             "reference_only": True,
             "confidence": min(float(chart.get("parsing_confidence") or 0.35), 0.45),
-            "policy": {"source": "structured_knia_json", "final_fault_blocked_reason": "base_fault_missing_or_review_required"},
+            "policy": {"source": "structured_knia_json", "final_fault_blocked_reason": "base_fault_missing_or_incomplete"},
         }
 
     a = base["A"]
@@ -96,8 +97,10 @@ def calculate_fault_from_structured_chart(
     a = _clamp(a)
     b = _clamp(100 - a)
     confidence = float(chart.get("parsing_confidence") or 0.65)
-    if review_required:
+    if review_required and reference_only:
         confidence = min(confidence, 0.45)
+    elif review_required:
+        confidence = max(min(confidence, 0.72), 0.62)
     return {
         "base_fault": base,
         "selected_adjustments": applied,
@@ -106,29 +109,113 @@ def calculate_fault_from_structured_chart(
         "conditional_outcomes": conditional,
         "final_fault": {"A": a, "B": b},
         "fault_range": {"A": f"{max(a - 10, 0)}~{min(a + 10, 100)}", "B": f"{max(b - 10, 0)}~{min(b + 10, 100)}"},
-        "source_chart": _structured_source_chart(chart),
+        "source_chart": _structured_source_chart(chart, selected_candidate),
         "review_required": review_required,
         "reference_only": reference_only,
         "confidence": confidence,
-        "policy": {"source": "structured_knia_json", "llm_must_not_generate_fault_numbers": True, "reference_only": reference_only},
+        "policy": {
+            "source": "structured_knia_json",
+            "llm_must_not_generate_fault_numbers": True,
+            "reference_only": reference_only,
+            "review_required_is_metadata_only": bool(review_required and not reference_only),
+        },
     }
 
 
-def _select_structured_base_fault(base_fault: dict[str, Any]) -> dict[str, int] | None:
+def select_structured_base_fault_candidate(
+    chart: dict[str, Any],
+    facts: dict[str, Any] | None = None,
+    user_vehicle_role: str | None = None,
+) -> dict[str, Any] | None:
+    base_fault = chart.get("base_fault") or {}
+    candidates: list[dict[str, Any]] = []
     for candidate in base_fault.get("candidates") or []:
         if not isinstance(candidate, dict):
             continue
         a = candidate.get("A")
         b = candidate.get("B")
         if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            normalized = dict(candidate)
             a_i = _clamp(int(a))
-            return {"A": a_i, "B": _clamp(100 - a_i if int(a) + int(b) != 100 else int(b))}
+            normalized["A"] = a_i
+            normalized["B"] = _clamp(100 - a_i if int(a) + int(b) != 100 else int(b))
+            candidates.append(normalized)
     a = base_fault.get("A")
     b = base_fault.get("B")
     if isinstance(a, (int, float)) and isinstance(b, (int, float)):
         a_i = _clamp(int(a))
+        normalized = dict(base_fault)
+        normalized["A"] = a_i
+        normalized["B"] = _clamp(100 - a_i if int(a) + int(b) != 100 else int(b))
+        candidates.append(normalized)
+    if not candidates:
+        return None
+
+    preferred = _preferred_subchart_numbers(chart, facts or {}, user_vehicle_role)
+    for chart_no in preferred:
+        for candidate in candidates:
+            if str(candidate.get("subchart_no") or "") == chart_no:
+                return candidate
+    requested = str(chart.get("chart_no") or "")
+    if "-" in requested:
+        for candidate in candidates:
+            if str(candidate.get("subchart_no") or "") == requested:
+                return candidate
+    return candidates[0]
+
+
+def structured_chart_final_fault_eligible(chart: dict[str, Any], candidate: dict[str, Any] | None = None) -> bool:
+    if chart.get("reference_only_forced"):
+        return False
+    selected = candidate if candidate is not None else select_structured_base_fault_candidate(chart)
+    if not _candidate_fault_pair(selected):
+        return False
+    if not (chart.get("major_party_type") or chart.get("accident_party_type")):
+        return False
+    if not chart.get("scenario_type"):
+        return False
+    if chart.get("review_required") and not _chart_has_supporting_text(chart):
+        return False
+    return True
+
+
+def _candidate_fault_pair(candidate: dict[str, Any] | None) -> dict[str, int] | None:
+    if not candidate:
+        return None
+    a = candidate.get("A")
+    b = candidate.get("B")
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        a_i = _clamp(int(a))
         return {"A": a_i, "B": _clamp(100 - a_i if int(a) + int(b) != 100 else int(b))}
     return None
+
+
+def _preferred_subchart_numbers(
+    chart: dict[str, Any],
+    facts: dict[str, Any],
+    user_vehicle_role: str | None,
+) -> list[str]:
+    scenario_type = str(chart.get("scenario_type") or facts.get("scenario_type") or facts.get("accident_type") or "")
+    chart_no = str(chart.get("aggregate_chart_no") or chart.get("chart_no") or "")
+    if scenario_type == "rear_end_collision" or chart_no.startswith("차41"):
+        return ["차41-1"]
+    if scenario_type == "lane_change_collision" or chart_no.startswith("차43"):
+        return ["차43-2"]
+    return []
+
+
+def _chart_has_supporting_text(chart: dict[str, Any]) -> bool:
+    return any(
+        bool(chart.get(key))
+        for key in (
+            "raw_text",
+            "accident_situation",
+            "accident_summary",
+            "base_fault_explanation",
+            "basic_fault_text",
+            "related_laws",
+        )
+    )
 
 
 def _structured_adjustment_delta(factor: dict[str, Any]) -> tuple[int, int]:
@@ -153,14 +240,20 @@ def _conditional_outcome(label: str, base_a: int, delta_a: int, delta_b: int, co
     return {"label": label, "condition": condition, "fault_if_confirmed": {"A": next_a, "B": 100 - next_a}}
 
 
-def _structured_source_chart(chart: dict[str, Any]) -> dict[str, Any]:
+def _structured_source_chart(chart: dict[str, Any], selected_candidate: dict[str, Any] | None = None) -> dict[str, Any]:
+    aggregate_chart_no = chart.get("aggregate_chart_no") or chart.get("chart_no")
+    display_chart_no = (selected_candidate or {}).get("subchart_no") or chart.get("chart_no")
     return {
-        "chart_no": chart.get("chart_no"),
+        "chart_no": display_chart_no,
+        "aggregate_chart_no": aggregate_chart_no if aggregate_chart_no != display_chart_no else None,
         "chart_type": chart.get("chart_type") or "1",
         "title": chart.get("title"),
         "major_party_type": chart.get("major_party_type") or chart.get("accident_party_type"),
         "scenario_type": chart.get("scenario_type"),
         "scenario_subtype": chart.get("scenario_subtype"),
+        "scenario_tags": chart.get("scenario_tags") or [],
+        "display_tags": chart.get("display_tags") or [],
+        "keywords": chart.get("keywords") or [],
         "review_required": bool(chart.get("review_required", False)),
         "parsing_confidence": chart.get("parsing_confidence"),
         "source_type": "knia_structured_chart",
