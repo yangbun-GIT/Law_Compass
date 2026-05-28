@@ -512,6 +512,32 @@ export function useCaseWorkspace(caseId: string) {
         };
 
         (nextFacts as any).knia_major_party_type = partyType;
+        if (partyType === "car_vs_person") {
+            nextFacts.accident_type = scenarioType || "pedestrian_crosswalk_accident";
+            (nextFacts as any).collision_partner_type = "pedestrian";
+            (nextFacts as any).direct_collision_partner_type = "pedestrian";
+            (nextFacts as any).excluded_knia_party_types = ["car_vs_car", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"];
+        } else if (partyType === "car_vs_bicycle") {
+            (nextFacts as any).collision_partner_type = "bicycle";
+            (nextFacts as any).direct_collision_partner_type = "bicycle";
+            (nextFacts as any).excluded_knia_party_types = ["car_vs_car", "car_vs_person", "car_vs_motorcycle", "car_vs_object", "single_vehicle"];
+        } else if (partyType === "car_vs_motorcycle") {
+            (nextFacts as any).collision_partner_type = "motorcycle";
+            (nextFacts as any).direct_collision_partner_type = "motorcycle";
+            (nextFacts as any).excluded_knia_party_types = ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_object", "single_vehicle"];
+        } else if (partyType === "car_vs_object") {
+            (nextFacts as any).collision_partner_type = "object";
+            (nextFacts as any).direct_collision_partner_type = "object";
+            (nextFacts as any).excluded_knia_party_types = ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "single_vehicle"];
+        } else if (partyType === "single_vehicle") {
+            (nextFacts as any).collision_partner_type = "none";
+            delete (nextFacts as any).direct_collision_partner_type;
+            (nextFacts as any).excluded_knia_party_types = ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object"];
+        } else if (partyType === "car_vs_car") {
+            (nextFacts as any).collision_partner_type = "vehicle";
+            (nextFacts as any).direct_collision_partner_type = "vehicle";
+            (nextFacts as any).excluded_knia_party_types = ["car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"];
+        }
 
         if (scenarioType === "stealth_illegal_parked_vehicle_collision") {
             nextFacts.accident_type = "stealth_illegal_parked_vehicle_collision";

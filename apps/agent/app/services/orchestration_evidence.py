@@ -135,6 +135,35 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
 
 
 def _static_knia_match_to_fault_estimate(match: dict[str, Any]) -> dict[str, Any]:
+    if match.get("reference_only") and match.get("base_fault_a") is None and match.get("base_fault_b") is None:
+        source_chart = {
+            **match,
+            "source_type": match.get("source_type") or "knia_fault_standard_static_fallback",
+            "source_family": "knia",
+            "evidence_family": "knia",
+        }
+        return {
+            "base_fault": {},
+            "selected_adjustments": [],
+            "rejected_adjustments": [],
+            "unknown_adjustments": [
+                {"label": "차대사람 세부 KNIA 기준", "reason": "같은 대분류 참고 기준만 확인되어 base_fault를 확정하지 않았습니다."}
+            ],
+            "conditional_outcomes": [
+                {
+                    "label": "보행자 위치·갑작스러운 진입·안전조치 확인",
+                    "condition": "도로 작업자 위치, 안전조치, 운전자 시야, 속도, 영상 증거가 확인되는 경우",
+                    "explanation": "확인된 사실에 맞는 보 계열 세부 기준과 가감요소로 다시 산정해야 합니다.",
+                }
+            ],
+            "final_fault": {},
+            "fault_range": {},
+            "source_chart": source_chart,
+            "review_required": True,
+            "reference_only": True,
+            "confidence": 0.38,
+            "policy": {"source": "static_same_party_reference", "llm_must_not_generate_fault_numbers": True},
+        }
     base_a = _as_fault_int(match.get("base_fault_a"), 30)
     base_b = _as_fault_int(match.get("base_fault_b"), 100 - base_a)
     base_b = max(0, min(100, base_b))

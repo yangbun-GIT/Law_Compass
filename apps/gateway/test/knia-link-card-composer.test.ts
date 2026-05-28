@@ -66,4 +66,28 @@ describe("KNIA link card composition", () => {
     expect(text).not.toContain("example.com");
     expect(text).not.toContain("source_blocked_reason");
   });
+
+  it("does not display vehicle or bicycle KNIA links for car_vs_person results", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "차대사람 사고" }), {
+      knia_major_party_type: "car_vs_person",
+      knia_matches: [
+        { chart_no: "차43", major_party_type: "car_vs_car", title: "차대차 진로변경", source_url: "https://accident.knia.or.kr/car43" },
+        { chart_no: "거1", major_party_type: "car_vs_bicycle", title: "자전거", source_url: "https://accident.knia.or.kr/bike1" },
+        { chart_no: "보1", major_party_type: "car_vs_person", title: "보행자 사고", source_url: "https://accident.knia.or.kr/person1" },
+      ],
+      fault_ratio: {
+        base_fault: {},
+        final_fault: {},
+        knia_reference_fault: {
+          source_chart: { chart_no: "보1", major_party_type: "car_vs_person", title: "보행자 사고" },
+        },
+      },
+    });
+
+    const text = JSON.stringify(enriched);
+    expect((enriched as any).related_knia_video_card.chart_no).toBe("보1");
+    expect(text).toContain("보1");
+    expect(text).not.toContain("차43");
+    expect(text).not.toContain("거1");
+  });
 });

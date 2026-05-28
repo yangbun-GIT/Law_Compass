@@ -413,18 +413,18 @@ def _apply_party_guard_facts(
     if party == "car_vs_car":
         guarded["collision_partner_type"] = "vehicle"
         guarded["direct_collision_partner_type"] = "vehicle"
-        guarded.setdefault("excluded_knia_party_types", ["car_vs_bicycle", "car_vs_person", "car_vs_object", "single_vehicle"])
+        guarded.setdefault("excluded_knia_party_types", ["car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"])
         if guarded.get("accident_type") == "stealth_illegal_parked_vehicle_collision":
             for key in ("bicycle_involved", "possible_trigger_vehicle", "trigger_actor_type", "bicycle_location", "bicycle_movement"):
                 guarded.pop(key, None)
     elif party == "car_vs_person":
         guarded["collision_partner_type"] = "pedestrian"
         guarded["direct_collision_partner_type"] = "pedestrian"
-        guarded.setdefault("excluded_knia_party_types", ["car_vs_car", "car_vs_bicycle", "car_vs_object", "single_vehicle"])
+        guarded.setdefault("excluded_knia_party_types", ["car_vs_car", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"])
     elif party == "car_vs_bicycle":
         guarded["collision_partner_type"] = "bicycle"
         guarded["direct_collision_partner_type"] = "bicycle"
-        guarded.setdefault("excluded_knia_party_types", ["car_vs_car", "car_vs_person", "car_vs_object", "single_vehicle"])
+        guarded.setdefault("excluded_knia_party_types", ["car_vs_car", "car_vs_person", "car_vs_motorcycle", "car_vs_object", "single_vehicle"])
     elif party == "car_vs_motorcycle":
         guarded["collision_partner_type"] = "motorcycle"
         guarded["direct_collision_partner_type"] = "motorcycle"
@@ -432,11 +432,11 @@ def _apply_party_guard_facts(
     elif party == "car_vs_object":
         guarded["collision_partner_type"] = "object"
         guarded["direct_collision_partner_type"] = "object"
-        guarded.setdefault("excluded_knia_party_types", ["car_vs_car", "car_vs_person", "car_vs_bicycle", "single_vehicle"])
+        guarded.setdefault("excluded_knia_party_types", ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "single_vehicle"])
     elif party == "single_vehicle":
         guarded["collision_partner_type"] = "none"
         guarded.pop("direct_collision_partner_type", None)
-        guarded.setdefault("excluded_knia_party_types", ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_object"])
+        guarded.setdefault("excluded_knia_party_types", ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object"])
     return guarded
 
 
@@ -675,6 +675,9 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "party_agent_result": party_agent_result,
         "knia_major_party_type": facts.get("knia_major_party_type") or (party_agent_result or {}).get("major_party_type") or "unknown",
         "excluded_knia_party_types": facts.get("excluded_knia_party_types") or (party_agent_result or {}).get("excluded_party_types") or [],
+        "direct_collision_partner_type": facts.get("direct_collision_partner_type"),
+        "direct_collision_target": facts.get("direct_collision_target"),
+        "environment_context": facts.get("environment_context") or {},
         "analysis_mode": canonical_analysis_mode,
         "security_flags": security_flags,
         "missing_fields": missing_fields,

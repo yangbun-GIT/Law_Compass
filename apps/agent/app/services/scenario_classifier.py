@@ -37,7 +37,19 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
             )
     )
 
-    if _is_stealth_illegal_parked_vehicle_context(facts, haystack):
+    person_scenario = _person_scenario_from_context(accident_type, facts, haystack)
+
+    if accident_party_type == "car_vs_person" and person_scenario:
+        scenario_type = person_scenario
+        accident_party_type = "car_vs_person"
+        tags.update(["pedestrian", "injury"])
+        if facts.get("pedestrian_worker") or facts.get("road_work_context"):
+            tags.update(["worker", "road_work"])
+        if facts.get("pedestrian_sudden_entry") or any(w in haystack for w in ["갑자기", "튀어나", "뛰어나", "차도"]):
+            tags.add("sudden_entry")
+        if facts.get("crosswalk_nearby") or "횡단보도" in haystack:
+            tags.add("crosswalk")
+    elif _is_stealth_illegal_parked_vehicle_context(facts, haystack):
         scenario_type = "stealth_illegal_parked_vehicle_collision"
         accident_party_type = "car_vs_car"
         tags.update([
@@ -106,7 +118,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance", "stopped_vehicle", "crosswalk"])
     elif collision_partner_type != "vehicle" and pedestrian_context:
-        scenario_type = "pedestrian_crosswalk_accident"
+        scenario_type = _person_scenario_from_context(accident_type, facts, haystack) or "pedestrian_crosswalk_accident"
         accident_party_type = "car_vs_person"
         tags.update(["pedestrian", "crosswalk", "injury"])
     elif _is_non_contact_trigger_context(facts, haystack):
@@ -390,7 +402,17 @@ def _coerce_scenario_to_party(scenario_type: str, party_type: str, facts: dict[s
             "drunk_or_unlicensed_accident",
             "hit_and_run_risk",
         },
-        "car_vs_person": {"general_collision", "pedestrian_crosswalk_accident", "school_zone_child_accident"},
+        "car_vs_person": {
+            "general_collision",
+            "pedestrian_crosswalk_accident",
+            "pedestrian_near_crosswalk_accident",
+            "pedestrian_no_crosswalk_road_crossing",
+            "pedestrian_road_work_worker_accident",
+            "pedestrian_sudden_entry_accident",
+            "pedestrian_on_road_edge_accident",
+            "pedestrian_construction_zone_accident",
+            "school_zone_child_accident",
+        },
         "car_vs_bicycle": {"general_collision", "bicycle_collision"},
         "car_vs_motorcycle": {"general_collision", "motorcycle_collision"},
         "car_vs_object": {"general_collision", "object_collision"},
@@ -412,10 +434,36 @@ def _coerce_scenario_to_party(scenario_type: str, party_type: str, facts: dict[s
         if any(w in haystack for w in ["후미", "후방", "뒤차", "뒷차", "앞차", "추돌"]):
             return "rear_end_collision"
         return "general_vehicle_collision"
+    if party_type == "car_vs_person":
+        return _person_scenario_from_context(str(facts.get("accident_type") or scenario_type), facts, haystack) or "pedestrian_crosswalk_accident"
     return {
-        "car_vs_person": "pedestrian_crosswalk_accident",
         "car_vs_bicycle": "bicycle_collision",
         "car_vs_motorcycle": "motorcycle_collision",
         "car_vs_object": "object_collision",
         "single_vehicle": "single_vehicle_accident",
     }.get(party_type, scenario_type)
+
+
+def _person_scenario_from_context(accident_type: str, facts: dict[str, Any], haystack: str) -> str | None:
+    if accident_type in {
+        "pedestrian_crosswalk_accident",
+        "pedestrian_near_crosswalk_accident",
+        "pedestrian_no_crosswalk_road_crossing",
+        "pedestrian_road_work_worker_accident",
+        "pedestrian_sudden_entry_accident",
+        "pedestrian_on_road_edge_accident",
+        "pedestrian_construction_zone_accident",
+        "school_zone_child_accident",
+    }:
+        return accident_type
+    if facts.get("school_zone") or "어린이보호구역" in haystack or "민식이" in haystack:
+        return "school_zone_child_accident"
+    if facts.get("pedestrian_worker") or facts.get("road_work_context") or any(w in haystack for w in ["공사 담당자", "작업자", "도로 작업자", "도로 폭 측정", "공사구역", "측량"]):
+        return "pedestrian_road_work_worker_accident"
+    if facts.get("crosswalk_nearby") or "횡단보도" in haystack:
+        return "pedestrian_crosswalk_accident"
+    if any(w in haystack for w in ["갑자기", "튀어나", "뛰어나", "차도"]):
+        return "pedestrian_sudden_entry_accident"
+    if any(w in haystack for w in ["도로 가장자리", "차도 가장자리", "갓길"]):
+        return "pedestrian_on_road_edge_accident"
+    return None

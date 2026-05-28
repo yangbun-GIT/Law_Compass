@@ -47,6 +47,28 @@ function isStealthParkedVehicleCollision(facts: AccidentFacts, descriptionText: 
     return hasVehicle && hasParkedOrStopped && hasImpact && (hasStealthOrLowVisibility || hasDrunk);
 }
 
+function isDirectPedestrianCollision(facts: AccidentFacts, descriptionText: string) {
+    const description = normalizeAccidentText(descriptionText);
+    const factsText = JSON.stringify(facts || {}).toLowerCase();
+    const haystack = `${description} ${factsText}`;
+    const personTokens = [
+        "보행자",
+        "사람",
+        "작업자",
+        "공사 담당자",
+        "공사 인부",
+        "도로 작업자",
+        "측량 작업자",
+        "신호수",
+        "교통 통제원",
+        "도로 폭 측정",
+        "차도에 나온 사람",
+    ];
+    const directTokens = ["충돌", "부딪", "접촉", "쳤", "치었", "사고", "발생", "튀어나", "뛰어나", "갑자기"];
+    const bicycleOrMotorcycle = includesAny(haystack, ["자전거", "오토바이", "이륜차", "원동기장치자전거"]);
+    return !bicycleOrMotorcycle && includesAny(haystack, personTokens) && includesAny(haystack, directTokens);
+}
+
 function inferRearEndRole(facts: AccidentFacts, descriptionText: string) {
     const description = normalizeAccidentText(descriptionText);
 
@@ -131,6 +153,16 @@ function inferGuidedQuestionType(facts: AccidentFacts, descriptionText: string):
         isStealthParkedVehicleCollision(facts, descriptionText)
     ) {
         return "stealth_parked_vehicle";
+    }
+
+    if (
+        accidentType.includes("pedestrian") ||
+        partyType.includes("car_vs_person") ||
+        kniaMajorPartyType.includes("car_vs_person") ||
+        collisionPartnerType === "pedestrian" ||
+        isDirectPedestrianCollision(facts, descriptionText)
+    ) {
+        return "pedestrian";
     }
 
     const hasObjectCollisionText =

@@ -107,8 +107,18 @@ def analyze_fault_ratio(
         else:
             my, other, confidence = (30 if not facts.get("lane_change") else 45), (70 if not facts.get("lane_change") else 55), 0.62
         fault_estimate_source = "scenario_default"
-    elif scenario_type in ("pedestrian_crosswalk_accident", "school_zone_child_accident"):
+    elif scenario_type in (
+        "pedestrian_crosswalk_accident",
+        "pedestrian_near_crosswalk_accident",
+        "pedestrian_no_crosswalk_road_crossing",
+        "pedestrian_road_work_worker_accident",
+        "pedestrian_sudden_entry_accident",
+        "pedestrian_on_road_edge_accident",
+        "pedestrian_construction_zone_accident",
+        "school_zone_child_accident",
+    ) or facts.get("accident_party_type") == "car_vs_person":
         my, other, confidence = 70, 30, 0.55
+        key_factors = ["직접 충돌 대상", "보행자 위치", "갑작스러운 차도 진입", "공사구역 안전조치", "시야·속도·영상 증거"]
         fault_estimate_source = "scenario_default"
     else:
         my, other, confidence = 50, 50, 0.42

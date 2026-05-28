@@ -1573,7 +1573,6 @@ function sanitizeGuidedQuestionnaire(value: AnyRecord = {}) {
 
 function composeKniaAdjustmentCards(result: AnyRecord = {}) {
   const fault = result.fault_ratio ?? {};
-  const primary = result.knia_primary_match ?? asArray(result.knia_matches)[0] ?? fault.knia_reference_fault?.source_chart ?? {};
   const baseFault = fault.base_fault ?? fault.knia_adjustment_registry?.base_fault;
   const finalFault = fault.final_fault ?? fault.knia_adjustment_registry?.final_fault ?? { my: fault.my, other: fault.other };
   const faultRange = fault.fault_range ?? fault.knia_adjustment_registry?.fault_range;
@@ -1581,6 +1580,21 @@ function composeKniaAdjustmentCards(result: AnyRecord = {}) {
   const notApplied = asArray(fault.not_applied_adjustments ?? fault.knia_adjustment_registry?.not_applied_adjustments);
   const unknown = asArray(fault.unknown_adjustments ?? fault.knia_adjustment_registry?.unknown_adjustments);
   const conditional = asArray(fault.conditional_outcomes ?? fault.knia_adjustment_registry?.conditional_outcomes);
+  const facts = result.normalized?.structured_facts ?? result.structured_facts ?? result.facts ?? {};
+  const majorPartyType = partyCode(
+    result.knia_major_party_type ??
+    result.accident_party_type ??
+    result.scenario?.accident_party_type ??
+    facts.knia_major_party_type ??
+    facts.accident_party_type,
+  );
+  const primaryCandidates = [
+    result.knia_primary_match,
+    ...asArray(result.knia_matches),
+    fault.knia_reference_fault?.source_chart ?? fault.knia_reference_fault,
+    fault.knia_fault_estimate?.source_chart ?? fault.knia_fault_estimate,
+  ].filter((item) => item && typeof item === "object");
+  const primary = primaryCandidates.find((item) => kniaCandidateAllowedForMajorParty(item, majorPartyType)) ?? primaryCandidates[0] ?? {};
   const hasAnyAdjustment = baseFault || finalFault || applied.length || notApplied.length || unknown.length || conditional.length;
   if (!hasAnyAdjustment) return {};
   const baseLabel = userFaultLabel(baseFault);
@@ -1590,6 +1604,11 @@ function composeKniaAdjustmentCards(result: AnyRecord = {}) {
     summary: finalLabel ? `현재 입력 기준 최종 과실은 ${finalLabel}입니다.` : "현재 입력 기준 과실을 참고 범위로 표시합니다.",
     chart_no: cleanText(primary.chart_no, ""),
     chart_title: cleanText(primary.title ?? primary.chart_title, ""),
+    major_party_type: majorPartyType || undefined,
+    major_party_label: majorPartyLabel(majorPartyType),
+    classification_reason: majorPartyType === "car_vs_person"
+      ? "입력에서 사람 또는 도로 작업자와의 직접 충돌이 확인되어 차대사람 사고로 분류했습니다."
+      : undefined,
     source_url: safeHttpUrl(primary.source_url ?? primary.source_detail_url ?? primary.video_url),
     base_fault: baseFault ? safeFaultPair(baseFault) : undefined,
     final_fault: finalFault ? safeFaultPair(finalFault) : undefined,
@@ -1631,6 +1650,39 @@ function conditionalOutcomeListCard(items: AnyRecord[]) {
       explanation: cleanText(item.explanation, ""),
     })).filter((item) => item.label).slice(0, 8),
   };
+}
+
+function majorPartyLabel(value: string) {
+  const labels: Record<string, string> = {
+    car_vs_car: "차대차 사고",
+    car_vs_person: "차대사람 사고",
+    car_vs_bicycle: "차대자전거 사고",
+    car_vs_motorcycle: "차대오토바이 사고",
+    car_vs_object: "차대기물 사고",
+    single_vehicle: "차량단독 사고",
+  };
+  return labels[value] || undefined;
+}
+
+function partyCode(value: any) {
+  const text = String(value ?? "").trim().toLowerCase();
+  const allowed = new Set(["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"]);
+  return allowed.has(text) ? text : "";
+}
+
+function kniaCandidateAllowedForMajorParty(item: AnyRecord = {}, party: string) {
+  if (!party) return true;
+  const itemParty = partyCode(item.major_party_type ?? item.accident_party_type);
+  if (itemParty && itemParty !== party) return false;
+  const chart = cleanText(item.chart_no, "");
+  if (!chart) return true;
+  if (party === "car_vs_person") return chart.startsWith("보") || chart.startsWith("蹂");
+  if (party === "car_vs_car") return chart.startsWith("차") || chart.startsWith("李");
+  if (party === "car_vs_bicycle") return chart.startsWith("거") || chart.startsWith("자") || chart.startsWith("嫄");
+  if (party === "car_vs_object" || party === "single_vehicle") {
+    return !(chart.startsWith("보") || chart.startsWith("蹂") || chart.startsWith("거") || chart.startsWith("자") || chart.startsWith("嫄"));
+  }
+  return true;
 }
 
 function safeFaultPair(value: AnyRecord = {}) {
