@@ -5,6 +5,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from worker.frame_analysis_usage import aggregate_attempt_usage, openai_usage, with_openai_usage_event
+from worker.frame_observations import (
+    as_float,
+    derive_accident_event_summary_from_observations,
+    normalize_accident_event_summary,
+    normalize_openai_observations,
+    normalize_observation_confidence,
+    observation_quality,
+    observation_quality_summary,
+    should_drop_openai_observation,
+)
+from worker.frame_selection import frame_selection_metadata, select_openai_frames
+
 
 def _int_env(name: str, default: int) -> int:
     try:
@@ -227,109 +240,16 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
 
 
 def _select_openai_frames(frame_details: list[dict[str, Any]], max_frames: int) -> list[dict[str, Any]]:
-    frames = [frame for frame in frame_details if frame.get("path") and Path(frame["path"]).exists()]
-    if len(frames) <= max_frames:
-        return frames
-    if max_frames == 1:
-        return [frames[len(frames) // 2]]
-    object_first = _object_first_frame_indexes(frames, max_frames)
-    if object_first:
-        return [frames[index] for index in object_first]
-    return [frames[index] for index in _event_focused_frame_indexes(len(frames), max_frames)]
-
-
-def _object_first_frame_indexes(frames: list[dict[str, Any]], max_frames: int) -> list[int]:
-    event_indexes = [
-        index for index, frame in enumerate(frames)
-        if frame.get("role") in {"accident_candidate", "event_context"}
-    ]
-    if not event_indexes:
-        return []
-    selected: list[int] = []
-
-    def add(index: int) -> None:
-        if len(selected) >= max_frames:
-            return
-        clamped = max(0, min(len(frames) - 1, index))
-        if clamped not in selected:
-            selected.append(clamped)
-
-    add(0)
-    add(len(frames) - 1)
-    event_budget = max(1, max_frames - len(selected))
-    distributed_events = _spread_indexes(event_indexes, min(len(event_indexes), event_budget))
-    for index in distributed_events:
-        add(index)
-    for offset in (-1, 1, -2, 2):
-        for index in distributed_events:
-            add(index + offset)
-            if len(selected) >= max_frames:
-                return sorted(selected)
-    for index in _event_focused_frame_indexes(len(frames), max_frames):
-        add(index)
-        if len(selected) >= max_frames:
-            break
-    return sorted(selected)
-
-
-def _spread_indexes(indexes: list[int], count: int) -> list[int]:
-    if count <= 0:
-        return []
-    values = sorted(dict.fromkeys(indexes))
-    if count >= len(values):
-        return values
-    if count == 1:
-        return [values[len(values) // 2]]
-    selected: list[int] = []
-    for step in range(count):
-        pos = round(step * (len(values) - 1) / (count - 1))
-        value = values[pos]
-        if value not in selected:
-            selected.append(value)
-    return selected
-
-
-def _event_focused_frame_indexes(frame_count: int, max_frames: int) -> list[int]:
-    if frame_count <= max_frames:
-        return list(range(frame_count))
-    if max_frames <= 1:
-        return [frame_count // 2]
-
-    midpoint = frame_count // 2
-    anchors = [
-        0,
-        frame_count - 1,
-        midpoint,
-        midpoint - 1,
-        midpoint + 1,
-        round((frame_count - 1) * 0.35),
-        round((frame_count - 1) * 0.65),
-    ]
-    selected: list[int] = []
-    for index in anchors:
-        clamped = max(0, min(frame_count - 1, index))
-        if clamped not in selected:
-            selected.append(clamped)
-        if len(selected) >= max_frames:
-            return sorted(selected)
-
-    for step in range(max_frames):
-        index = round(step * (frame_count - 1) / (max_frames - 1))
-        if index not in selected:
-            selected.append(index)
-        if len(selected) >= max_frames:
-            break
-    return sorted(selected)
+    return select_openai_frames(frame_details, max_frames)
 
 
 def _frame_selection_metadata(frame_details: list[dict[str, Any]], selected_frames: list[dict[str, Any]]) -> dict[str, Any]:
-    available_frame_count = len([frame for frame in frame_details if frame.get("path") and Path(frame["path"]).exists()])
-    return {
-        "frame_selection_strategy": FRAME_SELECTION_STRATEGY,
-        "available_frame_count": available_frame_count,
-        "selected_frame_count": len(selected_frames),
-        "frame_selection_max_frames": OPENAI_FRAME_ANALYSIS_MAX_FRAMES,
-    }
+    return frame_selection_metadata(
+        frame_details,
+        selected_frames,
+        strategy=FRAME_SELECTION_STRATEGY,
+        max_frames=OPENAI_FRAME_ANALYSIS_MAX_FRAMES,
+    )
 
 
 def _text_options_for_model(model: str) -> dict[str, Any]:
@@ -541,33 +461,11 @@ def _analysis_attempt_summary(label: str, data: dict[str, Any], observations: li
 
 
 def _openai_usage(data: dict[str, Any]) -> dict[str, Any]:
-    raw = data.get("usage")
-    if not isinstance(raw, dict):
-        return {}
-    input_tokens = _usage_int(raw.get("input_tokens") or raw.get("prompt_tokens"))
-    output_tokens = _usage_int(raw.get("output_tokens") or raw.get("completion_tokens"))
-    total_tokens = _usage_int(raw.get("total_tokens"))
-    if not total_tokens:
-        total_tokens = input_tokens + output_tokens
-    output: dict[str, Any] = {}
-    if input_tokens:
-        output["input_tokens"] = input_tokens
-    if output_tokens:
-        output["output_tokens"] = output_tokens
-    if total_tokens:
-        output["total_tokens"] = total_tokens
-    return output
+    return openai_usage(data)
 
 
 def _aggregate_attempt_usage(attempts: list[dict[str, Any]]) -> dict[str, Any]:
-    totals = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
-    for attempt in attempts:
-        usage = attempt.get("usage") if isinstance(attempt, dict) else {}
-        if not isinstance(usage, dict):
-            continue
-        for key in totals:
-            totals[key] += _usage_int(usage.get(key))
-    return {key: value for key, value in totals.items() if value > 0}
+    return aggregate_attempt_usage(attempts)
 
 
 def _with_openai_usage_event(
@@ -583,8 +481,12 @@ def _with_openai_usage_event(
     retry_count: int = 0,
     error: str = "",
 ) -> dict[str, Any]:
-    updated = dict(result)
-    updated["ai_usage_event"] = _openai_usage_event(
+    return with_openai_usage_event(
+        result,
+        event_version=AI_USAGE_EVENT_VERSION,
+        model=OPENAI_VISION_MODEL,
+        max_output_tokens=OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS,
+        now=_now_iso,
         enabled=enabled,
         success=success,
         frame_details=frame_details,
@@ -595,52 +497,6 @@ def _with_openai_usage_event(
         retry_count=retry_count,
         error=error,
     )
-    return updated
-
-
-def _openai_usage_event(
-    *,
-    enabled: bool,
-    success: bool,
-    frame_details: list[dict[str, Any]],
-    selected_frames: list[dict[str, Any]],
-    usage: dict[str, Any],
-    response_status: str | None,
-    fallback_reason: str,
-    retry_count: int,
-    error: str,
-) -> dict[str, Any]:
-    event: dict[str, Any] = {
-        "version": AI_USAGE_EVENT_VERSION,
-        "provider": "openai",
-        "endpoint": "responses",
-        "model": OPENAI_VISION_MODEL,
-        "enabled": bool(enabled),
-        "success": bool(success),
-        "frame_count": len(frame_details),
-        "selected_frame_count": len(selected_frames),
-        "max_output_tokens": OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS,
-        "retry_count": max(0, int(retry_count or 0)),
-        "created_at": _now_iso(),
-    }
-    if response_status:
-        event["response_status"] = str(response_status)
-    safe_usage = {key: _usage_int(usage.get(key)) for key in ("input_tokens", "output_tokens", "total_tokens") if _usage_int(usage.get(key))}
-    if safe_usage:
-        event["usage"] = safe_usage
-    if fallback_reason:
-        event["fallback_reason"] = fallback_reason
-    if error:
-        event["error_type"] = "openai_frame_analysis_error"
-    return event
-
-
-def _usage_int(value: Any) -> int:
-    try:
-        number = int(value or 0)
-    except (TypeError, ValueError):
-        return 0
-    return max(0, number)
 
 
 def _analysis_error_attempt_summary(label: str, error: str) -> dict[str, Any]:
@@ -809,201 +665,35 @@ def _safe_json_loads(raw: str) -> dict[str, Any] | None:
 
 
 def _normalize_openai_observations(raw_observations: Any, selected_frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if not isinstance(raw_observations, list):
-        return []
-    allowed_frame_refs = {Path(frame["path"]).name for frame in selected_frames}
-    observations: list[dict[str, Any]] = []
-    for item in raw_observations:
-        if not isinstance(item, dict):
-            continue
-        field = str(item.get("field") or item.get("name") or item.get("type") or "").strip()
-        if not field:
-            continue
-        value = item.get("value", "unknown")
-        if _should_drop_openai_observation(field, value):
-            continue
-        frame_refs = [str(ref) for ref in item.get("frame_refs") or item.get("frames") or [] if str(ref) in allowed_frame_refs]
-        confidence = _normalize_observation_confidence(field, value, item.get("confidence"), frame_refs)
-        observations.append({
-            "field": field,
-            "value": value,
-            "confidence": confidence,
-            "source": "frame_analysis:openai",
-            "detector": OPENAI_VISION_MODEL,
-            "frame_refs": frame_refs,
-            "reason": str(item.get("reason") or item.get("evidence") or ""),
-            "observation_quality": _observation_quality(field, confidence, frame_refs),
-        })
-    return observations
+    return normalize_openai_observations(raw_observations, selected_frames, detector=OPENAI_VISION_MODEL)
 
 
 def _normalize_accident_event_summary(value: Any, selected_frames: list[dict[str, Any]]) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        return {}
-    allowed_frame_refs = {Path(frame["path"]).name for frame in selected_frames}
-
-    def refs(name: str) -> list[str]:
-        return [str(ref) for ref in value.get(name) or [] if str(ref) in allowed_frame_refs]
-
-    output: dict[str, Any] = {
-        "impact_visible": bool(value.get("impact_visible")) if value.get("impact_visible") is not None else None,
-        "event_frame_refs": refs("event_frame_refs"),
-        "pre_impact_frame_refs": refs("pre_impact_frame_refs"),
-        "post_impact_frame_refs": refs("post_impact_frame_refs"),
-        "rationale": str(value.get("rationale") or "")[:500],
-    }
-    return {key: item for key, item in output.items() if item not in (None, "", [])}
+    return normalize_accident_event_summary(value, selected_frames)
 
 
 def _derive_accident_event_summary_from_observations(observations: list[dict[str, Any]], selected_frames: list[dict[str, Any]]) -> dict[str, Any]:
-    event_fields = {
-        "collision_partner_type",
-        "primary_collision_target",
-        "collision_point_visible",
-        "collision_point_location",
-        "impact_direction",
-        "collision_direction",
-        "secondary_collision",
-        "non_contact_trigger",
-        "direct_collision_partner_type",
-        "rear_vehicle_collision",
-    }
-    event_refs: list[str] = []
-    for item in observations:
-        if not isinstance(item, dict) or item.get("field") not in event_fields:
-            continue
-        confidence = _as_float(item.get("confidence"), 0.0)
-        if confidence < 0.75:
-            continue
-        for ref in item.get("frame_refs") or []:
-            text = str(ref)
-            if text not in event_refs:
-                event_refs.append(text)
-    if not event_refs:
-        return {}
-    frame_names = [Path(frame["path"]).name for frame in selected_frames]
-    event_refs = [ref for ref in event_refs if ref in frame_names]
-    if not event_refs:
-        return {}
-    first_index = min(frame_names.index(ref) for ref in event_refs)
-    last_index = max(frame_names.index(ref) for ref in event_refs)
-    pre_refs = frame_names[max(0, first_index - 2):first_index]
-    post_refs = frame_names[last_index + 1:last_index + 3]
-    return {
-        "impact_visible": True,
-        "event_frame_refs": event_refs,
-        "pre_impact_frame_refs": pre_refs,
-        "post_impact_frame_refs": post_refs,
-        "rationale": "Derived from high-confidence collision-related observations because the model omitted accident_event_summary.",
-    }
+    return derive_accident_event_summary_from_observations(observations, selected_frames)
 
 
 def _normalize_observation_confidence(field: str, value: Any, confidence_value: Any, frame_refs: list[str]) -> float:
-    confidence = _as_float(confidence_value, 0.0)
-    if field == "stopped" and value is False:
-        # Moving dashcam pixels are easy to overread as "not stopped".
-        # Keep negative stopped observations below Agent fact threshold unless
-        # a later provider adds stronger motion evidence in the contract.
-        if len(frame_refs) < 3:
-            return min(confidence, 0.74)
-        return min(confidence, 0.81)
-    return confidence
+    return normalize_observation_confidence(field, value, confidence_value, frame_refs)
 
 
 def _observation_quality_summary(observations: list[dict[str, Any]]) -> dict[str, Any]:
-    counts = {"high": 0, "medium": 0, "low": 0, "none": 0}
-    no_frame_ref = 0
-    single_frame = 0
-    multi_frame = 0
-    for item in observations:
-        quality = item.get("observation_quality") if isinstance(item.get("observation_quality"), dict) else {}
-        level = str(quality.get("level") or "none")
-        counts[level if level in counts else "none"] += 1
-        frame_count = len(item.get("frame_refs") or []) if isinstance(item.get("frame_refs"), list) else 0
-        if frame_count == 0:
-            no_frame_ref += 1
-        elif frame_count == 1:
-            single_frame += 1
-        else:
-            multi_frame += 1
-    return {
-        "observation_count": len(observations),
-        "quality_counts": counts,
-        "no_frame_reference_count": no_frame_ref,
-        "single_frame_observation_count": single_frame,
-        "multi_frame_observation_count": multi_frame,
-    }
+    return observation_quality_summary(observations)
 
 
 def _observation_quality(field: str, confidence: float, frame_refs: list[str]) -> dict[str, Any]:
-    frame_count = len(frame_refs)
-    flags: list[str] = []
-    if frame_count == 0:
-        flags.append("missing_frame_reference")
-    elif frame_count == 1:
-        flags.append("single_frame_observation")
-    if confidence < 0.75:
-        flags.append("low_confidence")
-    if confidence >= 0.9 and frame_count >= 2:
-        level = "high"
-    elif confidence >= 0.82 and frame_count >= 1:
-        level = "medium"
-    elif confidence >= 0.75:
-        level = "low"
-    else:
-        level = "none"
-    return {
-        "level": level,
-        "frame_ref_count": frame_count,
-        "confidence": confidence,
-        "field": field,
-        "risk_flags": flags,
-    }
+    return observation_quality(field, confidence, frame_refs)
 
 
 def _should_drop_openai_observation(field: str, value: Any) -> bool:
-    text = str(value).strip().lower()
-    if text in {"", "unknown", "unclear", "not_visible", "not visible", "none"}:
-        return True
-    if field == "injury":
-        return True
-    if field == "damage_level" and text in {"none", "no_damage", "no damage"}:
-        return True
-    if value is False and field in {
-        "opponent_signal_violation",
-        "crosswalk_nearby",
-        "school_zone",
-        "turn_signal",
-        "user_signal",
-        "opponent_signal",
-        "centerline_crossed",
-        "road_obstruction",
-        "illegal_parking_obstruction",
-        "opposing_vehicle_present",
-        "opposing_vehicle_did_not_stop",
-        "secondary_collision",
-        "non_contact_trigger",
-        "rear_vehicle_collision",
-        "collision_point_visible",
-        "front_vehicle_stopped",
-        "intersection",
-        "opponent_signal_visible",
-        "stopped_vehicle_without_lights",
-        "highway_or_expressway",
-        "recaptured_screen",
-        "dashcam_screen_visible",
-        "screen_glare_or_reflection",
-    }:
-        return True
-    return False
+    return should_drop_openai_observation(field, value)
 
 
 def _as_float(value: Any, default: float) -> float:
-    try:
-        number = float(value)
-        return max(0.0, min(1.0, number))
-    except (TypeError, ValueError):
-        return default
+    return as_float(value, default)
 
 
 def _post_json(url: str, payload: dict, headers: dict[str, str] | None = None, timeout: float = 25):

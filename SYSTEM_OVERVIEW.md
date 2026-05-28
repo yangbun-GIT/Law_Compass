@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-28 Worker Frame Analysis SRP 보강 P0-2
+
+`apps/worker/worker/frame_analysis.py`가 OpenAI 프레임 분석 orchestration, 대표 프레임 선택, 관찰값 정규화, 품질 요약, AI usage 이벤트 조립을 한 파일에서 함께 담당하던 구조를 일부 분리했다. 이번 변경은 `analyze_frames_with_openai()`의 public worker 계약과 기존 테스트에서 참조하던 compatibility helper 이름을 유지하면서 내부 책임 경계를 줄이는 구조 보강이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 프레임 선택 | `apps/worker/worker/frame_selection.py`를 추가해 대표 프레임 선택 전략과 선택 metadata 생성을 담당한다. `frame_analysis.py`의 `_select_openai_frames()`, `_frame_selection_metadata()`는 기존 테스트 호환 wrapper로 유지한다. |
+| 관찰값 정규화 | `apps/worker/worker/frame_observations.py`를 추가해 OpenAI 관찰값 필터링, confidence 보정, accident event summary 정규화, 관찰 품질 요약을 담당한다. |
+| AI 사용량 이벤트 | `apps/worker/worker/frame_analysis_usage.py`를 추가해 OpenAI token usage 집계와 `ai_usage_event` 생성을 담당한다. |
+| 기존 facade 유지 | `frame_analysis.py`는 OpenAI 호출 흐름, 재시도, fixture, payload 생성, 외부 호출 adapter를 계속 보유하되 분리된 순수 모듈을 호출한다. |
+| 검증 | `PYTHONPATH=apps/worker python -m pytest apps/worker/tests -q` 38개 테스트와 `python -m py_compile`을 통과했다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route, 외부 API 종류, 환경변수 키를 변경하지 않는다. 남은 SRP 후보는 `frame_analysis.py` 내부의 OpenAI payload/prompt 생성과 실제 provider 호출/재시도 orchestration이며, 이는 비용과 외부 API 동작에 민감하므로 별도 단계에서 테스트를 보강한 뒤 분리한다.
+
 ## 2026-05-28 Gateway Report Composer SRP 보강 P0-1
 
 `apps/gateway/src/lib/report-composer.ts`가 사용자 결과 리포트 조립, KNIA 링크 표시, 전문가 안내 카드, 분석 모드 표시 정책, 공통 sanitizing을 한 파일에서 함께 담당하던 구조를 일부 분리했다. 이번 변경은 출력 payload와 public API route를 바꾸지 않고 Gateway 내부 책임 경계를 줄이는 구조 보강이다.
