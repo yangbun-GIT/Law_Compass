@@ -349,3 +349,40 @@ git merge main
 ```
 
 충돌이 나면 충돌 파일을 직접 확인하고 해결한 뒤 작업을 계속합니다. 이해하지 못한 충돌을 임의로 덮어쓰지 않습니다.
+
+## 15. PR을 병합 체크 게이트로 쓰는 방식
+
+사용자가 별도로 팀원 리뷰를 요청하지 않는 작업에서는 PR을 팀원 검토용이 아니라 `main` 병합 가능 여부를 확인하는 안전 게이트로 사용한다. GitHub 자동 병합 기능에만 의존하지 않고, 작업자는 PR 생성 후 직접 mergeability, CI, 충돌 여부를 확인한 뒤 병합한다.
+
+기본 흐름:
+
+```powershell
+git checkout main
+git pull origin main
+git checkout -b feature/task-name
+# 작업 및 검증
+git push origin feature/task-name
+# PR 생성 후 CI와 main 병합 가능 여부 확인
+```
+
+병합 기준:
+
+- `main`과 충돌이 없어야 한다.
+- GitHub Actions 또는 해당 작업 범위의 필수 검증이 통과해야 한다.
+- 실패한 검증이 있으면 PR 브랜치에서 수정 커밋을 추가하고 다시 확인한다.
+- 민감정보, 대용량 원본 영상, 로그, `.env`, 모델 가중치, AI Hub 원본 데이터가 포함되지 않아야 한다.
+- 문서 동기화가 필요한 변경이면 같은 PR 안에 문서 업데이트가 포함되어야 한다.
+
+위 조건을 만족하면 작업자가 직접 PR을 병합하고, 병합 후 팀원에게 최신 `main`을 가져오라고 알린다.
+
+```text
+main 병합 완료.
+작업 시작 전 또는 진행 중인 브랜치에서 아래 순서로 최신 main을 반영해 주세요.
+
+git checkout main
+git pull origin main
+git checkout feature/your-task
+git merge main
+```
+
+PR에서 충돌이 있거나 CI가 실패하면 바로 병합하지 않는다. 원인을 확인해 수정 커밋을 추가하고 다시 검증한 뒤 병합한다. 사용자가 빠른 백업이나 단순 문서 저장을 명시적으로 요청한 경우에만 PR 없이 `main` 직접 커밋을 사용할 수 있다.
