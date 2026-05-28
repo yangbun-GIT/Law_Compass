@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P0-4 영상 오염 방지 Guard 확장
+
+P0-4 단계에서 영상 관찰값의 객체 존재가 사고유형 확정으로 잘못 승격되는 경로를 더 넓게 막도록 Agent video input guard를 확장했다. 이번 변경은 특정 사고 1~5에 맞춘 보정이 아니라 `객체 존재 != 직접 충돌 대상`, `환경 정보 != 사고 원인 확정` 원칙을 코드 guard로 일반화한 것이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 충돌 대상 guard | `apps/agent/app/services/video_input_contract_guards.py`가 보행자뿐 아니라 자전거와 도로 객체/장애물도 직접 충돌 근거 없이 `collision_partner_type`으로 확정하지 않는다. `direct_collision_partner_type` 또는 충돌 지점과 목표 텍스트가 맞을 때만 유지한다. |
+| 객체 후보 guard | `primary_collision_target=*_candidate` 같은 후보성 값은 확정 충돌 대상으로 승격하지 않고 `uncertain`으로 내린다. YOLO 객체 후보가 사고 대상을 오염시키는 경로를 막는다. |
+| 신호 guard | `opponent_signal_violation=true`는 상대 신호 상태 또는 신호 전환 근거가 없으면 보류한다. 신호등 존재만으로 신호위반 사고가 되지 않게 했다. |
+| 중앙선/정차/비접촉 guard | `centerline_crossed`, `stopped_vehicle_without_lights`, `front_vehicle_stopped`, `non_contact_trigger`는 침범 사유, 도로 장애물, 대향 차량, 충돌 지점, 정차 맥락, 유발 주체/행동 같은 보조 근거가 없으면 보류한다. |
+| 회귀 테스트 | `apps/agent/tests/test_video_input_contract_guards.py`에 자전거 직접 충돌, 신호위반, 후보 충돌 대상, 중앙선 침범 오염 방지 테스트를 추가했다. |
+| 검증 | `PYTHONPATH=apps/agent py -3.13 -m pytest apps/agent/tests/test_video_input_contract.py apps/agent/tests/test_video_input_contract_guards.py apps/agent/tests/test_fact_arbitration.py -q` 42개 통과. OpenAI+YOLO 병합 평가도 `status=pass`, contamination regression 0개를 유지했다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 다음 단계는 P0-5 관찰값 0개 fallback 보강으로, 프레임은 충분하지만 확정 가능한 관찰값이 없는 경우 재시도/대체 분석/사용자 확인 후보 생성을 더 명확하게 연결하는 것이다.
+
 ## 2026-05-29 P0-3 OpenAI+YOLO 관찰값 병합 검증
 
 P0-3 단계에서 OpenAI 프레임 분석 결과와 YOLO 객체 후보를 함께 Agent 입력 계약으로 넣었을 때 사고 대상·환경 정보가 오염 없이 처리되는지 재현 가능한 평가 경로를 추가했다. 목적은 YOLO가 감지한 사람, 신호등, 차량 후보를 사고유형 확정값으로 바로 쓰지 않고, Agent fact contract와 fact arbitration에서 보류/확인 후보로 남기는 것이다.
