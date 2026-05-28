@@ -15,6 +15,8 @@
   - `OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY` (기본 `1`; 프레임은 충분하지만 관찰값이 0개일 때 1회 재시도)
   - `OPENAI_FRAME_ANALYSIS_ERROR_RETRY` (기본 `1`; timeout 같은 일시 오류에서 1회 재시도)
   - `OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES` (기본 `6`; 재시도 최소 프레임 수)
+  - `VIDEO_EVENT_WINDOW_CLUSTER_GAP_SEC` (기본 `3.0`; scene-change 이벤트를 같은 사고 후보 구간으로 묶는 최대 간격)
+  - `VIDEO_EVENT_WINDOW_MAX_CANDIDATES` (기본 `6`; Worker가 프레임에 표시할 사고 후보 구간 수 상한)
   - `OPENAI_FRAME_ANALYSIS_DETAIL` (기본 `high`)
   - `OPENAI_FRAME_ANALYSIS_REASONING_EFFORT` (기본 `minimal`, GPT-5 계열 전용)
   - `LAW_API_OC`, `LAW_API_TARGETS`

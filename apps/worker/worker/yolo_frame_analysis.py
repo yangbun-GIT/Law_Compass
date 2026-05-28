@@ -281,6 +281,8 @@ def _public_frame_ref(frame: dict[str, Any]) -> dict[str, Any]:
         "frame_ref": Path(str(frame.get("path", ""))).name,
         "time_sec": frame.get("time_sec"),
         "role": frame.get("role"),
+        "event_candidate_id": frame.get("event_candidate_id"),
+        "event_phase": frame.get("event_phase"),
     }
 
 

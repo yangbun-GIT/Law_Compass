@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P1-1 사고 시점 후보 추출 개선
+
+P1-1 단계에서 영상 초반의 위험 장면이나 배경 객체가 실제 사고로 오인되지 않도록 Worker 프레임 전처리 계약을 보강했다. 이번 변경은 특정 사고 1~5에 맞춘 보정이 아니라, 영상 전체에서 여러 사고 후보 구간을 만들고 각 후보의 사고 전·중·후 흐름을 비교하게 하는 범용 처리다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 사고 후보 구간 | `apps/worker/worker/video_preprocess.py`가 ffmpeg scene-change 이벤트를 `event_window_*` 후보 구간으로 클러스터링한다. scene-change가 없으면 짧은 영상은 중앙 1개, 중간 영상은 2개, 긴 영상은 3개 temporal fallback 후보를 만든다. |
+| 프레임 메타데이터 | 추출 프레임에 `event_candidate_id`, `event_phase`, `event_center_time_sec`, `event_window_start_sec`, `event_window_end_sec`를 추가했다. `event_phase`는 `pre_event_context`, `event_candidate`, `post_event_context`로 구분된다. |
+| OpenAI/YOLO 입력 | `apps/worker/worker/frame_analysis.py`와 `apps/worker/worker/yolo_frame_analysis.py`가 분석 프레임 참조에 사고 후보 구간과 phase를 함께 전달한다. OpenAI 프롬프트는 여러 후보가 있을 때 각 후보의 사고 전·중·후 프레임을 비교하도록 명시한다. |
+| 환경변수 | worker compose/env 예시에 `VIDEO_EVENT_WINDOW_CLUSTER_GAP_SEC`(기본 `3.0`)와 `VIDEO_EVENT_WINDOW_MAX_CANDIDATES`(기본 `6`)를 추가했다. |
+| 검증 | Worker 전체 테스트 42개, Agent 영상 입력 계약 테스트 43개, Docker 기반 `scripts/verify_agent_regression.ps1`을 통과했다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. 새 환경변수는 Worker 내부 사고 후보 구간 생성 민감도만 조정한다. 다음 단계는 P1-2 사용자 입력과 영상 관찰값 중재로, 사용자 입력과 영상 후보가 충돌하거나 영상이 애매할 때 확정·보류·확인 필요 상태를 더 명확히 분리하는 것이다.
+
 ## 2026-05-29 P0-5 관찰값 0개 Fallback 보강
 
 P0-5 단계에서 대표 프레임은 충분하지만 Agent 판단에 바로 반영할 영상 관찰값이 없거나, 보류 관찰값만 존재하는 경우를 방치하지 않도록 recovery contract를 보강했다. 이번 변경은 특정 사고 영상에 맞춘 보정이 아니라 `프레임 충분 + 확정 사실 부족` 상태를 별도 품질 신호와 재시도 계획으로 남기는 범용 처리다.

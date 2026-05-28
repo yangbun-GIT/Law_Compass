@@ -278,7 +278,11 @@ def _openai_frame_analysis_payload(
     for frame in selected_frames:
         content.append({
             "type": "input_text",
-            "text": f"frame_ref={Path(frame['path']).name}, time_sec={frame.get('time_sec')}, role={frame.get('role')}",
+            "text": (
+                f"frame_ref={Path(frame['path']).name}, time_sec={frame.get('time_sec')}, "
+                f"role={frame.get('role')}, event_candidate_id={frame.get('event_candidate_id')}, "
+                f"event_phase={frame.get('event_phase')}, selection_reason={frame.get('selection_reason')}"
+            ),
         })
         content.append({
             "type": "input_image",
@@ -312,6 +316,8 @@ def _openai_frame_analysis_prompt(context: dict[str, Any], fallback: bool = Fals
         "Use unknown and low confidence when a fact is not clearly visible. "
         "Primary task: identify the accident target/object, collision point, and collision partner first. "
         "Before writing observations, inspect every provided frame_ref in chronological order and identify the most likely actual impact/contact moment or immediate pre/post-impact window. "
+        "Frames may include event_candidate_id and event_phase metadata from ffmpeg scene-change clustering. Use those only as candidate windows to compare, not as proof of a crash. "
+        "When several event_candidate_id values are present, compare the pre_event_context, event_candidate, and post_event_context frames for each candidate before choosing the actual accident window. "
         "Do not treat the first risky scene, visible pedestrian, crosswalk, parked vehicle, signal, near miss, or lane conflict as the accident merely because it appears first. "
         "If the selected sequence shows multiple possible event candidates, compare all candidates and base collision_partner_type, primary_collision_target, collision_point_visible, impact_direction, and opponent_behavior on the candidate with visible contact, abrupt impact evidence, or immediate aftermath. "
         "If no contact, impact evidence, or immediate aftermath is visible in the selected frames, say so in uncertainties and do not confirm collision-target facts. "
@@ -632,6 +638,8 @@ def _public_frame_ref(frame: dict[str, Any]) -> dict[str, Any]:
         "frame_ref": Path(str(frame.get("path", ""))).name,
         "time_sec": frame.get("time_sec"),
         "role": frame.get("role"),
+        "event_candidate_id": frame.get("event_candidate_id"),
+        "event_phase": frame.get("event_phase"),
     }
 
 

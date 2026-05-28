@@ -473,9 +473,12 @@ class FrameAnalysisContractTest(unittest.TestCase):
             result = frame_analysis.analyze_frames_with_openai(frames, {})
 
         prompt_text = captured["payload"]["input"][0]["content"][0]["text"]
+        frame_text = captured["payload"]["input"][0]["content"][1]["text"]
         self.assertIn("Use it only to prioritize which visual facts to inspect", prompt_text)
         self.assertIn("identify the accident target/object, collision point, and collision partner first", prompt_text)
         self.assertIn("inspect every provided frame_ref in chronological order", prompt_text)
+        self.assertIn("event_candidate_id and event_phase metadata", prompt_text)
+        self.assertIn("compare the pre_event_context, event_candidate, and post_event_context frames", prompt_text)
         self.assertIn("Do not treat the first risky scene", prompt_text)
         self.assertIn("multiple possible event candidates", prompt_text)
         self.assertIn("accident_event_summary", prompt_text)
@@ -487,6 +490,8 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertIn("highway_or_expressway", prompt_text)
         self.assertIn("pedestrian_visible", prompt_text)
         self.assertIn("never infer a pedestrian accident from crosswalk_nearby alone", prompt_text)
+        self.assertIn("event_candidate_id=", frame_text)
+        self.assertIn("event_phase=", frame_text)
         self.assertEqual(result["observations"][0]["field"], "stopped")
         self.assertEqual(result["observations"][0]["value"], False)
         self.assertEqual(result["observations"][0]["confidence"], 0.81)
