@@ -1297,14 +1297,21 @@ function frameCountLabel(value: any) {
 function collectConditionalContext(result: AnyRecord = {}, report: AnyRecord = {}) {
   const contract = result.video_input_contract ?? result.model_info?.video_input_contract ?? {};
   const arbitration = result.fact_arbitration ?? result.model_info?.fact_arbitration ?? {};
+  const confirmationGroups = asArray(contract.confirmation_groups);
+  const qualitySummary = contract.observation_quality_summary ?? {};
   const fieldSources = [
     ...asArray(result.required_input_questions ?? result.input_requirements?.questions),
     ...asArray(result.missing_info?.questions),
     ...asArray(report.missing_info?.questions),
     ...asArray(contract.uncertain_observations),
     ...asArray(contract.accepted_observations),
+    ...asArray(contract.supporting_observations),
+    ...asArray(contract.confirmation_candidates),
+    ...asArray(qualitySummary.high_priority_uncertain_fields).map((field) => ({ field })),
+    ...confirmationGroups.flatMap((group: AnyRecord) => asArray(group.fields).map((field) => ({ field }))),
     ...asArray(arbitration.conflicts),
     ...asArray(arbitration.pending_video_confirmations),
+    ...asArray(arbitration.requires_confirmation),
   ];
   const fields = new Set(
     [
@@ -1334,9 +1341,15 @@ function collectConditionalContext(result: AnyRecord = {}, report: AnyRecord = {
     facts.centerline_cross_reason,
     facts.road_obstruction,
     facts.illegal_parking_obstruction,
+    facts.opposing_vehicle_present,
+    facts.opposing_vehicle_did_not_stop,
     facts.front_vehicle_stopped,
     facts.rear_vehicle_collision,
     facts.non_contact_trigger,
+    facts.trigger_actor_type,
+    facts.trigger_actor_behavior,
+    facts.secondary_collision,
+    facts.stopped_vehicle_without_lights,
     result.accident_summary,
     report.headline,
     report.summary,
@@ -1353,6 +1366,37 @@ function hasConditionalField(fields: Set<string>, names: string[]) {
 function isUnknownValue(value: any) {
   if (value === undefined || value === null || value === "") return true;
   return ["unknown", "unclear", "확인 필요", "미확인", "모름"].includes(String(value).toLowerCase());
+}
+
+type ConditionalBranchKey = "provided_conditions" | "signal" | "non_contact" | "centerline" | "rear_stop" | "collision_target";
+
+function conditionalBranch(key: ConditionalBranchKey, label: string, reason: string, fields: string[] = []) {
+  return { key, label, reason, fields };
+}
+
+function withConditionalBranchMetadata(card: AnyRecord, selectedKey: ConditionalBranchKey, branches: AnyRecord[]) {
+  const uniqueBranches = branches.filter(
+    (branch, index, items) => branch?.key && items.findIndex((item) => item.key === branch.key) === index
+  );
+  return {
+    ...card,
+    branch_key: selectedKey,
+    detected_branch_keys: uniqueBranches.map((branch) => branch.key),
+    secondary_branches: uniqueBranches
+      .filter((branch) => branch.key !== selectedKey)
+      .map((branch) => ({
+        key: branch.key,
+        label: branch.label,
+        reason: branch.reason,
+        fields: branch.fields,
+      })),
+    coverage: {
+      expected_branch_keys: ["signal", "non_contact", "centerline", "rear_stop", "collision_target"],
+      detected_count: uniqueBranches.length,
+      detected_ratio: Math.min(1, uniqueBranches.length / 5),
+      selected_branch_key: selectedKey,
+    },
+  };
 }
 
 function conditionalCardFromOutcomeItems(items: AnyRecord[], title: string, summary: string, neededEvidence: string[], notice: string) {
@@ -1439,6 +1483,29 @@ function centerlineConditionalOutcomeCard() {
   };
 }
 
+function nonContactConditionalOutcomeCard() {
+  return {
+    title: "비접촉 유발 여부에 따라 달라지는 판단",
+    summary: "직접 부딪힌 대상과 사고를 유발한 대상이 다를 수 있으면, 실제 충돌 책임과 비접촉 유발 책임을 나눠 확인해야 합니다.",
+    cases: [
+      {
+        label: "제3의 차량·자전거·보행자가 사고를 유발했다면",
+        likely_direction: "직접 충돌 차량만이 아니라 유발 주체의 책임을 함께 검토해야 합니다.",
+        explanation: "차량이 직접 부딪히지 않았더라도 갑작스러운 진입, 역주행, 무리한 횡단처럼 사고를 만든 움직임이 확인되면 비접촉 유발 책임이 별도로 문제될 수 있습니다.",
+        check_points: ["유발 주체", "유발 주체의 움직임", "회피 가능 시간", "직접 충돌 차량의 안전거리"],
+      },
+      {
+        label: "비접촉 유발이 확인되지 않고 단순 후방추돌이라면",
+        likely_direction: "후행 차량의 안전거리·전방주시 의무가 중심이 됩니다.",
+        explanation: "외부 유발 요인이 확인되지 않으면 실제로 부딪힌 차량들 사이의 거리, 정차 이유, 급제동 필요성을 중심으로 과실을 봅니다.",
+        check_points: ["충돌 직전 5~10초 영상", "앞차 정차 사유", "뒤차 제동 여부", "주변 차량 또는 자전거 움직임"],
+      },
+    ],
+    needed_evidence: ["충돌 전 전체 구간 영상", "비접촉 유발 주체가 보이는 프레임", "직접 충돌 지점", "목격자 또는 주변 CCTV"],
+    notice: "비접촉 유발 분기는 특정 사고에 맞춘 결론이 아니라, 직접 충돌 대상과 사고 원인이 분리될 수 있는 사고에서 공통으로 확인해야 하는 구조입니다.",
+  };
+}
+
 function rearStopConditionalOutcomeCard() {
   return {
     title: "정차·급정거 사유에 따라 달라지는 판단",
@@ -1476,9 +1543,71 @@ function composeConditionalOutcomeCard(result: AnyRecord = {}, report: AnyRecord
     facts.opponent_signal_visible === false ||
     isUnknownValue(facts.opponent_signal) ||
     hasConditionalField(questionFields, ["opponent_signal", "opponent_signal_visible"]);
+  const collisionTargetAmbiguous = hasConditionalField(questionFields, [
+    "collision_partner_type",
+    "direct_collision_partner_type",
+    "primary_collision_target",
+  ]);
+  const nonContactAmbiguous =
+    hasConditionalField(questionFields, ["non_contact_trigger", "trigger_actor_type", "trigger_actor_behavior"]) ||
+    facts.non_contact_trigger === true ||
+    /비접촉|유발|자전거|역주행|non.?contact|trigger/i.test(text);
+  const centerlineAmbiguous =
+    hasConditionalField(questionFields, [
+      "centerline_cross_reason",
+      "road_obstruction",
+      "illegal_parking_obstruction",
+      "opposing_vehicle_present",
+      "opposing_vehicle_did_not_stop",
+    ]) ||
+    (facts.centerline_crossed === true && /중앙선|centerline|장애물|불법\s*주정차|대향|마주/i.test(text));
+  const rearStopAmbiguous =
+    hasConditionalField(questionFields, ["front_vehicle_stopped", "rear_vehicle_collision", "sudden_brake", "stopped"]) ||
+    /후방\s*추돌|급정거|정차|뒤에서|rear.?end|rear_collision/i.test(text);
+  const branches = [
+    signalRelevant && opponentSignalUnclear
+      ? conditionalBranch("signal", "신호 확인", "상대 신호 또는 진입 시점에 따라 책임 방향이 달라질 수 있습니다.", [
+          "opponent_signal",
+          "opponent_signal_visible",
+          "signal_transition",
+        ])
+      : undefined,
+    nonContactAmbiguous
+      ? conditionalBranch("non_contact", "비접촉 유발", "직접 충돌 대상과 사고 유발 주체가 다를 수 있습니다.", [
+          "non_contact_trigger",
+          "trigger_actor_type",
+          "trigger_actor_behavior",
+        ])
+      : undefined,
+    centerlineAmbiguous
+      ? conditionalBranch("centerline", "중앙선 침범 사유", "중앙선 침범이 불가피한 회피였는지 무리한 진행이었는지에 따라 달라집니다.", [
+          "centerline_cross_reason",
+          "road_obstruction",
+          "illegal_parking_obstruction",
+        ])
+      : undefined,
+    rearStopAmbiguous
+      ? conditionalBranch("rear_stop", "정차·후방추돌 사유", "앞차 정차 사유와 뒤차 안전거리 유지 여부를 함께 확인해야 합니다.", [
+          "front_vehicle_stopped",
+          "rear_vehicle_collision",
+          "sudden_brake",
+        ])
+      : undefined,
+    collisionTargetAmbiguous
+      ? conditionalBranch("collision_target", "사고 대상 확인", "화면에 보인 객체와 실제 충돌 대상이 다를 수 있습니다.", [
+          "collision_partner_type",
+          "direct_collision_partner_type",
+          "primary_collision_target",
+        ])
+      : undefined,
+  ].filter(Boolean) as AnyRecord[];
   const conditionalOutcomes = asArray(result.fault_ratio?.conditional_outcomes);
   if (conditionalOutcomes.length) {
-    return conditionalCardFromOutcomeItems(
+    const selectedKey = (branches[0]?.key ?? "provided_conditions") as ConditionalBranchKey;
+    const sourceBranches = branches.length
+      ? branches
+      : [conditionalBranch("provided_conditions", "제공된 조건별 결과", "Agent가 제공한 조건별 과실 방향을 그대로 표시합니다.")];
+    return withConditionalBranchMetadata(conditionalCardFromOutcomeItems(
       conditionalOutcomes,
       signalRelevant ? "신호 확인에 따라 달라지는 판단" : "조건 확인에 따라 달라지는 판단",
       "확인되지 않은 핵심 사실에 따라 과실 방향이 달라질 수 있어 조건별로 나눠 봐야 합니다.",
@@ -1486,23 +1615,16 @@ function composeConditionalOutcomeCard(result: AnyRecord = {}, report: AnyRecord
         ? ["교차로 CCTV", "신호 주기표 또는 신호체계 자료", "각 차량의 정지선 통과 시점", "블랙박스 원본 전체 구간"]
         : ["블랙박스 원본 전체 구간", "현장 사진", "상대 차량 진술", "보험사 사고 조사 자료"],
       "조건부 결과는 특정 테스트 영상에 맞춘 답이 아니라, 확인되지 않은 핵심 사실이 있는 사고에서 공통으로 적용하는 판단 구조입니다."
-    );
+    ), selectedKey, sourceBranches);
   }
-  if (signalRelevant && opponentSignalUnclear) return signalConditionalOutcomeCard();
-  if (hasConditionalField(questionFields, ["collision_partner_type", "direct_collision_partner_type", "primary_collision_target", "trigger_actor_type"])) {
-    return collisionTargetConditionalOutcomeCard();
-  }
-  if (
-    hasConditionalField(questionFields, ["centerline_cross_reason", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop"]) ||
-    (facts.centerline_crossed === true && /중앙선|centerline|장애물|불법\s*주정차|대향|마주/i.test(text))
-  ) {
-    return centerlineConditionalOutcomeCard();
-  }
-  if (
-    hasConditionalField(questionFields, ["front_vehicle_stopped", "rear_vehicle_collision", "sudden_brake", "stopped", "non_contact_trigger", "trigger_actor_type", "trigger_actor_behavior"]) ||
-    /후방\s*추돌|급정거|정차|뒤에서|rear.?end|rear_collision|non.?contact/i.test(text)
-  ) {
-    return rearStopConditionalOutcomeCard();
+  if (!branches.length) return undefined;
+  const selectedKey = branches[0].key as ConditionalBranchKey;
+  if (selectedKey === "signal") return withConditionalBranchMetadata(signalConditionalOutcomeCard(), selectedKey, branches);
+  if (selectedKey === "non_contact") return withConditionalBranchMetadata(nonContactConditionalOutcomeCard(), selectedKey, branches);
+  if (selectedKey === "centerline") return withConditionalBranchMetadata(centerlineConditionalOutcomeCard(), selectedKey, branches);
+  if (selectedKey === "rear_stop") return withConditionalBranchMetadata(rearStopConditionalOutcomeCard(), selectedKey, branches);
+  if (selectedKey === "collision_target") {
+    return withConditionalBranchMetadata(collisionTargetConditionalOutcomeCard(), selectedKey, branches);
   }
   return undefined;
 }

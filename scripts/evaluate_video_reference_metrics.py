@@ -40,6 +40,13 @@ CONTEXT_ALIASES = {
     "vehicle_visible": ["vehicle", "차량"],
     "pedestrian_visible": ["pedestrian", "보행자", "사람"],
 }
+CONDITIONAL_BRANCH_ALIASES = {
+    "signal": ["signal", "traffic light", "opponent signal", "신호", "황색", "적색", "녹색"],
+    "centerline": ["centerline", "중앙선", "침범", "obstacle", "parked", "주정차", "장애물"],
+    "non_contact": ["non contact", "non-contact", "비접촉", "유발", "trigger", "bicycle", "자전거"],
+    "rear_stop": ["rear", "rear-end", "stopped", "sudden brake", "후방", "추돌", "정차", "급정거"],
+    "collision_target": ["collision target", "direct collision", "partner", "사고 대상", "직접 충돌", "충돌 대상"],
+}
 
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -157,6 +164,29 @@ def conditional_blob(sample: dict[str, Any]) -> str:
     })
 
 
+def expected_conditional_branch_keys(ambiguous_branches: list[Any]) -> set[str]:
+    keys: set[str] = set()
+    for branch in ambiguous_branches:
+        blob = text_blob(branch)
+        for key, aliases in CONDITIONAL_BRANCH_ALIASES.items():
+            if contains_any(blob, aliases):
+                keys.add(key)
+    return keys
+
+
+def detected_conditional_branch_keys(sample: dict[str, Any]) -> set[str]:
+    keys: set[str] = set()
+    for value in nested_values(sample, "detected_branch_keys"):
+        if isinstance(value, list):
+            keys.update(str(item) for item in value if item)
+        elif value:
+            keys.add(str(value))
+    for value in nested_values(sample, "branch_key"):
+        if value:
+            keys.add(str(value))
+    return keys
+
+
 def contains_any(blob: str, needles: list[str]) -> bool:
     return any(str(needle).lower() in blob for needle in needles if str(needle).strip())
 
@@ -210,7 +240,16 @@ def score_sample(sample: dict[str, Any], reference: dict[str, Any] | None) -> di
     ambiguous_branches = expectations.get("ambiguous_branches") if isinstance(expectations.get("ambiguous_branches"), list) else []
     conditional_text = conditional_blob(sample)
     conditional_required = bool(ambiguous_branches)
-    conditional_present = bool(sample.get("conditional_outcome_card")) or contains_any(conditional_text, ["조건", "달라지는 판단", "경우", "분기"])
+    expected_branch_keys = expected_conditional_branch_keys(ambiguous_branches)
+    detected_branch_keys = detected_conditional_branch_keys(sample)
+    legacy_conditional_present = bool(sample.get("conditional_outcome_card")) or contains_any(
+        conditional_text,
+        ["조건", "달라지는 판단", "경우", "분기"],
+    )
+    if conditional_required and expected_branch_keys and detected_branch_keys:
+        conditional_present = expected_branch_keys.issubset(detected_branch_keys)
+    else:
+        conditional_present = legacy_conditional_present
 
     evidence_mismatch = bool(evidence_pollution_hits) or (bool(expected_context) and not matched_context)
     return {
@@ -233,6 +272,8 @@ def score_sample(sample: dict[str, Any], reference: dict[str, Any] | None) -> di
         "missing_expected_context": missing_context,
         "evidence_mismatch": evidence_mismatch,
         "conditional_branch_required": conditional_required,
+        "expected_conditional_branch_keys": sorted(expected_branch_keys),
+        "detected_conditional_branch_keys": sorted(detected_branch_keys),
         "conditional_branch_present": conditional_present,
         "conditional_branch_passed": (not conditional_required) or conditional_present,
         "status": sample.get("status"),

@@ -31,6 +31,10 @@
         }
       ],
       "conditional_outcome_card": {
+        "branch_key": "centerline",
+        "detected_branch_keys": [
+          "centerline"
+        ],
         "title": "중앙선 침범 사유에 따라 달라지는 판단",
         "summary": "장애물 회피 필요성과 대향 차량 회피 가능성을 나누어 봅니다."
       },
@@ -77,6 +81,10 @@
         }
       ],
       "conditional_outcome_card": {
+        "branch_key": "signal",
+        "detected_branch_keys": [
+          "signal"
+        ],
         "title": "신호 확인에 따라 달라지는 판단",
         "summary": "상대 신호가 보이지 않는 교차로 사고라 조건별로 나누어 봅니다."
       },

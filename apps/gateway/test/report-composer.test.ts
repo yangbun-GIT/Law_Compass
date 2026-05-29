@@ -1444,4 +1444,77 @@ describe("report composer", () => {
     expect(fields.indexOf("rear_vehicle_collision")).toBeLessThan(fields.indexOf("pedestrian_visible"));
     expect((enriched as any).missing_info.next_focus.label).toBe("사고 유발 대상");
   });
+
+  it("keeps branch coverage metadata when multiple uncertain axes exist", () => {
+    const enriched = enrichEasyReport(
+      sanitizeEasyReport({
+        headline: "교차로 좌회전 사고",
+        missing_info: {
+          questions: [{ field: "opponent_signal", label: "상대 차량 신호", question: "상대 차량 신호를 확인했나요?" }],
+        },
+      }),
+      {
+        scenario_type: "intersection_signal_violation",
+        structured_facts: {
+          accident_party_type: "car_vs_car",
+          intersection: true,
+          user_signal: "yellow",
+          opponent_signal_visible: false,
+        },
+        video_input_contract: {
+          uncertain_observations: [
+            { field: "direct_collision_partner_type", value: "vehicle", confidence: 0.64 },
+            { field: "primary_collision_target", value: "vehicle", confidence: 0.61 },
+          ],
+        },
+      }
+    );
+
+    const card = (enriched as any).conditional_outcome_card;
+    expect(card.branch_key).toBe("signal");
+    expect(card.detected_branch_keys).toEqual(expect.arrayContaining(["signal", "collision_target"]));
+    expect(card.secondary_branches.map((item: any) => item.key)).toContain("collision_target");
+    expect(card.coverage.detected_count).toBeGreaterThanOrEqual(2);
+  });
+
+  it("uses a non-contact branch before generic rear-end guidance when trigger actor is unclear", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "비접촉 유발 후 후방추돌" }), {
+      accident_summary: "자전거가 갑자기 진입해 앞 차량이 멈추고 뒤 차량이 추돌했습니다.",
+      video_input_contract: {
+        uncertain_observations: [
+          { field: "trigger_actor_type", value: "bicycle", confidence: 0.66 },
+          { field: "trigger_actor_behavior", value: "wrong_way_entry", confidence: 0.62 },
+          { field: "rear_vehicle_collision", value: true, confidence: 0.78 },
+        ],
+      },
+    });
+
+    const card = (enriched as any).conditional_outcome_card;
+    expect(card.branch_key).toBe("non_contact");
+    expect(card.title).toBe("비접촉 유발 여부에 따라 달라지는 판단");
+    expect(card.detected_branch_keys).toEqual(expect.arrayContaining(["non_contact", "rear_stop"]));
+    expect(card.secondary_branches.map((item: any) => item.key)).toContain("rear_stop");
+  });
+
+  it("derives conditional fields from video confirmation groups", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "중앙선 침범 사고" }), {
+      structured_facts: {
+        accident_party_type: "car_vs_car",
+        centerline_crossed: true,
+      },
+      video_input_contract: {
+        confirmation_groups: [
+          {
+            group_key: "centerline_cause",
+            fields: ["centerline_cross_reason", "road_obstruction", "opposing_vehicle_did_not_stop"],
+          },
+        ],
+      },
+    });
+
+    const card = (enriched as any).conditional_outcome_card;
+    expect(card.branch_key).toBe("centerline");
+    expect(card.detected_branch_keys).toContain("centerline");
+    expect(card.coverage.detected_ratio).toBeGreaterThan(0);
+  });
 });

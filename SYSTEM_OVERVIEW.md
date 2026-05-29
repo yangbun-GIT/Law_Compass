@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P2-2d 조건별 결과 분기 Coverage 보강
+
+Gateway 결과 조립에서 조건별 결과 카드의 감지 축을 payload로 남기도록 확장했다. 신호, 비접촉 유발, 중앙선 침범 사유, 정차/후방추돌 사유, 사고 대상 확인 중 어떤 축이 missing/uncertain/conflict로 걸렸는지 `branch_key`, `detected_branch_keys`, `secondary_branches`, `coverage`로 기록한다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| 조건부 카드 감지 | `apps/gateway/src/lib/report-composer.ts`가 `video_input_contract`의 accepted/uncertain/supporting observation뿐 아니라 confirmation candidate/group, observation quality summary, `fact_arbitration` 확인 필요 필드를 함께 읽는다. |
+| 분기 우선순위 | 상대 신호 미확인, 비접촉 유발, 중앙선 침범 사유, 정차/후방추돌 사유, 사고 대상 확인 순으로 조건별 결과 카드를 고른다. 여러 축이 동시에 걸리면 대표 카드 하나를 표시하되 나머지 축은 `secondary_branches`에 남긴다. |
+| 비접촉 유발 카드 | 직접 충돌 대상과 사고 유발 주체가 다른 사고를 위해 `비접촉 유발 여부에 따라 달라지는 판단` 카드를 추가했다. 이는 사고 5 같은 케이스에만 맞춘 것이 아니라 자전거, 보행자, 제3 차량의 비접촉 유발 가능성을 공통 처리하는 구조다. |
+| 평가 연결 | `scripts/evaluate_video_reference_metrics.py`가 reference의 ambiguous branch에서 기대 분기축을 추론하고, 결과 payload의 `detected_branch_keys`/`branch_key`와 비교한다. metadata가 없는 과거 aggregate는 기존 조건부 카드 존재 여부로 fallback 평가한다. |
+| 검증 | Gateway `report-composer` 테스트를 41개로 확장했고, 다중 분기 metadata, 비접촉 우선 분기, video confirmation group 기반 중앙선 분기 감지를 검증했다. Reference metrics fixture도 branch metadata를 포함하도록 갱신했다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 다음 단계는 P2-2e OpenAI+YOLO ON 재측정으로, 실제 사고 영상 기준선에서 조건별 분기 coverage가 목표치까지 올라가는지 확인하는 것이다.
+
 ## 2026-05-29 P2-2c YOLO 시간 순서 기반 사고 시퀀스 관찰값
 
 Worker YOLO 분석에 `temporal_sequence_summary`와 `vision_model:yolo_sequence` 관찰값을 추가했다. 단일 프레임에 차량·사람·신호등이 보였다는 사실만으로 사고 대상을 추론하지 않고, `pre_event_context -> event_candidate -> post_event_context` 흐름에서 차량 객체가 어느 후보 구간에 지속적으로 관찰되는지 요약한다.
