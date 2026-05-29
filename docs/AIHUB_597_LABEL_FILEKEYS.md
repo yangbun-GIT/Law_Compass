@@ -124,3 +124,16 @@
 3. 이미지 라벨: 객체 인지 보조 검증이 필요할 때만 추가한다.
 
 원천 영상은 라벨 JSON을 분석해 필요한 케이스를 고른 뒤 해당 `VS_*` 또는 `TS_*` filekey만 별도로 받는다.
+
+## 다운로드 스크립트
+
+저장소에는 API key를 저장하지 않는 선택 다운로드 스크립트가 있다.
+
+```powershell
+$env:AIHUB_API_KEY="실제 AI-Hub API key"
+powershell -ExecutionPolicy Bypass -File scripts\download_aihub597_labels.ps1 -Scope Video
+```
+
+- `-Scope Video`: TL/VL 영상 라벨만 다운로드한다.
+- `-Scope All`: TL/VL 영상 라벨과 이미지 라벨을 모두 다운로드한다.
+- 인증 실패가 나면 AI-Hub 데이터셋 상세 페이지에서 다운로드 승인 상태와 API key가 같은 계정의 것인지 먼저 확인한다.
