@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,107 @@ DEFAULT_CANDIDATES = [
     "../../scripts/knia_fault_ratio/knia_fault_ratio.json",
     "../../scripts/knia_fault_ratio.json",
 ]
+
+
+@dataclass(frozen=True)
+class KniaJsonBundle:
+    metadata: dict[str, Any]
+    project_integration: dict[str, Any]
+    charts: list[dict[str, Any]]
+    rag_documents: list[dict[str, Any]]
+    pages: list[dict[str, Any]]
+
+
+def repo_root() -> Path:
+    return Path(__file__).resolve().parents[6]
+
+
+def default_knia_json_candidates() -> list[Path]:
+    root = repo_root()
+    return [
+        root / "scripts" / "knia_fault_ratio" / "knia_fault_ratio.json",
+        root / "scripts" / "knia_fault_ratio" / "knia_fault_ratio_2023_06.review.json",
+        root / "scripts" / "knia_fault_ratio" / "knia_fault_ratio_2023_06.codex_review.json",
+        root / "scripts" / "knia_fault_ratio" / "knia_fault_ratio_2023_06.codex_catalog.json",
+    ]
+
+
+def find_knia_json_path() -> Path | None:
+    for path in default_knia_json_candidates():
+        if path.exists() and path.stat().st_size > 0 and _has_non_empty_charts(path):
+            return path
+    try:
+        resolved = resolve_knia_json_path(None)
+        return resolved if _has_non_empty_charts(resolved) else None
+    except Exception:
+        return None
+
+
+def _has_non_empty_charts(path: Path) -> bool:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except Exception:
+        return False
+    return isinstance(data.get("charts"), list) and bool(data.get("charts"))
+
+
+def infer_major_from_chart_no(chart_no: str) -> str:
+    if chart_no.startswith("보"):
+        return "car_vs_person"
+    if chart_no.startswith("차"):
+        return "car_vs_car"
+    if chart_no.startswith(("거", "자")):
+        return "car_vs_bicycle"
+    if chart_no.startswith("기"):
+        return "car_vs_object"
+    if chart_no.startswith("단"):
+        return "single_vehicle"
+    return ""
+
+
+def load_knia_json(path: str | Path | None = None) -> KniaJsonBundle:
+    selected = Path(path) if path else find_knia_json_path()
+    if not selected:
+        raise FileNotFoundError("KNIA fault ratio JSON not found under scripts/knia_fault_ratio")
+
+    data = json.loads(selected.read_text(encoding="utf-8-sig"))
+    charts = data.get("charts") or []
+    rag_documents = data.get("rag_documents") or []
+    pages = data.get("pages") or []
+
+    if not isinstance(charts, list) or not charts:
+        raise ValueError("KNIA JSON must contain non-empty charts[]")
+
+    normalized_charts: list[dict[str, Any]] = []
+    for chart in charts:
+        if not isinstance(chart, dict):
+            continue
+        chart_no = str(chart.get("chart_no") or "").strip()
+        title = str(chart.get("title") or "").strip()
+        if not chart_no or not title:
+            continue
+        major = str(chart.get("major_party_type") or "").strip() or infer_major_from_chart_no(chart_no)
+        subcharts = chart.get("subcharts_summary") if isinstance(chart.get("subcharts_summary"), list) else []
+        normalized_charts.append(
+            {
+                **chart,
+                "chart_no": chart_no,
+                "title": title,
+                "major_party_type": major,
+                "subcharts_summary": subcharts,
+            }
+        )
+
+    if not normalized_charts:
+        raise ValueError("KNIA JSON charts[] did not contain valid chart_no/title rows")
+
+    return KniaJsonBundle(
+        metadata=data.get("metadata") or {},
+        project_integration=data.get("project_integration") or {},
+        charts=normalized_charts,
+        rag_documents=rag_documents if isinstance(rag_documents, list) else [],
+        pages=pages if isinstance(pages, list) else [],
+    )
 
 
 def resolve_knia_json_path(path: str | None = None) -> Path:

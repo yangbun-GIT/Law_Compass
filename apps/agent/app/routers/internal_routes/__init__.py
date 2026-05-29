@@ -5,6 +5,7 @@ from .health import router as health_router
 from .jobs import router as jobs_router
 from .knia import router as knia_router
 from .legal import router as legal_router
+from .mobile_demo import router as mobile_demo_router
 
 __all__ = [
     "analysis_router",
@@ -14,4 +15,5 @@ __all__ = [
     "jobs_router",
     "knia_router",
     "legal_router",
+    "mobile_demo_router",
 ]

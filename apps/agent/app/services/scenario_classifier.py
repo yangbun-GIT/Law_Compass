@@ -24,6 +24,42 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         accident_party_type = fixed_party_type
     vehicle_collision_declared = accident_party_type == "car_vs_car" or collision_partner_type == "vehicle"
 
+    if _is_road_worker_pedestrian_accident(facts, haystack):
+        tags.update(["pedestrian", "road_work", "worker", "sudden_entry", "fault_ratio"])
+        return {
+            "scenario_type": "pedestrian_accident",
+            "accident_type": "pedestrian_roadway_worker_accident",
+            "accident_party_type": "car_vs_person",
+            "major_party_type": "car_vs_person",
+            "accident_party_label": party_label("car_vs_person"),
+            "scenario_subtype": "pedestrian_roadway_or_work_zone",
+            "scenario_tags": filter_tags_by_party(sorted(tags), "car_vs_person", facts),
+            "knia_tree_hint": {
+                "major": "자동차와 보행자의 사고",
+                "mid": "횡단보도 없음 또는 기타 사고유형",
+                "leaf_candidates": ["보25", "보27-2", "보28", "보30", "보34"],
+            },
+            "confidence": 0.9,
+        }
+
+    if _is_one_side_traffic_sign_intersection(facts, haystack):
+        tags.update(["intersection", "traffic_sign", "straight_vs_straight", "fault_ratio"])
+        return {
+            "scenario_type": "intersection_collision",
+            "accident_type": "one_side_traffic_sign_straight_collision",
+            "accident_party_type": "car_vs_car",
+            "major_party_type": "car_vs_car",
+            "accident_party_label": party_label("car_vs_car"),
+            "scenario_subtype": "one_side_traffic_sign_straight_vs_straight",
+            "scenario_tags": filter_tags_by_party(sorted(tags), "car_vs_car", facts),
+            "knia_tree_hint": {
+                "major": "자동차와 자동차의 사고",
+                "mid": "교차로(+자로, T자로 등) 사고",
+                "leaf_candidates": ["차7", "차7-1"],
+            },
+            "confidence": 0.88,
+        }
+
     pedestrian_context = (
             not vehicle_collision_declared
             and (
@@ -324,6 +360,47 @@ def _is_stealth_illegal_parked_vehicle_context(facts: dict[str, Any], haystack: 
     )
 
     return collision and parked_vehicle and (stealth_or_dark or abnormal_place or drunk or fact_match)
+
+
+def _is_road_worker_pedestrian_accident(facts: dict[str, Any], text: str) -> bool:
+    if facts.get("accident_party_type") == "car_vs_person":
+        if facts.get("road_worker") or facts.get("pedestrian_worker") or facts.get("work_zone_context"):
+            return True
+        if facts.get("accident_type") in {"pedestrian_roadway_worker_accident", "pedestrian_road_work_worker_accident"}:
+            return True
+    if facts.get("direct_collision_partner_type") == "person":
+        return True
+    if facts.get("collision_partner_type") == "person":
+        return True
+    if facts.get("road_worker") is True:
+        return True
+    return any(
+        token in text
+        for token in (
+            "공사 담당자",
+            "공사작업자",
+            "공사 작업자",
+            "도로 작업자",
+            "작업자",
+            "인부",
+            "도로 폭 측정",
+            "도로폭 측정",
+            "차도 진입",
+            "갑자기 튀어나",
+            "갑자기 뛰어나",
+        )
+    )
+
+
+def _is_one_side_traffic_sign_intersection(facts: dict[str, Any], text: str) -> bool:
+    if facts.get("accident_party_type") not in {None, "", "car_vs_car"} and facts.get("knia_major_party_type") != "car_vs_car":
+        return False
+    return (
+        ("지시표지" in text or "일시정지" in text)
+        and "교차로" in text
+        and "직진" in text
+        and ("측면" in text or "진입" in text or "적색" in text or "녹색" in text)
+    )
 
 
 def _is_intersection_signal_turning_conflict(facts: dict[str, Any], accident_type: str, haystack: str) -> bool:

@@ -11,11 +11,14 @@
                     "test:chat":  "node scripts/test-chat.mjs"
                 },
     "dependencies":  {
+                         "@capacitor/android": "^7.4.4",
+                         "@capacitor/core": "^7.4.4",
                          "pinia":  "^3.0.1",
                          "vue":  "^3.5.13",
                          "vue-router":  "^4.5.0"
                      },
     "devDependencies":  {
+                            "@capacitor/cli": "^7.4.4",
                             "@vitejs/plugin-vue":  "^5.2.1",
                             "typescript":  "^5.8.2",
                             "vite":  "^6.2.0",

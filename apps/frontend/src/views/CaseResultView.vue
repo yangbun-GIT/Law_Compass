@@ -26,6 +26,7 @@
     <EasyReportView
       v-else-if="report"
       :report="report"
+      :analysis-mode="caseData?.analysis_mode || report?.analysis_mode || report?.display_mode"
       :followup-submitting="reanalyzing"
       :followup-error="followupError"
       @submit-followup="submitFollowup"
@@ -88,7 +89,7 @@ async function submitFollowup(answers: Record<string, string>) {
       structured_facts: nextFacts,
       followup_answers: answers,
       selected_keywords: currentCase.selected_keywords || [],
-      analysis_mode: currentCase.analysis_mode || "quick_summary",
+      analysis_mode: normalizeAnalysisMode(currentCase.analysis_mode || "user_friendly"),
     });
     report.value = response.report || response.result || report.value;
     caseData.value = { ...currentCase, structured_facts: nextFacts, status: "completed" };
@@ -131,6 +132,22 @@ function mapAccidentType(value: string) {
   if (value.includes("자전거")) return "bicycle_collision";
   if (value.includes("시설물") || value.includes("단독")) return "object_collision";
   return value;
+}
+
+function normalizeAnalysisMode(mode?: string | null) {
+  const value = String(mode || "").trim();
+
+  if (
+    value === "expert" ||
+    value === "legal_precedent_focused" ||
+    value === "full_deep_research" ||
+    value === "deep_research" ||
+    value === "debug"
+  ) {
+    return "expert";
+  }
+
+  return "user_friendly";
 }
 
 onMounted(load);

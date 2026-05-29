@@ -37,11 +37,11 @@ def test_signal_violation_questionnaire_is_distinct_from_rear_end():
 
 
 def test_analysis_mode_aliases_keep_legacy_api_values_but_ui_contract_is_guided():
-    assert normalize_analysis_mode("fault-focused") == "fault_ratio_focused"
-    assert normalize_analysis_mode("criminal-liability-focused") == "legal_precedent_focused"
-    assert normalize_analysis_mode("evidence-review") == "full_deep_research"
+    assert normalize_analysis_mode("fault-focused") == "user_friendly"
+    assert normalize_analysis_mode("criminal-liability-focused") == "expert"
+    assert normalize_analysis_mode("evidence-review") == "expert"
 
     quick = build_analysis_mode_contract("quick_summary")
     assert "long_legal_basis" in quick["hidden_sections"]
-    assert quick["max_reason_lines"] == 3
-
+    assert quick["mode"] == "user_friendly"
+    assert quick["compact"] is True

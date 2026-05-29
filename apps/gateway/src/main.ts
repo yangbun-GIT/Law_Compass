@@ -19,6 +19,7 @@ import { registerKniaRoutes } from "./routes/knia.js";
 import { registerKniaAdminRoutes } from "./routes/knia-admin.js";
 import { registerLegalAdminRoutes } from "./routes/legal-admin.js";
 import { registerAgentDiagnosticsRoutes } from "./routes/agent-diagnostics.js";
+import { registerMobileDemoRoutes } from "./routes/mobile-demo.js";
 import { createStorageAdapter } from "./lib/storage/index.js";
 
 const app = Fastify({ logger: { level: "info" } });
@@ -175,6 +176,15 @@ registerLegalAdminRoutes(app, {
   internalToken: env.internalToken,
   requireAdmin,
   errorPayload
+});
+
+registerMobileDemoRoutes(app, {
+  apiPrefix: env.apiPrefix,
+  errorPayload,
+  agentUrl: env.agentUrl,
+  internalToken: env.internalToken,
+  timeoutMs: env.analyzeTimeoutMs,
+  retryCount: env.retryCount
 });
 
 app.addHook("onResponse", async (req, reply) => {

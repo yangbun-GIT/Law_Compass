@@ -24,13 +24,13 @@
         :status-class="statusClass"
     />
 
-    <section class="card easy-card guided-flow">
+    <section class="card easy-card guided-flow ornate-frame">
       <p class="eyebrow">교통사고 분석</p>
       <h2>사고 설명이나 영상을 넣으면 직접 충돌 대상부터 확인해 맞는 기준만 검토합니다</h2>
       <div class="guided-stepper">
         <span :class="{ active: guidedStep === 'input' }">1 사고 자료</span>
         <span :class="{ active: guidedStep === 'accident-type' }">2 사고유형</span>
-        <span :class="{ active: guidedStep === 'purpose' }">3 분석 목적</span>
+        <span :class="{ active: guidedStep === 'purpose' }">3 출력 모드</span>
         <span :class="{ active: guidedStep === 'questions' }">4 확인 질문</span>
         <span :class="{ active: guidedStep === 'analyzing' || guidedStep === 'result' }">5 결과</span>
       </div>
@@ -77,7 +77,7 @@
       </div>
 
       <div v-else-if="guidedStep === 'purpose'" class="guided-panel">
-        <h3>무엇을 중심으로 볼까요?</h3>
+        <h3>결과를 어떤 방식으로 볼까요?</h3>
 
         <div class="guided-card-grid">
           <button
@@ -126,7 +126,7 @@
         </div>
       </div>
 
-      <section v-if="guidedStep === 'analyzing'" class="guided-progress-card">
+      <section v-if="guidedStep === 'analyzing'" class="guided-progress-card ornate-frame">
         <div class="progress-header">
           <div>
             <p class="eyebrow">분석 진행 중</p>
@@ -164,7 +164,7 @@
       </section>
 
       <section v-if="guidedStep === 'result'" class="guided-result-card">
-        <div v-if="resultStreaming && !report" class="guided-progress-card">
+        <div v-if="resultStreaming && !report" class="guided-progress-card ornate-frame">
           <div class="progress-header">
             <div>
               <p class="eyebrow">결과 정리 중</p>
@@ -183,6 +183,7 @@
         <EasyReportView
             v-else-if="report"
             :report="report"
+            :analysis-mode="analysisMode"
             :followup-submitting="reanalyzing"
             :followup-error="followupError"
             @submit-followup="submitFollowup"
@@ -333,7 +334,14 @@ function updateDescriptionText(value: string) {
 }
 
 function updateAnalysisMode(value: string) {
-  analysisMode.value = value;
+  analysisMode.value =
+    value === "expert" ||
+    value === "legal_precedent_focused" ||
+    value === "full_deep_research" ||
+    value === "deep_research" ||
+    value === "debug"
+      ? "expert"
+      : "user_friendly";
 }
 
 function updateFacts(value: AccidentFacts) {

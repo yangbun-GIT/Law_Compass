@@ -345,12 +345,33 @@ for _pedestrian_scenario in (
 
 
 MODE_QUESTION_LIMITS = {
-    "quick_summary": 3,
-    "fault_ratio_focused": 10,
-    "legal_precedent_focused": 6,
-    "insurance_response_focused": 5,
-    "full_deep_research": 12,
+    "user_friendly": 6,
+    "expert": 12,
 }
+
+USER_FRIENDLY_REQUIRED_MODE_ALIASES = {
+    "user_friendly",
+    "quick_summary",
+    "fault_ratio_focused",
+    "insurance_response_focused",
+}
+
+EXPERT_REQUIRED_MODE_ALIASES = {
+    "expert",
+    "legal_precedent_focused",
+    "full_deep_research",
+    "deep_research",
+    "debug",
+}
+
+
+def _question_applies_to_mode(question: dict[str, Any], mode: str) -> bool:
+    required = set(question.get("required_for_modes") or [])
+    if not required:
+        return True
+    if mode == "expert":
+        return True
+    return bool(required & USER_FRIENDLY_REQUIRED_MODE_ALIASES)
 
 
 def build_dynamic_questionnaire(
@@ -368,10 +389,7 @@ def build_dynamic_questionnaire(
     mode = normalize_analysis_mode(analysis_mode)
     questions = list(SCENARIO_QUESTIONS.get(scenario_type) or [])
     questions.extend(_questions_from_knia_factors(knia_adjustment_factors or [], existing_ids={q["question_id"] for q in questions}))
-    filtered = [
-        q for q in questions
-        if mode in set(q.get("required_for_modes") or []) or mode == "full_deep_research"
-    ]
+    filtered = [q for q in questions if _question_applies_to_mode(q, mode)]
     filtered.sort(key=lambda item: (int(item.get("priority", 9)), item.get("question_id", "")))
     limit = MODE_QUESTION_LIMITS.get(mode, 6)
     selected = filtered[:limit]
@@ -385,7 +403,7 @@ def build_dynamic_questionnaire(
         "auto_analysis_policy": {
             "can_auto_start_when_required_answered": True,
             "user_controls": ["이대로 분석하기", "답변 더 추가하기"],
-            "batch_size_hint": 3 if mode != "quick_summary" else 2,
+            "batch_size_hint": 3 if mode == "expert" else 2,
         },
         "source_context": {
             "description_present": bool((description_text or "").strip()),

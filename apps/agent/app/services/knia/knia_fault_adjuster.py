@@ -53,6 +53,8 @@ def calculate_fault_from_structured_chart(
             "source_chart": _structured_source_chart(chart),
             "review_required": review_required,
             "reference_only": True,
+            "judgment_status": "needs_review",
+            "presentation_status": "reference_only",
             "confidence": min(float(chart.get("parsing_confidence") or 0.35), 0.45),
             "policy": {"source": "structured_knia_json", "final_fault_blocked_reason": "base_fault_missing_or_incomplete"},
         }
@@ -112,6 +114,8 @@ def calculate_fault_from_structured_chart(
         "source_chart": _structured_source_chart(chart, selected_candidate),
         "review_required": review_required,
         "reference_only": reference_only,
+        "judgment_status": "needs_review" if reference_only or review_required else "matched",
+        "presentation_status": "reference_only" if reference_only else "matched",
         "confidence": confidence,
         "policy": {
             "source": "structured_knia_json",
@@ -150,6 +154,12 @@ def select_structured_base_fault_candidate(
         candidates.append(normalized)
     if not candidates:
         return None
+
+    explicit_subchart = str(chart.get("subchart_no") or "").strip()
+    if explicit_subchart:
+        for candidate in candidates:
+            if str(candidate.get("subchart_no") or "") == explicit_subchart:
+                return candidate
 
     preferred = _preferred_subchart_numbers(chart, facts or {}, user_vehicle_role)
     for chart_no in preferred:
@@ -246,6 +256,7 @@ def _structured_source_chart(chart: dict[str, Any], selected_candidate: dict[str
     return {
         "chart_no": display_chart_no,
         "aggregate_chart_no": aggregate_chart_no if aggregate_chart_no != display_chart_no else None,
+        "subchart_no": display_chart_no if display_chart_no != aggregate_chart_no else chart.get("subchart_no"),
         "chart_type": chart.get("chart_type") or "1",
         "title": chart.get("title"),
         "major_party_type": chart.get("major_party_type") or chart.get("accident_party_type"),
@@ -257,6 +268,10 @@ def _structured_source_chart(chart: dict[str, Any], selected_candidate: dict[str
         "review_required": bool(chart.get("review_required", False)),
         "parsing_confidence": chart.get("parsing_confidence"),
         "source_type": "knia_structured_chart",
+        "source_url": chart.get("source_detail_url") or chart.get("source_url"),
+        "source_detail_url": chart.get("source_detail_url") or chart.get("source_url"),
+        "source_url_is_fallback": bool(chart.get("source_url_is_fallback")),
+        "menu_path": chart.get("menu_path") or [],
     }
 
 

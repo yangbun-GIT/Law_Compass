@@ -1,7 +1,7 @@
 export type User = {
   id: string;
   email: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "superuser";
   display_name: string;
 };
 
@@ -273,5 +273,10 @@ export const api = {
   adminImportKniaJson: (payload: { path?: string; force?: boolean; rebuild_embeddings?: boolean } = {}) =>
     request<any>("/api/v1/admin/knia/import-json", { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
   adminRebuildKniaJsonEmbeddings: (payload: { force?: boolean; limit?: number | null } = {}) =>
-    request<any>("/api/v1/admin/knia/json/rebuild-embeddings", { method: "POST", body: JSON.stringify(payload), headers: idempo() })
+    request<any>("/api/v1/admin/knia/json/rebuild-embeddings", { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
+
+  submitMobileDemoObservations: (payload: any) =>
+    request<any>("/api/v1/mobile-demo/observations", { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
+  runMobileDemoVideoOnlyAnalysis: (payload: any) =>
+    request<any>("/api/v1/mobile-demo/video-only-analysis", { method: "POST", body: JSON.stringify(payload), headers: idempo() })
 };

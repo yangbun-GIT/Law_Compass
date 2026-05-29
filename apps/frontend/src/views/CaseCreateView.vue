@@ -38,7 +38,7 @@ const DRAFT_KEY = "lawcompass:draftCase";
 const router = useRouter();
 const title = ref("");
 const description = ref("");
-const analysisMode = ref("quick_summary");
+const analysisMode = ref("user_friendly");
 const keywords = ref<string[]>(["블랙박스", "과실비율"]);
 const facts = reactive<AccidentFacts>({ accident_type: "", accident_party_type: "", injury: null });
 const loading = ref(false);
@@ -53,7 +53,7 @@ onMounted(() => {
     const draft = JSON.parse(raw);
     title.value = draft.title || title.value;
     description.value = draft.description_text || description.value;
-    analysisMode.value = draft.analysis_mode || analysisMode.value;
+    analysisMode.value = normalizeAnalysisMode(draft.analysis_mode || analysisMode.value);
     keywords.value = Array.isArray(draft.selected_keywords) ? draft.selected_keywords : keywords.value;
     Object.assign(facts, draft.structured_facts || {});
     draftApplied.value = true;
@@ -72,7 +72,7 @@ async function create() {
       description_text: description.value.trim(),
       structured_facts: { ...facts },
       selected_keywords: keywords.value,
-      analysis_mode: analysisMode.value
+      analysis_mode: normalizeAnalysisMode(analysisMode.value)
     });
     localStorage.removeItem(DRAFT_KEY);
     await router.push(`/cases/${data.case.id}/wizard`);
@@ -82,5 +82,21 @@ async function create() {
   } finally {
     loading.value = false;
   }
+}
+
+function normalizeAnalysisMode(mode?: string | null) {
+  const value = String(mode || "").trim();
+
+  if (
+    value === "expert" ||
+    value === "legal_precedent_focused" ||
+    value === "full_deep_research" ||
+    value === "deep_research" ||
+    value === "debug"
+  ) {
+    return "expert";
+  }
+
+  return "user_friendly";
 }
 </script>

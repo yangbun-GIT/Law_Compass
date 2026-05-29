@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { composeEasyFallback, composeReanalysisChangeCard, enrichEasyReport, sanitizeEasyReport } from "../src/lib/report-composer.js";
 
 describe("report composer", () => {
-  it("filters long legal sections from quick summary mode", () => {
+  it("keeps detailed report fields and adds compact display metadata in user-friendly mode", () => {
     const enriched: any = enrichEasyReport(
       sanitizeEasyReport({
         headline: "정차 중 뒤차 추돌 사고로 보입니다.",
@@ -19,10 +19,17 @@ describe("report composer", () => {
       }
     );
 
-    expect(enriched.legal_explanation).toBeUndefined();
-    expect(enriched.legal_basis_cards).toEqual([]);
-    expect(enriched.expert_guidance_card).toBeUndefined();
-    expect(enriched.detail_sections.notice).toContain("빠른 요약");
+    expect(enriched.analysis_mode).toBe("user_friendly");
+    expect(enriched.analysis_mode_contract.compact).toBe(true);
+    expect(enriched.legal_explanation).toBeDefined();
+    expect(enriched.legal_basis_cards).toHaveLength(1);
+    expect(enriched.expert_guidance_card).toBeDefined();
+    expect(enriched.simple_report).toBeDefined();
+    expect(enriched.analysis_mode_contract.visible_sections).toEqual([
+      "current_situation",
+      "fault_ratio",
+      "knia_and_video",
+    ]);
   });
 
   it("adds a user-safe evidence reliability card without raw claim internals", () => {

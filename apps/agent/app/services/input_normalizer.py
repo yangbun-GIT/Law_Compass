@@ -117,6 +117,60 @@ def _set_if_empty(facts: dict[str, Any], key: str, value: Any) -> None:
         facts[key] = value
 
 
+def _has_road_worker_pedestrian_context(text: str) -> bool:
+    tokens = (
+        "공사 담당자",
+        "공사작업자",
+        "공사 작업자",
+        "도로 작업자",
+        "작업자",
+        "인부",
+        "도로 폭 측정",
+        "도로폭 측정",
+        "차도 진입",
+        "도로쪽",
+        "도로 쪽",
+        "갑자기 튀어나",
+        "갑자기 뛰어나",
+        "차를 보지 않고",
+        "차량을 보지 않고",
+    )
+    return any(token in text for token in tokens)
+
+
+def _enrich_road_worker_pedestrian_facts(facts: dict[str, Any], text: str) -> dict[str, Any]:
+    if not _has_road_worker_pedestrian_context(text):
+        return facts
+    enriched = dict(facts)
+    enriched.update(
+        {
+            "accident_party_type": "car_vs_person",
+            "knia_major_party_type": "car_vs_person",
+            "major_party_type": "car_vs_person",
+            "collision_partner_type": "person",
+            "direct_collision_partner_type": "person",
+            "direct_collision_target": "road_work_worker",
+            "scenario_type": "pedestrian_accident",
+            "accident_type": "pedestrian_roadway_worker_accident",
+            "accident_subtype": "pedestrian_roadway_or_work_zone",
+            "scenario_subtype": "pedestrian_roadway_or_work_zone",
+            "pedestrian_context": "road_worker_or_construction_worker",
+            "pedestrian_on_roadway": True,
+            "pedestrian_involved": True,
+            "pedestrian_worker": True,
+            "road_worker": True,
+            "road_work_context": True,
+            "work_zone_context": True,
+            "sudden_entry": True,
+            "pedestrian_sudden_entry": True,
+            "lookout_failure_by_pedestrian": True,
+            "crosswalk_nearby": False,
+            "excluded_knia_party_types": ["car_vs_car", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+        }
+    )
+    return enriched
+
+
 def _normalize_accident_typos(text: str) -> str:
     return (
         str(text or "")
@@ -418,8 +472,13 @@ def _apply_party_guard_facts(
             for key in ("bicycle_involved", "possible_trigger_vehicle", "trigger_actor_type", "bicycle_location", "bicycle_movement"):
                 guarded.pop(key, None)
     elif party == "car_vs_person":
-        guarded["collision_partner_type"] = "pedestrian"
-        guarded["direct_collision_partner_type"] = "pedestrian"
+        if guarded.get("road_worker") or guarded.get("accident_type") == "pedestrian_roadway_worker_accident":
+            guarded["collision_partner_type"] = "person"
+            guarded["direct_collision_partner_type"] = "person"
+            guarded.setdefault("direct_collision_target", "road_work_worker")
+        else:
+            guarded["collision_partner_type"] = "pedestrian"
+            guarded["direct_collision_partner_type"] = "pedestrian"
         guarded.setdefault("excluded_knia_party_types", ["car_vs_car", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"])
     elif party == "car_vs_bicycle":
         guarded["collision_partner_type"] = "bicycle"
@@ -617,6 +676,7 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         video_metadata=video_contract,
     )
     user_facts = _apply_party_agent_result(user_facts, party_agent_result)
+    user_facts = _enrich_road_worker_pedestrian_facts(user_facts, clean_text)
     user_facts = _enrich_textual_traffic_facts(user_facts, clean_text)
     party_agent_result = route_party_agent(
         description_text=clean_text,
@@ -625,6 +685,7 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         video_metadata=video_contract,
     )
     user_facts = _apply_party_agent_result(user_facts, party_agent_result)
+    user_facts = _enrich_road_worker_pedestrian_facts(user_facts, clean_text)
     deterministic_filter = _deterministic_accident_input_filter(clean_text, user_facts)
     llm_filter = generate_accident_input_filter(
         description_text=clean_text,
@@ -637,6 +698,7 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
     arbitration = arbitrate_facts(user_facts=user_facts, video_contract=video_contract)
     fact_arbitration = arbitration["contract"]
     facts = _enrich_textual_traffic_facts(_compact_for_analysis(arbitration["facts"]), clean_text)
+    facts = _enrich_road_worker_pedestrian_facts(facts, clean_text)
     facts = _apply_accident_input_filter_result(facts, selected_filter)
     facts = _apply_party_agent_result(facts, party_agent_result)
     facts = _apply_party_guard_facts(facts, party_agent_result)

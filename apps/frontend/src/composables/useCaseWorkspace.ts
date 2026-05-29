@@ -39,11 +39,27 @@ export { guidedAccidentTypeOptions, guidedAnalysisModes } from "./caseWorkspaceG
 
 export type CaseWorkspaceBusyState = "" | "save" | "upload" | "preprocess" | "text-analysis" | "video-analysis";
 
+function normalizeAnalysisMode(mode?: string | null) {
+    const value = String(mode || "").trim();
+
+    if (
+        value === "expert" ||
+        value === "legal_precedent_focused" ||
+        value === "full_deep_research" ||
+        value === "deep_research" ||
+        value === "debug"
+    ) {
+        return "expert";
+    }
+
+    return "user_friendly";
+}
+
 export function useCaseWorkspace(caseId: string) {
     const caseData = ref<CaseItem | null>(null);
     const descriptionText = ref("");
     const facts = ref<AccidentFacts>({ injury: null });
-    const analysisMode = ref("quick_summary");
+    const analysisMode = ref("user_friendly");
     const selectedKeywords = ref<string[]>([...DEFAULT_KEYWORDS]);
     const file = ref<File | null>(null);
     const uploads = ref<UploadItem[]>([]);
@@ -109,7 +125,7 @@ export function useCaseWorkspace(caseId: string) {
             descriptionText: descriptionText.value,
             facts: facts.value,
             selectedKeywords: selectedKeywords.value,
-            analysisMode: analysisMode.value,
+            analysisMode: normalizeAnalysisMode(analysisMode.value),
         };
     }
 
@@ -120,7 +136,7 @@ export function useCaseWorkspace(caseId: string) {
         descriptionText.value = data.case.description_text || "";
         facts.value = { ...facts.value, ...(data.case.structured_facts || {}) };
         selectedKeywords.value = data.case.selected_keywords?.length ? data.case.selected_keywords : selectedKeywords.value;
-        analysisMode.value = data.case.analysis_mode || analysisMode.value;
+        analysisMode.value = normalizeAnalysisMode(data.case.analysis_mode || analysisMode.value);
     }
 
     function isAnalysisReady() {
@@ -557,7 +573,7 @@ export function useCaseWorkspace(caseId: string) {
     }
 
     function selectGuidedAnalysisMode(mode: string) {
-        analysisMode.value = mode;
+        analysisMode.value = normalizeAnalysisMode(mode);
         guidedStep.value = "questions";
     }
 

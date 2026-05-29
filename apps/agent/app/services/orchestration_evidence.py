@@ -48,6 +48,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
     knia_matches = _filter_primary_knia_evidence(knia_result.get("items") or [], scenario_tags, scenario.get("scenario_type"))
     knia_matches = _filter_pedestrian_target_mismatch(knia_matches, normalized["structured_facts"], scenario.get("accident_party_type"))
     knia_matches, _ = reject_mismatched_knia_items(knia_matches, scenario.get("accident_party_type"))
+    knia_matches = _filter_knia_major_party(knia_matches, scenario.get("accident_party_type"))
     evidence_query = evidence_query_payload(
         description_text=normalized["description_text"],
         facts=normalized["structured_facts"],
@@ -66,6 +67,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
     knia_json_evidence = _filter_primary_knia_evidence(knia_json_result.get("items") or [], scenario_tags, scenario.get("scenario_type"))
     knia_json_evidence = _filter_pedestrian_target_mismatch(knia_json_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
     knia_json_evidence, _ = reject_mismatched_knia_items(knia_json_evidence, scenario.get("accident_party_type"))
+    knia_json_evidence = _filter_knia_major_party(knia_json_evidence, scenario.get("accident_party_type"))
     knia_fault_estimate: dict[str, Any] | None = None
     knia_reference_evidence: list[dict[str, Any]] = []
     if knia_matches:
@@ -107,6 +109,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         default_source="과실비율정보포털",
     )
     knia_evidence = _filter_pedestrian_target_mismatch(knia_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
+    knia_evidence = _filter_knia_major_party(knia_evidence, scenario.get("accident_party_type"))
     retrieval = retrieve_for_scenario(
         scenario_type=scenario["scenario_type"],
         scenario_tags=scenario["scenario_tags"],
@@ -119,6 +122,7 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
     legal_evidence = normalize_evidence_items(retrieval["items"], default_source="법률 근거")
     legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario_tags, scenario.get("scenario_type"))
     legal_evidence = _filter_pedestrian_target_mismatch(legal_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
+    legal_evidence = _filter_knia_major_party(legal_evidence, scenario.get("accident_party_type"))
     return EvidenceBundle(
         knia_result=knia_result,
         knia_matches=knia_matches,
@@ -240,6 +244,28 @@ def _is_knia_like_item(item: dict[str, Any]) -> bool:
         or "과실비율" in joined
         or "accident.knia.or.kr" in joined
     )
+
+
+def _filter_knia_major_party(items: list[dict[str, Any]], accident_party_type: str | None) -> list[dict[str, Any]]:
+    expected = {
+        "car_vs_person": ("보",),
+        "car_vs_car": ("차",),
+        "car_vs_bicycle": ("거", "자"),
+        "car_vs_object": ("기",),
+        "single_vehicle": ("단",),
+    }.get(str(accident_party_type or ""), ())
+    if not expected:
+        return items
+    filtered: list[dict[str, Any]] = []
+    for item in items:
+        if not _is_knia_like_item(item):
+            filtered.append(item)
+            continue
+        party = str(item.get("major_party_type") or item.get("accident_party_type") or "")
+        chart_no = str(item.get("aggregate_chart_no") or item.get("chart_no") or "")
+        if party == accident_party_type or chart_no.startswith(expected):
+            filtered.append(item)
+    return filtered
 
 
 def _filter_pedestrian_target_mismatch(

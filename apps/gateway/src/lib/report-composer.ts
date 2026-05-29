@@ -13,7 +13,7 @@ import {
   unique,
   type AnyRecord,
 } from "./report-composer-common.js";
-import { applyAnalysisModeContract } from "./report-analysis-mode.js";
+import { applyAnalysisModeContract, normalizeAnalysisMode } from "./report-analysis-mode.js";
 import { composeKniaLinkCards, removeDuplicateKniaRelatedVideo } from "./report-knia-links.js";
 import { composeExpertGuidanceCard } from "./report-expert-guidance-card.js";
 
@@ -1541,7 +1541,84 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
         ...(result.guided_questionnaire ? { guided_questionnaire: sanitizeGuidedQuestionnaire(result.guided_questionnaire) } : {}),
     };
 
-    return applyAnalysisModeContract(enrichedReport, result);
+    const displayMode = normalizeAnalysisMode(
+        result.analysis_mode ??
+        result.display_mode ??
+        report.analysis_mode ??
+        report.display_mode ??
+        report.analysis_mode_contract?.mode,
+    );
+    const withMode = applyAnalysisModeContract(enrichedReport, { ...result, analysis_mode: displayMode });
+
+    return {
+        ...withMode,
+        display_mode: displayMode,
+        analysis_mode: displayMode,
+        simple_report: composeSimpleReport(withMode, { ...result, analysis_mode: displayMode }),
+    };
+}
+
+function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord {
+    const faultRatio: AnyRecord = report.fault_ratio || report.fault_explanation || result.fault_ratio || {};
+    const userFault: AnyRecord = faultRatio.user_fault || faultRatio.final_fault || {};
+    const knia: AnyRecord | null =
+        report.knia_match_summary ||
+        result.knia_match_summary ||
+        result.knia_primary_match ||
+        result.knia_reference ||
+        null;
+    const videoSummary = cleanText(
+        report.video_summary ||
+        result.video_summary ||
+        result.video_context_summary ||
+        result.video_observation_summary ||
+        "",
+        "",
+    );
+    const keyFactors = asArray(faultRatio.key_factors ?? faultRatio.applied_adjustments)
+        .map((item) => cleanText(isPlainObject(item) ? item.label ?? item.reason : item, ""))
+        .filter(Boolean)
+        .slice(0, 4);
+
+    return {
+        situation_summary: cleanText(
+            report.current_situation_summary ||
+            report.situation_summary ||
+            report.one_line_summary ||
+            report.summary ||
+            result.accident_summary ||
+            "",
+            "입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다.",
+        ),
+        fault_ratio: {
+            my: faultRatio.my ?? faultRatio.my_percent ?? faultRatio.my_fault ?? userFault.my ?? null,
+            other: faultRatio.other ?? faultRatio.other_percent ?? faultRatio.opponent_fault ?? userFault.other ?? null,
+            range: faultRatio.fault_range ?? faultRatio.range ?? null,
+            basis: cleanText(
+                faultRatio.basis || faultRatio.summary || faultRatio.simple_summary || "",
+                "입력한 사고 사실과 KNIA 기준을 함께 검토한 참고용 산정입니다.",
+            ),
+            key_factors: keyFactors,
+            reference_only:
+                faultRatio.reference_only === true ||
+                result.presentation_status === "reference_only" ||
+                result.judgment_status === "needs_review",
+        },
+        knia_video_evidence: knia
+            ? {
+                chart_no: cleanText(knia.chart_no, ""),
+                subchart_no: cleanText(knia.subchart_no, ""),
+                title: cleanText(knia.title, ""),
+                menu_path: asArray(knia.menu_path).map((item) => cleanText(item, "")).filter(Boolean),
+                source_url: safeHttpUrl(knia.source_url),
+                source_url_is_fallback: knia.source_url_is_fallback === true,
+                match_reason: cleanText(knia.match_reason || knia.why_matched, ""),
+                reference_only: knia.reference_only === true,
+                candidate_charts: asArray(knia.candidate_charts).slice(0, 3),
+            }
+            : null,
+        video_summary: videoSummary,
+    };
 }
 
 function sanitizeGuidedQuestionnaire(value: AnyRecord = {}) {

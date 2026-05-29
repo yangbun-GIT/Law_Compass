@@ -226,6 +226,112 @@ TAG_SEARCH_TERMS["worker"] = ("작업자", "공사 담당자", "도로 작업자
 TAG_SEARCH_TERMS["sudden_entry"] = ("갑작스러운 진입", "차도 진입", "튀어나옴", "뛰어나옴")
 
 
+# UTF-8 clean KNIA tree terms. Keep these overrides near the public builder so
+# corrupted legacy labels above cannot pollute the structured chart query.
+SCENARIO_SEARCH_TERMS["pedestrian_roadway_worker_accident"] = (
+    "보행자",
+    "도로 작업자",
+    "공사 작업자",
+    "공사 담당자",
+    "차도 보행",
+    "차도 진입",
+    "도로 폭 측정",
+    "보도 공사중",
+    "보행자 위험행위",
+    "보행자 급진입",
+    "횡단보도 없음",
+    "차도 가장자리 보행",
+    "차도 중앙부분 보행",
+    "보25",
+    "보27-2",
+    "보28",
+    "보30",
+)
+SCENARIO_SEARCH_TERMS["pedestrian_road_work_worker_accident"] = SCENARIO_SEARCH_TERMS["pedestrian_roadway_worker_accident"]
+SCENARIO_SEARCH_TERMS["intersection_collision"] = (
+    "교차로",
+    "양쪽 신호등",
+    "한쪽 신호등",
+    "한쪽 지시표지",
+    "지시표지",
+    "노면표시",
+    "신호등 없는 교차로",
+    "직진 대 직진",
+    "직진 대 좌회전",
+    "직진 대 우회전",
+    "동시 우회전",
+    "동시 좌회전",
+    "차1",
+    "차2",
+    "차3",
+    "차4",
+    "차5",
+    "차6",
+    "차7",
+    "차7-1",
+    "차8",
+    "차9",
+    "차10",
+    "차11",
+    "차12",
+    "차13",
+    "차14",
+    "차15",
+    "차16",
+    "차17",
+    "차18",
+    "차19",
+    "차20",
+    "차21",
+)
+SCENARIO_SEARCH_TERMS["same_direction_vehicle_collision"] = (
+    "안전거리 미확보",
+    "추돌",
+    "주정차 차량 추돌",
+    "진로변경",
+    "차선변경",
+    "차로변경",
+    "끼어들기",
+    "도로로 진입",
+    "앞지르기",
+    "유턴",
+    "정차 후 출발",
+    "낙하물",
+    "차41",
+    "차42",
+    "차43",
+    "차44",
+    "차45",
+    "차46",
+    "차47",
+    "차48",
+)
+SCENARIO_SEARCH_TERMS["opposite_direction_vehicle_collision"] = ("중앙선 침범", "교행", "유턴", "차31", "차32", "차33")
+SCENARIO_SEARCH_TERMS["parking_roundabout_other_collision"] = ("주차장", "문 열림", "회전교차로", "긴급자동차", "차51", "차52", "차53", "차54", "차55")
+TAG_SEARCH_TERMS["traffic_sign"] = ("한쪽 지시표지", "지시표지", "일시정지", "차7", "차7-1")
+TAG_SEARCH_TERMS["straight_vs_straight"] = ("직진 대 직진", "측면 진입", "녹색 직진", "적색 직진")
+PARTY_TERM_PROFILES["car_vs_person"] = (
+    *PARTY_TERM_PROFILES.get("car_vs_person", ()),
+    "자동차와 보행자의 사고",
+    "차대사람",
+    "보행자",
+    "공사 담당자",
+    "도로 작업자",
+    "차도 보행",
+    "보25",
+    "보27-2",
+    "보28",
+    "보30",
+    "보34",
+)
+PARTY_SEARCH_TERMS["car_vs_person"] = (
+    *PARTY_SEARCH_TERMS.get("car_vs_person", ()),
+    "자동차와 보행자의 사고",
+    "차대사람",
+    "보행자",
+)
+
+
 def scenario_search_terms(
         *,
         scenario_type: str | None,

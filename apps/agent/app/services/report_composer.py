@@ -2,6 +2,7 @@
 from typing import Any
 from app.services.elderly_friendly.report_simplifier import build_elderly_friendly_report
 from app.services.elderly_friendly.ui_text_mapper import scenario_label
+from app.services.analysis_modes import normalize_analysis_mode
 from app.services.llm_client import generate_final_report
 from app.services.llm_policy import evaluate_llm_usage, mark_llm_output_unavailable, summarize_case_llm_policy
 
@@ -43,7 +44,10 @@ def compose_analysis_output(
     party_type_action_guide = party_type_action_guide or {}
     input_requirements = input_requirements or {}
     followup_loop = followup_loop or {}
+    analysis_mode = normalize_analysis_mode(normalized_input.get("analysis_mode"))
     technical = {
+        "analysis_mode": analysis_mode,
+        "display_mode": analysis_mode,
         "accident_summary": summary,
         "scenario_type": scenario["scenario_type"],
         "accident_party_type": scenario.get("accident_party_type", "unknown"),
@@ -90,7 +94,7 @@ def compose_analysis_output(
         "model_info": {
             "orchestrator": "legal-rag-multi-analyst-v2-party-type",
             "ai_profile": ai_profile,
-            "analysis_mode": normalized_input.get("analysis_mode") or "quick_summary",
+            "analysis_mode": analysis_mode,
             "llm_enabled": llm_enabled,
             "rag_top_k": len(evidence),
             "evidence_cache_key": evidence[0].get("cache_key") if evidence else None,

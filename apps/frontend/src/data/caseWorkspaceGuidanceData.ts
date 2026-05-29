@@ -141,11 +141,16 @@ export const carVsCarSubtypeGuidedQuestions: GuidedQuestion[] = [
 ];
 
 export const guidedAnalysisModes = [
-    { value: "quick_summary", label: "빠른 요약", hint: "핵심 결론과 과실비율만 짧게 봅니다." },
-    { value: "fault_ratio_focused", label: "과실비율 중심", hint: "급정거, 제동등, 정차 위치 같은 가감요소를 자세히 확인합니다." },
-    { value: "legal_precedent_focused", label: "법률/판례 근거 중심", hint: "관련 법규, KNIA 해설, 판례 부족 여부를 함께 봅니다." },
-    { value: "insurance_response_focused", label: "보험 대응 중심", hint: "보험사에 말할 핵심 문장과 챙길 자료를 정리합니다." },
-    { value: "full_deep_research", label: "전체 심층 리서치 분석", hint: "사실, 영상, KNIA, 법률, 보험 대응을 모두 펼쳐 봅니다." },
+    {
+        value: "user_friendly",
+        label: "일반사용자모드",
+        hint: "현재 상황, 과실비율, 관련 KNIA 근거와 영상만 간단히 봅니다.",
+    },
+    {
+        value: "expert",
+        label: "전문가모드",
+        hint: "KNIA 기준, 법률 근거, 가감요소, 증거, 추가 확인사항까지 자세히 봅니다.",
+    },
 ];
 
 export const rearEndGuidedQuestions: GuidedQuestion[] = [

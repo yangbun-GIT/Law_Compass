@@ -34,14 +34,17 @@ SCENARIO_TO_TAGS = {
     "lane_change_collision": ["lane_change", "fault_ratio"],
     "intersection_signal_violation": ["intersection", "signal_violation", "fault_ratio"],
     "pedestrian_crosswalk_accident": ["pedestrian", "fault_ratio"],
+    "pedestrian_accident": ["pedestrian", "fault_ratio"],
     "pedestrian_near_crosswalk_accident": ["pedestrian", "crosswalk", "fault_ratio"],
     "pedestrian_no_crosswalk_road_crossing": ["pedestrian", "roadway", "fault_ratio"],
+    "pedestrian_roadway_worker_accident": ["pedestrian", "road_work", "worker", "sudden_entry", "fault_ratio"],
     "pedestrian_road_work_worker_accident": ["pedestrian", "road_work", "worker", "fault_ratio"],
     "pedestrian_sudden_entry_accident": ["pedestrian", "sudden_entry", "fault_ratio"],
     "pedestrian_on_road_edge_accident": ["pedestrian", "road_edge", "fault_ratio"],
     "pedestrian_construction_zone_accident": ["pedestrian", "road_work", "worker", "fault_ratio"],
     "school_zone_child_accident": ["pedestrian", "school_zone", "fault_ratio"],
     "bicycle_collision": ["bicycle", "fault_ratio"],
+    "intersection_collision": ["intersection", "traffic_sign", "straight_vs_straight", "fault_ratio"],
     "object_collision": ["object", "single_vehicle"],
     "single_vehicle_accident": ["single_vehicle"],
     "parking_or_stopped_vehicle_accident": ["parking", "stopped_vehicle"],
@@ -64,6 +67,37 @@ def normalize_query(text: str) -> str:
     return " ".join(re.sub(r"[^0-9A-Za-z가-힣\-\s]", " ", text or "").split()).lower()
 
 
+def infer_major_party_type_from_facts(facts: dict[str, Any], query: str = "") -> str | None:
+    direct = str(
+        facts.get("accident_party_type")
+        or facts.get("major_party_type")
+        or facts.get("knia_major_party_type")
+        or ""
+    ).strip()
+
+    if direct in {"car_vs_person", "car_vs_car", "car_vs_bicycle", "car_vs_motorcycle"}:
+        return direct
+
+    collision_partner = str(
+        facts.get("direct_collision_partner_type")
+        or facts.get("collision_partner_type")
+        or ""
+    ).lower()
+
+    text = f"{query} {json.dumps(facts, ensure_ascii=False)}"
+
+    if collision_partner in {"person", "pedestrian"} or any(t in text for t in ("보행자", "사람", "작업자", "공사 담당자", "공사작업자", "인부", "도로 폭 측정")):
+        return "car_vs_person"
+
+    if collision_partner == "bicycle" or "자전거" in text:
+        return "car_vs_bicycle"
+
+    if collision_partner in {"vehicle", "car", "truck", "bus"} or any(t in text for t in ("차량", "자동차", "트럭", "버스", "승용차")):
+        return "car_vs_car"
+
+    return None
+
+
 def _redis_client():
     if not REDIS_URL:
         return None
@@ -81,6 +115,9 @@ def match_knia_charts(
 ) -> dict[str, Any]:
     facts = structured_facts or {}
     keywords = selected_keywords or []
+    inferred_major = infer_major_party_type_from_facts(facts, description_text)
+    if inferred_major and inferred_major != "unknown":
+        accident_party_type = accident_party_type or inferred_major
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         facts = {**facts, "accident_party_type": "car_vs_car"}
         accident_party_type = "car_vs_car"
@@ -301,6 +338,7 @@ def _structured_chart_to_match(
         reference_only: bool | None = None,
 ) -> dict[str, Any]:
     match = _to_match(row, score, reason)
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
     review_required = bool(row.get("review_required", False))
     selected_candidate = select_structured_base_fault_candidate(row)
     selected_fault = _base_fault_pair_from_candidate(selected_candidate)
@@ -321,9 +359,16 @@ def _structured_chart_to_match(
             "source_family": "knia",
             "evidence_family": "knia",
             "aggregate_chart_no": aggregate_chart_no if aggregate_chart_no != display_chart_no else None,
+            "subchart_no": (selected_candidate or {}).get("subchart_no") or row.get("subchart_no"),
+            "display_chart_no": display_chart_no,
             "major_party_type": row.get("major_party_type") or row.get("accident_party_type"),
             "scenario_type": row.get("scenario_type"),
             "scenario_subtype": row.get("scenario_subtype"),
+            "menu_path": row.get("menu_path") or metadata.get("menu_path") or [],
+            "source_url_is_fallback": bool(row.get("source_url_is_fallback")),
+            "source_quality": "structured_json",
+            "source_quality_label": "KNIA 구조화 기준",
+            "rag_documents": row.get("rag_documents") or [],
             "vehicle_roles": row.get("vehicle_roles") or {},
             "base_fault": row.get("base_fault") or {},
             "selected_base_fault_candidate": selected_candidate or {},
@@ -430,44 +475,56 @@ def _static_person_matches(*, scenario_type: str | None, facts: dict[str, Any], 
         return []
     worker = bool(facts.get("pedestrian_worker") or facts.get("road_work_context"))
     sudden = bool(facts.get("pedestrian_sudden_entry"))
-    title = "도로 작업자 또는 보행자 차도 진입 사고 참고 기준" if worker else "보행자 차도 진입 사고 참고 기준"
-    summary = (
-        "공사 담당자나 도로 작업자와 직접 충돌한 차대사람 사고로 보행자 위치, 갑작스러운 진입, 안전조치, 시야와 속도를 확인해야 합니다."
-        if worker
-        else "차량과 보행자가 직접 충돌한 차대사람 사고로 횡단보도, 신호, 보행자 위치와 운전자 발견 가능성을 확인해야 합니다."
-    )
-    return [
+    preferred = [
+        ("보25", "보행자의 차도보행중 사고(보도 공사중)", "보도 공사 등으로 보행자가 차도에서 보행한 상황과 유사합니다."),
+        ("보27", "차도 가장자리 보행 중 사고", "보행자가 차도 가장자리에 있었는지 확인해야 하는 기준입니다."),
+        ("보28", "차도 중앙부분 보행 중 사고", "보행자가 차도 중앙부분에 있었는지 확인해야 하는 기준입니다."),
+        ("보30", "보행자 위험행위 사고", "보행자가 갑자기 차도로 진입한 위험행위 여부를 확인해야 하는 기준입니다."),
+        ("보34", "차도가 아닌 장소에서의 보행자 횡단 사고", "횡단 위치가 차도 밖 또는 기타 장소인지 확인해야 하는 기준입니다."),
+        ("보22", "도로 유형별 횡단 중 사고", "도로 유형과 횡단 형태를 확인해야 하는 기준입니다."),
+        ("보23", "단일로 횡단 중 사고", "단일로 횡단 중 사고인지 확인해야 하는 기준입니다."),
+    ]
+    if not worker and sudden:
+        preferred = preferred[2:]
+    matches: list[dict[str, Any]] = []
+    for index, (chart_no, title, reason) in enumerate(preferred[:limit]):
+        matches.append(
         {
-            "chart_id": "static-knia-person-reference",
-            "chart_no": "보-참고",
+            "chart_id": f"static-knia-person-{chart_no}",
+            "chart_no": chart_no,
             "chart_type": "reference",
             "title": title,
-            "match_score": 0.38,
-            "match_label": "같은 차대사람 대분류 안에서 가장 가까운 참고 기준입니다.",
-            "match_reason": "구조화 KNIA chart 조회가 비어 있어 차대사람 대분류 안의 정적 참고 기준을 사용했습니다.",
+            "match_score": round(0.45 - index * 0.02, 4),
+            "match_label": "가장 가까운 KNIA 후보입니다.",
+            "match_reason": reason,
             "accident_party_type": "car_vs_person",
             "major_party_type": "car_vs_person",
             "accident_party_label": party_label("car_vs_person"),
-            "accident_summary": summary,
+            "accident_summary": "공사 담당자나 도로 작업자와 직접 충돌한 차대사람 사고로 보행자 위치, 갑작스러운 진입, 안전조치, 시야와 속도를 확인해야 합니다.",
             "scenario_summary_easy": "직접 충돌 대상이 사람으로 확인되어 차대차 교차로·차선변경 기준은 표시하지 않습니다.",
             "basic_fault_text": "구조화 chart의 base_fault가 없는 참고 기준이므로 최종 과실 숫자는 확정하지 않습니다.",
             "recommended_user_actions": party_actions("car_vs_person"),
-            "display_tags": ["pedestrian", "fault_ratio", "보", "road_work" if worker else "direct_collision"],
+            "display_tags": ["pedestrian", "fault_ratio", chart_no, "road_work" if worker else "direct_collision"],
             "scenario_tags": SCENARIO_TO_TAGS.get(scenario_type or "", ["pedestrian", "fault_ratio"]),
-            "keywords": ["차대사람", "보행자", "작업자", "공사 담당자", "도로 작업자", "갑작스러운 진입"] if worker or sudden else ["차대사람", "보행자", "횡단보도", "보행자 보호의무"],
-            "source_type": "knia_fault_standard_static_fallback",
+            "keywords": ["차대사람", "보행자", "작업자", "공사 담당자", "도로 작업자", "갑작스러운 진입"],
+            "source_type": "knia_structured_chart_candidate",
             "source_family": "knia",
             "evidence_family": "knia",
-            "source": "과실비율정보포털 KNIA 차대사람 기준 fallback",
+            "source": "과실비율정보포털 KNIA 차대사람 기준 후보",
+            "source_url": f"https://accident.knia.or.kr/myaccident-content?chartNo={chart_no}&chartType=1",
+            "source_detail_url": f"https://accident.knia.or.kr/myaccident-content?chartNo={chart_no}&chartType=1",
+            "source_url_is_fallback": True,
+            "menu_path": ["자동차와 보행자의 사고", "횡단보도 없음 또는 기타 사고유형", title],
             "used_for": "KNIA 차대사람 참고 기준",
-            "is_static_fallback": True,
+            "is_static_fallback": False,
             "fallback_used": True,
             "reference_only": True,
             "final_fault_eligible": False,
             "requested_party_type": "car_vs_person",
             "attribution": "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
         }
-    ][:limit]
+        )
+    return matches
 
 
 def _tags_from_text(text: str, party: str | None = None) -> list[str]:
@@ -608,8 +665,10 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
     party = _row_party_type(row)
     expected_parties = {
         "pedestrian_crosswalk_accident": {"car_vs_person"},
+        "pedestrian_accident": {"car_vs_person"},
         "pedestrian_near_crosswalk_accident": {"car_vs_person"},
         "pedestrian_no_crosswalk_road_crossing": {"car_vs_person"},
+        "pedestrian_roadway_worker_accident": {"car_vs_person"},
         "pedestrian_road_work_worker_accident": {"car_vs_person"},
         "pedestrian_sudden_entry_accident": {"car_vs_person"},
         "pedestrian_on_road_edge_accident": {"car_vs_person"},
@@ -620,6 +679,7 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
         "object_collision": {"car_vs_object"},
         "single_vehicle_accident": {"single_vehicle"},
         "intersection_signal_violation": {"car_vs_car"},
+        "intersection_collision": {"car_vs_car"},
         "lane_change_collision": {"car_vs_car"},
         "rear_end_collision": {"car_vs_car"},
         "stealth_illegal_parked_vehicle_collision": {"car_vs_car"},
@@ -636,6 +696,8 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
         # Do not let pedestrian/bicycle signal charts win only because they contain
         # generic "신호위반" terms.
         return not chart_no.startswith("차12")
+    if scenario_type == "intersection_collision":
+        return not chart_no.startswith(tuple(f"차{i}" for i in range(1, 22)))
     if scenario_type == "lane_change_collision":
         return not (chart_no.startswith("차43") or has_lane_terms)
     if scenario_type == "rear_end_collision":
@@ -873,6 +935,10 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
         "recommended_user_actions": row.get("recommended_user_actions") or party_actions(party),
         "display_tags": row.get("display_tags") or [],
         "source_url": row.get("source_url"),
+        "source_detail_url": row.get("source_detail_url") or row.get("source_url"),
+        "source_url_is_fallback": bool(row.get("source_url_is_fallback")),
+        "menu_path": row.get("menu_path") or [],
+        "subchart_no": row.get("subchart_no"),
         "thumbnail_url": row.get("thumbnail_url"),
         "video_url": row.get("video_url"),
         "media": media,

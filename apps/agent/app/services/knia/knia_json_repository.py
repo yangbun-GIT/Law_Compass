@@ -5,6 +5,7 @@ import os
 import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import psycopg
 import psycopg.rows
@@ -17,9 +18,18 @@ from app.services.knia.taxonomy import party_label
 
 BASE_URL = "https://accident.knia.or.kr"
 LOCAL_JSON_CANDIDATES = (
+    "scripts/knia_fault_ratio/knia_fault_ratio.json",
+    "scripts/knia_fault_ratio/knia_fault_ratio_2023_06.review.json",
     "scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_review.json",
+    "scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_catalog.json",
+    "../../scripts/knia_fault_ratio/knia_fault_ratio.json",
+    "../../scripts/knia_fault_ratio/knia_fault_ratio_2023_06.review.json",
     "../../scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_review.json",
+    "../../scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_catalog.json",
+    "/app/scripts/knia_fault_ratio/knia_fault_ratio.json",
+    "/app/scripts/knia_fault_ratio/knia_fault_ratio_2023_06.review.json",
     "/app/scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_review.json",
+    "/app/scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_catalog.json",
 )
 
 
@@ -87,6 +97,8 @@ def _score_chart(chart: dict[str, Any], scenario_type: str | None, query_terms: 
     confidence = chart.get("parsing_confidence")
     if isinstance(confidence, (int, float)):
         score += max(0.0, min(float(confidence), 1.0)) * 0.12
+    query_text = normalize_text(" ".join(query_terms or []))
+    score += _local_special_boost(chart, query_text, canonicalize_party_type(chart.get("major_party_type") or chart.get("accident_party_type")))
     return round(score, 4)
 
 
@@ -283,7 +295,15 @@ def search_knia_fault_charts(
         key=lambda item: (_score_chart(item, scenario_type, query_terms or []), str(item.get("chart_no") or "")),
         reverse=True,
     )
-    return ranked[:capped]
+    if ranked:
+        return ranked[:capped]
+    local_hits = search_local_charts(
+        " ".join(query_terms or []),
+        major_party_type=party if party != "unknown" else None,
+        scenario_type=scenario_type,
+        limit=capped,
+    )
+    return [_normalize_chart_row(_local_chart_to_row(hit["chart"], hit)) for hit in local_hits[:capped]]
 
 
 def list_knia_fault_charts_by_party(party_type: str | None, limit: int = 20) -> list[dict[str, Any]]:
@@ -500,6 +520,14 @@ def _normalize_chart_row(row: dict[str, Any]) -> dict[str, Any]:
     base_b = row.get("base_fault_b")
     if base_a is None or base_b is None:
         base_a, base_b = _base_fault_pair(base_fault)
+    source_url = str(row.get("source_url") or "").strip()
+    source_is_fallback = bool(row.get("source_url_is_fallback"))
+    if not source_url or source_url.rstrip("/") == BASE_URL:
+        source_url, source_is_fallback = build_knia_source_url(row)
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    menu_path = row.get("menu_path") or metadata.get("menu_path")
+    if not menu_path:
+        menu_path = build_menu_path_for_chart(row)
     return {
         **row,
         "major_party_type": major,
@@ -510,9 +538,281 @@ def _normalize_chart_row(row: dict[str, Any]) -> dict[str, Any]:
         "base_fault_a": base_a,
         "base_fault_b": base_b,
         "review_required": bool(row.get("review_required", False)),
+        "source_url": source_url,
+        "source_detail_url": row.get("source_detail_url") or source_url,
+        "source_url_is_fallback": source_is_fallback,
+        "menu_path": menu_path,
         "source_type": row.get("source_type") or "knia_structured_chart",
         "source_family": "knia",
     }
+
+
+def normalize_text(value: Any) -> str:
+    return " ".join(re.sub(r"[^0-9A-Za-z가-힣\-\s]", " ", str(value or "")).split()).lower()
+
+
+def tokenize(value: Any) -> list[str]:
+    text = normalize_text(value)
+    return [token for token in text.split() if token]
+
+
+def chart_search_text(chart: dict[str, Any]) -> str:
+    values: list[Any] = [
+        chart.get("chart_no"),
+        chart.get("title"),
+        chart.get("major_party_type"),
+        chart.get("scenario_type"),
+        chart.get("scenario_subtype"),
+        chart.get("accident_situation"),
+        chart.get("base_fault_explanation"),
+        chart.get("usage_notes"),
+        chart.get("raw_text"),
+        chart.get("scenario_tags"),
+        chart.get("vehicle_roles"),
+    ]
+    for subchart in chart.get("subcharts_summary") or []:
+        if isinstance(subchart, dict):
+            values.extend([subchart.get("subchart_no"), subchart.get("title"), subchart.get("source_text"), subchart.get("type")])
+    return normalize_text(" ".join(json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v or "") for v in values))
+
+
+def subchart_search_text(subchart: dict[str, Any]) -> str:
+    return normalize_text(
+        " ".join(
+            str(subchart.get(key) or "")
+            for key in ("subchart_no", "title", "source_text", "type", "label", "description")
+        )
+    )
+
+
+def rag_docs_for_chart(chart_no: str, major_party_type: str | None = None) -> list[dict[str, Any]]:
+    docs: list[dict[str, Any]] = []
+    party = canonicalize_party_type(major_party_type)
+    for doc in _local_rag_documents():
+        if str(doc.get("chart_no") or "") != str(chart_no or ""):
+            continue
+        doc_party = canonicalize_party_type(doc.get("major_party_type") or doc.get("accident_party_type"))
+        if party != "unknown" and doc_party != party:
+            continue
+        docs.append(doc)
+    return docs
+
+
+def search_local_charts(
+    query: str,
+    *,
+    major_party_type: str | None = None,
+    scenario_type: str | None = None,
+    scenario_subtype: str | None = None,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    data = _load_local_json() or {}
+    party = canonicalize_party_type(major_party_type)
+    query_text = normalize_text(query)
+    query_tokens = set(tokenize(query_text))
+    results: list[dict[str, Any]] = []
+    for chart in data.get("charts") or []:
+        if not isinstance(chart, dict):
+            continue
+        chart_party = canonicalize_party_type(chart.get("major_party_type") or _party_from_chart_no_local(chart.get("chart_no")))
+        if party != "unknown" and chart_party != party:
+            continue
+        text = chart_search_text(chart)
+        score = 0.0
+        if scenario_type and chart.get("scenario_type") == scenario_type:
+            score += 3.0
+        elif scenario_type and _scenario_family_compatible(scenario_type, chart.get("scenario_type"), chart.get("scenario_subtype")):
+            score += 1.6
+        if scenario_subtype and chart.get("scenario_subtype") == scenario_subtype:
+            score += 1.2
+        for token in query_tokens:
+            if token and token in text:
+                score += 0.25
+        score += _local_special_boost(chart, query_text, chart_party)
+        best_subchart = _best_local_subchart(chart, query_text)
+        if best_subchart:
+            score += float(best_subchart.get("_score") or 0.0)
+        if score <= 0 and party != "unknown":
+            score = 0.05
+        if score <= 0:
+            continue
+        source_url, is_fallback = build_knia_source_url(chart, best_subchart)
+        menu_path = build_menu_path_for_chart(chart, best_subchart)
+        chart_copy = {
+            **chart,
+            "major_party_type": chart_party,
+            "source_url": source_url,
+            "source_detail_url": chart.get("source_detail_url") or source_url,
+            "source_url_is_fallback": is_fallback,
+            "menu_path": menu_path,
+        }
+        results.append(
+            {
+                "chart": chart_copy,
+                "subchart": best_subchart,
+                "score": round(score, 4),
+                "rag_documents": rag_docs_for_chart(str(chart.get("chart_no") or ""), chart_party),
+                "menu_path": menu_path,
+                "source_url": source_url,
+                "source_url_is_fallback": is_fallback,
+            }
+        )
+    return sorted(results, key=lambda item: (float(item.get("score") or 0.0), str((item.get("chart") or {}).get("chart_no") or "")), reverse=True)[: max(1, int(limit or 5))]
+
+
+def search_local_subcharts(
+    query: str,
+    *,
+    major_party_type: str | None = None,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    hits: list[dict[str, Any]] = []
+    for result in search_local_charts(query, major_party_type=major_party_type, limit=50):
+        chart = result.get("chart") or {}
+        for subchart in chart.get("subcharts_summary") or []:
+            if not isinstance(subchart, dict):
+                continue
+            score = _score_subchart(subchart, normalize_text(query))
+            if score <= 0:
+                continue
+            source_url, is_fallback = build_knia_source_url(chart, subchart)
+            hits.append({**result, "subchart": subchart, "score": round(float(result.get("score") or 0) + score, 4), "source_url": source_url, "source_url_is_fallback": is_fallback})
+    return sorted(hits, key=lambda item: float(item.get("score") or 0.0), reverse=True)[: max(1, int(limit or 5))]
+
+
+def build_knia_source_url(chart: dict[str, Any], subchart: dict[str, Any] | None = None) -> tuple[str, bool]:
+    for item in (subchart, chart):
+        if isinstance(item, dict):
+            for key in ("source_detail_url", "source_url", "href"):
+                url = str(item.get(key) or "").strip()
+                if url:
+                    return url, False
+    chart_no = str((subchart or {}).get("subchart_no") or chart.get("chart_no") or "").strip()
+    encoded = quote(chart_no, safe="")
+    return f"{BASE_URL}/myaccident-content?chartNo={encoded}&chartType=1", True
+
+
+def build_menu_path_for_chart(chart: dict[str, Any], subchart: dict[str, Any] | None = None) -> list[str]:
+    existing = chart.get("menu_path") or chart.get("category_path")
+    if isinstance(existing, list) and existing:
+        path = [str(item) for item in existing if item]
+    else:
+        major = {
+            "car_vs_person": "자동차와 보행자의 사고",
+            "car_vs_car": "자동차와 자동차의 사고",
+            "car_vs_bicycle": "자동차와 자전거의 사고",
+            "car_vs_motorcycle": "자동차와 이륜차의 사고",
+            "car_vs_object": "자동차와 기물의 사고",
+            "single_vehicle": "차량 단독 사고",
+        }.get(canonicalize_party_type(chart.get("major_party_type")), "KNIA 과실비율 인정기준")
+        path = [major]
+        chart_no = str(chart.get("chart_no") or "")
+        subtype = str(chart.get("scenario_subtype") or "")
+        title = str(chart.get("title") or "")
+        if chart_no.startswith("보25"):
+            path.extend(["횡단보도 없음 또는 기타 사고유형", "보도와 차도 구분 있음", "보행자의 차도보행중 사고(보도 공사중)"])
+        elif chart_no.startswith(("보27", "보28")):
+            path.extend(["횡단보도 없음 또는 기타 사고유형", "보도와 차도 구분 없음", title])
+        elif chart_no.startswith("보30"):
+            path.extend(["기타 사고유형", "보행자 위험행위 사고"])
+        elif chart_no.startswith(("보22", "보23")):
+            path.extend(["도로 유형별 횡단 중 사고", title])
+        elif chart_no.startswith("차7"):
+            path.extend(["교차로(+자로, T자로 등) 사고", "한쪽 지시표지 있는 교차로", "직진 대 직진"])
+        elif chart_no.startswith("차43"):
+            path.extend(["같은 방향 진행차량 상호 간의 사고", "진로변경 사고"])
+        elif chart_no.startswith("차41"):
+            path.extend(["같은 방향 진행차량 상호 간의 사고", "안전거리미확보로 인한 추돌사고"])
+        elif chart_no.startswith("차42"):
+            path.extend(["같은 방향 진행차량 상호 간의 사고", "주정차 차량 추돌사고"])
+        elif subtype:
+            path.append(subtype)
+        elif title:
+            path.append(title)
+    subchart_no = str((subchart or {}).get("subchart_no") or "")
+    if subchart_no and subchart_no not in path[-1:]:
+        path.append(f"{subchart_no} {str((subchart or {}).get('title') or '').strip()}".strip())
+    return path
+
+
+def _scenario_family_compatible(requested: str | None, chart_scenario: Any, chart_subtype: Any) -> bool:
+    requested_text = str(requested or "")
+    chart_text = " ".join([str(chart_scenario or ""), str(chart_subtype or "")])
+    if requested_text in {"pedestrian_roadway_worker_accident", "pedestrian_road_work_worker_accident", "pedestrian_accident"}:
+        return "pedestrian" in chart_text
+    if requested_text == "intersection_collision":
+        return "intersection" in chart_text
+    if requested_text == "stealth_illegal_parked_vehicle_collision":
+        return "parking" in chart_text or "stopped" in chart_text
+    return requested_text and requested_text.split("_")[0] in chart_text
+
+
+def _local_special_boost(chart: dict[str, Any], query_text: str, party: str) -> float:
+    chart_no = str(chart.get("chart_no") or "")
+    boost = 0.0
+    if party == "car_vs_person" and any(token in query_text for token in ("공사", "작업자", "도로 폭", "차도", "튀어나", "뛰어나", "차량을 보지 않고")):
+        if chart_no == "보25":
+            boost += 4.0
+        elif chart_no == "보27":
+            boost += 3.5
+        elif chart_no == "보28":
+            boost += 3.0
+        elif chart_no == "보30":
+            boost += 2.5
+        elif chart_no == "보34":
+            boost += 1.5
+        elif chart_no in {"보22", "보23"}:
+            boost += 1.2
+    if any(token in query_text for token in ("한쪽 지시표지", "지시표지", "직진 대 직진", "측면 진입", "차7", "차7-1")) and chart_no == "차7":
+        boost += 5.0
+    if any(token in query_text for token in ("차선변경", "차로변경", "진로변경", "끼어들기")) and chart_no == "차43":
+        boost += 5.0
+    if any(token in query_text for token in ("앞차를 들이받", "앞차 추돌", "안전거리", "후미추돌")) and chart_no == "차41":
+        boost += 5.0
+    if any(token in query_text for token in ("주차차량", "정차차량", "스텔스", "무등화", "주정차")) and chart_no == "차42":
+        boost += 5.0
+    return boost
+
+
+def _best_local_subchart(chart: dict[str, Any], query_text: str) -> dict[str, Any] | None:
+    scored: list[tuple[float, dict[str, Any]]] = []
+    for subchart in chart.get("subcharts_summary") or []:
+        if isinstance(subchart, dict):
+            score = _score_subchart(subchart, query_text)
+            if score > 0:
+                scored.append((score, {**subchart, "_score": score}))
+    if not scored:
+        return None
+    return sorted(scored, key=lambda item: item[0], reverse=True)[0][1]
+
+
+def _score_subchart(subchart: dict[str, Any], query_text: str) -> float:
+    sub_no = str(subchart.get("subchart_no") or "")
+    text = subchart_search_text(subchart)
+    score = 0.0
+    if sub_no and sub_no.lower() in query_text:
+        score += 3.0
+    if sub_no == "차7-1" and any(token in query_text for token in ("한쪽 지시표지", "지시표지", "녹색", "적색", "직진")):
+        score += 6.0
+    for token in tokenize(query_text):
+        if token in text:
+            score += 0.15
+    return score
+
+
+def _party_from_chart_no_local(chart_no: Any) -> str:
+    value = str(chart_no or "")
+    if value.startswith("보"):
+        return "car_vs_person"
+    if value.startswith("차"):
+        return "car_vs_car"
+    if value.startswith(("거", "자")):
+        return "car_vs_bicycle"
+    if value.startswith("기"):
+        return "car_vs_object"
+    if value.startswith("단"):
+        return "single_vehicle"
+    return "unknown"
 
 
 def _load_local_json() -> dict[str, Any] | None:
@@ -520,7 +820,9 @@ def _load_local_json() -> dict[str, Any] | None:
         path = Path(candidate)
         if path.exists() and path.is_file():
             with path.open("r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+            if isinstance(data.get("charts"), list) and data.get("charts"):
+                return data
     return None
 
 
@@ -551,13 +853,22 @@ def _local_rag_documents() -> list[dict[str, Any]]:
     return list(data.get("rag_documents") or [])
 
 
-def _local_chart_to_row(chart: dict[str, Any]) -> dict[str, Any]:
+def _local_chart_to_row(chart: dict[str, Any], search_result: dict[str, Any] | None = None) -> dict[str, Any]:
     base_a, base_b = _base_fault_pair(chart.get("base_fault"))
     major = canonicalize_party_type(chart.get("major_party_type"))
+    source_url, source_url_is_fallback = (
+        (search_result or {}).get("source_url"),
+        bool((search_result or {}).get("source_url_is_fallback")),
+    )
+    if not source_url:
+        source_url, source_url_is_fallback = build_knia_source_url(chart)
+    menu_path = (search_result or {}).get("menu_path") or build_menu_path_for_chart(chart)
+    selected_subchart = (search_result or {}).get("subchart") or {}
     return {
         "id": f"local-json:{chart.get('chart_no')}",
         "document_id": "local-codex-review-json",
         "chart_no": chart.get("chart_no"),
+        "subchart_no": selected_subchart.get("subchart_no"),
         "chart_type": chart.get("chart_type") or "1",
         "title": chart.get("title"),
         "major_party_type": major,
@@ -582,11 +893,17 @@ def _local_chart_to_row(chart: dict[str, Any]) -> dict[str, Any]:
         "base_fault_a": base_a,
         "base_fault_b": base_b,
         "adjustment_factors": chart.get("adjustments") or [],
-        "source_url": chart.get("source_url") or BASE_URL,
-        "source_detail_url": chart.get("source_detail_url") or BASE_URL,
+        "source_url": source_url,
+        "source_detail_url": chart.get("source_detail_url") or source_url,
+        "source_url_is_fallback": source_url_is_fallback,
+        "menu_path": menu_path,
+        "rag_documents": (search_result or {}).get("rag_documents") or [],
         "metadata": {
             "scenario_tags": chart.get("scenario_tags") or [],
             "chart_prefix": chart.get("chart_prefix"),
             "source": "local_codex_review_json",
+            "menu_path": menu_path,
+            "source_url_is_fallback": source_url_is_fallback,
+            "subchart": selected_subchart,
         },
     }

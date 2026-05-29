@@ -92,3 +92,28 @@ class AnalysisOutput(BaseModel):
     suggested_next_inputs: list[str] = []
     model_info: dict[str, Any]
     elderly_friendly_report: dict[str, Any] = Field(default_factory=dict)
+
+
+class VideoOnlyMlkitDemoRequest(BaseModel):
+    case_id: str | None = None
+    upload_id: str | None = None
+    video_metadata: dict[str, Any] = Field(default_factory=dict)
+    observations: list[dict[str, Any]] = Field(default_factory=list)
+    client_pre_observations: dict[str, Any] = Field(default_factory=dict)
+    description_text: str | None = None
+    mode: str | None = None
+
+
+class VideoOnlyMlkitDemoResponse(BaseModel):
+    mode: str | None = None
+    status: str = "ok"
+    summary: str | None = None
+    observations: list[dict[str, Any]] = Field(default_factory=list)
+    facts: dict[str, Any] = Field(default_factory=dict)
+    trace_id: str | None = None
+    analysis_readiness: dict[str, Any] = Field(default_factory=dict)
+    observation_summary: dict[str, Any] = Field(default_factory=dict)
+    video_observation_summary: dict[str, Any] = Field(default_factory=dict)
+    candidate_accident_context: dict[str, Any] = Field(default_factory=dict)
+    fault_ratio_result: dict[str, Any] = Field(default_factory=dict)
+    forbidden_field_paths: list[str] = Field(default_factory=list)

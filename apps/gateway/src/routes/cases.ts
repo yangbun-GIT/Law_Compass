@@ -12,6 +12,25 @@ function trace(req: FastifyRequest) {
   return (req.headers["x-correlation-id"] as string) || randomUUID();
 }
 
+function normalizeAnalysisMode(mode: any) {
+  const value = String(mode || "").trim();
+
+  if (
+    value === "expert" ||
+    value === "legal_precedent_focused" ||
+    value === "full_deep_research" ||
+    value === "deep_research" ||
+    value === "debug" ||
+    value === "legal-focused" ||
+    value === "criminal-liability-focused" ||
+    value === "evidence-review"
+  ) {
+    return "expert";
+  }
+
+  return "user_friendly";
+}
+
 export function registerCaseRoutes(app: FastifyInstance, opts: CaseRouteOptions) {
   app.post(`${opts.apiPrefix}/cases`, {
     schema: {
@@ -44,7 +63,7 @@ export function registerCaseRoutes(app: FastifyInstance, opts: CaseRouteOptions)
         body.location_text ?? null,
         JSON.stringify(body.structured_facts ?? {}),
         body.selected_keywords ?? [],
-        body.analysis_mode ?? "quick_summary"
+        normalizeAnalysisMode(body.analysis_mode ?? "user_friendly")
       ]
     );
     return { case: result.rows[0], trace_id: traceId };
@@ -94,7 +113,7 @@ export function registerCaseRoutes(app: FastifyInstance, opts: CaseRouteOptions)
         body.location_text ?? null,
         body.structured_facts ? JSON.stringify(body.structured_facts) : null,
         body.selected_keywords ?? null,
-        body.analysis_mode ?? null
+        body.analysis_mode === undefined ? null : normalizeAnalysisMode(body.analysis_mode)
       ]
     );
     if (!updated.rowCount) return reply.code(404).send(opts.errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));

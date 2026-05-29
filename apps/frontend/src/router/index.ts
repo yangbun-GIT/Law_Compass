@@ -12,23 +12,36 @@ import AdminAgentTestView from "../views/AdminAgentTestView.vue";
 import { pinia } from "../stores";
 import { useSessionStore } from "../stores/session";
 
+const appDemoEnabled = import.meta.env.VITE_ENABLE_APP_DEMO === "true";
+const appDemoRoute = import.meta.env.VITE_APP_DEMO_ROUTE || "/app-demo/mlkit";
+
+const routes: any[] = [
+  { path: "/", component: DashboardView, meta: { requiresAuth: true } },
+  { path: "/login", component: LoginView },
+  { path: "/signup", component: SignupView },
+  { path: "/cases/new", component: CaseCreateView, meta: { requiresAuth: true } },
+  { path: "/cases/:caseId", component: CaseDetailView, meta: { requiresAuth: true } },
+  { path: "/cases/:caseId/wizard", redirect: (to: any) => `/cases/${to.params.caseId}` },
+  { path: "/cases/:caseId/result", component: CaseResultView, meta: { requiresAuth: true } },
+  { path: "/evidence/:chunkId", component: EvidenceDetailView, meta: { requiresAuth: true } },
+  { path: "/knia/ranking", component: KniaRankingView, meta: { requiresAuth: true } },
+  { path: "/knia/myaccident", redirect: "/knia/ranking", meta: { requiresAuth: true } },
+  { path: "/knia/myaccident/:myaccidentNo", redirect: "/knia/ranking", meta: { requiresAuth: true } },
+  { path: "/knia/charts/:chartNo", component: KniaChartView, meta: { requiresAuth: true } },
+  { path: "/admin/agent-test", component: AdminAgentTestView, meta: { requiresAuth: true, requiresAdmin: true } }
+];
+
+if (appDemoEnabled) {
+  routes.push({
+    path: appDemoRoute,
+    component: () => import("../views/AppMlKitDemoView.vue"),
+    meta: { requiresAuth: true, appDemoOnly: true },
+  });
+}
+
 export const router = createRouter({
   history: createWebHistory(),
-  routes: [
-    { path: "/", component: DashboardView, meta: { requiresAuth: true } },
-    { path: "/login", component: LoginView },
-    { path: "/signup", component: SignupView },
-    { path: "/cases/new", component: CaseCreateView, meta: { requiresAuth: true } },
-    { path: "/cases/:caseId", component: CaseDetailView, meta: { requiresAuth: true } },
-    { path: "/cases/:caseId/wizard", redirect: (to) => `/cases/${to.params.caseId}` },
-    { path: "/cases/:caseId/result", component: CaseResultView, meta: { requiresAuth: true } },
-    { path: "/evidence/:chunkId", component: EvidenceDetailView, meta: { requiresAuth: true } },
-    { path: "/knia/ranking", component: KniaRankingView, meta: { requiresAuth: true } },
-    { path: "/knia/myaccident", redirect: "/knia/ranking", meta: { requiresAuth: true } },
-    { path: "/knia/myaccident/:myaccidentNo", redirect: "/knia/ranking", meta: { requiresAuth: true } },
-    { path: "/knia/charts/:chartNo", component: KniaChartView, meta: { requiresAuth: true } },
-    { path: "/admin/agent-test", component: AdminAgentTestView, meta: { requiresAuth: true, requiresAdmin: true } }
-  ]
+  routes
 });
 
 router.beforeEach(async (to) => {

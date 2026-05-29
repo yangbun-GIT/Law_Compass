@@ -29,6 +29,25 @@ export {
   publicStatusLabel,
 } from "../services/analysisService.js";
 
+function normalizeAnalysisMode(mode: any) {
+  const value = String(mode || "").trim();
+
+  if (
+    value === "expert" ||
+    value === "legal_precedent_focused" ||
+    value === "full_deep_research" ||
+    value === "deep_research" ||
+    value === "debug" ||
+    value === "legal-focused" ||
+    value === "criminal-liability-focused" ||
+    value === "evidence-review"
+  ) {
+    return "expert";
+  }
+
+  return "user_friendly";
+}
+
 export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRouteOptions) {
   app.post(`${opts.apiPrefix}/cases/:caseId/analyze-text`, async (req, reply) => {
     if (!requireUser(req as any, reply)) return;
@@ -47,7 +66,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
         description_text: maskSensitive(body?.description_text ?? caseRow.rows[0].description_text ?? ""),
         structured_facts: body?.structured_facts ?? caseRow.rows[0].structured_facts ?? {},
         selected_keywords: body?.selected_keywords ?? caseRow.rows[0].selected_keywords ?? [],
-        analysis_mode: body?.analysis_mode ?? caseRow.rows[0].analysis_mode ?? "quick_summary",
+        analysis_mode: normalizeAnalysisMode(body?.analysis_mode ?? caseRow.rows[0].analysis_mode ?? "user_friendly"),
         ai_profile: body?.ai_profile,
         specialist_roles: body?.specialist_roles
       }, traceId, { baseUrl: opts.agentUrl, internalToken: opts.internalToken, timeoutMs: opts.analyzeTimeoutMs, retryCount: opts.retryCount });
@@ -108,7 +127,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
         video_metadata: body.video_metadata ?? {},
         structured_facts: body.structured_facts ?? {},
         selected_keywords: body.selected_keywords ?? [],
-        analysis_mode: body.analysis_mode ?? "quick_summary"
+        analysis_mode: normalizeAnalysisMode(body.analysis_mode ?? "user_friendly")
       })]
     );
     await opts.redis.xadd(process.env.REDIS_STREAM_KEY ?? "jobs:v1:stream", "MAXLEN", "~", "10000", "*", "job_id", job.rows[0].id, "job_type", "video_analyze");
@@ -246,7 +265,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     };
     const descriptionText = maskSensitive(body?.description_text ?? currentCase.description_text ?? "");
     const selectedKeywords = body?.selected_keywords ?? currentCase.selected_keywords ?? [];
-    const analysisMode = body?.analysis_mode ?? currentCase.analysis_mode ?? "quick_summary";
+    const analysisMode = normalizeAnalysisMode(body?.analysis_mode ?? currentCase.analysis_mode ?? "user_friendly");
     const latestUpload = await opts.db.query(
       `SELECT metadata,file_name,status,preprocess_summary
        FROM uploads

@@ -800,7 +800,7 @@ def test_analysis_mode_does_not_become_scenario_text():
         analysis_mode="rear-end-focused",
     )
 
-    assert normalized["analysis_mode"] == "quick_summary"
+    assert normalized["analysis_mode"] == "user_friendly"
     assert "rear-end-focused" not in normalized["merged_text"]
 
 

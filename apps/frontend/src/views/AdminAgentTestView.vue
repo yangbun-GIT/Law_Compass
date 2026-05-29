@@ -148,6 +148,7 @@
     <EasyReportView
       v-if="report"
       :report="report"
+      :analysis-mode="analysisMode"
       :followup-submitting="reanalyzing"
       :followup-error="followupError"
       @submit-followup="submitFollowup"
@@ -176,12 +177,8 @@ const modeOptions: { value: TestMode; label: string; description: string }[] = [
 ];
 
 const analysisModeOptions = [
-  { value: "quick_summary", label: "빠른 요약" },
-  { value: "fault-focused", label: "과실비율 중심" },
-  { value: "legal-focused", label: "법률/판례 근거 중심" },
-  { value: "criminal-liability-focused", label: "형사 리스크 중심" },
-  { value: "insurance-focused", label: "보험/대응 중심" },
-  { value: "evidence-review", label: "증거 보강 중심" }
+  { value: "user_friendly", label: "일반사용자모드" },
+  { value: "expert", label: "전문가모드" }
 ];
 
 const partyTypeOptions = [
@@ -216,7 +213,7 @@ const FAILED_JOB_STATUSES = new Set(["failed", "cancelled"]);
 const mode = ref<TestMode>("video");
 const title = ref("관리자 Agent 테스트");
 const description = ref("");
-const analysisMode = ref("quick_summary");
+const analysisMode = ref("user_friendly");
 const facts = reactive<AccidentFacts>({});
 const file = ref<File | null>(null);
 const currentCaseId = ref("");

@@ -15,10 +15,11 @@ from app.services.knia.knia_json_loader import import_knia_json
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", default=None)
+    parser.add_argument("--json", dest="json_path", default=None)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--rebuild-embeddings", action="store_true")
     args = parser.parse_args()
-    result = import_knia_json(args.path, force=args.force, rebuild_embeddings=args.rebuild_embeddings)
+    result = import_knia_json(args.json_path or args.path, force=args.force, rebuild_embeddings=args.rebuild_embeddings)
     summary_keys = [
         "charts_total",
         "charts_imported",

@@ -10,6 +10,7 @@ from app.routers.internal_routes import (
     jobs_router,
     knia_router,
     legal_router,
+    mobile_demo_router,
 )
 
 router = APIRouter(prefix="/internal/v1", tags=["internal"])
@@ -21,3 +22,4 @@ router.include_router(legal_router)
 router.include_router(chat_router)
 router.include_router(knia_router)
 router.include_router(cache_router)
+router.include_router(mobile_demo_router)

@@ -48,7 +48,7 @@ def handle_chat_message(payload: dict[str, Any]) -> dict[str, Any]:
             "description_text": message,
             "structured_facts": {"accident_type": "general_collision", "injury": None, "signal_state": "unknown"},
             "selected_keywords": ["교통사고", "블랙박스", "보험접수"],
-            "analysis_mode": "quick_summary",
+            "analysis_mode": "user_friendly",
             "ai_profile": "default_vehicle_collision",
             "followup_questions": ["사고 유형은 무엇인가요?", "다친 사람이 있나요?", "블랙박스 영상이 있나요?"],
         }
