@@ -94,24 +94,49 @@
       </div>
 
       <div v-else-if="guidedStep === 'questions'" class="guided-panel">
-        <h3>과실비율에 영향을 줄 수 있는 점을 확인할게요</h3>
+        <div class="guided-question-header">
+          <div>
+            <p class="eyebrow">확인 질문</p>
+            <h3>과실비율에 영향을 줄 수 있는 점을 하나씩 확인할게요</h3>
+          </div>
+          <span class="guided-question-counter">
+            질문 {{ Math.min(currentGuidedQuestionIndex + 1, totalGuidedQuestionCount || 1) }} / {{ totalGuidedQuestionCount || 1 }}
+          </span>
+        </div>
 
-        <div class="guided-question-list">
+        <div class="progress-bar guided-question-progress" aria-hidden="true">
+          <div class="progress-fill" :style="{ width: `${guidedQuestionProgressPercent}%` }"></div>
+        </div>
+
+        <div v-if="guidedQuestions.length" class="guided-answer-summary" aria-label="답변한 확인 질문">
+          <button
+              v-for="(question, index) in guidedQuestions"
+              :key="guidedQuestionId(question)"
+              type="button"
+              class="chip"
+              :class="{ selected: !!guidedAnswers[guidedQuestionId(question)] }"
+              @click="goToGuidedQuestion(index)"
+          >
+            {{ index + 1 }}. {{ guidedAnswers[guidedQuestionId(question)] ? "답변 완료" : "대기" }}
+          </button>
+        </div>
+
+        <div class="guided-question-stage">
           <article
-              v-for="question in guidedQuestions"
-              :key="question.question_id || question.field"
-              class="guided-question"
+              v-for="question in visibleGuidedQuestions"
+              :key="guidedQuestionId(question)"
+              class="guided-question guided-question-card"
           >
             <p class="kv">{{ question.title || question.label }}</p>
-            <h4>{{ question.plain_question || question.question }}</h4>
+            <h4 class="guided-question-title">{{ question.plain_question || question.question }}</h4>
             <p>{{ question.why_it_matters || question.priority_reason || "답하기 어려우면 잘 모르겠어요를 선택해도 됩니다." }}</p>
 
-            <div class="chips">
+            <div class="guided-question-options">
               <button
                   v-for="choice in question.choices || question.options || ['예', '아니오', '잘 모르겠어요']"
                   :key="choice.value || choice"
-                  class="chip"
-                  :class="{ selected: guidedAnswers[question.question_id] === (choice.value || choice) }"
+                  class="guided-question-option"
+                  :class="{ 'is-selected': guidedAnswers[guidedQuestionId(question)] === (choice.value || choice) }"
                   type="button"
                   @click="answerGuidedQuestion(question, choice.value || choice)"
               >
@@ -121,8 +146,9 @@
           </article>
         </div>
 
-        <div class="btn-row">
-          <button class="btn" :disabled="!!busy" @click="startGuidedAnalysis">이대로 분석하기</button>
+        <div class="guided-question-actions btn-row">
+          <button class="btn secondary" type="button" :disabled="currentGuidedQuestionIndex <= 0" @click="previousGuidedQuestion">이전 질문</button>
+          <button class="btn" :disabled="!!busy || !allGuidedQuestionsAnswered" @click="startGuidedAnalysis">이대로 분석하기</button>
         </div>
       </div>
 
@@ -326,9 +352,14 @@ const {
   busy,
   guidedStep,
   guidedAnswers,
+  currentGuidedQuestionIndex,
   guidedAccidentTypeOptions,
   guidedAnalysisModes,
   guidedQuestions,
+  visibleGuidedQuestions,
+  totalGuidedQuestionCount,
+  guidedQuestionProgressPercent,
+  allGuidedQuestionsAnswered,
   analyzeText,
   analyzeVideo,
   completeUpload,
@@ -347,6 +378,9 @@ const {
   selectAccidentType,
   selectGuidedAnalysisMode,
   answerGuidedQuestion,
+  guidedQuestionId,
+  goToGuidedQuestion,
+  previousGuidedQuestion,
   startGuidedAnalysis,
   statusClass,
   statusLabel,

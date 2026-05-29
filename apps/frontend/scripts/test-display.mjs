@@ -63,7 +63,7 @@ if (missingSanitizerContracts.length) {
   process.exit(1);
 }
 const publicUserFiles = [dashboardView, caseDetailView, easyReportView, caseWorkspaceGuidanceData].join("\n");
-const forbiddenPublicPhrases = ["직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.", "관련성이 있는 근거입니다.", "교통사고 법률 설명 자료", "=4, =4."];
+const forbiddenPublicPhrases = ["직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.", "관련성이 있는 근거입니다.", "교통사고 법률 설명 자료", "=4, =4.", "=9", ", ="];
 const publicPhraseLeaks = forbiddenPublicPhrases.filter((token) => publicUserFiles.includes(token));
 if (publicPhraseLeaks.length) {
   console.error("public display exposes internal wording", publicPhraseLeaks);
@@ -145,6 +145,19 @@ if (relatedVideoCard.includes("<img") || kniaVideoLinkCard.includes("<img")) {
   console.error("KNIA link cards must not render default thumbnails as images");
   process.exit(1);
 }
+const userFriendlyKniaContracts = [
+  "관련 KNIA 근거 및 영상",
+  "RelatedVideoCard v-if=\"simpleKniaLinkCard\"",
+  "simple_report?.knia_and_video?.primary",
+  "KNIA 관련 영상 보기",
+  "KNIA 원문 기준 보기",
+  "상세 기준 수집 필요",
+];
+const missingUserFriendlyKnia = userFriendlyKniaContracts.filter((token) => !easyReportView.includes(token) && !kniaVideoLinkCard.includes(token));
+if (missingUserFriendlyKnia.length) {
+  console.error("user-friendly KNIA display contract failed", missingUserFriendlyKnia);
+  process.exit(1);
+}
 
 const guidedFlowContracts = [
   "어떤 사고에 가장 가까운가요?",
@@ -195,6 +208,19 @@ const hiddenDeveloperTerms = ["Local video verified", "duration=", "resolution="
 const visibleLeaks = hiddenDeveloperTerms.filter((token) => defaultCaseDetail.includes(token));
 if (visibleLeaks.length) {
   console.error("default guided flow exposes technical terms", visibleLeaks);
+  process.exit(1);
+}
+
+if (useCaseWorkspace.includes("shouldProbeReport") || useCaseWorkspace.includes("progressPercent.value >= 75 ||")) {
+  console.error("guided polling must not probe easy-report from a 75 percent heuristic");
+  process.exit(1);
+}
+if (useCaseWorkspace.includes("Promise.all([loadReport(), loadProgress()])")) {
+  console.error("guided polling must keep easy-report and analysis-progress polling separated");
+  process.exit(1);
+}
+if (!caseWorkspaceGuidanceData.includes('"dead"')) {
+  console.error("guided polling must treat dead jobs as failed jobs");
   process.exit(1);
 }
 

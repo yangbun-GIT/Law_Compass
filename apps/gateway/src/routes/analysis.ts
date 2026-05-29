@@ -48,6 +48,8 @@ function normalizeAnalysisMode(mode: any) {
   return "user_friendly";
 }
 
+const ACTIVE_ANALYSIS_JOB_STATUSES = ["queued", "running", "retrying", "processing", "analyzing"];
+
 export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRouteOptions) {
   app.post(`${opts.apiPrefix}/cases/:caseId/analyze-text`, async (req, reply) => {
     if (!requireUser(req as any, reply)) return;
@@ -108,6 +110,41 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     if (!caseRow.rowCount) return reply.code(404).send(opts.errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
     const uploadRow = await opts.db.query(`SELECT id FROM uploads WHERE id=$1 AND case_id=$2 AND owner_user_id=$3 AND deleted_at IS NULL`, [body.upload_id, caseId, (req as any).user.id]);
     if (!uploadRow.rowCount) return reply.code(404).send(opts.errorPayload("UPLOAD_NOT_FOUND", "업로드를 찾을 수 없습니다.", traceId));
+    const existingResult = await opts.db.query(
+      `SELECT id FROM analysis_results
+       WHERE case_id=$1 AND owner_user_id=$2
+       ORDER BY version DESC LIMIT 1`,
+      [caseId, (req as any).user.id]
+    );
+    if (existingResult.rowCount) {
+      return {
+        status: "completed",
+        result_ready: true,
+        can_show_result: true,
+        result_id: existingResult.rows[0].id,
+        trace_id: traceId,
+      };
+    }
+    const existingJob = await opts.db.query(
+      `SELECT id,status FROM jobs
+       WHERE case_id=$1
+         AND upload_id=$2
+         AND owner_user_id=$3
+         AND type='video_analyze'
+         AND status::text = ANY($4::text[])
+       ORDER BY created_at DESC LIMIT 1`,
+      [caseId, body.upload_id, (req as any).user.id, ACTIVE_ANALYSIS_JOB_STATUSES]
+    );
+    if (existingJob.rowCount) {
+      return {
+        job_id: existingJob.rows[0].id,
+        status: existingJob.rows[0].status,
+        reused: true,
+        result_ready: false,
+        can_show_result: false,
+        trace_id: traceId,
+      };
+    }
     const uploadFull = await opts.db.query(`SELECT file_name, metadata FROM uploads WHERE id=$1`, [body.upload_id]);
     const route = selectVideoAiRoute({
       caseTitle: caseRow.rows[0].title ?? "",
@@ -151,7 +188,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     const traceId = trace(req);
     const { caseId } = req.params as any;
     const caseRow = await opts.db.query(
-      `SELECT id,status FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`,
+      `SELECT id,status,latest_result_id FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`,
       [caseId, (req as any).user.id]
     );
     if (!caseRow.rowCount) return reply.code(404).send(opts.errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
@@ -168,7 +205,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     );
     return {
       ...composeGuidedProgressPayload(caseRow.rows[0], jobs.rows, {
-        resultReady: latestResult.rowCount > 0,
+        resultReady: latestResult.rowCount > 0 || Boolean(caseRow.rows[0]?.latest_result_id),
       }),
       trace_id: traceId
     };

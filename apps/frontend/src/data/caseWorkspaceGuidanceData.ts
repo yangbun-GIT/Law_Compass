@@ -30,7 +30,7 @@ export type GuidedQuestionType =
 export const DEFAULT_KEYWORDS = ["블랙박스", "과실비율", "교통사고", "보험처리"];
 export const RUNNING_JOB_STATUSES = ["queued", "running", "retrying", "processing", "analyzing"];
 export const FINISHED_JOB_STATUSES = ["completed", "succeeded", "success", "done", "finished"];
-export const FAILED_JOB_STATUSES = ["failed", "error", "cancelled", "canceled"];
+export const FAILED_JOB_STATUSES = ["failed", "error", "cancelled", "canceled", "dead"];
 export const REPORT_READY_RETRY_LIMIT = 30;
 export const REPORT_READY_RETRY_DELAY_MS = 1000;
 

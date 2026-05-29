@@ -1,5 +1,6 @@
 ﻿import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { api, formatApiError, type AccidentFacts, type CaseItem, type UploadItem } from "../api/client";
+import { useRoute, useRouter } from "vue-router";
 import { formatDate, prettySize, statusClass, statusLabel } from "./caseWorkspaceFormatters";
 import {
     DEFAULT_KEYWORDS,
@@ -56,6 +57,8 @@ function normalizeAnalysisMode(mode?: string | null) {
 }
 
 export function useCaseWorkspace(caseId: string) {
+    const route = useRoute();
+    const router = useRouter();
     const caseData = ref<CaseItem | null>(null);
     const descriptionText = ref("");
     const facts = ref<AccidentFacts>({ injury: null });
@@ -84,7 +87,11 @@ export function useCaseWorkspace(caseId: string) {
     const busy = ref<CaseWorkspaceBusyState>("");
     const guidedStep = ref<GuidedStep>("input");
     const guidedAnswers = ref<Record<string, string>>({});
+    const currentGuidedQuestionIndex = ref(0);
     let pollTimer: number | null = null;
+    let pollInFlight = false;
+    let progressInFlight = false;
+    let reportInFlight = false;
 
     const activeUploadId = computed(() => selectedUploadId.value);
     const remainingProgressSteps = computed(() =>
@@ -175,7 +182,7 @@ export function useCaseWorkspace(caseId: string) {
         return Boolean(descriptionText.value.trim() || activeUploadId.value || file.value);
     }
 
-    async function saveCaseInputs() {
+    async function saveCaseInputs(options: { quiet?: boolean } = {}) {
         descriptionText.value = normalizeCaseDescription(descriptionText.value);
 
         busy.value = "save";
@@ -184,7 +191,7 @@ export function useCaseWorkspace(caseId: string) {
             const data = await api.updateCase(caseId, buildCaseInputPayload(payloadInput()));
 
             caseData.value = data.case;
-            showMessage("입력값을 저장했습니다.");
+            if (!options.quiet) showMessage("입력값을 저장했습니다.");
             return true;
         } catch (e: any) {
             showMessage(formatApiError(e, "입력값 저장에 실패했습니다."), false);
@@ -309,32 +316,65 @@ export function useCaseWorkspace(caseId: string) {
         }
     }
 
+    async function navigateToResult() {
+        const targetPath = `/cases/${caseId}/result`;
+        if (route.path === targetPath) return;
+
+        try {
+            await router.push(targetPath);
+        } catch (err) {
+            console.warn("result route navigation failed", err);
+        }
+    }
+
+    async function finalizeIfResultReady(progressData: any) {
+        if (progressData?.failed === true) return false;
+        if (progressData?.result_ready !== true && progressData?.can_show_result !== true) return false;
+
+        stopPolling();
+        markReportReady();
+        resultStreaming.value = false;
+        guidedStep.value = "result";
+        showMessage("분석 결과가 준비되었습니다.");
+
+        if (!isReadyReport(report.value)) {
+            await loadReport();
+        }
+
+        await navigateToResult();
+        return true;
+    }
+
     async function loadProgress() {
+        if (progressInFlight) return progress.value;
+        progressInFlight = true;
+
         try {
             const data = await api.getAnalysisProgress(caseId);
             progress.value = data;
             applyBackendProgress(data);
-
-            if (data?.result_ready === true || data?.can_show_result === true) {
-                await loadReport();
-
-                if (isReadyReport(report.value)) {
-                    markReportReady();
-                    resultStreaming.value = false;
-                    guidedStep.value = "result";
-                }
-            }
+            return data;
         } catch {
             progress.value = null;
+            return null;
+        } finally {
+            progressInFlight = false;
         }
     }
 
     async function loadReport() {
+        if (reportInFlight) return report.value;
+        reportInFlight = true;
+
         try {
             const response = await api.getEasyReport(caseId);
             report.value = getReportPayload(response);
+            return report.value;
         } catch {
             report.value = null;
+            return null;
+        } finally {
+            reportInFlight = false;
         }
     }
 
@@ -353,13 +393,9 @@ export function useCaseWorkspace(caseId: string) {
                 message: `분석 결과를 화면에 맞게 정리하고 있습니다. 잠시만 기다려 주세요. (${attempt + 1}/${retryLimit})`,
             });
 
-            await Promise.all([loadReport(), loadProgress()]);
+            const progressData = await loadProgress();
 
-            if (isReadyReport(report.value)) {
-                markReportReady();
-                guidedStep.value = "result";
-                resultStreaming.value = false;
-                showMessage("분석 결과가 준비되었습니다.");
+            if (await finalizeIfResultReady(progressData)) {
                 return true;
             }
 
@@ -369,13 +405,13 @@ export function useCaseWorkspace(caseId: string) {
         return false;
     }
 
-    async function analyzeText() {
+    async function analyzeText(options: { skipSave?: boolean } = {}) {
         if (!isAnalysisReady()) {
             showMessage("사고 설명을 쓰거나 영상을 먼저 선택해 주세요.", false);
             return;
         }
 
-        if (!(await saveCaseInputs())) return;
+        if (!options.skipSave && !(await saveCaseInputs())) return;
 
         busy.value = "text-analysis";
         analysisStarted.value = true;
@@ -409,9 +445,9 @@ export function useCaseWorkspace(caseId: string) {
         }
     }
 
-    async function analyzeVideo() {
+    async function analyzeVideo(options: { skipSave?: boolean } = {}) {
         if (!activeUploadId.value) return false;
-        if (!(await saveCaseInputs())) return false;
+        if (!options.skipSave && !(await saveCaseInputs())) return false;
 
         busy.value = "video-analysis";
         analysisStarted.value = true;
@@ -434,7 +470,7 @@ export function useCaseWorkspace(caseId: string) {
             });
 
             await loadJobs();
-            await loadProgress();
+            await finalizeIfResultReady(await loadProgress());
             startPollingJobs();
 
             return true;
@@ -491,61 +527,59 @@ export function useCaseWorkspace(caseId: string) {
         stopPolling();
 
         pollTimer = window.setInterval(async () => {
-            await Promise.all([loadJobs(), loadProgress()]);
+            if (pollInFlight) return;
+            pollInFlight = true;
 
-            const hasRunningJob = jobs.value.some(isRunningJob);
-            const hasFailedJob = jobs.value.some(isFailedJob);
-            const hasFinishedJob = jobs.value.some(isFinishedJob);
-            const shouldProbeReport =
-                progress.value?.result_ready === true ||
-                progress.value?.can_show_result === true ||
-                progressPercent.value >= 75 ||
-                hasFinishedJob;
+            try {
+                await loadJobs();
+                const progressData = await loadProgress();
 
-            if (shouldProbeReport) {
-                await loadReport();
+                const hasRunningJob = jobs.value.some(isRunningJob);
+                const hasFailedJob = jobs.value.some(isFailedJob) || progressData?.failed === true;
+                const hasFinishedJob = jobs.value.some(isFinishedJob);
 
-                if (isReadyReport(report.value)) {
-                    markReportReady();
-                    guidedStep.value = "result";
-                    resultStreaming.value = false;
+                if (hasFailedJob) {
                     stopPolling();
-                    showMessage("분석 결과가 준비되었습니다.");
+                    resultStreaming.value = false;
+                    showMessage(
+                        progressData?.error_message || "영상 분석 중 일부 작업이 실패했습니다. 고급 진단 보기에서 작업 상태를 확인해 주세요.",
+                        false
+                    );
+                    guidedStep.value = "questions";
                     return;
                 }
-            }
 
-            if (hasRunningJob) {
-                const runningJob = jobs.value.find(isRunningJob);
-                applyLocalProgress(getRunningJobProgress(runningJob?.type, progressPercent.value));
+                if (await finalizeIfResultReady(progressData)) return;
 
-                return;
-            }
+                if (hasRunningJob) {
+                    const runningJob = jobs.value.find(isRunningJob);
+                    applyLocalProgress(getRunningJobProgress(runningJob?.type, progressPercent.value));
+                    return;
+                }
 
-            stopPolling();
-            await Promise.all([loadUploads(), loadCase(), loadProgress()]);
+                stopPolling();
+                await Promise.all([loadUploads(), loadCase()]);
 
-            if (hasFailedJob) {
-                resultStreaming.value = false;
-                showMessage("영상 분석 중 일부 작업이 실패했습니다. 고급 진단 보기에서 작업 상태를 확인해 주세요.", false);
-                guidedStep.value = "questions";
-                return;
-            }
+                const finalProgress = await loadProgress();
+                if (await finalizeIfResultReady(finalProgress)) return;
 
-            if (hasFinishedJob || jobs.value.length > 0) {
-                applyLocalProgress({
-                    percent: 88,
-                    stage: "결과 정리 중",
-                    message: "분석 작업이 끝났습니다. 결과 화면을 정리하고 있습니다.",
-                });
+                if (hasFinishedJob || jobs.value.length > 0) {
+                    applyLocalProgress({
+                        percent: 88,
+                        stage: "결과 정리 중",
+                        message: "분석 작업이 끝났습니다. 결과 화면을 정리하고 있습니다.",
+                    });
 
-                const ready = await waitForReadyReport();
-                if (ready) return;
+                    const ready = await waitForReadyReport();
+                    if (ready) return;
 
-                resultStreaming.value = false;
-                showMessage("분석 결과를 불러오는 데 시간이 오래 걸리고 있습니다. 결과 새로고침을 눌러 다시 확인해 주세요.", false);
+                    resultStreaming.value = false;
+                    showMessage("분석 결과를 불러오는 데 시간이 오래 걸리고 있습니다. 결과 새로고침을 눌러 다시 확인해 주세요.", false);
 
-                if (guidedStep.value === "analyzing") guidedStep.value = "result";
+                    if (guidedStep.value === "analyzing") guidedStep.value = "result";
+                }
+            } finally {
+                pollInFlight = false;
             }
         }, 1200);
     }
@@ -560,6 +594,7 @@ export function useCaseWorkspace(caseId: string) {
         if (!saved) return;
 
         guidedAnswers.value = {};
+        currentGuidedQuestionIndex.value = 0;
         guidedStep.value = "accident-type";
     }
 
@@ -619,11 +654,14 @@ export function useCaseWorkspace(caseId: string) {
 
         facts.value = nextFacts;
         guidedAnswers.value = {};
+        currentGuidedQuestionIndex.value = 0;
         guidedStep.value = "purpose";
     }
 
     function selectGuidedAnalysisMode(mode: string) {
         analysisMode.value = normalizeAnalysisMode(mode);
+        guidedAnswers.value = {};
+        currentGuidedQuestionIndex.value = 0;
         guidedStep.value = "questions";
     }
 
@@ -631,10 +669,22 @@ export function useCaseWorkspace(caseId: string) {
         const questionId = getGuidedQuestionId(question);
         guidedAnswers.value = { ...guidedAnswers.value, [questionId]: value };
         facts.value = applyGuidedQuestionAnswer(facts.value, question, value);
+
+        const nextIndex = currentGuidedQuestionIndex.value + 1;
+        if (nextIndex < totalGuidedQuestionCount.value) {
+            window.setTimeout(() => {
+                currentGuidedQuestionIndex.value = Math.min(nextIndex, Math.max(totalGuidedQuestionCount.value - 1, 0));
+            }, 250);
+        }
     }
 
     async function startGuidedAnalysis() {
-        if (!(await saveCaseInputs())) return;
+        if (!allGuidedQuestionsAnswered.value) {
+            showMessage("확인 질문에 모두 답하면 분석을 시작할 수 있습니다.", false);
+            return;
+        }
+
+        if (!(await saveCaseInputs({ quiet: true }))) return;
 
         analysisStarted.value = true;
         resultStreaming.value = true;
@@ -647,7 +697,7 @@ export function useCaseWorkspace(caseId: string) {
         });
 
         if (activeUploadId.value) {
-            const started = await analyzeVideo();
+            const started = await analyzeVideo({ skipSave: true });
 
             if (!started) {
                 resultStreaming.value = false;
@@ -657,7 +707,7 @@ export function useCaseWorkspace(caseId: string) {
             return;
         }
 
-        await analyzeText();
+        await analyzeText({ skipSave: true });
 
         if (!isReadyReport(report.value) && guidedStep.value === "analyzing") {
             guidedStep.value = "result";
@@ -688,6 +738,39 @@ export function useCaseWorkspace(caseId: string) {
 
         return getFallbackGuidedQuestions(facts.value, descriptionText.value);
     });
+
+    const totalGuidedQuestionCount = computed(() => guidedQuestions.value.length);
+    const answeredGuidedQuestionCount = computed(() =>
+        guidedQuestions.value.filter((question: any) => Boolean(guidedAnswers.value[getGuidedQuestionId(question)])).length,
+    );
+    const guidedQuestionProgressPercent = computed(() => {
+        if (!totalGuidedQuestionCount.value) return 100;
+        return Math.round((answeredGuidedQuestionCount.value / totalGuidedQuestionCount.value) * 100);
+    });
+    const currentGuidedQuestion = computed(() => {
+        const count = totalGuidedQuestionCount.value;
+        if (!count) return null;
+        const index = Math.min(Math.max(currentGuidedQuestionIndex.value, 0), count - 1);
+        if (index !== currentGuidedQuestionIndex.value) currentGuidedQuestionIndex.value = index;
+        return guidedQuestions.value[index] ?? null;
+    });
+    const visibleGuidedQuestions = computed(() => currentGuidedQuestion.value ? [currentGuidedQuestion.value] : []);
+    const allGuidedQuestionsAnswered = computed(() =>
+        totalGuidedQuestionCount.value === 0 || answeredGuidedQuestionCount.value >= totalGuidedQuestionCount.value,
+    );
+
+    function guidedQuestionId(question: any) {
+        return getGuidedQuestionId(question);
+    }
+
+    function goToGuidedQuestion(index: number) {
+        if (!totalGuidedQuestionCount.value) return;
+        currentGuidedQuestionIndex.value = Math.min(Math.max(index, 0), totalGuidedQuestionCount.value - 1);
+    }
+
+    function previousGuidedQuestion() {
+        goToGuidedQuestion(currentGuidedQuestionIndex.value - 1);
+    }
 
     function stopPolling() {
         if (pollTimer !== null) window.clearInterval(pollTimer);
@@ -731,9 +814,16 @@ export function useCaseWorkspace(caseId: string) {
         busy,
         guidedStep,
         guidedAnswers,
+        currentGuidedQuestionIndex,
         guidedAccidentTypeOptions,
         guidedAnalysisModes,
         guidedQuestions,
+        visibleGuidedQuestions,
+        currentGuidedQuestion,
+        answeredGuidedQuestionCount,
+        totalGuidedQuestionCount,
+        guidedQuestionProgressPercent,
+        allGuidedQuestionsAnswered,
         analyzeText,
         analyzeVideo,
         completeUpload,
@@ -753,6 +843,9 @@ export function useCaseWorkspace(caseId: string) {
         selectAccidentType,
         selectGuidedAnalysisMode,
         answerGuidedQuestion,
+        guidedQuestionId,
+        goToGuidedQuestion,
+        previousGuidedQuestion,
         startGuidedAnalysis,
         statusClass,
         statusLabel,

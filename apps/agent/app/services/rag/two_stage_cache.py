@@ -17,6 +17,14 @@ KNIA_JSON_EXACT_CACHE_VERSION = "v4"
 KNIA_JSON_SEMANTIC_DISTANCE_THRESHOLD = 0.20
 logger = logging.getLogger(__name__)
 
+CHART_NO_SQL = "COALESCE(kd.metadata->>'chart_no', kd.metadata->>'subchart_no')"
+MAJOR_PARTY_SQL = "COALESCE(kd.metadata->>'major_party_type', kc.accident_party_type)"
+SCENARIO_TYPE_SQL = "COALESCE(kd.metadata->>'scenario_type', kd.metadata->>'scenario_subtype')"
+REVIEW_REQUIRED_SQL = (
+    "CASE WHEN lower(COALESCE(kd.metadata->>'review_required', 'false')) "
+    "IN ('true', '1', 'yes') THEN true ELSE false END"
+)
+
 
 def _chart_prefix_patterns(party_type: str | None) -> list[str]:
     return {
@@ -92,11 +100,21 @@ def _public_items_from_refs(refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         cur.execute(
             """
             SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
-                   kc.display_tags, kc.keywords, kd.source, kc.chart_no, kc.major_party_type, kc.scenario_type,
-                   kc.chunk_type, kc.review_required, kc.metadata
+                   kc.display_tags, kc.keywords, kd.source,
+                   {CHART_NO_SQL} AS chart_no,
+                   {MAJOR_PARTY_SQL} AS major_party_type,
+                   {SCENARIO_TYPE_SQL} AS scenario_type,
+                   kc.chunk_type,
+                   {REVIEW_REQUIRED_SQL} AS review_required,
+                   kd.metadata AS metadata
             FROM knia_reference_chunks kc JOIN knia_reference_documents kd ON kd.id=kc.document_id
             WHERE kc.id::text = ANY(%s)
-            """,
+            """.format(
+                CHART_NO_SQL=CHART_NO_SQL,
+                MAJOR_PARTY_SQL=MAJOR_PARTY_SQL,
+                SCENARIO_TYPE_SQL=SCENARIO_TYPE_SQL,
+                REVIEW_REQUIRED_SQL=REVIEW_REQUIRED_SQL,
+            ),
             (ids,),
         )
         by_id = {str(r[0]): r for r in cur.fetchall()}
@@ -178,23 +196,28 @@ def _keyword_fallback_search(
             where = "kc.source_url IS NOT NULL"
             if chart_no:
                 params.append(chart_no)
-                where += " AND kc.chart_no=%s"
+                where += f" AND {CHART_NO_SQL}=%s"
             if accident_party_type and accident_party_type != "unknown":
                 params.append(accident_party_type)
                 prefixes = _chart_prefix_patterns(accident_party_type)
-                where += " AND (kc.major_party_type=%s OR kc.accident_party_type=%s"
+                where += f" AND ({MAJOR_PARTY_SQL}=%s OR kc.accident_party_type=%s"
                 params.append(accident_party_type)
                 if prefixes:
                     params.append(prefixes)
-                    where += " OR kc.chart_no LIKE ANY(%s::text[])"
+                    where += f" OR {CHART_NO_SQL} LIKE ANY(%s::text[])"
                 where += ")"
             params.append(limit)
             cur.execute(
                 f"""
                 WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq)
                 SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
-                       kc.display_tags, kc.keywords, kd.source, kc.chart_no, kc.major_party_type, kc.scenario_type,
-                       kc.chunk_type, kc.review_required, kc.metadata,
+                       kc.display_tags, kc.keywords, kd.source,
+                       {CHART_NO_SQL} AS chart_no,
+                       {MAJOR_PARTY_SQL} AS major_party_type,
+                       {SCENARIO_TYPE_SQL} AS scenario_type,
+                       kc.chunk_type,
+                       {REVIEW_REQUIRED_SQL} AS review_required,
+                       kd.metadata AS metadata,
                        (CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) AS fts_rank,
                        kc.evidence_quality_score
                 FROM knia_reference_chunks kc
@@ -204,7 +227,13 @@ def _keyword_fallback_search(
                 ORDER BY ((CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) * 0.80
                         + kc.evidence_quality_score * 0.20) DESC
                 LIMIT %s
-                """,
+                """.format(
+                    where=where,
+                    CHART_NO_SQL=CHART_NO_SQL,
+                    MAJOR_PARTY_SQL=MAJOR_PARTY_SQL,
+                    SCENARIO_TYPE_SQL=SCENARIO_TYPE_SQL,
+                    REVIEW_REQUIRED_SQL=REVIEW_REQUIRED_SQL,
+                ),
                 params,
             )
             rows = cur.fetchall()
@@ -311,23 +340,28 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
         where = "kc.source_url IS NOT NULL"
         if chart_no:
             params.append(chart_no)
-            where += " AND kc.chart_no=%s"
+            where += f" AND {CHART_NO_SQL}=%s"
         if accident_party_type and accident_party_type != "unknown":
             params.append(accident_party_type)
             prefixes = _chart_prefix_patterns(accident_party_type)
-            where += " AND (kc.major_party_type=%s OR kc.accident_party_type=%s"
+            where += f" AND ({MAJOR_PARTY_SQL}=%s OR kc.accident_party_type=%s"
             params.append(accident_party_type)
             if prefixes:
                 params.append(prefixes)
-                where += " OR kc.chart_no LIKE ANY(%s::text[])"
+                where += f" OR {CHART_NO_SQL} LIKE ANY(%s::text[])"
             where += ")"
         params.append(limit)
         cur.execute(
             f"""
             WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq, %s::vector AS qvec)
             SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
-                   kc.display_tags, kc.keywords, kd.source, kc.chart_no, kc.major_party_type, kc.scenario_type,
-                   kc.chunk_type, kc.review_required, kc.metadata,
+                   kc.display_tags, kc.keywords, kd.source,
+                   {CHART_NO_SQL} AS chart_no,
+                   {MAJOR_PARTY_SQL} AS major_party_type,
+                   {SCENARIO_TYPE_SQL} AS scenario_type,
+                   kc.chunk_type,
+                   {REVIEW_REQUIRED_SQL} AS review_required,
+                   kd.metadata AS metadata,
                    (CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) AS fts_rank,
                    (CASE WHEN kc.embedding IS NOT NULL THEN 1 - (kc.embedding <=> q.qvec) ELSE 0 END) AS vector_score,
                    kc.evidence_quality_score

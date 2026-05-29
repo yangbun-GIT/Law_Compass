@@ -34,6 +34,8 @@
       <section class="card easy-card simple-section corner-flourish">
         <p class="eyebrow">관련 KNIA 근거 및 영상</p>
         <h2>가장 가까운 기준</h2>
+        <RelatedVideoCard v-if="simpleKniaLinkCard" :video="simpleKniaLinkCard" />
+
         <div v-if="simpleKniaEvidence" class="basis-card">
           <p class="accent-text">
             {{ simpleKniaEvidence.chart_no || simpleKniaEvidence.subchart_no || "KNIA 기준 확인 중" }}
@@ -45,14 +47,32 @@
           <p v-if="simpleKniaEvidence.match_reason || simpleKniaEvidence.why_matched">
             {{ text(simpleKniaEvidence.match_reason || simpleKniaEvidence.why_matched) }}
           </p>
-          <a v-if="simpleKniaEvidence.source_url" :href="simpleKniaEvidence.source_url" target="_blank" rel="noopener noreferrer">
-            KNIA 원문 보기
+          <div v-if="faultText(simpleKniaEvidence.base_fault) || faultText(simpleKniaEvidence.final_fault) || faultText(simpleKniaEvidence.fault_range)" class="simple-fault-lines">
+            <p v-if="faultText(simpleKniaEvidence.base_fault)">기준 과실 {{ faultText(simpleKniaEvidence.base_fault) }}</p>
+            <p v-if="faultText(simpleKniaEvidence.final_fault)">수정 과실 {{ faultText(simpleKniaEvidence.final_fault) }}</p>
+            <p v-if="faultText(simpleKniaEvidence.fault_range)">참고 범위 {{ faultText(simpleKniaEvidence.fault_range) }}</p>
+          </div>
+          <a
+            v-if="safeKniaButtonUrl(simpleKniaEvidence)"
+            class="btn secondary"
+            :href="safeKniaButtonUrl(simpleKniaEvidence)"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {{ simpleKniaEvidence.button_label || (simpleKniaEvidence.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기") }}
           </a>
+          <p v-else-if="simpleKniaEvidence.missing_source_notice" class="kv">
+            {{ text(simpleKniaEvidence.missing_source_notice) }}
+          </p>
           <p v-if="simpleKniaEvidence.source_url_is_fallback" class="kv">
             원문 링크 형식은 차트번호 기반으로 생성되었습니다.
           </p>
+          <p class="kv">{{ text(simpleKniaEvidence.source_notice || "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.") }}</p>
         </div>
-        <p v-else class="easy-summary">현재 사고와 가까운 KNIA 기준을 확인하고 있습니다.</p>
+        <div v-else class="easy-summary">
+          <p>현재 사고와 가까운 KNIA 기준을 확인하고 있습니다.</p>
+          <p>입력 사실이 부족하면 사고유형, 충돌 위치, 정차 여부를 보완해 주세요.</p>
+        </div>
         <div v-if="simpleVideoSummary" class="soft-warning">
           <strong>영상에서 확인한 점</strong>
           <p>{{ simpleVideoSummary }}</p>
@@ -343,13 +363,26 @@ const simpleFaultRatio = computed<any>(() => {
     reference_only: source.reference_only === true,
   };
 });
-const simpleKniaEvidence = computed<any>(() => (
-  safeReport.value?.simple_report?.knia_video_evidence ||
-  safeReport.value?.knia_match_summary ||
-  safeReport.value?.knia_primary_match ||
-  safeReport.value?.knia_reference ||
-  null
-));
+const simpleKniaEvidence = computed<any>(() => {
+  const candidates = [
+    safeReport.value?.related_knia_video_card,
+    safeReport.value?.related_video,
+    safeReport.value?.simple_report?.knia_and_video?.primary,
+    safeReport.value?.simple_report?.knia_video_evidence,
+    safeReport.value?.knia_match_summary,
+    safeReport.value?.knia_primary_match,
+    Array.isArray(safeReport.value?.knia_basis_cards) ? safeReport.value.knia_basis_cards[0] : null,
+    Array.isArray(safeReport.value?.knia_matches) ? safeReport.value.knia_matches[0] : null,
+    safeReport.value?.related_fault_standard,
+    safeReport.value?.knia_reference,
+  ];
+
+  return candidates.find((item) => item && (item.has_knia_candidate || item.chart_no || item.subchart_no || item.title || item.chart_title)) || null;
+});
+const simpleKniaLinkCard = computed<any>(() => {
+  const card = safeReport.value?.related_knia_video_card || safeReport.value?.related_video || safeReport.value?.simple_report?.knia_and_video?.primary;
+  return card && (card.has_knia_candidate || card.button_url || card.source_url || card.video_url) ? card : null;
+});
 const simpleVideoSummary = computed(() => textOrFallback(
   safeReport.value?.simple_report?.video_summary,
   safeReport.value?.video_summary,
@@ -360,6 +393,30 @@ const simpleVideoSummary = computed(() => textOrFallback(
 
 function text(value: unknown) { return sanitizeDisplayText(value); }
 function kniaParagraphs(value: unknown) { return formatKniaBody(value); }
+
+function safeKniaButtonUrl(card: any) {
+  const raw = String(card?.button_url || card?.video_url || card?.source_url || card?.source_detail_url || card?.source_page_url || "").trim();
+  if (!raw || /\s/.test(raw)) return "";
+  try {
+    const url = new URL(raw);
+    return url.hostname.toLowerCase() === "accident.knia.or.kr" && ["http:", "https:"].includes(url.protocol) ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function faultText(value: any): string {
+  if (!value) return "";
+  if (typeof value === "string" || typeof value === "number") return text(value);
+  if (typeof value !== "object") return "";
+  const my = value.my ?? value.A ?? value.user ?? value.ego ?? value.driver;
+  const other = value.other ?? value.B ?? value.opponent ?? value.counterparty;
+  if (my !== undefined && other !== undefined) return `${my}:${other}`;
+  const min = value.min ?? value.minimum;
+  const max = value.max ?? value.maximum;
+  if (min !== undefined && max !== undefined) return `${min}~${max}`;
+  return text(value.label || value.summary || "");
+}
 
 function isAllowedKniaCard(card: any) {
   if (!card) return false;

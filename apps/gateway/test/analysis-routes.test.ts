@@ -52,6 +52,32 @@ describe("analysis route helpers", () => {
     expect(text).not.toContain("job-1");
   });
 
+  it("marks dead jobs as failed without exposing internal job fields", () => {
+    const progress = composeGuidedProgressPayload(
+      { status: "analyzing" },
+      [{ type: "video_analyze", status: "dead", attempts: 3, last_error: "secret stack", id: "job-dead" }]
+    );
+
+    const text = JSON.stringify(progress);
+    expect(progress.failed).toBe(true);
+    expect(progress.result_ready).toBe(false);
+    expect(progress.can_show_result).toBe(false);
+    expect(progress.error_message).toBe("분석 중 문제가 발생했습니다. 다시 시도하거나 고급 진단을 확인해 주세요.");
+    expect(text).not.toContain("video_analyze");
+    expect(text).not.toContain("secret stack");
+    expect(text).not.toContain("job-dead");
+    expect(text).not.toContain("attempts");
+  });
+
+  it("returns ready progress when a result exists", () => {
+    const progress = composeGuidedProgressPayload({ status: "analyzing", latest_result_id: "result-1" }, []);
+
+    expect(progress.progress_percent).toBe(100);
+    expect(progress.result_ready).toBe(true);
+    expect(progress.can_show_result).toBe(true);
+    expect(progress.current_stage).toBe("결과 준비 완료");
+  });
+
   it("returns not_ready easy report instead of 404 when analysis is not created yet", async () => {
     const app = Fastify({ logger: false });
     app.addHook("onRequest", async (req) => {

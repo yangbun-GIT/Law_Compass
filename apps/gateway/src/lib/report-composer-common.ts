@@ -20,7 +20,23 @@ export const TECHNICAL_KEYS = new Set([
   "expert_guidance_sections", "source_blocked_reason", "retrieval_id", "trace_id", "raw_trace_id", "raw_prompt"
 ]);
 
-export const BAD_VALUE_PATTERNS = [/\b[a-z]+(?:_[a-z0-9]+)+\b/g, /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g, /\?\?+/g, /score\s*[:=]?\s*\d+(\.\d+)?/gi, /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi, /model[_ ]?info/gi, /Local video verified.?/gi, /duration\s*=\s*[\d.]+s?/gi, /resolution\s*=\s*\d+x\d+/gi, /frames\s*=\s*\d+/gi, /fps\s*=\s*[\d.]+/gi, /codec\s*=\s*[a-z0-9_.-]+/gi, /,\s*=0/g];
+export const BAD_VALUE_PATTERNS = [
+  /\b[a-z]+(?:_[a-z0-9]+)+\b/g,
+  /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/g,
+  /\?\?+/g,
+  /score\s*[:=]?\s*\d+(\.\d+)?/gi,
+  /chunk[_ ]?id\s*[:=]?\s*[\w-]+/gi,
+  /model[_ ]?info/gi,
+  /Local video verified.?/gi,
+  /duration\s*=\s*[\d.]+s?/gi,
+  /resolution\s*=\s*\d+x\d+/gi,
+  /frames\s*=\s*\d+/gi,
+  /fps\s*=\s*[\d.]+/gi,
+  /codec\s*=\s*[a-z0-9_.-]+/gi,
+  /(?:^|,\s*)=\s*\d+(?:\s*,\s*=\s*\d+)+(?:\.)?/g,
+  /(?:^|[\s,])=\s*\d+(?=$|[\s,.;])/g,
+  /,\s*=0/g,
+];
 
 export const SAFE_INPUT_FIELDS = new Set(["accident_party_type", "accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "pedestrian_visible", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "pedestrian_signal", "bicycle_location", "bicycle_direction", "centerline_crossed", "centerline_cross_reason", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "non_contact_trigger", "trigger_actor_type", "trigger_actor_behavior", "direct_collision_partner_type", "rear_vehicle_collision", "collision_partner_type", "primary_collision_target", "collision_point_visible", "collision_point_location", "front_vehicle_stopped", "ego_turn_direction", "intersection", "stopped_vehicle_without_lights", "highway_or_expressway"]);
 
