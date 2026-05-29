@@ -22,8 +22,8 @@ AI-Hub `교통사고 영상 데이터` 데이터셋 597의 TL/VL 영상 라벨 f
 | 범위 | 내용 |
 | --- | --- |
 | 다운로드 스크립트 | `scripts/download_aihub597_labels.ps1`가 `AIHUB_API_KEY` 환경변수를 WSL에 전달해 `aihubshell -mode d -datasetkey 597 -filekey ...`를 실행한다. 기본 `-Scope Video`는 TL/VL 영상 라벨 45개만 받는다. |
-| 로컬 산출물 | `datasets/aihub/traffic-accident-video/aihubshell/095.교통사고_영상_데이터/` 아래에 ZIP 및 JSON이 생성된다. 이 경로는 Git 제외 대상이다. |
-| 다운로드 상태 | 2026-05-29 기준 `-Scope Video` 다운로드 및 압축 해제를 완료했고 영상 라벨 JSON 19,852개를 확인했다. |
+| 로컬 산출물 | 다운로드 직후 공식 중첩 폴더가 생기지만 `scripts/organize_aihub597_labels.py`로 `datasets/aihub/traffic-accident-video/labels/video/{training,validation}/{zips,json}/` 구조로 정리한다. 이 경로는 Git 제외 대상이다. |
+| 다운로드 상태 | 2026-05-29 기준 `-Scope Video` 다운로드, 압축 해제, 폴더 정리를 완료했다. 영상 라벨 ZIP 45개와 JSON 19,852개를 확인했다. |
 | 변환 스크립트 | `scripts/aihub597_labels_to_manifest.py`가 AI-Hub 라벨 JSON을 LawCompass reference manifest 후보로 변환한다. 기본 산출물은 `.local/aihub597_video_label_manifest.json`이다. |
 | 검증 | `py -3.13 scripts\validate_reference_case_manifest.py --manifest .local\aihub597_video_label_manifest.json`로 200건 샘플 manifest 검증을 통과했다. |
 | 사용 제한 | AI-Hub 라벨은 평가/보정 reference로만 사용하고, Agent 입력 사실이나 사용자 사건의 정답으로 주입하지 않는다. 원천 영상과 라벨 ZIP/JSON은 Git에 올리지 않는다. |

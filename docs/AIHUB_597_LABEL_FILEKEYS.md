@@ -141,6 +141,25 @@ powershell -ExecutionPolicy Bypass -File scripts\download_aihub597_labels.ps1 -S
 
 2026-05-29 기준으로 새 API key를 사용해 `-Scope Video` 다운로드를 완료했다. 결과는 `datasets/aihub/traffic-accident-video/aihubshell/095.교통사고_영상_데이터/` 아래에 ZIP 및 JSON으로 로컬 생성되며 Git에는 포함하지 않는다. 확인된 영상 라벨 JSON 수는 19,852개다.
 
+다운로드 직후에는 AI-Hub 공식 폴더 구조가 깊게 생성되므로 아래 정리 스크립트로 로컬 구조를 평평하게 만든다.
+
+```powershell
+py -3.13 scripts\organize_aihub597_labels.py
+```
+
+정리 후 기준 경로는 다음과 같다.
+
+```text
+datasets/aihub/traffic-accident-video/labels/video/
+  training/zips/
+  training/json/
+  validation/zips/
+  validation/json/
+  index.json
+```
+
+`index.json`은 JSON 파일과 원래 ZIP 파일의 대응 관계를 보존한다. `aihubshell/` 폴더에는 shell 실행 파일과 README만 남긴다.
+
 ## Reference manifest 변환
 
 AI-Hub 영상 라벨 JSON은 바로 Agent 입력으로 쓰지 않고 평가/보정 후보 manifest로 변환해서 사용한다.

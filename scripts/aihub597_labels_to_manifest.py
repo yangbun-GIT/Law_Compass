@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 
-DATASET_NAME = "AI-Hub 교통사고 영상 데이터"
+DATASET_NAME = "AI-Hub traffic accident video dataset"
 DATASET_KEY = "597"
 
 
@@ -14,44 +14,35 @@ def slug(value: str) -> str:
 
 
 def infer_split(path: Path) -> str:
+    parts = {part.lower() for part in path.parts}
     text = str(path)
-    if "1.Training" in text:
+    if "training" in parts or "1.Training" in text:
         return "training"
-    if "2.Validation" in text:
+    if "validation" in parts or "2.Validation" in text:
         return "validation"
     return "unknown"
 
 
-def infer_file_key(path: Path, file_key_map: dict[str, str]) -> str:
-    parent_zip_name = None
-    for part in path.parts:
-        if part.startswith(("TL_", "VL_")) and part.endswith(".zip"):
-            parent_zip_name = part
-            break
-    if not parent_zip_name:
-        folder = path.parent.name
-        parent_zip_name = f"{folder}.zip" if folder.startswith(("TL_", "VL_")) else folder
-    return file_key_map.get(parent_zip_name, "")
-
-
-def infer_partner_type(path: Path, video: dict) -> str:
-    text = str(path)
-    if "차대보행자" in text or "pedestrian" in path.name:
+def infer_partner_type(path: Path) -> str:
+    text = path.name.lower()
+    if "pedestrian" in text:
         return "pedestrian"
-    if "차대자전거" in text or "bicycle" in path.name:
+    if "bicycle" in text:
         return "bicycle"
-    return "vehicle"
+    if "vehicle" in text:
+        return "vehicle"
+    return "unknown"
 
 
 def scenario_summary(video: dict) -> str:
     parts = [
-        f"사고유형={video.get('traffic_accident_type')}",
-        f"사고대상={video.get('accident_object')}",
-        f"장소={video.get('accident_place')}",
-        f"장소특징={video.get('accident_place_feature')}",
-        f"A진행={video.get('vehicle_a_progress_info')}",
-        f"B진행={video.get('vehicle_b_progress_info')}",
-        f"과실A:B={video.get('accident_negligence_rateA')}:{video.get('accident_negligence_rateB')}",
+        f"traffic_accident_type={video.get('traffic_accident_type')}",
+        f"accident_object={video.get('accident_object')}",
+        f"accident_place={video.get('accident_place')}",
+        f"accident_place_feature={video.get('accident_place_feature')}",
+        f"vehicle_a_progress_info={video.get('vehicle_a_progress_info')}",
+        f"vehicle_b_progress_info={video.get('vehicle_b_progress_info')}",
+        f"fault_ratio_A_B={video.get('accident_negligence_rateA')}:{video.get('accident_negligence_rateB')}",
     ]
     return ", ".join(parts)
 
@@ -73,10 +64,36 @@ def expected_context(video: dict) -> list[str]:
     return context[:8]
 
 
-def build_case(path: Path, file_key_map: dict[str, str]) -> dict:
+def load_file_key_map(path: Path) -> dict[str, str]:
+    text = path.read_text(encoding="utf-8")
+    mapping = {}
+    for line in text.splitlines():
+        if "| 509" not in line or "`" not in line:
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        file_key = cells[0]
+        filename = cells[1].strip("`")
+        mapping[filename] = file_key
+    return mapping
+
+
+def load_local_index(labels_root: Path) -> dict[str, dict]:
+    index_path = labels_root / "index.json"
+    if not index_path.exists():
+        return {}
+    entries = json.loads(index_path.read_text(encoding="utf-8"))
+    return {entry.get("file_name", ""): entry for entry in entries if entry.get("kind") == "json"}
+
+
+def build_case(path: Path, file_key_map: dict[str, str], local_index: dict[str, dict]) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
     video = data.get("video", {})
-    partner_type = infer_partner_type(path, video)
+    partner_type = infer_partner_type(path)
+    index_entry = local_index.get(path.name, {})
+    source_zip = index_entry.get("source_zip", "")
+    file_key = index_entry.get("file_key") or file_key_map.get(source_zip, "")
     must_not = []
     if partner_type != "pedestrian":
         must_not.append("pedestrian_as_direct_collision_target")
@@ -93,21 +110,21 @@ def build_case(path: Path, file_key_map: dict[str, str]) -> dict:
             "provider": "AI-Hub",
             "dataset_name": DATASET_NAME,
             "dataset_key": DATASET_KEY,
-            "file_key": infer_file_key(path, file_key_map),
+            "file_key": file_key,
             "split": infer_split(path),
         },
         "scenario_summary": scenario_summary(video),
         "reference_notes": [
-            "AI-Hub 라벨에서 생성한 자동 reference 후보입니다.",
-            "원천 영상 확인 전까지 Agent 입력 사실로 사용하지 않습니다.",
+            "Automatically generated from AI-Hub label JSON.",
+            "Do not use as Agent input fact until the matching raw video is reviewed.",
         ],
         "reference_outcome": {
             "known_result_status": "public_reported",
             "known_result_summary": (
-                f"라벨 과실비율 A {video.get('accident_negligence_rateA')} / "
+                f"AI-Hub label fault ratio A {video.get('accident_negligence_rateA')} / "
                 f"B {video.get('accident_negligence_rateB')}"
             ),
-            "confidence_note": "AI-Hub 라벨 기반 보정 참고값이며 실제 사건 판단으로 단정하지 않습니다.",
+            "confidence_note": "Calibration reference only, not a final legal outcome.",
         },
         "reference_expectations": {
             "direct_collision_partner_type": partner_type,
@@ -124,29 +141,14 @@ def build_case(path: Path, file_key_map: dict[str, str]) -> dict:
         "usage_policy": {
             "agent_input_allowed": False,
             "raw_video_commit_allowed": False,
-            "notes": "AI-Hub 라벨은 평가와 보정 reference로만 사용한다.",
+            "notes": "Use AI-Hub labels only as evaluation and calibration references.",
         },
     }
 
 
-def load_file_key_map(path: Path) -> dict[str, str]:
-    text = path.read_text(encoding="utf-8")
-    mapping = {}
-    for line in text.splitlines():
-        if "| 509" not in line or "`" not in line:
-            continue
-        cells = [cell.strip() for cell in line.strip("|").split("|")]
-        if len(cells) < 2:
-            continue
-        file_key = cells[0]
-        filename = cells[1].strip("`")
-        mapping[filename] = file_key
-    return mapping
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Convert AI-Hub 597 label JSON files to a LawCompass reference manifest.")
-    parser.add_argument("--labels-root", default="datasets/aihub/traffic-accident-video/aihubshell")
+    parser.add_argument("--labels-root", default="datasets/aihub/traffic-accident-video/labels/video")
     parser.add_argument("--file-key-doc", default="docs/AIHUB_597_LABEL_FILEKEYS.md")
     parser.add_argument("--output", default=".local/aihub597_video_label_manifest.json")
     parser.add_argument("--limit", type=int, default=200)
@@ -154,14 +156,16 @@ def main() -> None:
 
     labels_root = Path(args.labels_root)
     file_key_map = load_file_key_map(Path(args.file_key_doc))
-    files = sorted(labels_root.rglob("*.json"))
+    local_index = load_local_index(labels_root)
+    files = sorted((labels_root / "training" / "json").glob("*.json"))
+    files += sorted((labels_root / "validation" / "json").glob("*.json"))
     if args.limit > 0:
         files = files[: args.limit]
 
     manifest = {
         "version": "1.0",
         "purpose": "AI-Hub 597 video label reference candidates for LawCompass evaluation. Local-only generated artifact.",
-        "cases": [build_case(path, file_key_map) for path in files],
+        "cases": [build_case(path, file_key_map, local_index) for path in files],
     }
 
     output = Path(args.output)
