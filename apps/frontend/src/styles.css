@@ -837,10 +837,6 @@ padding: 16px;
 .mobile-demo-warning {
     padding: 14px 16px;
     border-radius: 16px;
-<<<<<<< HEAD
-    background: rgba(15, 23, 42, 0.48);
-}
-=======
     background: rgba(251, 191, 36, 0.12);
     border: 1px solid rgba(251, 191, 36, 0.28);
 }
@@ -1614,4 +1610,3 @@ input::file-selector-button {
         transition-duration: 0.01ms !important;
     }
 }
->>>>>>> a681910 (디자인 수정 1차)
