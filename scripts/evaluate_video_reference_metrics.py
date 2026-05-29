@@ -26,6 +26,7 @@ TARGET_FIELDS = [
 PARTY_BY_DIRECT_TARGET = {
     "vehicle": {"car_vs_car", "vehicle", "차대차"},
     "pedestrian": {"car_vs_person", "vehicle_vs_pedestrian", "pedestrian", "차대사람", "차대보행자"},
+    "motorcycle": {"car_vs_motorcycle", "vehicle_vs_motorcycle", "motorcycle", "two_wheeled", "two-wheeled", "차대이륜차", "이륜차"},
     "bicycle": {"car_vs_bicycle", "vehicle_vs_bicycle", "bicycle", "차대자전거"},
     "object": {"vehicle_vs_object", "object", "시설물", "물체"},
 }
@@ -133,6 +134,8 @@ def actual_direct_target(sample: dict[str, Any]) -> str:
         return "vehicle"
     if normalized in {"pedestrian", "person", "보행자", "사람"} or "pedestrian" in normalized:
         return "pedestrian"
+    if normalized in {"motorcycle", "two_wheeled", "two_wheeled_vehicle", "이륜차", "오토바이"} or "motorcycle" in normalized or "two_wheeled" in normalized:
+        return "motorcycle"
     if normalized in {"bicycle", "bike", "자전거"} or "bicycle" in normalized:
         return "bicycle"
     if normalized in {"object", "facility", "물체", "시설물"} or "object" in normalized:

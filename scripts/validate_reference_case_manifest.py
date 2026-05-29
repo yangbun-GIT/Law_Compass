@@ -25,7 +25,7 @@ REFERENCE_ROLES = {
     "official_evidence_reference_only",
 }
 REVIEW_STATUSES = {"candidate_requires_manual_review", "reviewed_for_evaluation", "rejected"}
-COLLISION_TARGETS = {"vehicle", "pedestrian", "bicycle", "object", "unknown"}
+COLLISION_TARGETS = {"vehicle", "pedestrian", "motorcycle", "bicycle", "object", "unknown"}
 KNOWN_RESULT_STATUSES = {
     "unknown",
     "not_public",

@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P2-2f AI-Hub 597 라벨 기반 reference 평가 연결 완료
+
+AI-Hub 597 영상 라벨을 사고 영상 사실 추출의 대규모 reference 후보로 연결하는 P2-2f를 완료했다. 이 단계는 OpenAI/YOLO를 새로 호출하지 않고, 이미 내려받은 AI-Hub 라벨 JSON을 사용해 사고대상 오염 방지와 평가 coverage를 넓히는 정적 reference 준비 단계다.
+
+| 범위 | 결과 |
+| --- | --- |
+| Manifest 생성 | `scripts/aihub597_labels_to_manifest.py`에 `--balanced` 옵션을 추가했다. `--balanced --per-target 50` 기준으로 차대차, 차대보행자, 차대이륜차, 차대자전거를 각 50건씩 뽑아 200건 manifest를 생성한다. |
+| 평가 스크립트 | `scripts/evaluate_aihub597_label_reference.py`를 추가했다. manifest의 사고대상 분포, known direct target rate, pollution guard coverage, expected context coverage, balanced candidate count, failure axes를 계산한다. |
+| Reference 계약 | `direct_collision_partner_type`에 `motorcycle`을 허용하도록 reference manifest schema, preflight validator, video reference metrics를 보강했다. AI-Hub `accident_object` 코드는 `0=vehicle`, `1=pedestrian`, `2=motorcycle`, `3=bicycle`로 정규화한다. |
+| 검증 결과 | `.local/aihub597_video_label_manifest.json` 기준 preflight 200건 error 0/warning 0 `passed`. `.local/aihub597_label_reference_eval.json` 기준 `vehicle=50`, `pedestrian=50`, `motorcycle=50`, `bicycle=50`, `known_direct_target_rate=1.0`, `pollution_guard_coverage=1.0`, `expected_context_coverage=1.0`, status `passed`. |
+| 남은 한계 | 라벨만으로는 OpenAI+YOLO가 실제 프레임에서 같은 사실을 뽑는지 직접 비교할 수 없다. 다음에 실제 영상 기반 비교를 하려면 P2-2f가 고른 balanced candidate에 대응하는 원천 영상 소량 다운로드가 필요하다. |
+| 보안/저장 정책 | `.local/`, `logs/`, `datasets/aihub/.../labels` 산출물과 AI-Hub API key는 Git에 올리지 않는다. 라벨은 Agent 입력 사실이나 정답 데이터가 아니라 evaluation/calibration reference로만 사용한다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류, 실행 환경변수 키를 변경하지 않는다. 다음 단계는 P2-3 Agent 근거 검색/표시 정합성 보강이다.
+
 ## 2026-05-29 P2-2e OpenAI+YOLO ON 재측정 통과
 
 P2-2b~d 보강 이후 실제 사고 영상 1~5를 OpenAI 프레임 분석과 YOLO 보조 관찰이 모두 켜진 Docker Worker에서 다시 측정했다. 측정 전 `scripts/video_agent_e2e.py`가 `/easy-report`의 `conditional_outcome_card`를 출력 JSON에 포함하지 않아 `video_accuracy_batch.py`와 reference metrics가 조건별 분기 coverage를 과소평가하는 문제가 확인되어, E2E/배치 출력 계약을 보강했다.

@@ -163,7 +163,7 @@
             "properties": {
               "direct_collision_partner_type": {
                 "type": "string",
-                "enum": ["vehicle", "pedestrian", "bicycle", "object", "unknown"]
+                "enum": ["vehicle", "pedestrian", "motorcycle", "bicycle", "object", "unknown"]
               },
               "trigger_actor_type": {
                 "type": "string"

@@ -165,8 +165,15 @@ datasets/aihub/traffic-accident-video/labels/video/
 AI-Hub 영상 라벨 JSON은 바로 Agent 입력으로 쓰지 않고 평가/보정 후보 manifest로 변환해서 사용한다.
 
 ```powershell
-py -3.13 scripts\aihub597_labels_to_manifest.py --limit 200 --output .local\aihub597_video_label_manifest.json
+py -3.13 scripts\aihub597_labels_to_manifest.py --balanced --per-target 50 --output .local\aihub597_video_label_manifest.json
 py -3.13 scripts\validate_reference_case_manifest.py --manifest .local\aihub597_video_label_manifest.json
+py -3.13 scripts\evaluate_aihub597_label_reference.py --manifest .local\aihub597_video_label_manifest.json --output .local\aihub597_label_reference_eval.json
 ```
 
-변환 스크립트는 `video.accident_negligence_rateA/B`, `traffic_accident_type`, `accident_object`, `accident_place`, `accident_place_feature`, `vehicle_a_progress_info`, `vehicle_b_progress_info` 등을 reference 후보로 보존한다. 생성 manifest는 `.local/` 아래에 두며 Git에 올리지 않는다.
+변환 스크립트는 `video.accident_negligence_rateA/B`, `traffic_accident_type`, `accident_object`, `accident_place`, `accident_place_feature`, `vehicle_a_progress_info`, `vehicle_b_progress_info` 등을 reference 후보로 보존한다. `--balanced --per-target 50`은 차대차, 차대보행자, 차대이륜차, 차대자전거를 각 50건씩 뽑아 200건짜리 평가 기준선을 만든다. 생성 manifest와 평가 결과는 `.local/` 아래에 두며 Git에 올리지 않는다.
+
+2026-05-29 P2-2f 기준 검증 결과는 다음과 같다.
+
+- manifest preflight: 200건, error 0, warning 0, `passed`
+- label reference eval: `vehicle=50`, `pedestrian=50`, `motorcycle=50`, `bicycle=50`, `known_direct_target_rate=1.0`, `pollution_guard_coverage=1.0`, `expected_context_coverage=1.0`, `passed`
+- 한계: 이 단계는 라벨 기반 정적 reference 준비다. OpenAI+YOLO 출력과 실제 영상 프레임 분석값을 직접 비교하려면 같은 case에 대응하는 원천 영상 소량 다운로드가 별도로 필요하다.

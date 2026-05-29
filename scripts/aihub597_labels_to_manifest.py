@@ -6,6 +6,12 @@ from pathlib import Path
 
 DATASET_NAME = "AI-Hub traffic accident video dataset"
 DATASET_KEY = "597"
+PARTNER_TYPE_BY_ACCIDENT_OBJECT = {
+    "0": "vehicle",
+    "1": "pedestrian",
+    "2": "motorcycle",
+    "3": "bicycle",
+}
 
 
 def slug(value: str) -> str:
@@ -23,10 +29,16 @@ def infer_split(path: Path) -> str:
     return "unknown"
 
 
-def infer_partner_type(path: Path) -> str:
+def infer_partner_type(path: Path, video: dict | None = None) -> str:
+    accident_object_value = None if video is None else video.get("accident_object")
+    accident_object = "" if accident_object_value is None else str(accident_object_value)
+    if accident_object in PARTNER_TYPE_BY_ACCIDENT_OBJECT:
+        return PARTNER_TYPE_BY_ACCIDENT_OBJECT[accident_object]
     text = path.name.lower()
     if "pedestrian" in text:
         return "pedestrian"
+    if "two-wheeled" in text or "motorcycle" in text:
+        return "motorcycle"
     if "bicycle" in text:
         return "bicycle"
     if "vehicle" in text:
@@ -87,16 +99,33 @@ def load_local_index(labels_root: Path) -> dict[str, dict]:
     return {entry.get("file_name", ""): entry for entry in entries if entry.get("kind") == "json"}
 
 
+def select_balanced_files(files: list[Path], per_target: int, targets: list[str]) -> list[Path]:
+    buckets = {target: [] for target in targets}
+    for path in files:
+        if all(len(items) >= per_target for items in buckets.values()):
+            break
+        data = json.loads(path.read_text(encoding="utf-8"))
+        partner_type = infer_partner_type(path, data.get("video", {}))
+        if partner_type in buckets and len(buckets[partner_type]) < per_target:
+            buckets[partner_type].append(path)
+    selected: list[Path] = []
+    for target in targets:
+        selected.extend(buckets[target])
+    return selected
+
+
 def build_case(path: Path, file_key_map: dict[str, str], local_index: dict[str, dict]) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
     video = data.get("video", {})
-    partner_type = infer_partner_type(path)
+    partner_type = infer_partner_type(path, video)
     index_entry = local_index.get(path.name, {})
     source_zip = index_entry.get("source_zip", "")
     file_key = index_entry.get("file_key") or file_key_map.get(source_zip, "")
     must_not = []
     if partner_type != "pedestrian":
         must_not.append("pedestrian_as_direct_collision_target")
+    if partner_type != "motorcycle":
+        must_not.append("motorcycle_as_direct_collision_target")
     if partner_type != "bicycle":
         must_not.append("bicycle_as_direct_collision_target")
 
@@ -152,6 +181,9 @@ def main() -> None:
     parser.add_argument("--file-key-doc", default="docs/AIHUB_597_LABEL_FILEKEYS.md")
     parser.add_argument("--output", default=".local/aihub597_video_label_manifest.json")
     parser.add_argument("--limit", type=int, default=200)
+    parser.add_argument("--balanced", action="store_true", help="Select a balanced sample by direct collision partner type.")
+    parser.add_argument("--per-target", type=int, default=50, help="Number of cases per target when --balanced is used.")
+    parser.add_argument("--targets", default="vehicle,pedestrian,motorcycle,bicycle", help="Comma-separated target order for --balanced.")
     args = parser.parse_args()
 
     labels_root = Path(args.labels_root)
@@ -159,7 +191,10 @@ def main() -> None:
     local_index = load_local_index(labels_root)
     files = sorted((labels_root / "training" / "json").glob("*.json"))
     files += sorted((labels_root / "validation" / "json").glob("*.json"))
-    if args.limit > 0:
+    if args.balanced:
+        targets = [item.strip() for item in args.targets.split(",") if item.strip()]
+        files = select_balanced_files(files, args.per_target, targets)
+    elif args.limit > 0:
         files = files[: args.limit]
 
     manifest = {
