@@ -205,7 +205,7 @@ onMounted(load);
 
 <style scoped>
 .knia-ranking-page { display: grid; gap: 18px; }
-.ranking-hero { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+.ranking-hero { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; border-color: rgba(201, 169, 98, 0.34); }
 .source-link { white-space: nowrap; }
 .ranking-controls-card {
   display: grid;
@@ -249,7 +249,7 @@ onMounted(load);
   font-weight: 800;
   border-bottom: 1px solid rgba(201, 169, 98, 0.2);
 }
-.ranking-list { display: grid; gap: 0; }
+.ranking-list { display: grid; gap: 12px; }
 .ranking-empty { display: grid; gap: 10px; justify-items: start; padding: 22px; }
 .ranking-empty strong { font-size: 1.1rem; }
 .loading-text, .attribution { margin-top: 12px; }
@@ -259,5 +259,8 @@ onMounted(load);
   .ranking-search-row { grid-template-columns: 1fr; }
   .source-link, .collect-btn { width: 100%; justify-content: center; }
   .ranking-table-head { display: none; }
+  .ranking-list-card,
+  .ranking-controls-card,
+  .ranking-hero { padding: 16px; }
 }
 </style>

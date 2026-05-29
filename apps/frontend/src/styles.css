@@ -169,17 +169,17 @@ textarea { resize: vertical; min-height: 96px; }
     font-size: clamp(1.05rem, 2vw, 1.35rem);
 }
 .eyebrow {
-    color: #7ee7f5;
+    color: var(--accent-strong);
     font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-transform: none;
     margin: 0 0 8px;
 }
 .easy-summary,
 .big-text {
     font-size: clamp(1.08rem, 2vw, 1.35rem);
     line-height: 1.75;
-    color: #eef8ff;
+    color: var(--text-main);
 }
 .soft-warning {
     color: #ffe4a8;
@@ -769,8 +769,8 @@ textarea { resize: vertical; min-height: 96px; }
 .party-tab {
     text-align: left;
     border-radius: 18px;
-    border: 1px solid rgba(255,255,255,0.16);
-    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(201,169,98,0.26);
+    background: rgba(61,51,43,0.70);
     color: var(--text-main);
     padding: 12px 14px;
     cursor: pointer;
@@ -793,7 +793,7 @@ textarea { resize: vertical; min-height: 96px; }
 .knia-page-card { display: grid; gap: 10px; text-decoration: none; color: inherit; padding: 20px; }
 .knia-page-card span { color: var(--accent); font-weight: 800; }
 .knia-tree { display: grid; gap: 10px; }
-.knia-tree-node { border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 10px; background: rgba(255,255,255,.04); }
+.knia-tree-node { border: 1px solid rgba(201,169,98,.24); border-radius: 18px; padding: 10px; background: rgba(37,30,25,.78); }
 .tree-node-head { width: 100%; display: flex; justify-content: space-between; gap: 12px; align-items: center; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .tree-node-head span { font-weight: 800; }
 .tree-node-head small { color: #d7e7b7; white-space: nowrap; }
@@ -801,6 +801,26 @@ textarea { resize: vertical; min-height: 96px; }
 .tree-node-actions a, .knia-json-evidence-card a, .knia-media-card a { color: var(--accent); font-weight: 800; }
 .tree-node-children { margin: 10px 0 0 16px; display: grid; gap: 8px; }
 .knia-search-box { margin-top: 20px; }
+.fault-bar {
+    display: flex;
+    width: 100%;
+    overflow: hidden;
+}
+.fault-segment {
+    display: grid;
+    place-items: center;
+    height: 100%;
+}
+.fault-segment.is-zero {
+    min-width: 0;
+    width: 0 !important;
+    padding: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+.fault-segment.is-zero span {
+    display: none;
+}
 .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .form-row input, .form-row select { flex: 1; min-width: 160px; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(201,169,98,.28); background: rgba(28,23,20,.72); color: var(--text-main); }
 .form-row button { padding: 12px 18px; border: 0; border-radius: 14px; background: linear-gradient(180deg, #D4B872 0%, #C9A962 62%, #B8953F 100%); color: var(--accent-foreground); font-weight: 900; }
