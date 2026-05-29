@@ -281,3 +281,15 @@ foreach ($target in $targets) {
 - `scripts\verify_final_readiness.ps1 -SkipDockerBuild` 실행
 - 변경 사항을 커밋하고 GitHub에 push
 - 팀원에게 `docs/HANDOFF_CHANGE_SUMMARY_2026-05-25.md`, `docs/BUILD_AND_RUN_GUIDE.md`, `SYSTEM_OVERVIEW.md` 위치 안내
+## 실제 영상 처리 검증 기본값
+
+비용과 실행 환경을 줄이는 일반 개발 모드에서는 OpenAI/YOLO 영상 분석을 끌 수 있다. 그러나 관리자 테스트, 사고 영상 기준선 재측정, reference metrics, 영상 정확도 고도화처럼 “실제 영상 처리 검증”이라고 부르는 작업은 아래 조건을 모두 만족해야 한다.
+
+```env
+ENABLE_OPENAI_FRAME_ANALYSIS=1
+FRAME_ANALYSIS_FIXTURE_MODE=
+ENABLE_YOLO_FRAME_ANALYSIS=1
+YOLO_MODEL_PATH=/models/yolo/yolo11n.pt
+```
+
+검증 완료 전에는 새 업로드 결과에서 `openai_frame_analysis.enabled=true`, `yolo_frame_analysis.enabled=true`, YOLO `summary.class_counts`, merged `observations`를 확인한다. YOLO가 꺼졌거나 실행 실패한 결과는 실제 영상 처리 완료가 아니라 OpenAI-only 또는 계약/fixture 검증으로 기록한다.

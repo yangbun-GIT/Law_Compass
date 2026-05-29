@@ -110,3 +110,18 @@ YOLO_MAX_FRAME_REFS=24
 활성화하면 Worker는 업로드 원본 영상을 직접 다시 분석하지 않고, 기존 ffmpeg가 추출한 대표 프레임 경로를 YOLO에 넘긴다. 결과는 `metadata["yolo_frame_analysis"]`에 보존되고, OpenAI 프레임 분석 관찰값과 함께 `metadata["observations"]`로 병합되어 Agent의 `video_observations` 계약으로 전달된다.
 
 Docker 기본 worker image에는 Ultralytics를 필수 의존성으로 넣지 않았다. 기본 실행을 가볍게 유지하기 위한 결정이다. Docker에서 YOLO를 켜려면 worker image override 또는 로컬 worker 실행 환경에 `ultralytics`, CUDA PyTorch, 모델 가중치를 준비하고 `YOLO_MODEL_PATH`를 설정해야 한다.
+## 실제 영상 처리 검증에서의 YOLO 사용 기준
+
+YOLO adapter가 존재한다는 것과 실제 런타임에서 YOLO가 실행됐다는 것은 다르다. 실제 영상 처리 검증, 관리자 테스트, 기준선 재측정, reference metrics 재측정은 OpenAI 프레임 분석과 YOLO를 모두 켠 상태에서만 완료로 본다.
+
+필수 확인 항목:
+
+- `ENABLE_OPENAI_FRAME_ANALYSIS=1`
+- `FRAME_ANALYSIS_FIXTURE_MODE=`
+- `ENABLE_YOLO_FRAME_ANALYSIS=1`
+- `YOLO_MODEL_PATH` 유효
+- 새 업로드 metadata의 `yolo_frame_analysis.enabled=true`
+- YOLO `summary.class_counts` 또는 `observations` 존재
+- merged `metadata.observations`에 OpenAI/YOLO 관찰값이 함께 포함
+
+YOLO 실행 실패 또는 비활성 상태에서 나온 결과는 OpenAI-only 결과나 계약 검증 결과로만 표기한다.

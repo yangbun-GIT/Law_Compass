@@ -506,3 +506,15 @@ git merge main
 ```
 
 작업 완료 응답에는 필요한 경우 “작업 시작 전 최신 `main`/최근 병합 확인”, “병합 전 팀원 알림”, “병합 후 팀원 pull 안내”를 짧게 포함한다.
+## 2026-05-29 실제 영상 처리 검증 기준
+
+영상 처리 정확도, 관리자 테스트, 사고 영상 기준선 재측정, reference metrics 재측정처럼 “실제 영상 처리”라고 부르는 작업은 OpenAI 프레임 분석과 YOLO 보조 관찰이 모두 켜진 런타임에서 진행한다.
+
+- `ENABLE_OPENAI_FRAME_ANALYSIS=1`
+- `FRAME_ANALYSIS_FIXTURE_MODE=`
+- `ENABLE_YOLO_FRAME_ANALYSIS=1`
+- `YOLO_MODEL_PATH`는 실제 모델 파일을 가리켜야 한다.
+
+둘 중 하나라도 꺼져 있거나 실행 실패하면 해당 작업은 “실제 영상 처리 완료”가 아니라 “계약/fixture/부분 경로 검증”으로만 보고한다. 완료 보고 전에는 새 업로드 결과의 DB metadata 또는 진단 payload에서 `openai_frame_analysis.enabled=true`, `yolo_frame_analysis.enabled=true`, YOLO `summary.class_counts` 또는 `observations`, merged `metadata.observations`가 존재하는지 확인한다.
+
+YOLO는 사고 판단 모델이 아니라 객체 후보 관찰 모델이다. YOLO의 `person`, `vehicle`, `traffic light` 감지는 바로 사고유형이나 과실 판단으로 승격하지 않고 OpenAI 프레임 관찰, 사용자 입력, KNIA/법령 근거와 함께 Agent fact arbitration에서 확정/보류/충돌/참고 상태로 나눈다.

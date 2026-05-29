@@ -153,3 +153,68 @@ P0-2 기준선 재측정 전에 외부 사고 영상과 사고 설명이 함께 
 - 원본 영상, AI Hub 원본 데이터, API key, 개인 로컬 경로가 포함된 실제 manifest는 Git에 커밋하지 않는다.
 
 P0-2는 이 정책을 기준으로 기존 사고 1~5를 먼저 재측정하고, 외부 reference는 수집 스크립트로 링크/메타데이터 후보를 만든 뒤 요약/기대 관찰값을 검토한다. 로컬 영상 파일이 합법적으로 준비된 경우에만 영상 파이프라인에 포함한다.
+## 2026-05-29 런타임 재검증 정정
+
+이 문서의 P2-1은 외부 참고 케이스 manifest와 사용 정책을 고정한 단계이므로 다시 진행할 필요는 없다. 다만 P2-2 이후의 “영상 기준선 측정”, “reference metrics”, “정확도 고도화”는 실제 영상 처리 검증에 해당하므로 OpenAI 프레임 분석과 YOLO가 모두 켜진 런타임에서 다시 측정해야 한다.
+
+이전 P2-2 결과 중 fixture/synthetic aggregate, manifest schema, guard 계약 검증은 유효하다. 그러나 실제 관리자 업로드 흐름에서 YOLO가 꺼져 있던 상태의 결과는 “OpenAI-only 또는 계약 검증”으로 분류하고, OpenAI+YOLO ON 재측정 결과와 분리해 기록한다.
+
+재측정 시작 조건:
+
+- `ENABLE_OPENAI_FRAME_ANALYSIS=1`
+- `FRAME_ANALYSIS_FIXTURE_MODE=`
+- `ENABLE_YOLO_FRAME_ANALYSIS=1`
+- `YOLO_MODEL_PATH` 유효
+- 새 업로드 metadata에서 `openai_frame_analysis.enabled=true`, `yolo_frame_analysis.enabled=true`, YOLO `summary.class_counts`, merged `observations` 확인
+## 2026-05-29 P2-2 OpenAI+YOLO ON 재측정 결과
+
+P2-2는 OpenAI 프레임 분석과 YOLO 보조 관찰을 모두 켠 상태에서 다시 실행했다.
+
+- 실행 결과: `logs/video_accuracy/p2_2_openai_yolo_on_20260529/aggregate.json`
+- Reference metrics: `logs/video_accuracy/p2_2_openai_yolo_on_reference_metrics_20260529.json`
+- 런타임 조건: `ENABLE_OPENAI_FRAME_ANALYSIS=1`, `FRAME_ANALYSIS_FIXTURE_MODE=`, `ENABLE_YOLO_FRAME_ANALYSIS=1`, `YOLO_MODEL_PATH=/models/yolo/yolo11n.pt`
+- DB 확인: 사고 1~5 모두 OpenAI/Yolo enabled, YOLO error 없음, YOLO class_counts와 merged observations 존재
+- Batch 결과: 5개 샘플 pipeline pass, frame observation 44개, accepted 16개, uncertain 27개, applied 10개, conflict 2개
+- Metrics 결과: direct collision target accuracy 1.0, accident party accuracy 1.0, context pollution rate 0.0, zero observation rate 0.0, evidence mismatch rate 0.2, conditional branch coverage 0.2
+
+판정은 `needs_attention`이다. 직접 충돌 대상과 대분류 오염은 현재 기준을 만족하지만, 조건별 결과 설명이 필요한 사고 5개 중 1개만 분기형 결과가 잡혔다. 다음 작업은 P2-3 성격의 근거 검색/표시 적합도 보강과 함께 조건별 결과 카드 coverage를 높이는 방향으로 진행한다.
+## 2026-05-29 P2-2 후속 보강 단계
+
+P2-2 OpenAI+YOLO ON 재측정은 실행됐지만 최종 평가는 `needs_attention`이다. 직접 충돌 대상 정확도와 context 오염률은 기준을 만족했으나, 사고 2와 사고 5에서 영상 정량 관찰값이 부족했고 조건별 분기 coverage가 낮았다. 아래 단계는 특정 테스트 영상에 답을 맞추기 위한 작업이 아니라, 실제 사용자 영상에서도 같은 유형의 오염과 누락을 줄이기 위한 범용 보강 순서다.
+
+P2-2a부터는 기존 사고 1~5 외에 HanmoonchulTV 공개 영상 후보를 로컬 calibration reference로 사용할 수 있다. 원본 파일은 `.local/public-video-references/hanmoonchul/` 아래에만 두고 Git, NAS 공유, 클라우드 업로드, 배포 패키지에 포함하지 않는다. edited 영상은 3분 이하로 자르고, 파일명은 `hanmoonchul_accident_001_edited.mp4` 형식을 따른다. 영상 설명이나 변호사 의견은 Agent 입력 사실로 주입하지 않고, 모델 출력 이후 오류 분석 기준으로만 사용한다.
+
+### P2-2a. 영상 관찰값 감사 리포트 고정
+
+- 목적: 영상별로 “실제 프레임에서 보이는 사실”과 “OpenAI/YOLO/Agent가 추출한 값”을 같은 표로 비교한다.
+- 산출물: 사고별 accepted/uncertain/supporting 관찰값, YOLO class_counts, 대표 프레임 후보, 불일치 유형 요약.
+- 완료 기준: 사고 1~5 각각에 대해 맞음/부분 맞음/틀림/보류를 구분한 리포트를 만들고, 다음 보강 항목이 어떤 오류를 줄이는지 추적할 수 있어야 한다.
+
+P2-2a 상태: 완료. `scripts/audit_video_observation_report.py`를 추가했고, 기존 OpenAI+YOLO ON 배치 결과와 로컬 reference manifest를 비교해 `logs/video_accuracy/p2_2a_observation_audit_20260529.json` 및 `.md` 리포트를 생성했다. 5개 샘플 모두 직접 충돌 대상 오염이나 관찰값 0개 문제는 없었지만, 전부 `weak`로 남았다. 주요 원인은 사고 1의 대향/2차 충돌 맥락 누락, 사고 2의 신호 전환 정량 관찰 부족, 사고 5의 비접촉 유발-정차-후방추돌 시퀀스 부족, 조건별 분기 결과 명시 부족이다.
+
+### P2-2b. 오버레이와 방송 UI 잡음 제거
+
+- 목적: 한문철 영상 진행자, 방송 자막, 워터마크, 플레이어 UI가 `person`, `object`, `traffic light` 후보로 섞여 사고 객체를 오염시키는 문제를 줄인다.
+- 적용 방향: 고정 화면 영역 반복 객체, 프레임 가장자리/상단 오버레이, 자막/로고 영역은 사고 객체 후보 confidence를 낮추거나 supporting/ignored로 분리한다.
+- 완료 기준: YOLO `person` 감지가 있어도 직접 충돌 대상이나 보행자 사고로 승격되지 않고, 보류 질문 노이즈도 줄어야 한다.
+
+### P2-2c. 시간 순서 기반 사고 시퀀스 관찰값 추출
+
+- 목적: 단일 프레임 객체 감지가 아니라 “등장 -> 정지/감속 -> 충돌/회피 -> 사후 위치” 흐름을 관찰값으로 만든다.
+- 적용 대상: 사고 2의 좌회전/신호 전환/측면 충돌, 사고 5의 자전거 비접촉 유발/트럭 정지/후방 버스 추돌.
+- 후보 관찰값: `trigger_actor_type`, `trigger_actor_contact`, `ego_maneuver`, `ego_stop_reason`, `rear_collision_sequence`, `opponent_path`, `signal_phase_visible`, `signal_phase_unknown`.
+- 완료 기준: 사고 2와 사고 5에서 0개 또는 객체 후보 위주의 관찰값이 아니라 판단에 쓸 수 있는 시퀀스 관찰값이 생성되어야 한다.
+
+### P2-2d. 조건별 결과 분기 coverage 보강
+
+- 목적: 상대 신호, 정차 사유, 중앙선 침범 사유, 비접촉 유발 여부처럼 결론을 바꾸는 사실이 불명확할 때 한쪽 결론만 내지 않는다.
+- 적용 방향: 해당 축이 missing/uncertain/conflict이면 조건별 결과 카드를 생성하고, 사용자 확인 질문도 같은 축을 우선한다.
+- 완료 기준: P2-2 reference metrics의 `conditional_branch_coverage`를 0.2에서 최소 0.8 이상으로 올린다.
+
+### P2-2e. OpenAI+YOLO ON 재측정
+
+- 목적: P2-2b~d 보강이 실제 영상 기준선에서 좋아졌는지 다시 측정한다.
+- 실행 조건: `ENABLE_OPENAI_FRAME_ANALYSIS=1`, `FRAME_ANALYSIS_FIXTURE_MODE=`, `ENABLE_YOLO_FRAME_ANALYSIS=1`, 유효한 `YOLO_MODEL_PATH`.
+- 완료 기준: direct collision target accuracy 1.0 유지, context pollution rate 0.0 유지, zero observation rate 0.0 유지, evidence mismatch rate 0.2 이하 유지, conditional branch coverage 0.8 이상.
+
+P2-2e까지 통과하면 P2-3 근거 검색/표시 적합도 보강으로 넘어간다. P2-2e가 통과하지 못하면 실패 샘플을 기준으로 P2-2b~d 중 해당 원인 단계로 되돌아간다.

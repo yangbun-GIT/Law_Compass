@@ -103,3 +103,38 @@ py -3 scripts\validate_reference_case_manifest.py `
 ## P0-2 연결
 
 P0-2 기준선 재측정은 기존 사고 1~5번을 우선 실행한다. 공개 reference 후보는 링크와 설명 기준의 보조 후보로 쌓고, 실제 로컬 영상 파일이 준비된 후보만 영상 파이프라인에 포함한다.
+## 2026-05-29 HanmoonchulTV Local Reference Folder
+
+HanmoonchulTV 공개 영상은 LawCompass 영상 분석 실패 원인을 찾기 위한 calibration reference로만 사용한다. 원본 영상 파일은 Git, PR, NAS 공유, 클라우드 업로드, 배포 패키지에 포함하지 않는다.
+
+로컬 전용 보관 위치:
+
+```text
+.local/public-video-references/hanmoonchul/
+```
+
+폴더 구성:
+
+```text
+.local/public-video-references/hanmoonchul/raw/
+.local/public-video-references/hanmoonchul/edited/
+.local/public-video-references/hanmoonchul/metadata/
+.local/public-video-references/hanmoonchul/manifests/
+```
+
+파일명은 기존 사고 테스트 파일과 같은 규칙을 따른다.
+
+```text
+hanmoonchul_accident_001_raw.mp4
+hanmoonchul_accident_001_edited.mp4
+hanmoonchul_accident_001.json
+```
+
+사용 규칙:
+
+- edited 영상은 3분을 넘기지 않는다.
+- 가능하면 짧은 영상, 사고 전후가 명확한 영상, 직접 충돌 대상이 분명한 영상을 우선한다.
+- 영상 설명, 댓글, 변호사 의견은 Agent 사용자 입력으로 넣지 않는다.
+- 영상 분석이 끝난 뒤 추출값 검증과 오류 원인 분류에만 사용한다.
+- 로컬 테스트가 끝났거나 클라우드 업로드/팀 공유가 필요해지면 원본 영상은 삭제하고 manifest에는 링크와 요약만 남긴다.
+- `.local/`은 `.gitignore`에 의해 무시되므로 이 폴더의 원본 파일은 커밋하지 않는다.
