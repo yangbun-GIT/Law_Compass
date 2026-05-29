@@ -3,7 +3,7 @@
     <TopConclusionCard :report="safeReport" />
     <AccidentPartyTypeActionCard v-if="safeReport.accident_party_type_card" :card="safeReport.accident_party_type_card" />
     <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
-    <RelatedKniaStandardCard v-if="safeReport.related_fault_standard" :standard="safeReport.related_fault_standard" />
+    <RelatedKniaStandardCard v-if="visibleRelatedFaultStandard" :standard="visibleRelatedFaultStandard" />
 
     <article v-if="safeReport.knia_fault_adjustment_card" class="card easy-card wide-card knia-adjustment-card">
       <p class="eyebrow">KNIA 기준과 가감요소</p>
@@ -130,14 +130,21 @@
     <RelatedVideoCard v-if="safeReport.related_video" :video="safeReport.related_video" />
     <RelatedVideoCard v-if="safeReport.related_knia_video_card" :video="safeReport.related_knia_video_card" />
 
-    <article v-if="safeReport.knia_basis_cards?.length" class="card easy-card wide-card">
+    <article v-if="visibleKniaBasisCards.length" class="card easy-card wide-card">
       <h2>함께 참고할 수 있는 KNIA 기준</h2>
       <div class="basis-grid">
-        <div class="basis-card" v-for="card in safeReport.knia_basis_cards" :key="`${card.chart_no}-${card.title}`">
+        <div class="basis-card" v-for="card in visibleKniaBasisCards" :key="`${card.chart_no}-${card.title}`">
           <p class="kv">기준번호 {{ text(card.chart_no) }}</p>
           <h3>{{ text(card.title) }}</h3>
-          <p>{{ text(card.easy_explanation) }}</p>
-          <p class="soft-warning">{{ text(card.why_similar) }}</p>
+          <div class="knia-paragraphs">
+            <p v-for="paragraph in kniaParagraphs(card.easy_explanation)" :key="paragraph">{{ paragraph }}</p>
+          </div>
+          <details v-if="kniaParagraphs(card.why_similar).length" class="inline-details">
+            <summary>이 기준을 함께 보는 이유</summary>
+            <div class="knia-paragraphs">
+              <p v-for="paragraph in kniaParagraphs(card.why_similar)" :key="paragraph">{{ paragraph }}</p>
+            </div>
+          </details>
           <a v-if="card.source_url" class="btn secondary" :href="card.source_url" target="_blank" rel="noopener noreferrer">원문 기준 보기</a>
           <p class="kv">{{ text(card.source_label) }}</p>
         </div>
@@ -171,7 +178,7 @@ import DetailToggleSection from "./DetailToggleSection.vue";
 import RelatedKniaStandardCard from "../knia/RelatedKniaStandardCard.vue";
 import RelatedVideoCard from "../knia/RelatedVideoCard.vue";
 import AccidentPartyTypeActionCard from "../result/AccidentPartyTypeActionCard.vue";
-import { removeTechnicalFields, sanitizeDisplayText } from "../../utils/displaySanitizer";
+import { formatKniaBody, removeTechnicalFields, sanitizeDisplayText } from "../../utils/displaySanitizer";
 
 const props = defineProps<{ report: any; followupSubmitting?: boolean; followupError?: string }>();
 const emit = defineEmits<{ submitFollowup: [answers: Record<string, string>] }>();
@@ -183,6 +190,18 @@ const basisCards = computed(() => safeReport.value?.legal_basis_cards || []);
 const visibleBasisCards = computed(() => (showAllBasis.value ? basisCards.value : basisCards.value.slice(0, 3)));
 const actionItems = computed(() => Array.isArray(safeReport.value?.top_actions) ? safeReport.value.top_actions : []);
 const displayMissingInfo = computed(() => safeReport.value?.missing_info || {});
+const partyText = computed(() => [
+  safeReport.value?.summary_for_user?.accident_type_label,
+  safeReport.value?.accident_party_type_card?.label,
+  safeReport.value?.accident_party_type_card?.summary,
+  safeReport.value?.knia_major_party_type,
+  safeReport.value?.accident_party_type,
+].map((value) => sanitizeDisplayText(value)).join(" "));
+const visibleRelatedFaultStandard = computed(() => isAllowedKniaCard(safeReport.value?.related_fault_standard) ? safeReport.value.related_fault_standard : null);
+const visibleKniaBasisCards = computed(() => {
+  const cards = Array.isArray(safeReport.value?.knia_basis_cards) ? safeReport.value.knia_basis_cards : [];
+  return cards.filter(isAllowedKniaCard);
+});
 const insuranceScriptLines = computed(() => {
   const card = safeReport.value?.insurance_script_card || safeReport.value?.insurance_explanation || {};
   const candidates = [
@@ -205,6 +224,22 @@ const hasMissingInfo = computed(() => {
 });
 
 function text(value: unknown) { return sanitizeDisplayText(value); }
+function kniaParagraphs(value: unknown) { return formatKniaBody(value); }
+
+function isAllowedKniaCard(card: any) {
+  if (!card) return false;
+  const chartNo = sanitizeDisplayText(card.chart_no || card.chartNo || "");
+  const title = sanitizeDisplayText(card.title || card.chart_title || "");
+  const party = partyText.value;
+  if (!chartNo) return true;
+  if (party.includes("차대사람") || party.includes("car vs person")) return chartNo.startsWith("보");
+  if (party.includes("차대자전거") || party.includes("bicycle")) return chartNo.startsWith("거");
+  if (party.includes("차대차")) return chartNo.startsWith("차");
+  if (party.includes("차대오토바이") || party.includes("motorcycle") || party.includes("이륜")) {
+    return chartNo.startsWith("차") && /이륜|오토바이|원동기|motorcycle/i.test(`${title} ${JSON.stringify(card)}`);
+  }
+  return !chartNo.startsWith("보") && !chartNo.startsWith("거");
+}
 
 function signed(value: unknown) {
   const n = Number(value || 0);

@@ -43,20 +43,58 @@ export function hasBadDebugText(value: unknown): boolean {
 export function sanitizeDisplayText(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "boolean") return value ? "예" : "아니오";
+  if (typeof value === "object") return "";
   let text = String(value).trim();
   if (!text || text === "null" || text === "undefined") return "";
+  if (text === "[object Object]") return "";
   if ((text.startsWith("{") && text.endsWith("}")) || (text.startsWith("[") && text.endsWith("]"))) return "";
   text = mapInternalCodeToKorean(text);
   const mappedLevel = { medium: "보통", high: "높음", low: "낮음" }[text.toLowerCase()];
   if (mappedLevel) return mappedLevel;
+  text = text.replace(/^(?:=\s*\d+\s*[,.)]\s*)+/g, "");
+  text = text.replace(/^(?:\d+\s*[,.)]\s*){2,}/g, "");
   text = text.replace(/^unknown$|^모름$/gi, "확인이 필요합니다");
   text = text.replace(/^true$/gi, "예").replace(/^false$/gi, "아니오");
   text = text.replace(/\breference_only\b/gi, "참고용 기준");
   text = text.replace(/\bfallback_used\b/gi, "같은 대분류의 참고 기준");
   text = text.replace(/\breview_required\b/gi, "추가 검토가 필요한 참고 기준");
-  text = text.replace(/\bstructured_chart_used\b/gi, "구조화 KNIA 기준 사용");
+  text = text.replace(/\bstructured_chart_used\b/gi, "");
+  text = text.replace(/직접 충돌 대상이 사람이면\s*KNIA\s*보\s*계열\s*기준만\s*사용해야\s*합니다\.?/gi, "");
+  text = text.replace(/관련성이 있는 근거입니다\.?/g, "참고할 수 있는 근거");
+  text = text.replace(/교통사고 법률 설명 자료/g, "법률 근거");
+  text = text.replace(/검수 필요 구조화 KNIA 참고 기준입니다\.?/g, "현재 사고와 가장 가까운 KNIA 참고 기준입니다. 실제 적용 전 추가 확인이 필요합니다.");
+  text = text.replace(/상세 기준 수집 필요/g, "상세 기준이 부족해 같은 대분류의 참고 기준을 함께 보여드립니다.");
   for (const pattern of BAD_PATTERNS) text = text.replace(pattern, "");
   return text.replace(/\s+/g, " ").trim() || "확인이 필요합니다";
+}
+
+export function sanitizeUserVisibleText(value: unknown): string {
+  return sanitizeDisplayText(value);
+}
+
+export function formatKniaBody(value: unknown): string[] {
+  const text = sanitizeUserVisibleText(value)
+    .replace(/\s*(⊙|①|②|③|④|⑤|※|관련 법규|참고 판례|조정사례|활용시 참고 사항|활용 참고사항)\s*/g, "\n$1 ")
+    .replace(/다\.\s+(?=[가-힣A-Z0-9])/g, "다.\n")
+    .replace(/요\.\s+(?=[가-힣A-Z0-9])/g, "요.\n");
+
+  return text
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-•]\s*/, "").trim())
+    .filter((line) => line && !hasBadDebugText(line))
+    .slice(0, 8);
+}
+
+export function splitLegalBasisParagraphs(value: unknown): string[] {
+  return formatKniaBody(value).slice(0, 5);
+}
+
+export function toUserFriendlyEvidenceLabel(rawLabel: unknown): string {
+  const label = sanitizeUserVisibleText(rawLabel);
+  if (!label) return "참고용";
+  if (label.includes("관련성")) return "근거용";
+  if (label.includes("법률")) return "법률 근거";
+  return label;
 }
 export function removeTechnicalFields<T>(obj: T): T {
   if (Array.isArray(obj)) return obj.map(removeTechnicalFields).filter((x) => x !== undefined) as T;

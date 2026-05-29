@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 const SENSITIVE_PATTERNS = [
   /\b\d{2,3}-\d{3,4}-\d{4}\b/g,
   /\b\d{6}-?[1-4]\d{6}\b/g,
-  /\b\d{2,3}[°¡-ÆR]\s?\d{4}\b/g,
+  /\b\d{2,3}[ê°€-íž£]\s?\d{4}\b/g,
 ];
 
 export function sha256(input: string) {

@@ -470,7 +470,7 @@ pedestrianGuidedQuestions.unshift(
         question_id: "pedestrian.role",
         title: "상대 유형",
         plain_question: "충돌한 상대가 보행자, 도로 작업자, 공사 담당자, 신호수 또는 교통 통제원이었나요?",
-        why_it_matters: "직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.",
+        why_it_matters: "상대가 일반 보행자인지, 도로 작업자인지에 따라 필요한 확인 사항이 달라집니다.",
         choices: [
             { value: "pedestrian", label: "일반 보행자" },
             { value: "road_worker", label: "도로 작업자 또는 공사 담당자" },
