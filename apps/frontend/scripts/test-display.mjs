@@ -147,37 +147,40 @@ if (relatedVideoCard.includes("<img") || kniaVideoLinkCard.includes("<img")) {
 }
 
 const brokenKniaSelectors = [
-  /(^|,|\s)factor-row\s*\{/m,
-  /(^|,|\s)mini-badge\s*\{/m,
-  /(^|,|\s)reference-card\s*\{/m,
-  /,\s*factor-row\s+\.(factor-source|delta)/m,
-  /,\s*factor-row\s*\[/m,
+  /(^|[,{]\s*)factor-row(\s|\[|\{|,)/m,
+  /(^|[,{]\s*)reference-card(\s|\[|\{|,)/m,
+  /(^|[,{]\s*)mini-badge(\s|\[|\{|,)/m,
+  /(^|[,{]\s*)factor-source(\s|\[|\{|,)/m,
 ];
-const brokenKniaSelectorHits = brokenKniaSelectors.filter((pattern) => pattern.test(kniaChartView));
+const kniaSource = [kniaChartView, kniaRankingView, styles].join("\n");
+const brokenKniaSelectorHits = brokenKniaSelectors.filter((pattern) => pattern.test(kniaSource));
 if (brokenKniaSelectorHits.length) {
-  console.error("KNIA chart view has class selectors missing dot", brokenKniaSelectorHits.map(String));
+  console.error("KNIA CSS selector is missing class dot", brokenKniaSelectorHits.map(String));
   process.exit(1);
 }
 
 const requiredKniaUiTokens = [
-  "knia-tabs",
-  "factor-table",
-  "fault-bar",
-  "fault-segment",
-  "factor-mobile-meta",
-  "factor-state",
-  "factor-row.selected",
+  ".knia-tabs",
+  ".tab-button.active",
+  ".fault-bar",
+  ".fault-segment.is-zero",
+  ".factor-table",
+  ".factor-row",
+  ".selection-status.is-on",
+  ".mobile-adjustment-summary",
+  "knia-detail-page",
+  "knia-ranking-page",
 ];
-const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaChartView.includes(token));
+const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaSource.includes(token));
 if (missingKniaUiTokens.length) {
-  console.error("KNIA chart mobile UI contract missing", missingKniaUiTokens);
+  console.error("KNIA responsive UI contract missing", missingKniaUiTokens);
   process.exit(1);
 }
 
-const forbiddenKniaColors = ["#2dd4bf", "#3b82f6", "#60efff", "#67e8f9", "#8dd7ff", "#0a1628", "#050c18"];
-const kniaColorLeaks = forbiddenKniaColors.filter((token) => kniaChartView.includes(token) || kniaRankingView.includes(token));
+const forbiddenKniaColors = ["#2dd4bf", "#3b82f6", "#60efff", "#050c18", "#dbeafe", "#cbd5e1", "rgba(84,226,243", "rgba(76,213,226"];
+const kniaColorLeaks = forbiddenKniaColors.filter((token) => kniaSource.includes(token));
 if (kniaColorLeaks.length) {
-  console.error("KNIA ranking/chart views still use legacy cyan/blue colors", kniaColorLeaks);
+  console.error("legacy cyan/blue KNIA styles leaked", kniaColorLeaks);
   process.exit(1);
 }
 

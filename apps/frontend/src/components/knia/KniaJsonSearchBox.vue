@@ -74,9 +74,9 @@ const run = async () => {
   white-space: pre-line;
 }
 .empty-note {
-  color: #cbd5e1;
+  color: var(--text-sub);
   padding: 14px;
   border-radius: 14px;
-  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border: 1px dashed rgba(201, 169, 98, 0.24);
 }
 </style>
