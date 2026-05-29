@@ -8,7 +8,7 @@ import {
 } from "./report-composer-common.js";
 
 const KNIA_SOURCE_LINK_NOTICE = "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.";
-const KNIA_MISSING_SOURCE_NOTICE = "수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.";
+const KNIA_MISSING_SOURCE_NOTICE = "상세 기준 수집 필요: 수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.";
 
 export function composeKniaLinkCards(result: AnyRecord = {}, report: AnyRecord = {}): AnyRecord {
   const candidates = collectKniaDisplayCandidates(result, report);
@@ -84,6 +84,7 @@ function collectKniaDisplayCandidates(result: AnyRecord = {}, report: AnyRecord 
   const fault = result.fault_ratio ?? {};
   push(fault.knia_reference_fault?.source_chart ?? fault.knia_reference_fault, "knia_reference_fault");
   push(fault.knia_fault_estimate?.source_chart ?? fault.knia_fault_estimate, "knia_fault_estimate");
+  push(deriveScenarioKniaCandidate(result, report), "scenario_knia_candidate");
 
   const seen = new Set<string>();
   const requestedParty = canonicalPartyType(
@@ -128,8 +129,17 @@ function normalizeKniaCandidate(item: AnyRecord = {}) {
 
   return {
     chart_no: cleanText(item.chart_no, ""),
+    subchart_no: cleanText(item.subchart_no, ""),
     chart_type: cleanText(item.chart_type, ""),
     title: cleanText(item.title ?? item.chart_title ?? item.article_title, ""),
+    summary: cleanText(item.summary ?? item.description ?? item.accident_situation, ""),
+    menu_path: asArray(item.menu_path).map((part) => cleanText(part, "")).filter(Boolean),
+    match_reason: cleanText(item.match_reason ?? item.why_matched, ""),
+    base_fault: item.base_fault ?? item.knia_reference_fault?.base_fault,
+    final_fault: item.final_fault ?? item.adjusted_fault ?? item.knia_reference_fault?.final_fault,
+    fault_range: item.fault_range ?? item.knia_reference_fault?.fault_range,
+    reference_only: item.reference_only === true || item.presentation_status === "reference_only",
+    source_url_is_fallback: item.source_url_is_fallback === true,
     accident_party_type: cleanText(item.accident_party_type ?? item.major_party_type, ""),
     major_party_type: cleanText(item.major_party_type ?? item.accident_party_type, ""),
     accident_party_label: cleanText(item.accident_party_label, ""),
@@ -145,6 +155,44 @@ function normalizeKniaCandidate(item: AnyRecord = {}) {
     license_status: cleanText(item.license_status ?? media.license_status, ""),
     score: toNumber(item.score ?? item.match_score, 0),
     has_knia_candidate: true,
+  };
+}
+
+function deriveScenarioKniaCandidate(result: AnyRecord = {}, report: AnyRecord = {}): AnyRecord | null {
+  const facts = result.structured_facts ?? result.normalized?.structured_facts ?? report.structured_facts ?? {};
+  const fault = result.fault_ratio ?? {};
+  const text = [
+    result.scenario_type,
+    result.accident_type,
+    facts.accident_type,
+    facts.scenario_type,
+    fault.fault_estimate_source,
+    fault.knia_adjustment_policy?.id,
+    fault.knia_adjustment_registry?.policy?.id,
+  ].map((value) => String(value ?? "")).join(" ").toLowerCase();
+
+  const parkedStealth = /stealth_illegal_parked_vehicle|unlit|stopped_vehicle|parking_stopped_vehicle|parked_vehicle/.test(text)
+    || facts.is_stealth_parked_vehicle_collision === true
+    || facts.is_parked_vehicle_collision === true
+    || facts.stopped_vehicle_without_lights === true;
+
+  if (!parkedStealth) return null;
+
+  return {
+    chart_no: "차42",
+    title: "주정차 차량 추돌 사고",
+    major_party_type: "car_vs_car",
+    accident_party_type: "car_vs_car",
+    menu_path: ["자동차와 자동차의 사고", "같은 방향 진행차량 상호 간의 사고", "주정차 차량 추돌 사고"],
+    source_url: `https://accident.knia.or.kr/myaccident-content?chartNo=${encodeURIComponent("차42")}&chartType=1`,
+    source_url_is_fallback: true,
+    summary: "야간 무등화 또는 비정상 정차 차량과 충돌한 상황은 주정차 차량 추돌 기준을 우선 참고합니다.",
+    match_reason: "스텔스·무등화 정차 차량 및 야간 시야 제한 정황이 있어 주정차 차량 추돌 기준과 가까운 후보로 표시합니다.",
+    base_fault: fault.base_fault ?? fault.knia_adjustment_registry?.base_fault,
+    final_fault: fault.final_fault ?? fault.knia_adjustment_registry?.final_fault,
+    fault_range: fault.fault_range ?? fault.knia_adjustment_registry?.fault_range,
+    reference_only: true,
+    score: 0.5,
   };
 }
 
@@ -183,8 +231,17 @@ function buildKniaLinkCard(item: AnyRecord = {}) {
     title: "KNIA 원문 기준 및 관련 영상",
     description: "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
     chart_no: item.chart_no || undefined,
+    subchart_no: item.subchart_no || undefined,
     chart_type: item.chart_type || undefined,
     chart_title: item.title || undefined,
+    menu_path: item.menu_path || undefined,
+    summary: item.summary || undefined,
+    match_reason: item.match_reason || undefined,
+    base_fault: item.base_fault || undefined,
+    final_fault: item.final_fault || undefined,
+    fault_range: item.fault_range || undefined,
+    reference_only: item.reference_only === true,
+    source_url_is_fallback: item.source_url_is_fallback === true,
     accident_party_label: item.accident_party_label || undefined,
     display_mode: "external_link",
     button_url: item.source_url || undefined,

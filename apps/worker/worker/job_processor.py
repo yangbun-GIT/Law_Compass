@@ -460,7 +460,7 @@ def mark_failed(job_id: str, err: Exception) -> None:
                     """
                     UPDATE jobs
                     SET status = (CASE WHEN attempts >= max_attempts THEN 'dead' ELSE 'failed' END)::job_status,
-                        error_info = jsonb_build_object('message', %s, 'at', now()),
+                        error_info = jsonb_build_object('message', %s::text, 'at', now()),
                         last_error = %s,
                         next_run_at = now() + interval '5 minutes',
                         updated_at = now()
@@ -469,8 +469,12 @@ def mark_failed(job_id: str, err: Exception) -> None:
                     (_safe_worker_error_message(err), _safe_worker_error_message(err), job_id),
                 )
                 conn.commit()
-    except Exception:
-        pass
+    except Exception as update_err:
+        print(json.dumps({
+            "event": "worker_mark_failed_update_failed",
+            "job_id": job_id,
+            "error": _safe_worker_error_message(update_err),
+        }))
 
 
 def _safe_worker_error_message(err: Exception) -> str:

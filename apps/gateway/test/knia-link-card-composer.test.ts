@@ -40,6 +40,7 @@ describe("KNIA link card composition", () => {
     expect(card.thumbnail_url).toBeUndefined();
     expect(card.display_mode).toBe("external_link");
     expect(card.notice).toContain("LawCompass 서버에 저장하지 않고");
+    expect((enriched as any).simple_report.knia_and_video.primary.button_label).toBe("KNIA 관련 영상 보기");
   });
 
   it("blocks unsafe KNIA display urls while keeping a non-empty candidate notice", () => {
@@ -57,6 +58,7 @@ describe("KNIA link card composition", () => {
     const text = JSON.stringify(enriched);
     const card = (enriched as any).related_knia_video_card;
     expect(card.source_url).toBeUndefined();
+    expect(card.missing_source_notice).toContain("상세 기준 수집 필요");
     expect(card.missing_source_notice).toContain("수집된 KNIA 원문 링크가 없습니다");
     expect(text).not.toContain("javascript:");
     expect(text).not.toContain("data:text");
@@ -86,6 +88,7 @@ describe("KNIA link card composition", () => {
 
     const text = JSON.stringify(enriched);
     expect((enriched as any).related_knia_video_card.chart_no).toBe("보1");
+    expect((enriched as any).simple_report.knia_and_video.primary.chart_no).toBe("보1");
     expect(text).toContain("보1");
     expect(text).not.toContain("차43");
     expect(text).not.toContain("거1");

@@ -32,6 +32,42 @@ describe("report composer", () => {
     ]);
   });
 
+  it("keeps a user-friendly KNIA and video card without raw internals", () => {
+    const enriched: any = enrichEasyReport(
+      sanitizeEasyReport({
+        headline: "야간 정차 차량 충돌",
+        related_fault_standard: {
+          chart_no: "차42",
+          title: "주정차 차량 추돌 사고",
+          chunk_id: "internal-chunk",
+        },
+      }),
+      {
+        analysis_mode: "user_friendly",
+        knia_primary_match: null,
+        knia_basis_cards: [
+          {
+            chart_no: "차42",
+            title: "주정차 차량 추돌 사고",
+            menu_path: ["자동차와 자동차의 사고", "같은 방향 진행차량 상호 간의 사고"],
+            source_url: "https://accident.knia.or.kr/myaccident-content?chartNo=car42",
+            base_fault: { A: 20, B: 80 },
+            final_fault: { A: 10, B: 90 },
+            chunk_id: "internal-knia-chunk",
+          },
+        ],
+      },
+    );
+
+    expect(enriched.related_knia_video_card.chart_no).toBe("차42");
+    expect(enriched.simple_report.knia_and_video.primary.chart_no).toBe("차42");
+    expect(enriched.simple_report.knia_and_video.primary.button_label).toBe("KNIA 원문 기준 보기");
+    expect(enriched.simple_report.knia_and_video.primary.base_fault).toEqual({ A: 20, B: 80 });
+    const text = JSON.stringify(enriched.simple_report);
+    expect(text).not.toContain("chunk_id");
+    expect(text).not.toContain("internal-knia-chunk");
+  });
+
   it("adds a user-safe evidence reliability card without raw claim internals", () => {
     const report = sanitizeEasyReport({ headline: "테스트 리포트" });
     const enriched = enrichEasyReport(report, {

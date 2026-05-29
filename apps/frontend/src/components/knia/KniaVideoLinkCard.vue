@@ -8,7 +8,7 @@ const props = defineProps<{
   card?: AnyRecord | null;
 }>();
 
-const MISSING_KNIA_SOURCE_NOTICE = "수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.";
+const MISSING_KNIA_SOURCE_NOTICE = "상세 기준 수집 필요: 수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.";
 const KNIA_SOURCE_LINK_NOTICE = "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.";
 const KNIA_ALLOWED_HOST = "accident.knia.or.kr";
 
@@ -52,6 +52,19 @@ const missingNotice = computed(() => (!safeSourceUrl.value && hasKniaCandidate.v
   : "");
 const notice = computed(() => safeSourceUrl.value ? (video.value.notice || KNIA_SOURCE_LINK_NOTICE) : "");
 const sourceLabel = computed(() => video.value.source_label || video.value.attribution || "자료 출처: 과실비율정보포털");
+
+function faultText(value: any): string {
+  if (!value) return "";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value !== "object") return "";
+  const my = value.my ?? value.A ?? value.user ?? value.ego ?? value.driver;
+  const other = value.other ?? value.B ?? value.opponent ?? value.counterparty;
+  if (my !== undefined && other !== undefined) return `${my}:${other}`;
+  const min = value.min ?? value.minimum;
+  const max = value.max ?? value.maximum;
+  if (min !== undefined && max !== undefined) return `${min}~${max}`;
+  return String(value.label || value.summary || "");
+}
 </script>
 
 <template>
@@ -64,7 +77,16 @@ const sourceLabel = computed(() => video.value.source_label || video.value.attri
 
     <div v-if="video.chart_no || video.chart_title" class="chips">
       <span v-if="video.chart_no" class="chip selected">기준번호 {{ video.chart_no }}</span>
+      <span v-if="video.subchart_no" class="chip selected">세부 {{ video.subchart_no }}</span>
       <span v-if="video.chart_title" class="chip">{{ video.chart_title }}</span>
+    </div>
+
+    <p v-if="video.menu_path?.length" class="muted">{{ video.menu_path.join(" > ") }}</p>
+
+    <div v-if="faultText(video.base_fault) || faultText(video.final_fault) || faultText(video.fault_range)" class="chips">
+      <span v-if="faultText(video.base_fault)" class="chip">기준 과실 {{ faultText(video.base_fault) }}</span>
+      <span v-if="faultText(video.final_fault)" class="chip selected">수정 과실 {{ faultText(video.final_fault) }}</span>
+      <span v-if="faultText(video.fault_range)" class="chip">참고 범위 {{ faultText(video.fault_range) }}</span>
     </div>
 
     <div v-if="safeSourceUrl" class="btn-row">
@@ -85,6 +107,7 @@ const sourceLabel = computed(() => video.value.source_label || video.value.attri
     <p v-if="notice" class="soft-warning">
       {{ notice }}
     </p>
+    <p v-if="video.source_url_is_fallback" class="kv">원문 링크 형식은 차트번호 기반으로 생성되었습니다.</p>
     <p class="source-label">{{ sourceLabel }}</p>
   </article>
 </template>

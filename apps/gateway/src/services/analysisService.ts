@@ -27,9 +27,10 @@ const GUIDED_PROGRESS_VERSION = "gateway-guided-progress-v1";
 const USER_STAGE_MESSAGES: Record<string, string> = {
   draft: "사고 설명을 정리하고 있습니다.",
   ready: "사고유형을 확인할 준비가 되었습니다.",
-  analyzing: "비슷한 KNIA 기준과 과실비율을 확인하고 있습니다.",
+  analyzing: "영상과 KNIA 기준, 과실비율을 확인하고 있습니다.",
   completed: "분석 결과를 정리했습니다.",
-  failed: "분석 실패. 다시 시도해 주세요.",
+  failed: "분석에 실패했습니다. 다시 시도해 주세요.",
+  dead: "분석 작업이 완료되지 못했습니다. 다시 시도해 주세요.",
   queued: "대기 중입니다.",
   running: "분석 중입니다.",
   retrying: "잠시 후 다시 확인하고 있습니다.",
@@ -44,7 +45,7 @@ function isNonEmptyRecord(value: any): value is AnyRecord {
 }
 
 export function publicStatusLabel(status?: string) {
-  return USER_STAGE_MESSAGES[String(status || "")] || "상태를 확인하고 있습니다.";
+  return USER_STAGE_MESSAGES[String(status || "").toLowerCase()] || "상태를 확인하고 있습니다.";
 }
 
 export function publicJobTypeLabel(type?: string) {
@@ -83,9 +84,9 @@ function estimateRemainingSeconds(stepKey: string, elapsed: number) {
 }
 
 function userStatusNote(stepKey: string, remainingSteps: string[]) {
-  if (stepKey === "result") return "결과 화면으로 이동할 수 있습니다.";
+  if (stepKey === "result") return "결과 화면으로 이동할 준비를 하고 있습니다.";
   if (stepKey === "knia") return "KNIA 기준과 과실 가감요소를 대조하고 있습니다.";
-  if (stepKey === "scene") return "영상에서 사고 장면과 핵심 단서를 확인하고 있습니다.";
+  if (stepKey === "scene") return "영상에서 사고 장면과 충돌 단서를 확인하고 있습니다.";
   if (remainingSteps.length) return `${remainingSteps.length}개 단계가 남았습니다.`;
   return "결과 화면을 준비하고 있습니다.";
 }
@@ -95,15 +96,18 @@ export function composeGuidedProgressPayload(
   jobs: AnyRecord[] = [],
   options: { resultReady?: boolean } = {}
 ) {
-    const stepDefs = [
-        { key: "input", label: "입력 정리", percent: 15, message: "입력한 사고정보를 정리하고 있습니다." },
-        { key: "upload", label: "영상 확인", percent: 30, message: "영상 파일을 확인하고 있습니다." },
-        { key: "scene", label: "사고 장면 확인", percent: 45, message: "사고 장면을 찾고 있습니다." },
-        { key: "scenario", label: "사고유형 판단", percent: 60, message: "어떤 사고유형인지 확인하고 있습니다." },
-        { key: "knia", label: "KNIA 과실 기준 검색", percent: 75, message: "비슷한 KNIA 과실 기준을 찾고 있습니다." },
-        { key: "adjustment", label: "가감요소 계산", percent: 88, message: "급정거, 제동등, 정차 위치 같은 가감요소를 확인하고 있습니다." },
-        { key: "result", label: "결과 정리", percent: 100, message: "결과 화면을 정리했습니다." },
-    ];
+  const stepDefs = [
+    { key: "input", label: "입력 정리", percent: 15, message: "입력한 사고정보를 정리하고 있습니다." },
+    { key: "upload", label: "영상 확인", percent: 30, message: "영상 파일을 확인하고 있습니다." },
+    { key: "scene", label: "사고 장면 확인", percent: 45, message: "사고 장면을 찾고 있습니다." },
+    { key: "scenario", label: "사고유형 판단", percent: 60, message: "어떤 사고유형인지 확인하고 있습니다." },
+    { key: "knia", label: "KNIA 과실 기준 검색", percent: 75, message: "비슷한 KNIA 과실 기준을 찾고 있습니다." },
+    { key: "adjustment", label: "가감요소 계산", percent: 88, message: "급정거, 제동등, 정차 위치 같은 가감요소를 확인하고 있습니다." },
+    { key: "result", label: "결과 정리", percent: 100, message: "결과 화면을 정리했습니다." },
+  ];
+  const activeStatuses = ["queued", "running", "retrying", "processing", "analyzing"];
+  const doneStatuses = ["completed", "succeeded", "success", "done", "finished"];
+  const failedStatuses = ["failed", "error", "cancelled", "canceled", "dead"];
 
   const normalizedJobs = jobs.slice(0, 5).map((job) => {
     const status = String(job.status || "").toLowerCase();
@@ -114,24 +118,24 @@ export function composeGuidedProgressPayload(
       type: String(job.type || ""),
       status,
       elapsed_seconds: elapsed,
-      is_active: ["queued", "running", "retrying", "processing", "analyzing"].includes(status),
-      is_done: ["completed", "succeeded", "success", "done", "finished"].includes(status),
-      is_failed: ["failed", "error", "cancelled", "canceled"].includes(status),
+      is_active: activeStatuses.includes(status),
+      is_done: doneStatuses.includes(status),
+      is_failed: failedStatuses.includes(status),
     };
   });
 
-  if (options.resultReady) {
+  if (options.resultReady || Boolean(caseRow?.latest_result_id)) {
     return {
       version: GUIDED_PROGRESS_VERSION,
-        current_stage: "결과 준비 완료",
-        current_message: "분석 결과가 준비되었습니다.",
+      current_stage: "결과 준비 완료",
+      current_message: "분석 결과가 준비되었습니다.",
       current_step: "result",
       current_step_index: 6,
       progress_percent: 100,
       result_ready: true,
       can_show_result: true,
       estimated_remaining_seconds: 0,
-      status_note: "결과 화면으로 이동할 수 있습니다.",
+      status_note: "결과 화면으로 이동할 준비를 하고 있습니다.",
       steps: stepDefs.map((step) => ({ ...step, status: "done" })),
       remaining_steps: [],
       jobs: normalizedJobs.map(({ type: _type, ...safe }) => safe),
@@ -143,6 +147,7 @@ export function composeGuidedProgressPayload(
   const failedJob = normalizedJobs.find((job) => job.is_failed);
   const hasAnyJob = normalizedJobs.length > 0;
   const hasDoneJob = normalizedJobs.some((job) => job.is_done);
+  const stalled = Boolean(activeJob?.type === "video_analyze" && activeJob.elapsed_seconds >= 120);
 
   let currentStep = "input";
   let currentIndex = 0;
@@ -171,20 +176,23 @@ export function composeGuidedProgressPayload(
   const currentElapsed = activeJob?.elapsed_seconds ?? 0;
   const remainingSteps = stepDefs.slice(currentIndex + 1).map((step) => step.label);
   const progressPercent = failedJob ? 100 : stagePercent(currentStep, current.percent, currentElapsed);
+  const failedMessage = "분석 중 문제가 발생했습니다. 다시 시도하거나 고급 진단을 확인해 주세요.";
+  const stalledMessage = "분석이 예상보다 오래 걸리고 있습니다. 작업은 계속 확인 중입니다.";
 
   return {
     version: GUIDED_PROGRESS_VERSION,
-      current_stage: failedJob ? "확인 필요" : current.label,
-    current_message: failedJob
-        ? "분석 중 문제가 발생했습니다. 다시 시도하거나 고급 진단을 확인해 주세요."
-      : current.message,
+    current_stage: failedJob ? "확인 필요" : current.label,
+    current_message: failedJob ? failedMessage : current.message,
     current_step: currentStep,
     current_step_index: currentIndex,
     progress_percent: progressPercent,
     result_ready: false,
     can_show_result: false,
+    failed: Boolean(failedJob),
+    stalled,
+    error_message: failedJob ? failedMessage : undefined,
     estimated_remaining_seconds: failedJob ? 0 : estimateRemainingSeconds(currentStep, currentElapsed),
-    status_note: failedJob ? "다시 시도하거나 고급 진단을 확인해 주세요." : userStatusNote(currentStep, remainingSteps),
+    status_note: failedJob ? failedMessage : stalled ? stalledMessage : userStatusNote(currentStep, remainingSteps),
     steps: stepDefs.map((step, index) => ({
       ...step,
       status: index < currentIndex ? "done" : index === currentIndex ? "active" : "waiting",

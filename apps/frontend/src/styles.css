@@ -25,9 +25,9 @@
     --panel-radius: 14px;
     --shadow-soft: 0 18px 48px rgba(0, 0, 0, 0.32);
     --shadow-strong: 0 28px 80px rgba(0, 0, 0, 0.48);
-    --font-heading: "Cormorant Garamond", "Noto Serif KR", serif;
-    --font-body: "Noto Sans KR", "Pretendard", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-display: "Cinzel", "Cormorant Garamond", "Noto Serif KR", serif;
+    --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --font-heading: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --font-display: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -58,8 +58,8 @@ a { color: var(--accent); text-decoration: none; }
 
 .app-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
 .aurora { position: absolute; border-radius: 999px; filter: blur(56px); opacity: 0.6; }
-.aurora-a { width: 380px; height: 380px; background: #16a34a; left: -80px; top: -120px; }
-.aurora-b { width: 420px; height: 420px; background: #0284c7; right: -100px; top: 40px; }
+.aurora-a { width: 380px; height: 380px; background: rgba(139, 38, 53, 0.52); left: -80px; top: -120px; }
+.aurora-b { width: 420px; height: 420px; background: rgba(201, 169, 98, 0.42); right: -100px; top: 40px; }
 
 .app-shell { width: min(100% - 40px, 1280px); margin: 0 auto; padding: 24px 0 48px; }
 .glass {
@@ -638,6 +638,86 @@ textarea { resize: vertical; min-height: 96px; }
 .guided-question p {
     line-height: 1.65;
 }
+.guided-question-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+}
+.guided-question-header h3 {
+    margin: 4px 0 0;
+    font-size: clamp(1.18rem, 2vw, 1.45rem);
+    line-height: 1.35;
+}
+.guided-question-counter {
+    flex: 0 0 auto;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 999px;
+    color: var(--accent-foreground);
+    background: linear-gradient(180deg, #D4B872 0%, #C9A962 62%, #B8953F 100%);
+    font-weight: 900;
+}
+.guided-question-progress {
+    margin: 0;
+}
+.guided-answer-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.guided-question-stage {
+    display: grid;
+    gap: 14px;
+}
+.guided-question-card {
+    padding: 20px;
+    border-radius: 18px;
+    background:
+            linear-gradient(180deg, rgba(232,223,212,0.075), rgba(28,23,20,0.16)),
+            rgba(37,30,25,0.9);
+    border: 1px solid rgba(201,169,98,0.36);
+}
+.guided-question-title {
+    margin: 6px 0 10px;
+    font-size: clamp(1.18rem, 3vw, 1.42rem);
+    line-height: 1.45;
+}
+.guided-question-options {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+.guided-question-option {
+    min-height: 56px;
+    width: 100%;
+    padding: 16px 18px;
+    border-radius: 16px;
+    border: 1px solid rgba(201,169,98,0.35);
+    background: rgba(232,223,212,0.08);
+    color: var(--text-main);
+    font: 800 17px/1.35 var(--font-body);
+    text-align: left;
+    cursor: pointer;
+}
+.guided-question-option:hover,
+.guided-question-option:focus-visible {
+    border-color: rgba(201,169,98,0.74);
+    background: rgba(201,169,98,0.14);
+}
+.guided-question-option.is-selected {
+    color: var(--paper);
+    background: rgba(201,169,98,0.22);
+    border-color: rgba(201,169,98,0.75);
+    box-shadow: inset 0 0 0 1px rgba(201,169,98,0.24);
+}
+.guided-question-actions .btn {
+    min-height: 52px;
+    border-radius: 14px;
+    font-size: 16px;
+}
 .diagnostic-panel > summary {
     cursor: pointer;
     font-weight: 900;
@@ -658,6 +738,26 @@ textarea { resize: vertical; min-height: 96px; }
         height: min(78vh, 680px);
     }
     .ai-chat-footer { grid-template-columns: 1fr; }
+    .guided-question-header {
+        display: grid;
+    }
+    .guided-question-counter {
+        width: fit-content;
+    }
+    .guided-question-card {
+        padding: 18px;
+    }
+    .guided-question-option {
+        min-height: 58px;
+        font-size: 17px;
+    }
+    .guided-question-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+    .guided-question-actions .btn {
+        width: 100%;
+    }
 }
 
 .party-tabs {
@@ -1017,6 +1117,100 @@ padding: 16px;
 
 .mobile-demo-json.compact {
     max-height: 260px;
+}
+
+details,
+summary,
+table,
+th,
+td,
+pre,
+code,
+input,
+textarea,
+select {
+    color: var(--text-main);
+}
+
+details {
+    border-radius: var(--panel-radius);
+    background: rgba(37,30,25,0.88);
+    border: 1px solid rgba(201,169,98,0.28);
+}
+
+summary {
+    min-height: 44px;
+    padding: 12px 14px;
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 900;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(37,30,25,0.74);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+th,
+td {
+    padding: 11px 12px;
+    border-bottom: 1px solid rgba(201,169,98,0.18);
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    color: var(--accent);
+    background: rgba(201,169,98,0.10);
+    font-weight: 900;
+}
+
+pre,
+code {
+    border-radius: 10px;
+    background: rgba(21,17,15,0.78);
+    border: 1px solid rgba(201,169,98,0.22);
+}
+
+pre {
+    padding: 14px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+}
+
+code {
+    padding: 2px 5px;
+}
+
+.expert-report .card,
+.expert-report .easy-card,
+.expert-report .basis-card,
+.expert-report .diagnostic-panel,
+.expert-report .section,
+.expert-report .panel,
+.expert-report .report,
+.expert-report .analysis,
+.expert-report .evidence {
+    background:
+            linear-gradient(180deg, rgba(232,223,212,0.06), rgba(28,23,20,0.14)),
+            rgba(37,30,25,0.88);
+    border-color: rgba(201,169,98,0.28);
+    color: var(--text-main);
+}
+
+.simple-fault-lines {
+    display: grid;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.simple-fault-lines p {
+    margin: 0;
+    color: var(--text-sub);
+    font-weight: 800;
 }
 
 .mobile-demo-two-col {

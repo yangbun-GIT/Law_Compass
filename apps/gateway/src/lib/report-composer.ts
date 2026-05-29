@@ -8,6 +8,7 @@ import {
   hasAny,
   isPlainObject,
   safeHttpUrl,
+  safeKniaUrl,
   scenarioLabel,
   toNumber,
   unique,
@@ -1561,12 +1562,8 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
 function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord {
     const faultRatio: AnyRecord = report.fault_ratio || report.fault_explanation || result.fault_ratio || {};
     const userFault: AnyRecord = faultRatio.user_fault || faultRatio.final_fault || {};
-    const knia: AnyRecord | null =
-        report.knia_match_summary ||
-        result.knia_match_summary ||
-        result.knia_primary_match ||
-        result.knia_reference ||
-        null;
+    const kniaCandidates = collectSimpleKniaCandidates(report, result);
+    const knia: AnyRecord | null = kniaCandidates[0] ?? null;
     const videoSummary = cleanText(
         report.video_summary ||
         result.video_summary ||
@@ -1604,21 +1601,122 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
                 result.presentation_status === "reference_only" ||
                 result.judgment_status === "needs_review",
         },
-        knia_video_evidence: knia
-            ? {
-                chart_no: cleanText(knia.chart_no, ""),
-                subchart_no: cleanText(knia.subchart_no, ""),
-                title: cleanText(knia.title, ""),
-                menu_path: asArray(knia.menu_path).map((item) => cleanText(item, "")).filter(Boolean),
-                source_url: safeHttpUrl(knia.source_url),
-                source_url_is_fallback: knia.source_url_is_fallback === true,
-                match_reason: cleanText(knia.match_reason || knia.why_matched, ""),
-                reference_only: knia.reference_only === true,
-                candidate_charts: asArray(knia.candidate_charts).slice(0, 3),
-            }
-            : null,
+        knia_video_evidence: knia,
+        knia_and_video: {
+            primary: knia,
+            candidates: kniaCandidates.slice(0, 3),
+            source_notice: "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.",
+        },
         video_summary: videoSummary,
     };
+}
+
+function collectSimpleKniaCandidates(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord[] {
+    const requestedParty = partyCode(
+        result.knia_major_party_type ??
+        result.accident_party_type ??
+        report.knia_major_party_type ??
+        report.accident_party_type ??
+        result.scenario?.accident_party_type ??
+        result.normalized?.structured_facts?.knia_major_party_type,
+    );
+    const rawCandidates = [
+        report.related_knia_video_card,
+        report.related_video,
+        report.simple_report?.knia_and_video?.primary,
+        report.simple_report?.knia_video_evidence,
+        report.knia_match_summary,
+        result.knia_match_summary,
+        result.knia_primary_match,
+        result.knia_reference,
+        asArray(report.knia_basis_cards)[0],
+        asArray(result.knia_basis_cards)[0],
+        asArray(result.knia_matches)[0],
+        report.related_fault_standard,
+        result.related_fault_standard,
+        asArray(result.elderly_friendly_report?.knia_basis_cards)[0],
+        result.fault_ratio?.knia_match,
+        result.fault_ratio?.knia_reference_fault?.source_chart,
+        result.fault_ratio?.knia_reference_fault,
+    ];
+
+    const output: AnyRecord[] = [];
+    const byKey = new Map<string, AnyRecord>();
+    for (const candidate of rawCandidates
+        .map(normalizeSimpleKniaCandidate)
+        .filter((candidate): candidate is AnyRecord => Boolean(candidate))
+        .filter((candidate) => isSimpleKniaCandidateAllowedForParty(candidate, requestedParty))) {
+        const key = (candidate.chart_no || candidate.subchart_no)
+            ? [candidate.chart_no, candidate.subchart_no].filter(Boolean).join("|").toLowerCase()
+            : [candidate.button_url, candidate.source_url, candidate.title].filter(Boolean).join("|").toLowerCase();
+        if (!key) continue;
+        const existing = byKey.get(key);
+        if (!existing) {
+            byKey.set(key, candidate);
+            output.push(candidate);
+            continue;
+        }
+        for (const field of ["source_url", "button_url", "video_url", "button_label", "base_fault", "final_fault", "fault_range", "menu_path", "match_reason", "summary", "missing_source_notice"]) {
+            if (!existing[field] || (Array.isArray(existing[field]) && !existing[field].length)) {
+                existing[field] = candidate[field];
+            }
+        }
+    }
+    return output;
+}
+
+function normalizeSimpleKniaCandidate(candidate: any): AnyRecord | null {
+    if (!isPlainObject(candidate)) return null;
+    const chartNo = cleanText(candidate.chart_no ?? candidate.chartNo, "");
+    const subchartNo = cleanText(candidate.subchart_no ?? candidate.subchartNo, "");
+    const title = cleanText(candidate.chart_title ?? candidate.title ?? candidate.article_title, "");
+    const sourceUrl = safeKniaUrl(candidate.button_url || candidate.source_url || candidate.source_detail_url || candidate.source_page_url || candidate.video_url);
+    const hasCandidate = candidate.has_knia_candidate === true || Boolean(chartNo || subchartNo || title || sourceUrl);
+    if (!hasCandidate) return null;
+
+    const videoUrl = safeKniaUrl(candidate.video_url);
+    const buttonUrl = safeKniaUrl(candidate.button_url || candidate.source_url || candidate.source_detail_url || candidate.source_page_url || candidate.video_url);
+    const baseFault = candidate.base_fault ?? candidate.knia_reference_fault?.base_fault ?? null;
+    const finalFault = candidate.final_fault ?? candidate.adjusted_fault ?? candidate.knia_reference_fault?.final_fault ?? null;
+    const faultRange = candidate.fault_range ?? candidate.range ?? candidate.knia_reference_fault?.fault_range ?? null;
+
+    return {
+        chart_no: chartNo,
+        subchart_no: subchartNo,
+        title,
+        major_party_type: cleanText(candidate.major_party_type ?? candidate.accident_party_type, ""),
+        accident_party_type: cleanText(candidate.accident_party_type ?? candidate.major_party_type, ""),
+        summary: cleanText(candidate.summary ?? candidate.description ?? candidate.accident_situation, ""),
+        menu_path: asArray(candidate.menu_path).map((item) => cleanText(item, "")).filter(Boolean),
+        source_url: sourceUrl,
+        button_url: buttonUrl,
+        video_url: videoUrl,
+        button_label: videoUrl ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기",
+        source_url_is_fallback: candidate.source_url_is_fallback === true,
+        match_reason: cleanText(candidate.match_reason || candidate.why_matched, ""),
+        reference_only: candidate.reference_only === true || candidate.presentation_status === "reference_only",
+        base_fault: baseFault,
+        final_fault: finalFault,
+        fault_range: faultRange,
+        source_notice: cleanText(candidate.notice, "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다."),
+        missing_source_notice: sourceUrl
+            ? ""
+            : cleanText(candidate.missing_source_notice, "상세 기준 수집 필요: KNIA 원문 링크는 아직 연결되지 않았습니다."),
+        candidate_charts: asArray(candidate.candidate_charts).slice(0, 3),
+        has_knia_candidate: true,
+    };
+}
+
+function isSimpleKniaCandidateAllowedForParty(candidate: AnyRecord, requestedParty: string) {
+    if (!requestedParty) return true;
+    const party = partyCode(candidate.major_party_type || candidate.accident_party_type);
+    if (party && party !== requestedParty) return false;
+    const chartNo = String(candidate.chart_no || "");
+    if (!chartNo) return true;
+    if (requestedParty === "car_vs_person") return chartNo.startsWith("보");
+    if (requestedParty === "car_vs_bicycle") return chartNo.startsWith("거") || chartNo.startsWith("자");
+    if (requestedParty === "car_vs_car") return chartNo.startsWith("차");
+    return true;
 }
 
 function sanitizeGuidedQuestionnaire(value: AnyRecord = {}) {
