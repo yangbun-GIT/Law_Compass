@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P2-2e OpenAI+YOLO ON 재측정 통과
+
+P2-2b~d 보강 이후 실제 사고 영상 1~5를 OpenAI 프레임 분석과 YOLO 보조 관찰이 모두 켜진 Docker Worker에서 다시 측정했다. 측정 전 `scripts/video_agent_e2e.py`가 `/easy-report`의 `conditional_outcome_card`를 출력 JSON에 포함하지 않아 `video_accuracy_batch.py`와 reference metrics가 조건별 분기 coverage를 과소평가하는 문제가 확인되어, E2E/배치 출력 계약을 보강했다.
+
+| 범위 | 결과 |
+| --- | --- |
+| 실행 조건 | `ENABLE_OPENAI_FRAME_ANALYSIS=1`, `FRAME_ANALYSIS_FIXTURE_MODE=`, `ENABLE_YOLO_FRAME_ANALYSIS=1`, `YOLO_MODEL_PATH=/models/yolo/yolo11n.pt` |
+| 배치 산출물 | `logs/video_accuracy/p2_2e_openai_yolo_on_20260529/aggregate.json`에 로컬 생성. `logs/`는 Git 제외 대상이다. |
+| 평가 산출물 | `logs/video_accuracy/p2_2e_openai_yolo_on_reference_metrics_20260529.json`에 로컬 생성. |
+| Reference metrics | `direct_collision_target_accuracy=1.0`, `accident_party_accuracy=1.0`, `context_pollution_rate=0.0`, `zero_observation_rate=0.0`, `evidence_mismatch_rate=0.2`, `conditional_branch_coverage=0.8`, 최종 status `passed`. |
+| 출력 계약 | `scripts/video_agent_e2e.py`가 `conditional_outcome_card`를 결과 JSON에 포함하고, `scripts/video_accuracy_batch.py`가 이를 aggregate sample에 보존한다. |
+| 비용 안전 복구 | 실제 OpenAI 측정 후 worker는 `ENABLE_OPENAI_FRAME_ANALYSIS=0`, `FRAME_ANALYSIS_FIXTURE_MODE=`, `ENABLE_YOLO_FRAME_ANALYSIS=1` 상태로 복구했다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. P2-2e 기준선은 통과했으므로 다음 단계는 P2-3 Agent 근거 검색/표시 적합도 보강이다. 남은 리스크는 `evidence_mismatch_rate=0.2`가 threshold 상한에 걸쳐 있다는 점이며, P2-3에서 사고유형과 KNIA/법령/판례 근거가 같은 축으로 묶이는지 보강해야 한다.
+
 ## 2026-05-29 P2-2d 조건별 결과 분기 Coverage 보강
 
 Gateway 결과 조립에서 조건별 결과 카드의 감지 축을 payload로 남기도록 확장했다. 신호, 비접촉 유발, 중앙선 침범 사유, 정차/후방추돌 사유, 사고 대상 확인 중 어떤 축이 missing/uncertain/conflict로 걸렸는지 `branch_key`, `detected_branch_keys`, `secondary_branches`, `coverage`로 기록한다.

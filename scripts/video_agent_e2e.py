@@ -804,6 +804,7 @@ def main():
         "accuracy_expectations": accuracy_summary,
         "video_accuracy_metrics": video_accuracy_metrics(frame_summary, agent_video_summary, video_card, accuracy_summary),
         "expert_guidance_card": expert_card,
+        "conditional_outcome_card": report.get("conditional_outcome_card") if isinstance(report.get("conditional_outcome_card"), dict) else {},
         "video_fact_card": video_card,
         "agent_process_status": card.get("status_label"),
         "agent_process_stats": card.get("stats", []),

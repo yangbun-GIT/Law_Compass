@@ -116,6 +116,11 @@ def run_sample(
     expert_card = payload.get("expert_guidance_card") if isinstance(payload.get("expert_guidance_card"), dict) else {}
     video_fact_card = payload.get("video_fact_card") if isinstance(payload.get("video_fact_card"), dict) else {}
     missing_info_priority = payload.get("missing_info_priority") if isinstance(payload.get("missing_info_priority"), dict) else {}
+    conditional_outcome_card = (
+        payload.get("conditional_outcome_card")
+        if isinstance(payload.get("conditional_outcome_card"), dict)
+        else {}
+    )
     field_metrics = field_metrics_from_payload(payload)
     held_followup = payload.get("held_observation_followup") if isinstance(payload.get("held_observation_followup"), dict) else {}
     conflict_followup = payload.get("conflict_followup") if isinstance(payload.get("conflict_followup"), dict) else {}
@@ -136,6 +141,7 @@ def run_sample(
         "accuracy_failed_count": expectations.get("failed_count"),
         "video_display": video_display_metrics(video_fact_card, metrics),
         "missing_info_priority": missing_priority_metrics(missing_info_priority),
+        "conditional_outcome_card": conditional_outcome_card,
         "expert_guidance": expert_guidance_metrics(expert_card),
         "held_observation_followup": held_followup_metrics(held_followup),
         "conflict_followup": conflict_followup_metrics(conflict_followup),
