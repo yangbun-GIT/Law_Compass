@@ -31,6 +31,7 @@ YOLO_MAX_DETECTIONS = max(0, min(5000, _int_env("YOLO_MAX_DETECTIONS", 1000)))
 YOLO_MAX_FRAME_REFS = max(1, min(60, _int_env("YOLO_MAX_FRAME_REFS", 24)))
 
 VEHICLE_CLASSES = {"car", "truck", "bus", "motorcycle"}
+OVERLAY_NOISE_CLASSES = {"person"}
 
 
 def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[str, Any]) -> dict[str, Any]:
@@ -110,7 +111,7 @@ def _build_yolo_payload(
     context: dict[str, Any],
     selection_metadata: dict[str, Any],
 ) -> dict[str, Any]:
-    detections: list[dict[str, Any]] = []
+    raw_detections: list[dict[str, Any]] = []
     class_counts: Counter[str] = Counter()
     class_frame_refs: dict[str, set[str]] = defaultdict(set)
     class_confidences: dict[str, list[float]] = defaultdict(list)
@@ -129,25 +130,34 @@ def _build_yolo_payload(
             label = str(names.get(class_id, class_id))
             confidence = float(box.conf[0].item())
             xyxy = [round(float(value), 2) for value in box.xyxy[0].tolist()]
-            if len(detections) < YOLO_MAX_DETECTIONS:
-                detections.append({
-                    "frame_ref": frame_ref,
-                    "time_sec": frame_meta.get("time_sec"),
-                    "role": frame_meta.get("role"),
-                    "event_candidate_id": frame_meta.get("event_candidate_id"),
-                    "event_phase": frame_meta.get("event_phase"),
-                    "class_id": class_id,
-                    "label": label,
-                    "confidence": round(confidence, 4),
-                    "bbox_xyxy": xyxy,
-                })
-            class_counts[label] += 1
-            class_frame_refs[label].add(frame_ref)
-            class_confidences[label].append(confidence)
+            raw_detections.append({
+                "frame_ref": frame_ref,
+                "time_sec": frame_meta.get("time_sec"),
+                "role": frame_meta.get("role"),
+                "event_candidate_id": frame_meta.get("event_candidate_id"),
+                "event_phase": frame_meta.get("event_phase"),
+                "class_id": class_id,
+                "label": label,
+                "confidence": round(confidence, 4),
+                "bbox_xyxy": xyxy,
+                "frame_shape": _result_frame_shape(result),
+            })
+
+    detections, ignored_detections = _filter_overlay_noise(raw_detections)
+    stored_detections = detections[:YOLO_MAX_DETECTIONS]
+    stored_ignored_detections = ignored_detections[:YOLO_MAX_DETECTIONS]
+    for detection in detections:
+        label = str(detection.get("label") or "")
+        frame_ref = str(detection.get("frame_ref") or "")
+        confidence = float(detection.get("confidence") or 0.0)
+        class_counts[label] += 1
+        class_frame_refs[label].add(frame_ref)
+        class_confidences[label].append(confidence)
 
     total_detection_count = sum(class_counts.values())
     observations = _observation_candidates(class_frame_refs, class_confidences, YOLO_MAX_FRAME_REFS)
     event_candidate_summary = _event_candidate_summaries(detections, selected_frames)
+    ignored_class_counts = Counter(str(item.get("label") or "") for item in ignored_detections)
     return {
         "version": YOLO_FRAME_ANALYSIS_CONTRACT_VERSION,
         "enabled": True,
@@ -160,17 +170,22 @@ def _build_yolo_payload(
         "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
         "summary": {
             "total_detections": total_detection_count,
-            "stored_detection_count": len(detections),
-            "detections_truncated": total_detection_count > len(detections),
+            "raw_detection_count": len(raw_detections),
+            "stored_detection_count": len(stored_detections),
+            "detections_truncated": total_detection_count > len(stored_detections),
+            "ignored_detection_count": len(ignored_detections),
+            "ignored_class_counts": dict(ignored_class_counts),
             "class_counts": dict(class_counts),
             "event_candidate_count": len(event_candidate_summary),
             "top_event_candidate_id": event_candidate_summary[0]["event_candidate_id"] if event_candidate_summary else "",
         },
         "event_candidate_summary": event_candidate_summary,
         "observations": observations,
-        "detections": detections,
+        "detections": stored_detections,
+        "ignored_detections": stored_ignored_detections,
         "notes": [
             "YOLO detections are object-location candidates only.",
+            "Static edge overlays and broadcast UI detections are excluded from observations.",
             "Do not infer collision_partner_type or fault ratio from YOLO object presence alone.",
             "Use these observations only after Agent fact arbitration.",
         ],
@@ -180,6 +195,104 @@ def _build_yolo_payload(
         },
         "created_at": _now_iso(),
     }
+
+
+def _result_frame_shape(result: Any) -> list[int] | None:
+    shape = getattr(result, "orig_shape", None)
+    if isinstance(shape, (list, tuple)) and len(shape) >= 2:
+        return [int(shape[0]), int(shape[1])]
+    return None
+
+
+def _filter_overlay_noise(detections: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    overlay_candidates: list[tuple[int, dict[str, Any], dict[str, float]]] = []
+    for index, detection in enumerate(detections):
+        label = str(detection.get("label") or "")
+        if label not in OVERLAY_NOISE_CLASSES:
+            continue
+        geometry = _normalized_bbox_geometry(detection)
+        if not geometry or not _is_edge_overlay_candidate(geometry):
+            continue
+        overlay_candidates.append((index, detection, geometry))
+
+    repeated_overlay_indexes = _repeated_overlay_indexes(overlay_candidates)
+    filtered: list[dict[str, Any]] = []
+    ignored: list[dict[str, Any]] = []
+    for index, detection in enumerate(detections):
+        if index not in repeated_overlay_indexes:
+            filtered.append(detection)
+            continue
+        geometry = _normalized_bbox_geometry(detection) or {}
+        ignored.append({
+            **detection,
+            "ignore_reason": "static_edge_overlay_or_broadcast_ui",
+            "bbox_position": {
+                "cx": round(float(geometry.get("cx", 0.0)), 4),
+                "cy": round(float(geometry.get("cy", 0.0)), 4),
+                "area_ratio": round(float(geometry.get("area_ratio", 0.0)), 4),
+            },
+        })
+    return filtered, ignored
+
+
+def _repeated_overlay_indexes(candidates: list[tuple[int, dict[str, Any], dict[str, float]]]) -> set[int]:
+    grouped: dict[tuple[str, int, int], list[int]] = defaultdict(list)
+    for index, detection, geometry in candidates:
+        key = (
+            str(detection.get("label") or ""),
+            round(float(geometry["cx"]) / 0.06),
+            round(float(geometry["cy"]) / 0.06),
+        )
+        grouped[key].append(index)
+    repeated: set[int] = set()
+    for indexes in grouped.values():
+        if len(indexes) >= 3:
+            repeated.update(indexes)
+    return repeated
+
+
+def _normalized_bbox_geometry(detection: dict[str, Any]) -> dict[str, float] | None:
+    shape = detection.get("frame_shape")
+    bbox = detection.get("bbox_xyxy")
+    if not isinstance(shape, list) or len(shape) < 2:
+        return None
+    if not isinstance(bbox, list) or len(bbox) < 4:
+        return None
+    height = float(shape[0] or 0.0)
+    width = float(shape[1] or 0.0)
+    if width <= 0 or height <= 0:
+        return None
+    x1, y1, x2, y2 = [float(value or 0.0) for value in bbox[:4]]
+    left = max(0.0, min(1.0, x1 / width))
+    top = max(0.0, min(1.0, y1 / height))
+    right = max(0.0, min(1.0, x2 / width))
+    bottom = max(0.0, min(1.0, y2 / height))
+    return {
+        "left": left,
+        "top": top,
+        "right": right,
+        "bottom": bottom,
+        "cx": (left + right) / 2,
+        "cy": (top + bottom) / 2,
+        "area_ratio": max(0.0, right - left) * max(0.0, bottom - top),
+    }
+
+
+def _is_edge_overlay_candidate(geometry: dict[str, float]) -> bool:
+    area_ratio = float(geometry.get("area_ratio") or 0.0)
+    if area_ratio <= 0 or area_ratio > 0.12:
+        return False
+    near_edge = (
+        geometry["left"] <= 0.18
+        or geometry["right"] >= 0.82
+        or geometry["top"] <= 0.18
+        or geometry["bottom"] >= 0.88
+    )
+    near_corner_or_ui_band = (
+        (geometry["top"] <= 0.22 and (geometry["left"] <= 0.30 or geometry["right"] >= 0.70))
+        or (geometry["bottom"] >= 0.82 and area_ratio <= 0.06)
+    )
+    return near_edge and near_corner_or_ui_band
 
 
 def rank_frame_details_by_yolo(frame_details: list[dict[str, Any]], yolo_payload: dict[str, Any]) -> list[dict[str, Any]]:

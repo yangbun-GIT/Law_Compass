@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P2-2b YOLO 오버레이/방송 UI 잡음 필터
+
+Worker YOLO 분석에서 원본 감지값을 `raw_detections -> detections -> ignored_detections` 흐름으로 분리했다. 화면 가장자리 또는 플레이어 UI 영역에 반복 등장하는 `person` 감지는 방송 진행자, 워터마크, 플레이어 오버레이일 가능성이 높으므로 사고 관찰값과 `class_counts`에서 제외하고 `ignored_detections`에 사유와 위치 요약만 남긴다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Worker YOLO payload | `apps/worker/worker/yolo_frame_analysis.py`가 `raw_detection_count`, `ignored_detection_count`, `ignored_class_counts`, `ignored_detections`를 함께 반환한다. |
+| 관찰값 생성 | 필터링된 `detections`만 `pedestrian_visible`, `primary_collision_target`, `opponent_signal_visible` 같은 Agent 입력 후보로 변환한다. |
+| 오염 방지 기준 | 같은 class가 3개 이상 프레임에서 비슷한 화면 가장자리 위치에 반복되면 정적 오버레이/방송 UI로 간주한다. 중앙 도로 영역의 사람 감지는 계속 보행자 후보로 유지한다. |
+| 검증 | Worker YOLO 계약 테스트에 오버레이 사람 감지 제거와 실제 도로 사람 후보 유지 회귀 테스트를 추가했다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. YOLO는 여전히 사고 판단 모델이 아니라 객체 위치 보조 관찰 모델이며, 최종 사고 대상 확정은 Agent fact arbitration에서 수행한다.
+
 ## 2026-05-29 출력 모드 2단계 단순화
 
 분석 결과 표시 모드를 `일반사용자모드(user_friendly)`와 `전문가모드(expert)` 두 가지로 정리했다. 기존 DB/API에 남아 있을 수 있는 `quick_summary`, `fault_ratio_focused`, `insurance_response_focused`는 일반사용자모드로, `legal_precedent_focused`, `full_deep_research`, `deep_research`, `debug` 계열은 전문가모드로 정규화한다. 새 기본값은 일반사용자모드이며, DB schema 변경은 없다.

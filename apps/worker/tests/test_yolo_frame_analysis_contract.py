@@ -29,10 +29,11 @@ class _FakeBox:
 
 
 class _FakeResult:
-    def __init__(self, path, names, boxes):
+    def __init__(self, path, names, boxes, orig_shape=(720, 1280)):
         self.path = path
         self.names = names
         self.boxes = boxes
+        self.orig_shape = orig_shape
 
 
 class YoloFrameAnalysisContractTest(unittest.TestCase):
@@ -147,6 +148,84 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
         summaries = payload["event_candidate_summary"]
         self.assertEqual(summaries[0]["event_candidate_id"], "event_window_2")
         self.assertEqual(payload["summary"]["top_event_candidate_id"], "event_window_2")
+
+    def test_static_edge_person_overlay_is_ignored_before_observation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            results = []
+            for index in range(1, 4):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "event_candidate",
+                    "event_candidate_id": "event_window_1",
+                    "event_phase": "event_candidate",
+                })
+                results.append(
+                    _FakeResult(
+                        f"ignored_{index}.jpg",
+                        {0: "person", 2: "car"},
+                        [
+                            _FakeBox(0, 0.97, [30, 30, 130, 180]),
+                            _FakeBox(2, 0.95, [300, 260, 900, 650]),
+                        ],
+                    ),
+                )
+
+            payload = yolo_frame_analysis._build_yolo_payload(
+                results,
+                frames,
+                {"case_id": "case-1", "upload_id": "upload-1"},
+                {"available_frame_count": 3, "selected_frame_count": 3, "frame_selection_strategy": "test"},
+            )
+
+        by_field = {item["field"]: item for item in payload["observations"]}
+        self.assertEqual(payload["summary"]["raw_detection_count"], 6)
+        self.assertEqual(payload["summary"]["total_detections"], 3)
+        self.assertEqual(payload["summary"]["ignored_detection_count"], 3)
+        self.assertEqual(payload["summary"]["ignored_class_counts"], {"person": 3})
+        self.assertEqual(payload["summary"]["class_counts"], {"car": 3})
+        self.assertNotIn("pedestrian_visible", by_field)
+        self.assertEqual(by_field["primary_collision_target"]["value"], "vehicle_candidate")
+        self.assertEqual(payload["ignored_detections"][0]["ignore_reason"], "static_edge_overlay_or_broadcast_ui")
+
+    def test_center_road_person_is_kept_as_candidate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            results = []
+            for index in range(1, 4):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "event_candidate",
+                    "event_candidate_id": "event_window_1",
+                    "event_phase": "event_candidate",
+                })
+                results.append(
+                    _FakeResult(
+                        f"ignored_{index}.jpg",
+                        {0: "person"},
+                        [_FakeBox(0, 0.96, [520, 260, 620, 600])],
+                    ),
+                )
+
+            payload = yolo_frame_analysis._build_yolo_payload(
+                results,
+                frames,
+                {"case_id": "case-1", "upload_id": "upload-1"},
+                {"available_frame_count": 3, "selected_frame_count": 3, "frame_selection_strategy": "test"},
+            )
+
+        by_field = {item["field"]: item for item in payload["observations"]}
+        self.assertEqual(payload["summary"]["raw_detection_count"], 3)
+        self.assertEqual(payload["summary"]["ignored_detection_count"], 0)
+        self.assertEqual(payload["summary"]["class_counts"], {"person": 3})
+        self.assertEqual(payload["ignored_detections"], [])
+        self.assertEqual(by_field["pedestrian_visible"]["value"], True)
 
     def test_rank_frame_details_by_yolo_marks_top_candidate_for_openai_selection(self):
         frames = [
