@@ -94,6 +94,8 @@ def run_sample(
         command.append("--allow-accuracy-mismatch")
     command.extend(expected_args("--expect-frame-observation", sample.get("expect_frame_observation")))
     command.extend(expected_args("--expect-agent-fact", sample.get("expect_agent_fact")))
+    # sample.reference is intentionally not forwarded to video_agent_e2e.
+    # It is a post-run evaluation answer key only, never an inference input.
 
     completed = subprocess.run(command, cwd=repo_root, text=True, encoding="utf-8", errors="replace", capture_output=True)
     result = {
@@ -336,13 +338,14 @@ def field_metric_row(
     supporting_fields: set[str],
     checks: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    fact_patch_matches_value = field in fact_patch and equivalent_metric_value(fact_patch.get(field), value)
     return {
         "field": field,
         "value": value,
         "confidence": confidence,
         "frame_ref_count": frame_ref_count,
         "from_observation": from_observation,
-        "in_fact_patch": field in fact_patch,
+        "in_fact_patch": fact_patch_matches_value,
         "applied": field in applied,
         "confirmed": field in confirmed,
         "conflict": field in conflict_fields,
@@ -351,6 +354,14 @@ def field_metric_row(
         "expectation_passed_count": sum(1 for item in checks if item.get("passed")),
         "expectation_failed_count": sum(1 for item in checks if not item.get("passed")),
     }
+
+
+def equivalent_metric_value(left: Any, right: Any) -> bool:
+    if left is right:
+        return True
+    if isinstance(left, bool) or isinstance(right, bool):
+        return str(left).strip().lower() == str(right).strip().lower()
+    return str(left).strip().lower() == str(right).strip().lower()
 
 
 def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:

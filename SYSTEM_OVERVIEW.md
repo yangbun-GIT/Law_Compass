@@ -3110,3 +3110,16 @@ P2-2a 단계에서 OpenAI+YOLO ON 재측정 결과를 사람이 반복 검토할
 | 다음 보강 기준 | P2-2b는 오버레이/방송 UI 잡음을 줄이고, P2-2c는 사고 2·5처럼 단일 객체 존재가 아니라 시간 순서 기반 사고 시퀀스를 관찰값으로 만드는 방향으로 진행한다. |
 
 이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다.
+## 2026-05-29 AI-Hub/YOLO 평가 데이터 분리 원칙 강화
+
+영상 처리 정확도 보강 과정에서 AI-Hub 원천 영상과 라벨 JSON을 함께 사용할 수 있지만, 라벨과 사고 설명은 분석 모델의 입력으로 쓰지 않고 사후 평가용 정답지로만 사용한다. 이 원칙은 특정 테스트 영상에 맞춘 결과를 만들지 않고 실제 사용자 입력에도 적용되는 일반화된 영상 사실 추출을 유지하기 위한 안전장치다.
+
+| 항목 | 기준 |
+| --- | --- |
+| 추론 입력 | `video_agent_e2e.py`와 Worker/OpenAI/YOLO 경로에는 원본 영상, 공통 case JSON, 런타임 옵션만 전달한다. AI-Hub `reference.label_json`, 사고대상 라벨, 과실비율 라벨, 전문가 의견은 전달하지 않는다. |
+| 사후 평가 | `video_accuracy_batch.py`는 실행이 끝난 뒤 aggregate에 `reference`를 붙이고, `scripts/evaluate_aihub597_video_batch_targets.py`가 그때 라벨 JSON을 읽어 출력값과 비교한다. |
+| 검증 가드 | `scripts/validate_video_accuracy_manifest.py`가 `sample.case_json`이 `sample.reference.label_json`을 가리키는 경우를 오류로 처리한다. case JSON에 `accident_object`, `traffic_accident_type`, `accident_negligence_rate` 같은 평가 전용 라벨 토큰이 섞여도 오류로 처리한다. |
+| 테스트 보강 | `tests/test_validate_video_accuracy_manifest.py`가 reference 라벨을 case 입력으로 잘못 쓰는 manifest를 실패시키고, 별도 case JSON과 reference label JSON을 쓰는 정상 manifest는 통과하도록 고정했다. |
+| 남은 목표 | 현재 보강은 데이터 누수 방지와 직접 사고대상 오염 방지에 초점을 둔다. 이륜차·자전거처럼 작은 대상 recall은 더 많은 프레임 선택, 고해상도 crop, 별도 객체 감지 모델 비교로 계속 개선해야 한다. |
+
+이 변경은 public route, DB schema, Redis key, storage path를 변경하지 않는다. 평가 manifest와 라벨 파일은 계속 `.local/`, `datasets/`, `logs/` 등 Git 제외 경로에만 둔다.

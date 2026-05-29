@@ -147,7 +147,9 @@ def _observation_summary_items(items: list, limit: int = 8) -> list[dict]:
 def frame_analysis_summary(upload: dict, require_observations: bool, agent_video_summary: dict, video_card: dict):
     metadata = upload.get("metadata") if isinstance(upload.get("metadata"), dict) else {}
     frame_analysis = metadata.get("openai_frame_analysis") if isinstance(metadata.get("openai_frame_analysis"), dict) else {}
-    observations = frame_analysis.get("observations") if isinstance(frame_analysis.get("observations"), list) else []
+    openai_observations = frame_analysis.get("observations") if isinstance(frame_analysis.get("observations"), list) else []
+    merged_observations = metadata.get("observations") if isinstance(metadata.get("observations"), list) else []
+    observations = merged_observations or openai_observations
     event_summary = frame_analysis.get("accident_event_summary") if isinstance(frame_analysis.get("accident_event_summary"), dict) else {}
     error_text = str(frame_analysis.get("error") or "")
     agent_observations = (
@@ -185,7 +187,7 @@ def frame_analysis_summary(upload: dict, require_observations: bool, agent_video
         "analysis_attempts": frame_analysis.get("analysis_attempts") if isinstance(frame_analysis.get("analysis_attempts"), list) else [],
         "summary": frame_analysis.get("summary"),
         "observations": _observation_summary_items(observations or agent_observations, 8),
-        "metadata_source": "upload_metadata" if frame_analysis else "agent_debug_contract",
+        "metadata_source": "upload_metadata_merged_observations" if merged_observations else ("upload_metadata" if frame_analysis else "agent_debug_contract"),
         "has_error": bool(error_text),
     }
 

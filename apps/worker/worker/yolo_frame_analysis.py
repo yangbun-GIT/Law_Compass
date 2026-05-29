@@ -30,7 +30,18 @@ YOLO_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(60, _int_env("YOLO_FRAME_ANALYSIS_MA
 YOLO_MAX_DETECTIONS = max(0, min(5000, _int_env("YOLO_MAX_DETECTIONS", 1000)))
 YOLO_MAX_FRAME_REFS = max(1, min(60, _int_env("YOLO_MAX_FRAME_REFS", 24)))
 
-VEHICLE_CLASSES = {"car", "truck", "bus", "motorcycle"}
+VEHICLE_CLASSES = {"car", "truck", "bus"}
+MOTORCYCLE_CLASSES = {"motorcycle"}
+BICYCLE_CLASSES = {"bicycle"}
+PEDESTRIAN_CLASSES = {"person"}
+TRAFFIC_LIGHT_CLASSES = {"traffic light"}
+TARGET_CLASS_GROUPS = {
+    "vehicle": VEHICLE_CLASSES,
+    "motorcycle": MOTORCYCLE_CLASSES,
+    "bicycle": BICYCLE_CLASSES,
+    "pedestrian": PEDESTRIAN_CLASSES,
+}
+MOBILE_TARGET_CLASSES = set().union(*TARGET_CLASS_GROUPS.values())
 OVERLAY_NOISE_CLASSES = {"person"}
 
 
@@ -164,6 +175,7 @@ def _build_yolo_payload(
     )
     observations = [*object_observations, *sequence_observations]
     ignored_class_counts = Counter(str(item.get("label") or "") for item in ignored_detections)
+    target_counts = _target_type_counts(class_counts)
     return {
         "version": YOLO_FRAME_ANALYSIS_CONTRACT_VERSION,
         "enabled": True,
@@ -182,6 +194,7 @@ def _build_yolo_payload(
             "ignored_detection_count": len(ignored_detections),
             "ignored_class_counts": dict(ignored_class_counts),
             "class_counts": dict(class_counts),
+            "target_type_counts": target_counts,
             "event_candidate_count": len(event_candidate_summary),
             "top_event_candidate_id": event_candidate_summary[0]["event_candidate_id"] if event_candidate_summary else "",
             "sequence_observation_count": len(sequence_observations),
@@ -363,6 +376,10 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
             "event_candidate_id": candidate_id,
             "frame_refs": set(),
             "vehicle_detection_count": 0,
+            "mobile_target_detection_count": 0,
+            "target_detection_counts": Counter(),
+            "max_target_confidences": defaultdict(float),
+            "max_target_bbox_areas": defaultdict(float),
             "person_detection_count": 0,
             "traffic_light_detection_count": 0,
             "max_vehicle_confidence": 0.0,
@@ -371,6 +388,18 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
         })
         summary["frame_refs"].add(frame_ref)
         summary["event_phase_counts"][str(detection.get("event_phase") or frame_meta.get("event_phase") or "unknown")] += 1
+        target_type = _target_type_for_label(label)
+        if target_type:
+            summary["mobile_target_detection_count"] += 1
+            summary["target_detection_counts"][target_type] += 1
+            summary["max_target_confidences"][target_type] = max(
+                float(summary["max_target_confidences"][target_type]),
+                confidence,
+            )
+            summary["max_target_bbox_areas"][target_type] = max(
+                float(summary["max_target_bbox_areas"][target_type]),
+                area,
+            )
         if label in VEHICLE_CLASSES:
             summary["vehicle_detection_count"] += 1
             summary["max_vehicle_confidence"] = max(float(summary["max_vehicle_confidence"]), confidence)
@@ -384,11 +413,14 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
     for item in grouped.values():
         frame_refs = sorted(item["frame_refs"])
         event_phase_counts = dict(item["event_phase_counts"])
+        target_detection_counts = dict(item["target_detection_counts"])
+        dominant_target_type = _dominant_target_type(target_detection_counts)
         score = _candidate_score(
             vehicle_detection_count=int(item["vehicle_detection_count"]),
+            mobile_target_detection_count=int(item["mobile_target_detection_count"]),
             visible_frame_count=len(frame_refs),
-            max_vehicle_confidence=float(item["max_vehicle_confidence"]),
-            max_vehicle_bbox_area=float(item["max_vehicle_bbox_area"]),
+            max_target_confidence=max([0.0, *[float(value) for value in item["max_target_confidences"].values()]]),
+            max_target_bbox_area=max([0.0, *[float(value) for value in item["max_target_bbox_areas"].values()]]),
             person_detection_count=int(item["person_detection_count"]),
             traffic_light_detection_count=int(item["traffic_light_detection_count"]),
             event_phase_counts=event_phase_counts,
@@ -398,10 +430,15 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
             "score": score,
             "frame_refs": frame_refs,
             "vehicle_detection_count": item["vehicle_detection_count"],
+            "mobile_target_detection_count": item["mobile_target_detection_count"],
+            "target_detection_counts": target_detection_counts,
+            "dominant_target_type": dominant_target_type,
             "person_detection_count": item["person_detection_count"],
             "traffic_light_detection_count": item["traffic_light_detection_count"],
             "max_vehicle_confidence": round(float(item["max_vehicle_confidence"]), 4),
             "max_vehicle_bbox_area": round(float(item["max_vehicle_bbox_area"]), 2),
+            "max_target_confidences": {key: round(float(value), 4) for key, value in item["max_target_confidences"].items()},
+            "max_target_bbox_areas": {key: round(float(value), 2) for key, value in item["max_target_bbox_areas"].items()},
             "event_phase_counts": event_phase_counts,
             "interpretation": "YOLO-ranked accident-window candidate for frame selection only.",
         })
@@ -409,7 +446,7 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
         normalized,
         key=lambda item: (
             -float(item["score"]),
-            -int(item["vehicle_detection_count"]),
+            -int(item["mobile_target_detection_count"]),
             str(item["event_candidate_id"]),
         ),
     )
@@ -438,7 +475,13 @@ def _temporal_sequence_summaries(
             continue
         phase_frame_refs: dict[str, set[str]] = defaultdict(set)
         vehicle_frame_refs: set[str] = set()
+        target_frame_refs: dict[str, set[str]] = defaultdict(set)
         vehicle_phase_counts: Counter[str] = Counter()
+        target_phase_counts: dict[str, Counter[str]] = defaultdict(Counter)
+        target_detection_counts: Counter[str] = Counter()
+        target_confidences: dict[str, list[float]] = defaultdict(list)
+        largest_target_area: dict[str, float] = defaultdict(float)
+        largest_target_frame_ref: dict[str, str] = {}
         class_counts: Counter[str] = Counter()
         largest_vehicle_area = 0.0
         largest_vehicle_frame_ref = ""
@@ -449,33 +492,54 @@ def _temporal_sequence_summaries(
             label = str(detection.get("label") or "")
             class_counts[label] += 1
             phase_frame_refs[phase].add(frame_ref)
-            if label not in VEHICLE_CLASSES:
-                continue
-            vehicle_frame_refs.add(frame_ref)
-            vehicle_phase_counts[phase] += 1
             area = _bbox_area(detection.get("bbox_xyxy") if isinstance(detection.get("bbox_xyxy"), list) else [])
-            if area > largest_vehicle_area:
-                largest_vehicle_area = area
-                largest_vehicle_frame_ref = frame_ref
+            target_type = _target_type_for_label(label)
+            if target_type:
+                confidence = float(detection.get("confidence") or 0.0)
+                target_frame_refs[target_type].add(frame_ref)
+                target_phase_counts[target_type][phase] += 1
+                target_detection_counts[target_type] += 1
+                target_confidences[target_type].append(confidence)
+                if area > largest_target_area[target_type]:
+                    largest_target_area[target_type] = area
+                    largest_target_frame_ref[target_type] = frame_ref
+            if label in VEHICLE_CLASSES:
+                vehicle_frame_refs.add(frame_ref)
+                vehicle_phase_counts[phase] += 1
+                if area > largest_vehicle_area:
+                    largest_vehicle_area = area
+                    largest_vehicle_frame_ref = frame_ref
 
-        if not vehicle_frame_refs:
+        if not target_frame_refs:
             continue
-        event_vehicle_count = int(vehicle_phase_counts.get("event_candidate") or 0)
-        sequence_quality = _sequence_quality(phase_frame_refs, event_vehicle_count)
+        dominant_target_type = _dominant_sequence_target_type(target_detection_counts, target_phase_counts, largest_target_area)
+        dominant_frame_refs = target_frame_refs.get(dominant_target_type, set()) if dominant_target_type else set()
+        dominant_phase_counts = target_phase_counts.get(dominant_target_type, Counter())
+        event_target_count = int(dominant_phase_counts.get("event_candidate") or 0)
+        sequence_quality = _sequence_quality(phase_frame_refs, event_target_count)
         summaries.append({
             "event_candidate_id": candidate_id,
             "rank": rank,
             "sequence_quality": sequence_quality,
-            "frame_refs": _limited_frame_refs(vehicle_frame_refs, YOLO_MAX_FRAME_REFS),
+            "frame_refs": _limited_frame_refs(dominant_frame_refs, YOLO_MAX_FRAME_REFS),
             "phase_frame_refs": {
                 phase: sorted(refs)
                 for phase, refs in sorted(phase_frame_refs.items())
                 if refs
             },
             "class_counts": dict(class_counts),
+            "target_detection_counts": dict(target_detection_counts),
+            "target_frame_counts": {key: len(value) for key, value in target_frame_refs.items()},
+            "target_phase_counts": {key: dict(value) for key, value in target_phase_counts.items()},
+            "target_max_confidences": {key: round(max(value), 4) for key, value in target_confidences.items() if value},
+            "dominant_target_type": dominant_target_type,
+            "dominant_target_frame_count": len(dominant_frame_refs),
+            "event_target_detection_count": event_target_count,
+            "largest_target_bbox_area": round(float(largest_target_area.get(dominant_target_type or "", 0.0)), 2),
+            "largest_target_frame_ref": largest_target_frame_ref.get(dominant_target_type or "", ""),
             "vehicle_frame_count": len(vehicle_frame_refs),
             "vehicle_phase_counts": dict(vehicle_phase_counts),
-            "event_vehicle_detection_count": event_vehicle_count,
+            "event_vehicle_detection_count": int(vehicle_phase_counts.get("event_candidate") or 0),
             "largest_vehicle_bbox_area": round(largest_vehicle_area, 2),
             "largest_vehicle_frame_ref": largest_vehicle_frame_ref,
             "interpretation": (
@@ -509,71 +573,104 @@ def _sequence_observation_candidates(
     frame_refs = _limited_frame_refs(set(top.get("frame_refs") or []), max_frame_refs)
     if not frame_refs:
         return []
-    event_vehicle_count = int(top.get("event_vehicle_detection_count") or 0)
-    vehicle_frame_count = int(top.get("vehicle_frame_count") or 0)
-    largest_vehicle_bbox_area = float(top.get("largest_vehicle_bbox_area") or 0.0)
+    dominant_target_type = str(top.get("dominant_target_type") or "unknown")
+    event_target_count = int(top.get("event_target_detection_count") or top.get("event_vehicle_detection_count") or 0)
+    target_frame_count = int(top.get("dominant_target_frame_count") or top.get("vehicle_frame_count") or 0)
+    largest_target_bbox_area = float(top.get("largest_target_bbox_area") or top.get("largest_vehicle_bbox_area") or 0.0)
     sequence_quality = str(top.get("sequence_quality") or "")
     observations: list[dict[str, Any]] = [
         {
             "field": "accident_event_candidate",
             "value": True,
-            "confidence": _bounded_sequence_confidence(0.8, vehicle_frame_count, event_vehicle_count, 0.86),
+            "confidence": _bounded_sequence_confidence(0.8, target_frame_count, event_target_count, 0.87),
             "source": "vision_model:yolo_sequence",
             "frame_refs": frame_refs,
             "reason": (
-                "YOLO observed vehicle-class objects through the top-ranked event window. "
+                f"YOLO observed {dominant_target_type} objects through the top-ranked event window. "
                 "This marks a candidate accident sequence for review, not a final collision finding."
             ),
         }
     ]
-    if event_vehicle_count >= 1 and vehicle_frame_count >= 2:
+    if (
+        dominant_target_type in TARGET_CLASS_GROUPS
+        and dominant_target_type != "vehicle"
+        and event_target_count >= 1
+        and target_frame_count >= 2
+    ):
         observations.append({
-            "field": "direct_collision_partner_type",
-            "value": "vehicle",
-            "confidence": _bounded_sequence_confidence(0.72, vehicle_frame_count, event_vehicle_count, 0.81),
+            "field": "primary_collision_target",
+            "value": f"{dominant_target_type}_candidate",
+            "confidence": _direct_target_sequence_confidence(sequence_quality, target_frame_count, event_target_count, cap=0.78),
             "source": "vision_model:yolo_sequence",
             "frame_refs": frame_refs,
             "reason": (
-                "Vehicle-class objects persist across the candidate event sequence. "
-                "This is a confirmation candidate and stays below direct fact threshold."
+                f"The dominant moving target in the event window is {dominant_target_type}. "
+                "YOLO cannot verify physical contact by itself, so this remains a target candidate."
             ),
         })
-    if event_vehicle_count >= 2 or (event_vehicle_count >= 1 and largest_vehicle_bbox_area >= 80000):
+    elif dominant_target_type == "vehicle" and event_target_count >= 1 and target_frame_count >= 2:
+        observations.append({
+            "field": "primary_collision_target",
+            "value": "vehicle_candidate",
+            "confidence": _bounded_sequence_confidence(0.66, target_frame_count, event_target_count, 0.74),
+            "source": "vision_model:yolo_sequence",
+            "frame_refs": frame_refs,
+            "reason": (
+                "YOLO observed vehicles in the candidate event window, but vehicle presence alone "
+                "can include ego/nearby traffic. Treat this as an object inventory candidate until "
+                "OpenAI or user facts identify the actual collision partner."
+            ),
+        })
+    if event_target_count >= 2 or (event_target_count >= 1 and largest_target_bbox_area >= 80000):
         observations.append({
             "field": "collision_point_visible",
             "value": True,
-            "confidence": _bounded_sequence_confidence(0.74, vehicle_frame_count, event_vehicle_count, 0.83),
+            "confidence": _bounded_sequence_confidence(0.74, target_frame_count, event_target_count, 0.83),
             "source": "vision_model:yolo_sequence",
             "frame_refs": frame_refs,
             "reason": (
-                f"Vehicle detections concentrate in the candidate event window ({sequence_quality}). "
+                f"{dominant_target_type} detections concentrate in the candidate event window ({sequence_quality}). "
                 "This is a collision-point confirmation candidate, not a verified impact."
             ),
         })
     return observations
 
 
-def _bounded_sequence_confidence(base: float, vehicle_frame_count: int, event_vehicle_count: int, cap: float) -> float:
-    value = base + min(vehicle_frame_count, 6) * 0.015 + min(event_vehicle_count, 4) * 0.015
+def _bounded_sequence_confidence(base: float, target_frame_count: int, event_target_count: int, cap: float) -> float:
+    value = base + min(target_frame_count, 6) * 0.015 + min(event_target_count, 4) * 0.015
     return round(min(value, cap), 4)
+
+
+def _direct_target_sequence_confidence(
+    sequence_quality: str,
+    target_frame_count: int,
+    event_target_count: int,
+    cap: float = 0.85,
+) -> float:
+    base = 0.78 if sequence_quality == "pre_event_event_post_sequence" else 0.74
+    if sequence_quality == "partial_event_sequence":
+        base = 0.76
+    return _bounded_sequence_confidence(base, target_frame_count, event_target_count, cap)
 
 
 def _candidate_score(
     *,
     vehicle_detection_count: int,
+    mobile_target_detection_count: int,
     visible_frame_count: int,
-    max_vehicle_confidence: float,
-    max_vehicle_bbox_area: float,
+    max_target_confidence: float,
+    max_target_bbox_area: float,
     person_detection_count: int,
     traffic_light_detection_count: int,
     event_phase_counts: dict[str, int],
 ) -> float:
     event_phase_boost = 1.0 if event_phase_counts.get("event_candidate") else 0.0
     score = (
-        vehicle_detection_count * 3.0
+        mobile_target_detection_count * 3.0
+        + vehicle_detection_count * 0.5
         + visible_frame_count * 1.5
-        + max_vehicle_confidence * 2.0
-        + min(max_vehicle_bbox_area / 20000.0, 2.0)
+        + max_target_confidence * 2.0
+        + min(max_target_bbox_area / 20000.0, 2.0)
         + traffic_light_detection_count * 0.35
         + person_detection_count * 0.15
         + event_phase_boost
@@ -598,16 +695,18 @@ def _observation_candidates(
         observations.append(_presence_observation("pedestrian_visible", True, "person", class_frame_refs, class_confidences, max_frame_refs))
     if "traffic light" in class_frame_refs:
         observations.append(_presence_observation("opponent_signal_visible", True, "traffic light", class_frame_refs, class_confidences, max_frame_refs))
-    if any(label in class_frame_refs for label in VEHICLE_CLASSES):
-        frame_refs = _limited_frame_refs({ref for label in VEHICLE_CLASSES for ref in class_frame_refs.get(label, set())}, max_frame_refs)
-        confidences = [conf for label in VEHICLE_CLASSES for conf in class_confidences.get(label, [])]
+    for target_type, labels in TARGET_CLASS_GROUPS.items():
+        if not any(label in class_frame_refs for label in labels):
+            continue
+        frame_refs = _limited_frame_refs({ref for label in labels for ref in class_frame_refs.get(label, set())}, max_frame_refs)
+        confidences = [conf for label in labels for conf in class_confidences.get(label, [])]
         observations.append({
             "field": "primary_collision_target",
-            "value": "vehicle_candidate",
+            "value": f"{target_type}_candidate",
             "confidence": round(min(max(confidences or [0.0]), 0.72), 4),
             "source": "vision_model:yolo",
             "frame_refs": frame_refs,
-            "reason": "YOLO detected vehicle-class objects. This is an object inventory candidate, not proof of collision target.",
+            "reason": f"YOLO detected {target_type} objects. This is an object inventory candidate, not proof of collision target.",
         })
     return observations
 
@@ -694,6 +793,53 @@ def _public_frame_ref(frame: dict[str, Any]) -> dict[str, Any]:
         "event_candidate_id": frame.get("event_candidate_id"),
         "event_phase": frame.get("event_phase"),
     }
+
+
+def _target_type_for_label(label: str) -> str | None:
+    normalized = str(label or "").strip().lower()
+    for target_type, labels in TARGET_CLASS_GROUPS.items():
+        if normalized in labels:
+            return target_type
+    return None
+
+
+def _target_type_counts(class_counts: Counter[str]) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for label, count in class_counts.items():
+        target_type = _target_type_for_label(label)
+        if target_type:
+            counts[target_type] += int(count)
+    return dict(counts)
+
+
+def _dominant_target_type(counts: dict[str, int]) -> str:
+    if not counts:
+        return ""
+    priority = {"pedestrian": 0, "bicycle": 1, "motorcycle": 2, "vehicle": 3}
+    return sorted(
+        counts,
+        key=lambda key: (-int(counts.get(key) or 0), priority.get(key, 99), key),
+    )[0]
+
+
+def _dominant_sequence_target_type(
+    target_detection_counts: Counter[str],
+    target_phase_counts: dict[str, Counter[str]],
+    largest_target_area: dict[str, float],
+) -> str:
+    if not target_detection_counts:
+        return ""
+    priority = {"pedestrian": 0, "bicycle": 1, "motorcycle": 2, "vehicle": 3}
+    return sorted(
+        target_detection_counts,
+        key=lambda key: (
+            -int((target_phase_counts.get(key) or Counter()).get("event_candidate") or 0),
+            -int(target_detection_counts.get(key) or 0),
+            -float(largest_target_area.get(key) or 0.0),
+            priority.get(key, 99),
+            key,
+        ),
+    )[0]
 
 
 def _now_iso() -> str:

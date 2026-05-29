@@ -19,10 +19,17 @@ def normalize_openai_observations(
         if not field:
             continue
         value = item.get("value", "unknown")
+        alias = post_impact_target_alias(field)
+        if alias:
+            field = "primary_collision_target"
+            value = f"{alias}_candidate"
         if should_drop_openai_observation(field, value):
             continue
         frame_refs = [str(ref) for ref in item.get("frame_refs") or item.get("frames") or [] if str(ref) in allowed_frame_refs]
         confidence = normalize_observation_confidence(field, value, item.get("confidence"), frame_refs)
+        reason = str(item.get("reason") or item.get("evidence") or "")
+        if alias:
+            reason = f"{reason}; post_impact_non_vehicle_target_candidate" if reason else "post_impact_non_vehicle_target_candidate"
         observations.append({
             "field": field,
             "value": value,
@@ -30,10 +37,106 @@ def normalize_openai_observations(
             "source": "frame_analysis:openai",
             "detector": detector,
             "frame_refs": frame_refs,
-            "reason": str(item.get("reason") or item.get("evidence") or ""),
+            "reason": reason,
             "observation_quality": observation_quality(field, confidence, frame_refs),
         })
-    return observations
+    return soften_target_contradictions(observations)
+
+
+def post_impact_target_alias(field: str) -> str:
+    normalized = field.strip().lower().replace("-", "_")
+    if normalized in {"motorcycle_visible_post_impact", "two_wheeler_visible_post_impact", "two_wheeled_vehicle_visible_post_impact"}:
+        return "motorcycle"
+    if normalized in {"bicycle_visible_post_impact", "bike_visible_post_impact", "cyclist_visible_post_impact"}:
+        return "bicycle"
+    if normalized in {"pedestrian_visible_post_impact", "person_visible_post_impact"}:
+        return "pedestrian"
+    return ""
+
+
+def soften_target_contradictions(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep visually useful target candidates, but avoid confident ego/target flips.
+
+    Vision models often describe the ego vehicle as the "vehicle" collision
+    partner in vehicle-to-pedestrian/bicycle/motorcycle scenes. That is useful
+    context, but it must not pass as a direct accident target.
+    """
+    primary_targets = [
+        _target_value(item)
+        for item in observations
+        if item.get("field") == "primary_collision_target"
+    ]
+    non_vehicle_primary_targets = {target for target in primary_targets if target in {"pedestrian", "bicycle", "motorcycle", "object"}}
+    softened: list[dict[str, Any]] = []
+    for item in observations:
+        field = str(item.get("field") or "")
+        target = _target_value(item)
+        if field in {"collision_partner_type", "direct_collision_partner_type"} and target == "vehicle" and non_vehicle_primary_targets:
+            softened.append(_demote_direct_vehicle_target(
+                item,
+                "ego_vehicle_partner_ambiguity_with_non_vehicle_primary_target",
+            ))
+            continue
+        if field == "direct_collision_partner_type" and target in {"pedestrian", "bicycle", "motorcycle", "object"}:
+            if len(item.get("frame_refs") or []) < 3:
+                softened.append(_cap_observation_confidence(
+                    item,
+                    0.74,
+                    "direct_non_vehicle_target_requires_multi_frame_contact_evidence",
+                ))
+                continue
+        if field == "primary_collision_target" and target in {"pedestrian", "bicycle", "motorcycle"}:
+            if len(item.get("frame_refs") or []) < 3:
+                softened.append(_cap_observation_confidence(
+                    item,
+                    0.74,
+                    "non_vehicle_primary_target_requires_multi_frame_contact_evidence",
+                ))
+                continue
+        softened.append(item)
+    return softened
+
+
+def _cap_observation_confidence(item: dict[str, Any], cap: float, reason: str) -> dict[str, Any]:
+    confidence = min(as_float(item.get("confidence"), 0.0), cap)
+    frame_refs = item.get("frame_refs") or []
+    text = str(item.get("reason") or "")
+    next_reason = f"{text}; {reason}" if text else reason
+    return {
+        **item,
+        "confidence": confidence,
+        "reason": next_reason,
+        "observation_quality": observation_quality(str(item.get("field") or ""), confidence, frame_refs),
+    }
+
+
+def _demote_direct_vehicle_target(item: dict[str, Any], reason: str) -> dict[str, Any]:
+    """Keep the vehicle as context, but do not let it pass as direct target.
+
+    When a non-vehicle target candidate is also visible, a model often labels
+    the ego vehicle or a nearby vehicle as the direct partner. For fault
+    guidance, that is worse than uncertainty, so the direct fact is downgraded
+    to a vehicle candidate.
+    """
+    confidence = min(as_float(item.get("confidence"), 0.0), 0.74)
+    frame_refs = item.get("frame_refs") or []
+    text = str(item.get("reason") or "")
+    next_reason = f"{text}; {reason}" if text else reason
+    return {
+        **item,
+        "field": "primary_collision_target",
+        "value": "vehicle_candidate",
+        "confidence": confidence,
+        "reason": next_reason,
+        "observation_quality": observation_quality("primary_collision_target", confidence, frame_refs),
+    }
+
+
+def _target_value(item: dict[str, Any]) -> str:
+    text = str(item.get("value") or "").strip().lower().replace("-", "_")
+    if text.endswith("_candidate"):
+        text = text[: -len("_candidate")]
+    return text
 
 
 def normalize_accident_event_summary(value: Any, selected_frames: list[dict[str, Any]]) -> dict[str, Any]:

@@ -28,7 +28,7 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "non_contact_trigger": 0.82,
     "trigger_actor_type": 0.78,
     "trigger_actor_behavior": 0.78,
-    "direct_collision_partner_type": 0.82,
+    "direct_collision_partner_type": 0.88,
     "rear_vehicle_collision": 0.84,
     "centerline_cross_reason": 0.78,
     "collision_partner_type": 0.82,
@@ -281,6 +281,11 @@ def normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
         return value if isinstance(value, str) and value.strip() else None
     if field == "collision_partner_type":
         return normalize_actor_type(value)
+    if field == "primary_collision_target":
+        text = str(value).strip().lower()
+        if text.endswith("_candidate"):
+            return text
+        return normalize_actor_type(value) or (text if text and text != "unknown" else None)
     if field in {"trigger_actor_type", "direct_collision_partner_type"}:
         return normalize_actor_type(value)
     if field == "trigger_actor_behavior":
@@ -336,6 +341,7 @@ def normalize_signal(value: Any) -> str | None:
 
 def normalize_actor_type(value: Any) -> str | None:
     text = str(value).strip().lower()
+    normalized = text.replace("-", "_").replace(" ", "_")
     if text in {"vehicle", "car", "truck", "bus", "van", "motor_vehicle", "other_vehicle"}:
         return "vehicle"
     if text in {"pedestrian", "person"}:
@@ -345,6 +351,16 @@ def normalize_actor_type(value: Any) -> str | None:
     if text in {"motorcycle", "two_wheeler", "two-wheeler", "motorbike"}:
         return "motorcycle"
     if text in {"object", "fixed_object", "road_object", "obstacle"}:
+        return "object"
+    if any(token in normalized for token in ("truck", "trailer", "bus", "van", "car", "vehicle", "motor_vehicle")):
+        return "vehicle"
+    if any(token in normalized for token in ("pedestrian", "person")):
+        return "pedestrian"
+    if any(token in normalized for token in ("bicycle", "bike", "cyclist")):
+        return "bicycle"
+    if any(token in normalized for token in ("motorcycle", "motorbike", "scooter", "moped", "two_wheeler")):
+        return "motorcycle"
+    if any(token in normalized for token in ("object", "obstacle", "barrier", "debris")):
         return "object"
     return None
 

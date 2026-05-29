@@ -13,6 +13,11 @@ SCENE_DETECTION_TIMEOUT_SEC = float(os.getenv("VIDEO_SCENE_DETECTION_TIMEOUT_SEC
 SCENE_DETECTION_MAX_EVENTS = int(os.getenv("VIDEO_SCENE_DETECTION_MAX_EVENTS", "24"))
 EVENT_WINDOW_CLUSTER_GAP_SEC = float(os.getenv("VIDEO_EVENT_WINDOW_CLUSTER_GAP_SEC", "3.0"))
 EVENT_WINDOW_MAX_CANDIDATES = max(1, int(os.getenv("VIDEO_EVENT_WINDOW_MAX_CANDIDATES", "6")))
+VIDEO_PREPROCESS_MAX_FRAMES = max(6, min(60, int(os.getenv("VIDEO_PREPROCESS_MAX_FRAMES", "30"))))
+try:
+    VIDEO_FRAME_SCALE_WIDTH = max(640, min(1920, int(os.getenv("VIDEO_FRAME_SCALE_WIDTH", "1280"))))
+except (TypeError, ValueError):
+    VIDEO_FRAME_SCALE_WIDTH = 1280
 
 
 def now_iso() -> str:
@@ -46,7 +51,7 @@ def probe_video(storage_path: str) -> dict:
     }
 
 
-def frame_times_for_duration(duration_sec: float | None, max_frames: int = 18, event_times: list[float] | None = None) -> list[float]:
+def frame_times_for_duration(duration_sec: float | None, max_frames: int = VIDEO_PREPROCESS_MAX_FRAMES, event_times: list[float] | None = None) -> list[float]:
     duration = max(0.5, float(duration_sec or 8.0))
     event_times = sorted(set(round(float(time), 2) for time in (event_times or []) if 0 <= float(time) <= duration))
     if event_times:
@@ -76,7 +81,7 @@ def frame_times_for_duration(duration_sec: float | None, max_frames: int = 18, e
     return [times[round(idx * (len(times) - 1) / (max_frames - 1))] for idx in range(max_frames)]
 
 
-def event_focused_frame_times(duration_sec: float, event_times: list[float], max_frames: int = 18) -> list[float]:
+def event_focused_frame_times(duration_sec: float, event_times: list[float], max_frames: int = VIDEO_PREPROCESS_MAX_FRAMES) -> list[float]:
     duration = max(0.5, float(duration_sec))
     candidates = {0.0, max(0.0, duration - 0.1)}
     candidate_centers = [item["center_time_sec"] for item in event_window_candidates(duration, event_times)]
@@ -223,7 +228,7 @@ def extract_event_frames(
             "-frames:v",
             "1",
             "-vf",
-            "scale=960:-2",
+            f"scale={VIDEO_FRAME_SCALE_WIDTH}:-2",
             "-q:v",
             "4",
             str(output),

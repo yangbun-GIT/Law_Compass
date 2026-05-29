@@ -32,6 +32,8 @@ DB_URL = os.getenv("DATABASE_URL", "")
 INTERNAL_AGENT_URL = os.getenv("INTERNAL_AGENT_URL", "http://agent:8000")
 INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "")
 LOCAL_VIDEO_CACHE_DIR = Path(os.getenv("LOCAL_VIDEO_CACHE_DIR", "/app/storage/cache"))
+NON_VEHICLE_TARGETS = {"pedestrian", "bicycle", "motorcycle", "object"}
+DIRECT_TARGET_FIELDS = {"direct_collision_partner_type", "collision_partner_type"}
 USER_JOB_LABELS = {
     "video_preprocess": "영상 확인 중",
     "video_analyze": "사고 장면 분석 중",
@@ -119,6 +121,7 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
         case_inputs = cur.fetchone()
         frame_analysis_context = build_frame_analysis_context(row, metadata, case_inputs)
         yolo_frame_analysis = analyze_frames_with_yolo(frame_details, frame_analysis_context)
+        frame_analysis_context["vision_object_inventory"] = _compact_yolo_context(yolo_frame_analysis)
         frame_details = rank_frame_details_by_yolo(frame_details, yolo_frame_analysis)
         frame_selection_summary = summarize_frame_selection(frame_details)
         openai_frame_analysis = analyze_frames_with_openai(frame_details, frame_analysis_context)
@@ -229,7 +232,92 @@ def _merge_frame_observations(*analysis_payloads: dict[str, Any]) -> list[dict[s
         for item in payload.get("observations") or []:
             if isinstance(item, dict):
                 observations.append(item)
-    return observations
+    return _sanitize_merged_frame_observations(observations)
+
+
+def _sanitize_merged_frame_observations(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    yolo_sequence_direct_targets = {
+        _canonical_target(item.get("value"))
+        for item in observations
+        if str(item.get("source") or "").strip().lower() == "vision_model:yolo_sequence"
+        and str(item.get("field") or "") in DIRECT_TARGET_FIELDS
+        and _canonical_target(item.get("value")) in NON_VEHICLE_TARGETS
+        and _frame_ref_count(item) >= 2
+        and _as_float(item.get("confidence")) >= 0.76
+    }
+    sanitized: list[dict[str, Any]] = []
+    for item in observations:
+        field = str(item.get("field") or "")
+        source = str(item.get("source") or "").strip().lower()
+        target = _canonical_target(item.get("value"))
+        if source.startswith("frame_analysis") and target in NON_VEHICLE_TARGETS and target not in yolo_sequence_direct_targets:
+            if field in DIRECT_TARGET_FIELDS:
+                sanitized.append(_demote_to_target_candidate(item, target, "openai_direct_non_vehicle_requires_yolo_sequence_support"))
+                continue
+            if field == "primary_collision_target" and not str(item.get("value") or "").strip().lower().endswith("_candidate"):
+                sanitized.append(_demote_to_target_candidate(item, target, "openai_non_vehicle_primary_requires_yolo_sequence_support"))
+                continue
+        sanitized.append(item)
+    return _dedupe_observations(sanitized)
+
+
+def _demote_to_target_candidate(item: dict[str, Any], target: str, reason_code: str) -> dict[str, Any]:
+    reason = str(item.get("reason") or "")
+    next_reason = f"{reason}; {reason_code}" if reason else reason_code
+    return {
+        **item,
+        "field": "primary_collision_target",
+        "value": f"{target}_candidate",
+        "confidence": round(min(_as_float(item.get("confidence")), 0.69), 4),
+        "reason": next_reason,
+    }
+
+
+def _dedupe_observations(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, tuple[str, ...], str]] = set()
+    for item in observations:
+        refs = tuple(str(ref) for ref in item.get("frame_refs") or [] if ref)
+        key = (
+            str(item.get("field") or ""),
+            str(item.get("value") or ""),
+            refs,
+            str(item.get("source") or ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
+
+
+def _canonical_target(value: Any) -> str:
+    text = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if text.endswith("_candidate"):
+        text = text[: -len("_candidate")]
+    if any(token in text for token in ("pedestrian", "person")):
+        return "pedestrian"
+    if any(token in text for token in ("bicycle", "bike", "cyclist")):
+        return "bicycle"
+    if any(token in text for token in ("motorcycle", "motorbike", "scooter", "moped", "two_wheeler")):
+        return "motorcycle"
+    if any(token in text for token in ("object", "obstacle", "barrier", "debris")):
+        return "object"
+    if any(token in text for token in ("vehicle", "truck", "trailer", "bus", "van", "car", "motor_vehicle")):
+        return "vehicle"
+    return text
+
+
+def _frame_ref_count(item: dict[str, Any]) -> int:
+    refs = item.get("frame_refs")
+    return len(refs) if isinstance(refs, list) else 0
+
+
+def _as_float(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _enqueue_video_analyze_job(
@@ -307,6 +395,47 @@ def build_frame_analysis_context(row: tuple[Any, ...], metadata: dict[str, Any],
         "user_context_is_visual_focus_only": True,
         "visual_focus": visual_focus,
         "selected_keywords": selected_keywords[:8],
+    }
+
+
+def _compact_yolo_context(yolo_payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(yolo_payload, dict) or yolo_payload.get("enabled") is not True:
+        return {}
+    summary = yolo_payload.get("summary") if isinstance(yolo_payload.get("summary"), dict) else {}
+    top_events = []
+    for item in (yolo_payload.get("event_candidate_summary") or [])[:3]:
+        if not isinstance(item, dict):
+            continue
+        top_events.append({
+            "event_candidate_id": item.get("event_candidate_id"),
+            "score": item.get("score"),
+            "frame_refs": item.get("frame_refs"),
+            "target_type_counts": item.get("target_detection_counts"),
+            "dominant_target_type": item.get("dominant_target_type"),
+            "event_phase_counts": item.get("event_phase_counts"),
+        })
+    sequences = []
+    for item in (yolo_payload.get("temporal_sequence_summary") or [])[:3]:
+        if not isinstance(item, dict):
+            continue
+        sequences.append({
+            "event_candidate_id": item.get("event_candidate_id"),
+            "rank": item.get("rank"),
+            "sequence_quality": item.get("sequence_quality"),
+            "dominant_target_type": item.get("dominant_target_type"),
+            "target_detection_counts": item.get("target_detection_counts"),
+            "target_frame_counts": item.get("target_frame_counts"),
+            "target_phase_counts": item.get("target_phase_counts"),
+            "frame_refs": item.get("frame_refs"),
+        })
+    return {
+        "source": yolo_payload.get("source"),
+        "model": yolo_payload.get("model"),
+        "target_type_counts": summary.get("target_type_counts"),
+        "ignored_class_counts": summary.get("ignored_class_counts"),
+        "top_event_candidates": top_events,
+        "temporal_sequences": sequences,
+        "interpretation": "YOLO is an object inventory and frame-selection hint only; OpenAI must verify visible contact from frames.",
     }
 
 

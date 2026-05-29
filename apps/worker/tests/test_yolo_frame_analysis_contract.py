@@ -96,12 +96,14 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
             max_frame_refs=4,
         )
 
-        by_field = {item["field"]: item for item in observations}
+        by_field = {item["field"]: item for item in observations if item["field"] != "primary_collision_target"}
+        primary_targets = [item for item in observations if item["field"] == "primary_collision_target"]
         self.assertEqual(by_field["pedestrian_visible"]["source"], "vision_model:yolo")
         self.assertEqual(by_field["pedestrian_visible"]["confidence"], 0.74)
         self.assertEqual(by_field["opponent_signal_visible"]["confidence"], 0.74)
-        self.assertEqual(by_field["primary_collision_target"]["value"], "vehicle_candidate")
-        self.assertEqual(by_field["primary_collision_target"]["confidence"], 0.72)
+        self.assertIn("vehicle_candidate", {item["value"] for item in primary_targets})
+        self.assertIn("pedestrian_candidate", {item["value"] for item in primary_targets})
+        self.assertTrue(all(item["confidence"] <= 0.72 for item in primary_targets))
 
     def test_yolo_payload_maps_results_by_selected_frame_order(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -187,10 +189,57 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(sequence["vehicle_phase_counts"]["event_candidate"], 2)
         self.assertEqual(payload["summary"]["sequence_observation_count"], 3)
         self.assertEqual(by_field["accident_event_candidate"]["source"], "vision_model:yolo_sequence")
-        self.assertEqual(by_field["direct_collision_partner_type"]["value"], "vehicle")
-        self.assertLess(by_field["direct_collision_partner_type"]["confidence"], 0.82)
+        self.assertNotIn("direct_collision_partner_type", by_field)
+        self.assertEqual(by_field["primary_collision_target"]["value"], "vehicle_candidate")
+        self.assertLess(by_field["primary_collision_target"]["confidence"], 0.78)
         self.assertEqual(by_field["collision_point_visible"]["value"], True)
         self.assertLess(by_field["collision_point_visible"]["confidence"], 0.84)
+
+    def test_yolo_sequence_preserves_motorcycle_and_bicycle_as_candidates_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index, phase in [(1, "pre_event_context"), (2, "event_candidate"), (3, "event_candidate")]:
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "accident_candidate" if phase == "event_candidate" else "event_context",
+                    "event_candidate_id": "event_window_1",
+                    "event_phase": phase,
+                })
+
+            motorcycle_payload = yolo_frame_analysis._build_yolo_payload(
+                [
+                    _FakeResult("ignored_1.jpg", {3: "motorcycle"}, [_FakeBox(3, 0.83, [380, 240, 620, 620])]),
+                    _FakeResult("ignored_2.jpg", {3: "motorcycle"}, [_FakeBox(3, 0.91, [360, 220, 660, 660])]),
+                    _FakeResult("ignored_3.jpg", {3: "motorcycle"}, [_FakeBox(3, 0.89, [350, 210, 670, 670])]),
+                ],
+                frames,
+                {"case_id": "case-1", "upload_id": "upload-1"},
+                {"available_frame_count": 3, "selected_frame_count": 3, "frame_selection_strategy": "test"},
+            )
+            bicycle_payload = yolo_frame_analysis._build_yolo_payload(
+                [
+                    _FakeResult("ignored_1.jpg", {1: "bicycle"}, [_FakeBox(1, 0.83, [380, 240, 620, 620])]),
+                    _FakeResult("ignored_2.jpg", {1: "bicycle"}, [_FakeBox(1, 0.91, [360, 220, 660, 660])]),
+                    _FakeResult("ignored_3.jpg", {1: "bicycle"}, [_FakeBox(1, 0.89, [350, 210, 670, 670])]),
+                ],
+                frames,
+                {"case_id": "case-1", "upload_id": "upload-1"},
+                {"available_frame_count": 3, "selected_frame_count": 3, "frame_selection_strategy": "test"},
+            )
+
+        motorcycle_fields = {item["field"]: item for item in motorcycle_payload["observations"]}
+        bicycle_fields = {item["field"]: item for item in bicycle_payload["observations"]}
+        self.assertEqual(motorcycle_payload["temporal_sequence_summary"][0]["dominant_target_type"], "motorcycle")
+        self.assertNotIn("direct_collision_partner_type", motorcycle_fields)
+        self.assertEqual(motorcycle_fields["primary_collision_target"]["value"], "motorcycle_candidate")
+        self.assertLess(motorcycle_fields["primary_collision_target"]["confidence"], 0.79)
+        self.assertEqual(bicycle_payload["temporal_sequence_summary"][0]["dominant_target_type"], "bicycle")
+        self.assertNotIn("direct_collision_partner_type", bicycle_fields)
+        self.assertEqual(bicycle_fields["primary_collision_target"]["value"], "bicycle_candidate")
+        self.assertLess(bicycle_fields["primary_collision_target"]["confidence"], 0.79)
 
     def test_static_edge_person_overlay_is_ignored_before_observation(self):
         with tempfile.TemporaryDirectory() as tmp:

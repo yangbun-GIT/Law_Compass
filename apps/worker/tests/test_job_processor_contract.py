@@ -109,6 +109,68 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
         self.assertEqual(result[0]["source"], "frame_analysis:openai")
         self.assertEqual(result[1]["source"], "vision_model:yolo")
 
+    def test_frame_observation_merge_demotes_openai_non_vehicle_direct_without_yolo_sequence_support(self):
+        result = _merge_frame_observations(
+            {
+                "observations": [
+                    {
+                        "field": "direct_collision_partner_type",
+                        "value": "pedestrian",
+                        "confidence": 0.88,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_004.jpg", "frame_005.jpg", "frame_006.jpg"],
+                    }
+                ]
+            },
+            {
+                "observations": [
+                    {
+                        "field": "primary_collision_target",
+                        "value": "pedestrian_candidate",
+                        "confidence": 0.72,
+                        "source": "vision_model:yolo",
+                        "frame_refs": ["frame_001.jpg", "frame_002.jpg"],
+                    }
+                ]
+            },
+        )
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["field"], "primary_collision_target")
+        self.assertEqual(result[0]["value"], "pedestrian_candidate")
+        self.assertLess(result[0]["confidence"], 0.7)
+        self.assertIn("requires_yolo_sequence_support", result[0]["reason"])
+
+    def test_frame_observation_merge_keeps_non_vehicle_direct_with_yolo_sequence_support(self):
+        result = _merge_frame_observations(
+            {
+                "observations": [
+                    {
+                        "field": "direct_collision_partner_type",
+                        "value": "bicycle",
+                        "confidence": 0.88,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_004.jpg", "frame_005.jpg", "frame_006.jpg"],
+                    }
+                ]
+            },
+            {
+                "observations": [
+                    {
+                        "field": "direct_collision_partner_type",
+                        "value": "bicycle",
+                        "confidence": 0.8,
+                        "source": "vision_model:yolo_sequence",
+                        "frame_refs": ["frame_004.jpg", "frame_005.jpg"],
+                    }
+                ]
+            },
+        )
+
+        by_source = {item["source"]: item for item in result}
+        self.assertEqual(by_source["frame_analysis:openai"]["field"], "direct_collision_partner_type")
+        self.assertEqual(by_source["vision_model:yolo_sequence"]["field"], "direct_collision_partner_type")
+
     def test_analysis_result_values_keep_result_contract_fields(self):
         response = {
             "evidence": [{"chunk_id": "chunk-1"}, {"title": "no chunk"}],

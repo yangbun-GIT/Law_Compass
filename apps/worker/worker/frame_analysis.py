@@ -32,12 +32,19 @@ FRAME_SELECTION_STRATEGY = "full-sequence-event-spread-plus-impact-context"
 ENABLE_OPENAI_FRAME_ANALYSIS = os.getenv("ENABLE_OPENAI_FRAME_ANALYSIS", "0") == "1"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
+OPENAI_FRAME_ANALYSIS_RETRY_MODEL = os.getenv("OPENAI_FRAME_ANALYSIS_RETRY_MODEL", OPENAI_VISION_MODEL).strip() or OPENAI_VISION_MODEL
 OPENAI_TIMEOUT_SEC = float(os.getenv("OPENAI_TIMEOUT_SEC", "45"))
-OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(18, _int_env("OPENAI_FRAME_ANALYSIS_MAX_FRAMES", 18)))
+OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(36, _int_env("OPENAI_FRAME_ANALYSIS_MAX_FRAMES", 18)))
 OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS = max(600, min(3000, _int_env("OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS", 2200)))
 OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY = os.getenv("OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY", "1") == "1"
-OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = max(1, min(18, _int_env("OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES", 6)))
+OPENAI_FRAME_ANALYSIS_TARGET_RETRY = os.getenv("OPENAI_FRAME_ANALYSIS_TARGET_RETRY", "1") == "1"
+OPENAI_FRAME_ANALYSIS_AMBIGUOUS_TARGET_RETRY = os.getenv("OPENAI_FRAME_ANALYSIS_AMBIGUOUS_TARGET_RETRY", "1") == "1"
+OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = max(1, min(36, _int_env("OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES", 6)))
 OPENAI_FRAME_ANALYSIS_ERROR_RETRY = os.getenv("OPENAI_FRAME_ANALYSIS_ERROR_RETRY", "1") == "1"
+OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROPS = os.getenv("OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROPS", "1") == "1"
+OPENAI_FRAME_ANALYSIS_TARGET_RETRY_ENHANCE = os.getenv("OPENAI_FRAME_ANALYSIS_TARGET_RETRY_ENHANCE", "1") == "1"
+OPENAI_FRAME_ANALYSIS_TARGET_RETRY_MAX_CROPS = max(0, min(18, _int_env("OPENAI_FRAME_ANALYSIS_TARGET_RETRY_MAX_CROPS", 12)))
+OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROP_WIDTH = max(384, min(1280, _int_env("OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROP_WIDTH", 896)))
 OPENAI_FRAME_ANALYSIS_DETAIL = os.getenv("OPENAI_FRAME_ANALYSIS_DETAIL", "high").strip().lower()
 if OPENAI_FRAME_ANALYSIS_DETAIL not in {"low", "high", "auto"}:
     OPENAI_FRAME_ANALYSIS_DETAIL = "high"
@@ -109,6 +116,27 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                 retry_error = str(exc)
         if not observations:
             observations = _fallback_limited_visual_observations(selected_frames, event_summary)
+        if _should_retry_missing_target_observation(observations, selected_frames):
+            try:
+                target_retry_frames = _target_retry_frames_with_crops(selected_frames, event_summary)
+                target_retry_payload = _openai_frame_analysis_payload(
+                    target_retry_frames,
+                    context,
+                    fallback=True,
+                    prior_event_summary=event_summary,
+                    retry_focus="target_identification",
+                    model=OPENAI_FRAME_ANALYSIS_RETRY_MODEL,
+                )
+                target_retry_attempt = _run_openai_analysis_attempt("target_observation_retry", target_retry_payload, target_retry_frames)
+                attempts.append(target_retry_attempt["summary"])
+                target_retry_observations = target_retry_attempt["observations"]
+                if target_retry_observations:
+                    observations = _merge_observations(observations, target_retry_observations)
+                    target_retry_summary = target_retry_attempt["event_summary"]
+                    if target_retry_summary:
+                        event_summary = target_retry_summary
+            except Exception as exc:
+                retry_error = f"{retry_error}; target_observation_retry_error={exc}" if retry_error else f"target_observation_retry_error={exc}"
         result = {
             "version": FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": True,
@@ -160,13 +188,30 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
         if _should_retry_openai_error(primary_error, selected_frames):
             error_retry_used = True
             try:
-                retry_payload = _openai_frame_analysis_payload(selected_frames, context, fallback=True, prior_event_summary={})
-                retry_attempt = _run_openai_analysis_attempt("error_retry", retry_payload, selected_frames)
+                retry_frames = _error_retry_frames(selected_frames)
+                retry_payload = _openai_frame_analysis_payload(retry_frames, context, fallback=True, prior_event_summary={})
+                retry_attempt = _run_openai_analysis_attempt("error_retry", retry_payload, retry_frames)
                 data = retry_attempt["data"]
                 parsed = retry_attempt["parsed"]
                 observations = retry_attempt["observations"]
                 event_summary = retry_attempt["event_summary"]
                 attempts.append(retry_attempt["summary"])
+                if _should_retry_missing_target_observation(observations, selected_frames):
+                    target_retry_frames = _target_retry_frames_with_crops(selected_frames, event_summary)
+                    target_retry_payload = _openai_frame_analysis_payload(
+                        target_retry_frames,
+                        context,
+                        fallback=True,
+                        prior_event_summary=event_summary,
+                        retry_focus="target_identification",
+                        model=OPENAI_FRAME_ANALYSIS_RETRY_MODEL,
+                    )
+                    target_retry_attempt = _run_openai_analysis_attempt("target_observation_retry", target_retry_payload, target_retry_frames)
+                    attempts.append(target_retry_attempt["summary"])
+                    target_retry_observations = target_retry_attempt["observations"]
+                    if target_retry_observations:
+                        observations = _merge_observations(observations, target_retry_observations)
+                        event_summary = target_retry_attempt["event_summary"] or event_summary
                 if not observations:
                     observations = _fallback_limited_visual_observations(selected_frames, event_summary)
                 result = {
@@ -270,10 +315,18 @@ def _openai_frame_analysis_payload(
     context: dict[str, Any],
     fallback: bool = False,
     prior_event_summary: dict[str, Any] | None = None,
+    retry_focus: str = "",
+    model: str | None = None,
 ) -> dict[str, Any]:
+    resolved_model = model or OPENAI_VISION_MODEL
     content: list[dict[str, Any]] = [{
         "type": "input_text",
-        "text": _openai_frame_analysis_prompt(context, fallback=fallback, prior_event_summary=prior_event_summary or {}),
+        "text": _openai_frame_analysis_prompt(
+            context,
+            fallback=fallback,
+            prior_event_summary=prior_event_summary or {},
+            retry_focus=retry_focus,
+        ),
     }]
     for frame in selected_frames:
         content.append({
@@ -282,6 +335,7 @@ def _openai_frame_analysis_payload(
                 f"frame_ref={Path(frame['path']).name}, time_sec={frame.get('time_sec')}, "
                 f"role={frame.get('role')}, event_candidate_id={frame.get('event_candidate_id')}, "
                 f"event_phase={frame.get('event_phase')}, "
+                f"parent_frame_ref={frame.get('parent_frame_ref')}, crop_region={frame.get('crop_region')}, "
                 f"vision_event_candidate_rank={frame.get('vision_event_candidate_rank')}, "
                 f"vision_event_score={frame.get('vision_event_score')}, "
                 f"selection_reason={frame.get('selection_reason')}"
@@ -293,23 +347,42 @@ def _openai_frame_analysis_payload(
             "detail": OPENAI_FRAME_ANALYSIS_DETAIL,
         })
     payload = {
-        "model": OPENAI_VISION_MODEL,
+        "model": resolved_model,
         "max_output_tokens": OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS,
         "store": False,
-        "text": _text_options_for_model(OPENAI_VISION_MODEL),
+        "text": _text_options_for_model(resolved_model),
         "input": [{"role": "user", "content": content}],
     }
-    payload.update(_generation_controls_for_model(OPENAI_VISION_MODEL))
+    payload.update(_generation_controls_for_model(resolved_model))
     return payload
 
 
-def _openai_frame_analysis_prompt(context: dict[str, Any], fallback: bool = False, prior_event_summary: dict[str, Any] | None = None) -> str:
+def _openai_frame_analysis_prompt(
+    context: dict[str, Any],
+    fallback: bool = False,
+    prior_event_summary: dict[str, Any] | None = None,
+    retry_focus: str = "",
+) -> str:
     retry_intro = ""
     if fallback:
-        retry_intro = (
+        target_retry_text = ""
+        if retry_focus == "target_identification":
+            target_retry_text = (
+                "This retry exists because the prior pass did not produce enough collision-target candidates. "
+                "Review all frames again only for actual contact target candidates. "
+                "If a target class is visible near the impact window but contact is not certain, emit primary_collision_target as pedestrian_candidate, bicycle_candidate, motorcycle_candidate, vehicle_candidate, or object_candidate with conservative confidence and frame_refs. "
+                "Only emit collision_partner_type or direct_collision_partner_type when physical contact is visible. "
+            )
+        retry_reason_text = (
             "This is a bounded retry because the prior pass returned zero usable observations. "
+            if retry_focus != "target_identification"
+            else "This is a bounded retry for collision-target candidate extraction. "
+        )
+        retry_intro = (
+            retry_reason_text +
             "Focus on a small set of high-value facts that are visually supportable across the frame sequence. "
             "Do not force a fact when it is not visible, but avoid returning zero observations if any accident target, collision partner, signal, centerline, stopped vehicle, road obstruction, crosswalk context, or visible absence of pedestrian-in-path can be supported. "
+            f"{target_retry_text}"
             f"Prior accident_event_summary JSON: {json.dumps(prior_event_summary or {}, ensure_ascii=False)} "
         )
     return (
@@ -321,6 +394,7 @@ def _openai_frame_analysis_prompt(context: dict[str, Any], fallback: bool = Fals
         "Primary task: identify the accident target/object, collision point, and collision partner first. "
         "Before writing observations, inspect every provided frame_ref in chronological order and identify the most likely actual impact/contact moment or immediate pre/post-impact window. "
         "Frames may include event_candidate_id and event_phase metadata from ffmpeg scene-change clustering and vision_event_candidate_rank from YOLO object inventory. Use those only as candidate windows to compare, not as proof of a crash. "
+        "Context JSON may include vision_object_inventory from YOLO. Treat it as object-presence and frame-selection hints only: use it to double-check possible vehicle, pedestrian, bicycle, motorcycle, and object classes, but verify physical contact from the images before emitting direct target facts. "
         "When several event_candidate_id values are present, compare the pre_event_context, event_candidate, and post_event_context frames for each candidate before choosing the actual accident window. "
         "Do not treat the first risky scene, visible pedestrian, crosswalk, parked vehicle, signal, near miss, or lane conflict as the accident merely because it appears first. "
         "If the selected sequence shows multiple possible event candidates, compare all candidates and base collision_partner_type, primary_collision_target, collision_point_visible, impact_direction, and opponent_behavior on the candidate with visible contact, abrupt impact evidence, or immediate aftermath. "
@@ -339,8 +413,16 @@ def _openai_frame_analysis_prompt(context: dict[str, Any], fallback: bool = Fals
         "front_vehicle_stopped, ego_turn_direction, stopped_vehicle_without_lights, highway_or_expressway, "
         "recaptured_screen, dashcam_screen_visible, screen_glare_or_reflection. "
         "Use collision_partner_type as one of vehicle, pedestrian, bicycle, motorcycle, object, unknown. "
+        "collision_partner_type and direct_collision_partner_type must mean the non-ego party or object that physically contacts the ego/user vehicle. Never set collision_partner_type=vehicle merely because the ego/user vehicle is the vehicle doing the hitting. "
+        "If the ego/user vehicle hits a pedestrian, bicycle, motorcycle, or object, the collision partner is that non-ego target, not the ego vehicle. "
+        "Use vehicle only for car, truck, bus, van, or other four-wheel motor vehicles. "
+        "Do not collapse motorcycles, scooters, mopeds, or other two-wheeled motor vehicles into vehicle; use motorcycle. "
+        "Do not collapse bicycles or cyclists into vehicle or pedestrian; use bicycle. "
+        "Classify a pedestrian only when a person on foot is the physical collision target. A rider on a bicycle or motorcycle is not a pedestrian collision target unless the person is separated and struck as a person. "
+        "Classify bicycle only when the contact target is visibly a pedal bicycle/cyclist. Classify motorcycle only when the contact target is visibly a motorcycle, scooter, moped, or motorized two-wheeler. If bicycle versus motorcycle is unclear, omit the target fact or return low confidence rather than guessing. "
         "Use ego_turn_direction as one of right, left, straight, u_turn, unknown. "
         "Use primary_collision_target to describe the object actually struck or striking the ego vehicle; do not use road environment as the target unless the collision is with that object. "
+        "Only emit primary_collision_target, collision_partner_type, or direct_collision_partner_type when the target is visible at the selected impact/contact window or immediate aftermath. Do not emit those fields from a surrounding object that appears before or after the crash but is not the contact target. "
         "For non-contact trigger crashes, separate trigger_actor_type/trigger_actor_behavior from direct_collision_partner_type. For example, a bicycle that caused braking is a trigger actor, while a rear bus or following vehicle that physically hit the ego vehicle is the direct collision partner. "
         "Do not set collision_partner_type=bicycle merely because a bicycle appears when the visible contact is vehicle-to-vehicle or rear-end. "
         "For stopped, judge whether the ego/user vehicle was stationary at or immediately before the collision. "
@@ -373,6 +455,202 @@ def _should_retry_zero_observation(observations: list[dict[str, Any]], selected_
         and not observations
         and len(selected_frames) >= OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES
     )
+
+
+def _should_retry_missing_target_observation(observations: list[dict[str, Any]], selected_frames: list[dict[str, Any]]) -> bool:
+    if not OPENAI_FRAME_ANALYSIS_TARGET_RETRY or len(selected_frames) < OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES:
+        return False
+    target_fields = {"primary_collision_target", "collision_partner_type", "direct_collision_partner_type"}
+    target_observations = [
+        item
+        for item in observations
+        if isinstance(item, dict) and str(item.get("field") or "") in target_fields
+    ]
+    if not target_observations:
+        return True
+    if not OPENAI_FRAME_ANALYSIS_AMBIGUOUS_TARGET_RETRY:
+        return False
+    direct_target_observations = [
+        item
+        for item in target_observations
+        if str(item.get("field") or "") in {"collision_partner_type", "direct_collision_partner_type"}
+    ]
+    if direct_target_observations:
+        return False
+    normalized_targets = {_normalized_target_value(item.get("value")) for item in target_observations}
+    if normalized_targets - {"vehicle", "unknown"}:
+        return False
+    max_confidence = max(as_float(item.get("confidence"), 0.0) for item in target_observations)
+    # A low-confidence vehicle-only candidate often means the model saw traffic
+    # but did not identify the actual contact object. Retry with focused crops.
+    return max_confidence < 0.82
+
+
+def _normalized_target_value(value: Any) -> str:
+    text = str(value or "").strip().lower().replace("-", "_")
+    if text.endswith("_candidate"):
+        text = text[: -len("_candidate")]
+    if text in {"car", "truck", "bus", "van", "vehicle"} or "vehicle" in text:
+        return "vehicle"
+    if text in {"person", "pedestrian"} or "pedestrian" in text:
+        return "pedestrian"
+    if text in {"bike", "bicycle", "cyclist"} or "bicycle" in text:
+        return "bicycle"
+    if text in {"motorcycle", "motorbike", "scooter", "moped", "two_wheeler", "two_wheeled"} or "motorcycle" in text or "two_wheeler" in text:
+        return "motorcycle"
+    if text in {"object", "obstacle"} or "object" in text:
+        return "object"
+    return "unknown"
+
+
+def _target_retry_frames(selected_frames: list[dict[str, Any]], event_summary: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if len(selected_frames) <= 8:
+        return selected_frames
+    max_retry_frames = 10
+    by_ref = {
+        Path(str(frame.get("path", ""))).name: index
+        for index, frame in enumerate(selected_frames)
+        if frame.get("path")
+    }
+    focus_indexes: list[int] = []
+    for ref in (event_summary.get("event_frame_refs") if isinstance(event_summary, dict) else []) or []:
+        if str(ref) in by_ref:
+            focus_indexes.append(by_ref[str(ref)])
+    if not focus_indexes:
+        focus_indexes = [
+            index
+            for index, frame in enumerate(selected_frames)
+            if frame.get("event_phase") == "event_candidate" or frame.get("role") == "accident_candidate"
+        ]
+    if not focus_indexes:
+        midpoint = len(selected_frames) // 2
+        focus_indexes = [midpoint - 1, midpoint, midpoint + 1]
+    selected: list[int] = []
+
+    def add(index: int) -> None:
+        clamped = max(0, min(len(selected_frames) - 1, index))
+        if clamped not in selected and len(selected) < max_retry_frames:
+            selected.append(clamped)
+
+    for index in focus_indexes:
+        add(index)
+    # Target retries fail when the first suspected contact window is wrong.
+    # Keep broad temporal anchors so later/earlier two-wheeler or pedestrian
+    # contacts are still visible without using any evaluation labels.
+    for index in _temporal_anchor_indexes(len(selected_frames)):
+        add(index)
+    for offset in (-1, 1, -2, 2):
+        for index in focus_indexes:
+            add(index + offset)
+            if len(selected) >= max_retry_frames:
+                break
+        if len(selected) >= max_retry_frames:
+            break
+    return [selected_frames[index] for index in sorted(selected)]
+
+
+def _temporal_anchor_indexes(frame_count: int) -> list[int]:
+    if frame_count <= 0:
+        return []
+    return sorted({
+        0,
+        frame_count - 1,
+        max(0, frame_count // 4),
+        max(0, frame_count // 2),
+        max(0, (frame_count * 3) // 4),
+    })
+
+
+def _target_retry_frames_with_crops(selected_frames: list[dict[str, Any]], event_summary: dict[str, Any] | None) -> list[dict[str, Any]]:
+    base_frames = _target_retry_frames(selected_frames, event_summary)
+    crops = _target_retry_crop_frames(base_frames)
+    return [*base_frames, *crops]
+
+
+def _target_retry_crop_frames(base_frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROPS or OPENAI_FRAME_ANALYSIS_TARGET_RETRY_MAX_CROPS <= 0:
+        return []
+    try:
+        from PIL import Image
+        from PIL import ImageEnhance
+    except Exception:
+        return []
+    crop_specs = [
+        ("road_full", (0.0, 0.20, 1.0, 1.0)),
+        ("road_center", (0.16, 0.24, 0.84, 1.0)),
+        ("road_left", (0.0, 0.22, 0.62, 1.0)),
+        ("road_right", (0.38, 0.22, 1.0, 1.0)),
+    ]
+    event_frames = [
+        frame for frame in base_frames
+        if frame.get("event_phase") == "event_candidate" or frame.get("role") in {"accident_candidate", "target_retry_crop"}
+    ] or base_frames
+    crop_frames: list[dict[str, Any]] = []
+    for frame in event_frames:
+        source_path = Path(str(frame.get("path") or ""))
+        if not source_path.exists():
+            continue
+        try:
+            with Image.open(source_path) as image:
+                width, height = image.size
+                crop_dir = source_path.parent / "openai_target_crops"
+                crop_dir.mkdir(parents=True, exist_ok=True)
+                for label, ratios in crop_specs:
+                    if len(crop_frames) >= OPENAI_FRAME_ANALYSIS_TARGET_RETRY_MAX_CROPS:
+                        return crop_frames
+                    left, top, right, bottom = ratios
+                    box = (
+                        int(width * left),
+                        int(height * top),
+                        int(width * right),
+                        int(height * bottom),
+                    )
+                    crop = image.crop(box)
+                    if crop.width <= 0 or crop.height <= 0:
+                        continue
+                    crop = crop.convert("RGB")
+                    if OPENAI_FRAME_ANALYSIS_TARGET_RETRY_ENHANCE:
+                        crop = ImageEnhance.Brightness(crop).enhance(1.28)
+                        crop = ImageEnhance.Contrast(crop).enhance(1.22)
+                        crop = ImageEnhance.Sharpness(crop).enhance(1.15)
+                    if crop.width > OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROP_WIDTH:
+                        next_height = max(1, int(crop.height * (OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROP_WIDTH / crop.width)))
+                        crop = crop.resize((OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROP_WIDTH, next_height))
+                    suffix = "enhanced" if OPENAI_FRAME_ANALYSIS_TARGET_RETRY_ENHANCE else "raw"
+                    out_path = crop_dir / f"{source_path.stem}_{label}_{suffix}.jpg"
+                    crop.save(out_path, format="JPEG", quality=92)
+                    crop_frames.append({
+                        **frame,
+                        "path": str(out_path),
+                        "role": "target_retry_crop",
+                        "parent_frame_ref": source_path.name,
+                        "crop_region": label,
+                        "selection_reason": "zoomed enhanced target-identification crop for small or dark accident objects",
+                    })
+        except Exception:
+            continue
+    return crop_frames
+
+
+def _error_retry_frames(selected_frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if len(selected_frames) <= 10:
+        return selected_frames
+    return _target_retry_frames(selected_frames, {})
+
+
+def _merge_observations(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, tuple[str, ...]]] = set()
+    for item in [*left, *right]:
+        if not isinstance(item, dict):
+            continue
+        frame_refs = tuple(str(ref) for ref in (item.get("frame_refs") or []) if ref)
+        key = (str(item.get("field") or ""), str(item.get("value") or ""), frame_refs)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(item)
+    return merged
 
 
 def _should_retry_openai_error(error: str, selected_frames: list[dict[str, Any]]) -> bool:
@@ -438,6 +716,7 @@ def _fallback_limited_visual_observations(selected_frames: list[dict[str, Any]],
 
 
 def _run_openai_analysis_attempt(label: str, payload: dict[str, Any], selected_frames: list[dict[str, Any]]) -> dict[str, Any]:
+    model = str(payload.get("model") or OPENAI_VISION_MODEL)
     data = _post_json(
         "https://api.openai.com/v1/responses",
         payload,
@@ -445,7 +724,11 @@ def _run_openai_analysis_attempt(label: str, payload: dict[str, Any], selected_f
         timeout=OPENAI_TIMEOUT_SEC,
     )
     parsed = _safe_json_loads(_openai_output_text(data)) or {}
-    observations = _normalize_openai_observations(parsed.get("observations") or parsed.get("detected_events") or [], selected_frames)
+    observations = _normalize_openai_observations(
+        parsed.get("observations") or parsed.get("detected_events") or [],
+        selected_frames,
+        detector=model,
+    )
     event_summary = _normalize_accident_event_summary(parsed.get("accident_event_summary"), selected_frames)
     event_summary = event_summary or _derive_accident_event_summary_from_observations(observations, selected_frames)
     return {
@@ -453,13 +736,14 @@ def _run_openai_analysis_attempt(label: str, payload: dict[str, Any], selected_f
         "parsed": parsed,
         "observations": observations,
         "event_summary": event_summary,
-        "summary": _analysis_attempt_summary(label, data, observations, event_summary),
+        "summary": _analysis_attempt_summary(label, data, observations, event_summary, model),
     }
 
 
-def _analysis_attempt_summary(label: str, data: dict[str, Any], observations: list[dict[str, Any]], event_summary: dict[str, Any]) -> dict[str, Any]:
+def _analysis_attempt_summary(label: str, data: dict[str, Any], observations: list[dict[str, Any]], event_summary: dict[str, Any], model: str = "") -> dict[str, Any]:
     return {
         "label": label,
+        "model": model,
         "response_id": data.get("id"),
         "response_status": data.get("status"),
         "incomplete_details": data.get("incomplete_details"),
@@ -678,8 +962,13 @@ def _safe_json_loads(raw: str) -> dict[str, Any] | None:
         return None
 
 
-def _normalize_openai_observations(raw_observations: Any, selected_frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return normalize_openai_observations(raw_observations, selected_frames, detector=OPENAI_VISION_MODEL)
+def _normalize_openai_observations(
+    raw_observations: Any,
+    selected_frames: list[dict[str, Any]],
+    *,
+    detector: str = OPENAI_VISION_MODEL,
+) -> list[dict[str, Any]]:
+    return normalize_openai_observations(raw_observations, selected_frames, detector=detector)
 
 
 def _normalize_accident_event_summary(value: Any, selected_frames: list[dict[str, Any]]) -> dict[str, Any]:

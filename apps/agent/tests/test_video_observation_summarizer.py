@@ -30,6 +30,19 @@ def test_person_track_creates_person_candidate():
     assert result["video_observation_summary"]["possible_context"]["possible_car_vs_person"] is True
 
 
+def test_motorcycle_track_is_not_collapsed_into_vehicle():
+    result = summarize_client_pre_observations({
+        "observations": [
+            {"field": "object_candidate", "value": "motorcycle", "confidence": 0.75, "frame_time_sec": 1.0, "track_id": "m1", "bbox": [0.2, 0.2, 0.3, 0.5]},
+        ],
+    })
+
+    assert result["observation_summary"]["motorcycles_detected"] == 1
+    assert result["observation_summary"]["vehicles_detected"] == 0
+    assert result["candidate_accident_context"]["possible_party_type"] == "car_vs_motorcycle"
+    assert result["video_observation_summary"]["possible_context"]["possible_car_vs_motorcycle"] is True
+
+
 def test_traffic_light_does_not_confirm_signal_violation():
     result = summarize_client_pre_observations({
         "observations": [

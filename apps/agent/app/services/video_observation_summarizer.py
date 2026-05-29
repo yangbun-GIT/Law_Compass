@@ -37,6 +37,7 @@ def summarize_client_pre_observations(payload: dict[str, Any] | None) -> dict[st
         "possible_car_vs_car": counts["vehicle"] >= 2 or (counts["vehicle"] >= 1 and len(track_summary) >= 2),
         "possible_car_vs_person": counts["person"] > 0,
         "possible_car_vs_bicycle": counts["bicycle"] > 0,
+        "possible_car_vs_motorcycle": counts["motorcycle"] > 0,
         "possible_signal_related": counts["traffic_light"] > 0,
     }
 
@@ -56,6 +57,7 @@ def summarize_client_pre_observations(payload: dict[str, Any] | None) -> dict[st
             "vehicles_detected": counts["vehicle"],
             "persons_detected": counts["person"],
             "bicycles_detected": counts["bicycle"],
+            "motorcycles_detected": counts["motorcycle"],
             "traffic_lights_detected": counts["traffic_light"],
             "unknown_objects_detected": counts["unknown_object"],
             "moving_tracks": moving_tracks,
@@ -66,6 +68,7 @@ def summarize_client_pre_observations(payload: dict[str, Any] | None) -> dict[st
                 "vehicle": counts["vehicle"],
                 "person": counts["person"],
                 "bicycle": counts["bicycle"],
+                "motorcycle": counts["motorcycle"],
                 "traffic_light": counts["traffic_light"],
                 "unknown_object": counts["unknown_object"],
             },
@@ -98,11 +101,13 @@ def _canonical_label(item: dict[str, Any]) -> str:
     )
     if any(token in raw for token in ("traffic_light", "traffic light", "signal", "신호등")):
         return "traffic_light"
+    if any(token in raw for token in ("motorcycle", "motorbike", "scooter", "moped", "two_wheeler", "two-wheeler", "오토바이", "이륜차", "원동기")):
+        return "motorcycle"
     if any(token in raw for token in ("bicycle", "bike", "cyclist", "자전거")):
         return "bicycle"
     if any(token in raw for token in ("person", "pedestrian", "사람", "보행자")):
         return "person"
-    if any(token in raw for token in ("car", "vehicle", "truck", "bus", "motorcycle", "자동차", "차량", "트럭")):
+    if any(token in raw for token in ("car", "vehicle", "truck", "bus", "자동차", "차량", "트럭")):
         return "vehicle"
     return "unknown_object"
 
@@ -150,6 +155,10 @@ def _candidate_context(counts: Counter[str], tracks: list[dict[str, Any]], possi
         possible_party_type = "car_vs_person"
         confidence = min(0.58, 0.24 + counts["person"] * 0.08)
         evidence.append(f"사람 객체 후보 {counts['person']}개가 감지되었습니다.")
+    elif possible_context["possible_car_vs_motorcycle"]:
+        possible_party_type = "car_vs_motorcycle"
+        confidence = min(0.58, 0.24 + counts["motorcycle"] * 0.08)
+        evidence.append(f"오토바이/이륜차 객체 후보 {counts['motorcycle']}개가 감지되었습니다.")
     elif possible_context["possible_car_vs_bicycle"]:
         possible_party_type = "car_vs_bicycle"
         confidence = min(0.56, 0.24 + counts["bicycle"] * 0.08)
@@ -187,7 +196,7 @@ def _candidate_context(counts: Counter[str], tracks: list[dict[str, Any]], possi
 def _readiness_status(counts: Counter[str], tracks: list[dict[str, Any]], candidate: dict[str, Any]) -> str:
     if candidate.get("confidence", 0) <= 0:
         return "insufficient_video_only"
-    if counts["vehicle"] or counts["person"] or counts["bicycle"]:
+    if counts["vehicle"] or counts["person"] or counts["bicycle"] or counts["motorcycle"]:
         return "sufficient_for_knia_major_candidate"
     if tracks:
         return "sufficient_for_context_candidate"

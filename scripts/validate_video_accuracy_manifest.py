@@ -9,12 +9,16 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = "logs/video_accuracy/manifest_preflight.json"
 SENSITIVE_CASE_TOKENS = {
+    "accident_negligence_rate",
+    "accident_object",
     "expert_lawyer_opinion",
     "expert_opinion",
     "known_result",
+    "reference_outcome",
     "expected_guidance_range",
     "evaluation_focus",
     "evaluation_only_not_agent_input",
+    "traffic_accident_type",
 }
 
 
@@ -78,6 +82,13 @@ def case_contains_reference_tokens(case_path: Path) -> list[str]:
     return sorted(token for token in SENSITIVE_CASE_TOKENS if token.lower() in text)
 
 
+def resolved_reference_label_path(reference: dict[str, Any], manifest_path: Path) -> Path | None:
+    label_json = str(reference.get("label_json") or "").strip()
+    if not label_json:
+        return None
+    return resolve_existing_path(label_json, manifest_path=manifest_path)
+
+
 def validate_manifest(
     *,
     manifest_path: Path,
@@ -121,6 +132,7 @@ def validate_manifest(
                 "reference_purpose_not_isolated",
                 "sample.reference.purpose must be evaluation_only_not_agent_input",
             ))
+        reference_label_path = resolved_reference_label_path(reference, manifest_path)
 
         if sample.get("require_frame_observations"):
             require_frame_count += 1
@@ -144,6 +156,12 @@ def validate_manifest(
             issues.append(sample_issue(name, "missing_case_json", "sample.case_json is required for reproducible evaluation"))
         else:
             resolved_case = resolve_existing_path(case_json, manifest_path=manifest_path)
+            if reference_label_path and resolved_case == reference_label_path:
+                issues.append(sample_issue(
+                    name,
+                    "reference_label_used_as_case_json",
+                    "sample.case_json must not point to sample.reference.label_json; labels are evaluation-only answer keys",
+                ))
             if not resolved_case.exists():
                 if not allow_missing_files:
                     issues.append(sample_issue(name, "case_json_not_found", "sample.case_json does not exist"))
