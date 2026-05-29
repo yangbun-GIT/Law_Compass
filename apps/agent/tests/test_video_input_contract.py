@@ -878,6 +878,52 @@ def test_yolo_object_presence_candidates_do_not_become_agent_facts():
     assert arbitration["contract"]["conflicts"] == []
 
 
+def test_yolo_sequence_candidates_stay_as_supporting_or_confirmation_items():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "representative_frames": [f"frame_{index:03d}.jpg" for index in range(1, 7)],
+                "observations": [
+                    {
+                        "field": "accident_event_candidate",
+                        "value": True,
+                        "confidence": 0.86,
+                        "source": "vision_model:yolo_sequence",
+                        "frame_refs": ["frame_002.jpg", "frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "direct_collision_partner_type",
+                        "value": "vehicle",
+                        "confidence": 0.81,
+                        "source": "vision_model:yolo_sequence",
+                        "frame_refs": ["frame_002.jpg", "frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "collision_point_visible",
+                        "value": True,
+                        "confidence": 0.83,
+                        "source": "vision_model:yolo_sequence",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                ],
+                "yolo_frame_analysis": {"enabled": True},
+            }
+        }
+    )
+
+    assert contract["fact_patch"] == {}
+    assert contract["accepted_observations"] == []
+    supporting_fields = {item["field"] for item in contract["supporting_observations"]}
+    assert "accident_event_candidate" in supporting_fields
+    uncertain_by_field = {item["field"]: item for item in contract["uncertain_observations"]}
+    assert uncertain_by_field["direct_collision_partner_type"]["reason"] == "confidence_below_field_threshold"
+    assert uncertain_by_field["collision_point_visible"]["reason"] == "confidence_below_field_threshold"
+    assert [item["field"] for item in contract["confirmation_candidates"]] == [
+        "collision_point_visible",
+        "direct_collision_partner_type",
+    ]
+
+
 def test_uncertain_video_conflict_is_visible_in_normalized_analysis_text():
     normalized = normalize_analysis_input(
         "차대차 사고라고 생각합니다.",

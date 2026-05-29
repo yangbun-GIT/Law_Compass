@@ -149,6 +149,49 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(summaries[0]["event_candidate_id"], "event_window_2")
         self.assertEqual(payload["summary"]["top_event_candidate_id"], "event_window_2")
 
+    def test_yolo_temporal_sequence_creates_confidence_limited_review_candidates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            phases = [
+                (1, "pre_event_context"),
+                (2, "event_candidate"),
+                (3, "event_candidate"),
+                (4, "post_event_context"),
+            ]
+            for index, phase in phases:
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "accident_candidate" if phase == "event_candidate" else "event_context",
+                    "event_candidate_id": "event_window_1",
+                    "event_phase": phase,
+                })
+
+            payload = yolo_frame_analysis._build_yolo_payload(
+                [
+                    _FakeResult("ignored_1.jpg", {2: "car"}, [_FakeBox(2, 0.82, [420, 260, 700, 560])]),
+                    _FakeResult("ignored_2.jpg", {2: "car"}, [_FakeBox(2, 0.91, [380, 220, 840, 650])]),
+                    _FakeResult("ignored_3.jpg", {2: "car"}, [_FakeBox(2, 0.93, [330, 190, 930, 690])]),
+                    _FakeResult("ignored_4.jpg", {2: "car"}, [_FakeBox(2, 0.88, [500, 250, 760, 560])]),
+                ],
+                frames,
+                {"case_id": "case-1", "upload_id": "upload-1"},
+                {"available_frame_count": 4, "selected_frame_count": 4, "frame_selection_strategy": "test"},
+            )
+
+        sequence = payload["temporal_sequence_summary"][0]
+        by_field = {item["field"]: item for item in payload["observations"]}
+        self.assertEqual(sequence["sequence_quality"], "pre_event_event_post_sequence")
+        self.assertEqual(sequence["vehicle_phase_counts"]["event_candidate"], 2)
+        self.assertEqual(payload["summary"]["sequence_observation_count"], 3)
+        self.assertEqual(by_field["accident_event_candidate"]["source"], "vision_model:yolo_sequence")
+        self.assertEqual(by_field["direct_collision_partner_type"]["value"], "vehicle")
+        self.assertLess(by_field["direct_collision_partner_type"]["confidence"], 0.82)
+        self.assertEqual(by_field["collision_point_visible"]["value"], True)
+        self.assertLess(by_field["collision_point_visible"]["confidence"], 0.84)
+
     def test_static_edge_person_overlay_is_ignored_before_observation(self):
         with tempfile.TemporaryDirectory() as tmp:
             frames = []

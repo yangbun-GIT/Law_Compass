@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-29 P2-2c YOLO 시간 순서 기반 사고 시퀀스 관찰값
+
+Worker YOLO 분석에 `temporal_sequence_summary`와 `vision_model:yolo_sequence` 관찰값을 추가했다. 단일 프레임에 차량·사람·신호등이 보였다는 사실만으로 사고 대상을 추론하지 않고, `pre_event_context -> event_candidate -> post_event_context` 흐름에서 차량 객체가 어느 후보 구간에 지속적으로 관찰되는지 요약한다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Worker YOLO payload | `apps/worker/worker/yolo_frame_analysis.py`가 event candidate별 차량 관찰 프레임, phase별 frame refs, vehicle phase counts, sequence quality를 `temporal_sequence_summary`에 기록한다. |
+| 시퀀스 관찰값 | top event window의 차량 흐름을 기반으로 `accident_event_candidate`, `direct_collision_partner_type=vehicle`, `collision_point_visible=true` 후보를 생성한다. |
+| 오염 방지 | `direct_collision_partner_type`과 `collision_point_visible`은 Agent fact threshold 아래 confidence로 제한해 바로 사실 확정되지 않고 확인 후보로 남는다. `accident_event_candidate`는 supporting observation으로만 사용한다. |
+| Agent 계약 검증 | Agent 영상 입력 계약 테스트에서 YOLO sequence 후보가 확정 fact가 아니라 supporting/confirmation item으로 남는지 고정했다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. YOLO sequence는 사고 시점 후보와 확인 질문 우선순위를 보강하기 위한 입력 계약이며, 법률 판단이나 과실비율 산정의 직접 근거가 아니다.
+
 ## 2026-05-29 P2-2b YOLO 오버레이/방송 UI 잡음 필터
 
 Worker YOLO 분석에서 원본 감지값을 `raw_detections -> detections -> ignored_detections` 흐름으로 분리했다. 화면 가장자리 또는 플레이어 UI 영역에 반복 등장하는 `person` 감지는 방송 진행자, 워터마크, 플레이어 오버레이일 가능성이 높으므로 사고 관찰값과 `class_counts`에서 제외하고 `ignored_detections`에 사유와 위치 요약만 남긴다.

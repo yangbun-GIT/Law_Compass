@@ -155,8 +155,14 @@ def _build_yolo_payload(
         class_confidences[label].append(confidence)
 
     total_detection_count = sum(class_counts.values())
-    observations = _observation_candidates(class_frame_refs, class_confidences, YOLO_MAX_FRAME_REFS)
+    object_observations = _observation_candidates(class_frame_refs, class_confidences, YOLO_MAX_FRAME_REFS)
     event_candidate_summary = _event_candidate_summaries(detections, selected_frames)
+    temporal_sequence_summary = _temporal_sequence_summaries(detections, event_candidate_summary, selected_frames)
+    sequence_observations = _sequence_observation_candidates(
+        temporal_sequence_summary,
+        YOLO_MAX_FRAME_REFS,
+    )
+    observations = [*object_observations, *sequence_observations]
     ignored_class_counts = Counter(str(item.get("label") or "") for item in ignored_detections)
     return {
         "version": YOLO_FRAME_ANALYSIS_CONTRACT_VERSION,
@@ -178,14 +184,17 @@ def _build_yolo_payload(
             "class_counts": dict(class_counts),
             "event_candidate_count": len(event_candidate_summary),
             "top_event_candidate_id": event_candidate_summary[0]["event_candidate_id"] if event_candidate_summary else "",
+            "sequence_observation_count": len(sequence_observations),
         },
         "event_candidate_summary": event_candidate_summary,
+        "temporal_sequence_summary": temporal_sequence_summary,
         "observations": observations,
         "detections": stored_detections,
         "ignored_detections": stored_ignored_detections,
         "notes": [
             "YOLO detections are object-location candidates only.",
             "Static edge overlays and broadcast UI detections are excluded from observations.",
+            "Temporal sequence observations are confidence-limited candidates, not collision conclusions.",
             "Do not infer collision_partner_type or fault ratio from YOLO object presence alone.",
             "Use these observations only after Agent fact arbitration.",
         ],
@@ -404,6 +413,149 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
             str(item["event_candidate_id"]),
         ),
     )
+
+
+def _temporal_sequence_summaries(
+    detections: list[dict[str, Any]],
+    event_candidate_summary: list[dict[str, Any]],
+    selected_frames: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if not event_candidate_summary:
+        return []
+    frame_meta_by_ref = {Path(frame["path"]).name: frame for frame in selected_frames}
+    detections_by_candidate: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for detection in detections:
+        candidate_id = str(detection.get("event_candidate_id") or "")
+        if not candidate_id:
+            continue
+        detections_by_candidate[candidate_id].append(detection)
+
+    summaries: list[dict[str, Any]] = []
+    ordered_candidate_ids = [str(item.get("event_candidate_id") or "") for item in event_candidate_summary]
+    for rank, candidate_id in enumerate([item for item in ordered_candidate_ids if item], start=1):
+        candidate_detections = detections_by_candidate.get(candidate_id) or []
+        if not candidate_detections:
+            continue
+        phase_frame_refs: dict[str, set[str]] = defaultdict(set)
+        vehicle_frame_refs: set[str] = set()
+        vehicle_phase_counts: Counter[str] = Counter()
+        class_counts: Counter[str] = Counter()
+        largest_vehicle_area = 0.0
+        largest_vehicle_frame_ref = ""
+        for detection in candidate_detections:
+            frame_ref = str(detection.get("frame_ref") or "")
+            frame_meta = frame_meta_by_ref.get(frame_ref, {})
+            phase = str(detection.get("event_phase") or frame_meta.get("event_phase") or "unknown")
+            label = str(detection.get("label") or "")
+            class_counts[label] += 1
+            phase_frame_refs[phase].add(frame_ref)
+            if label not in VEHICLE_CLASSES:
+                continue
+            vehicle_frame_refs.add(frame_ref)
+            vehicle_phase_counts[phase] += 1
+            area = _bbox_area(detection.get("bbox_xyxy") if isinstance(detection.get("bbox_xyxy"), list) else [])
+            if area > largest_vehicle_area:
+                largest_vehicle_area = area
+                largest_vehicle_frame_ref = frame_ref
+
+        if not vehicle_frame_refs:
+            continue
+        event_vehicle_count = int(vehicle_phase_counts.get("event_candidate") or 0)
+        sequence_quality = _sequence_quality(phase_frame_refs, event_vehicle_count)
+        summaries.append({
+            "event_candidate_id": candidate_id,
+            "rank": rank,
+            "sequence_quality": sequence_quality,
+            "frame_refs": _limited_frame_refs(vehicle_frame_refs, YOLO_MAX_FRAME_REFS),
+            "phase_frame_refs": {
+                phase: sorted(refs)
+                for phase, refs in sorted(phase_frame_refs.items())
+                if refs
+            },
+            "class_counts": dict(class_counts),
+            "vehicle_frame_count": len(vehicle_frame_refs),
+            "vehicle_phase_counts": dict(vehicle_phase_counts),
+            "event_vehicle_detection_count": event_vehicle_count,
+            "largest_vehicle_bbox_area": round(largest_vehicle_area, 2),
+            "largest_vehicle_frame_ref": largest_vehicle_frame_ref,
+            "interpretation": (
+                "Chronological object-presence sequence for accident-window review only. "
+                "It should support frame selection and user confirmation, not decide fault."
+            ),
+        })
+    return summaries
+
+
+def _sequence_quality(phase_frame_refs: dict[str, set[str]], event_vehicle_count: int) -> str:
+    has_pre = bool(phase_frame_refs.get("pre_event_context"))
+    has_event = bool(phase_frame_refs.get("event_candidate")) and event_vehicle_count > 0
+    has_post = bool(phase_frame_refs.get("post_event_context"))
+    if has_pre and has_event and has_post:
+        return "pre_event_event_post_sequence"
+    if has_event and (has_pre or has_post):
+        return "partial_event_sequence"
+    if has_event:
+        return "event_only_sequence"
+    return "object_presence_sequence"
+
+
+def _sequence_observation_candidates(
+    temporal_sequence_summary: list[dict[str, Any]],
+    max_frame_refs: int,
+) -> list[dict[str, Any]]:
+    if not temporal_sequence_summary:
+        return []
+    top = temporal_sequence_summary[0]
+    frame_refs = _limited_frame_refs(set(top.get("frame_refs") or []), max_frame_refs)
+    if not frame_refs:
+        return []
+    event_vehicle_count = int(top.get("event_vehicle_detection_count") or 0)
+    vehicle_frame_count = int(top.get("vehicle_frame_count") or 0)
+    largest_vehicle_bbox_area = float(top.get("largest_vehicle_bbox_area") or 0.0)
+    sequence_quality = str(top.get("sequence_quality") or "")
+    observations: list[dict[str, Any]] = [
+        {
+            "field": "accident_event_candidate",
+            "value": True,
+            "confidence": _bounded_sequence_confidence(0.8, vehicle_frame_count, event_vehicle_count, 0.86),
+            "source": "vision_model:yolo_sequence",
+            "frame_refs": frame_refs,
+            "reason": (
+                "YOLO observed vehicle-class objects through the top-ranked event window. "
+                "This marks a candidate accident sequence for review, not a final collision finding."
+            ),
+        }
+    ]
+    if event_vehicle_count >= 1 and vehicle_frame_count >= 2:
+        observations.append({
+            "field": "direct_collision_partner_type",
+            "value": "vehicle",
+            "confidence": _bounded_sequence_confidence(0.72, vehicle_frame_count, event_vehicle_count, 0.81),
+            "source": "vision_model:yolo_sequence",
+            "frame_refs": frame_refs,
+            "reason": (
+                "Vehicle-class objects persist across the candidate event sequence. "
+                "This is a confirmation candidate and stays below direct fact threshold."
+            ),
+        })
+    if event_vehicle_count >= 2 or (event_vehicle_count >= 1 and largest_vehicle_bbox_area >= 80000):
+        observations.append({
+            "field": "collision_point_visible",
+            "value": True,
+            "confidence": _bounded_sequence_confidence(0.74, vehicle_frame_count, event_vehicle_count, 0.83),
+            "source": "vision_model:yolo_sequence",
+            "frame_refs": frame_refs,
+            "reason": (
+                f"Vehicle detections concentrate in the candidate event window ({sequence_quality}). "
+                "This is a collision-point confirmation candidate, not a verified impact."
+            ),
+        })
+    return observations
+
+
+def _bounded_sequence_confidence(base: float, vehicle_frame_count: int, event_vehicle_count: int, cap: float) -> float:
+    value = base + min(vehicle_frame_count, 6) * 0.015 + min(event_vehicle_count, 4) * 0.015
+    return round(min(value, cap), 4)
 
 
 def _candidate_score(
