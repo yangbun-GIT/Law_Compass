@@ -1,6 +1,6 @@
 <template>
   <article class="card easy-card missing-info-card">
-    <h2>{{ text(missing.title || "더 정확한 분석을 위해 필요한 정보") }}</h2>
+    <h2>{{ text(missing.title, "더 정확한 분석을 위해 필요한 정보") }}</h2>
     <section v-if="priorityItems.length" class="priority-section">
       <div class="priority-head">
         <span>먼저 확인할 항목</span>
@@ -9,7 +9,7 @@
       <p v-if="missing.guidance">{{ text(missing.guidance) }}</p>
       <div class="priority-grid">
         <div v-for="item in priorityItems" :key="`${item.label}-${item.question}`" class="priority-item">
-          <span>{{ text(item.priority_label || "확인 필요") }}</span>
+          <span>{{ text(item.priority_label, "확인 필요") }}</span>
           <strong>{{ text(item.label || item.question) }}</strong>
           <p>{{ text(item.reason || item.question) }}</p>
         </div>
@@ -28,12 +28,12 @@
             <option v-for="option in question.options" :key="option" :value="option">{{ text(option) }}</option>
           </select>
           <input v-else v-model.trim="answers[question.answerKey]" placeholder="확인한 내용을 입력해 주세요" />
-          <small v-if="question.priority_reason">{{ text(question.priority_label || "확인 필요") }} · {{ text(question.priority_reason) }}</small>
+          <small v-if="question.priority_reason">{{ text(question.priority_label, "확인 필요") }} · {{ text(question.priority_reason) }}</small>
         </label>
       </div>
-      <p class="kv">답변은 케이스 입력값에 반영되고, 같은 분석 흐름으로 다시 검토됩니다.</p>
+      <p class="kv">답변은 케이스 입력값에 반영하고, 같은 분석 흐름으로 다시 검토합니다.</p>
       <p v-if="error" class="msg-error">{{ error }}</p>
-      <button class="btn" :disabled="submitting || !hasAnswers">{{ submitting ? "재분석 중..." : "답변 반영 후 재분석" }}</button>
+      <button class="btn" :disabled="submitting || !hasAnswers">{{ submitting ? "반영 중..." : "답변 반영 후 다시 분석" }}</button>
     </form>
   </article>
 </template>
@@ -118,34 +118,27 @@ function submit() {
   if (Object.keys(payload).length) emit("submit", payload);
 }
 
-function text(value: unknown) {
-  return sanitizeDisplayText(value);
+function text(value: unknown, fallback = "") {
+  return sanitizeDisplayText(value, fallback);
 }
 </script>
 
 <style scoped>
-.missing-info-card {
+.missing-info-card,
+.followup-form,
+.priority-section,
+.priority-head,
+.priority-item {
   display: grid;
   gap: 12px;
 }
 
-.followup-form {
-  display: grid;
-  gap: 12px;
-}
-
-.priority-section {
+.priority-section,
+.priority-item {
   background: rgba(201, 169, 98, 0.08);
   border: 1px solid rgba(201, 169, 98, 0.22);
-  border-radius: 8px;
-  display: grid;
-  gap: 12px;
+  border-radius: 12px;
   padding: 14px;
-}
-
-.priority-head {
-  display: grid;
-  gap: 4px;
 }
 
 .priority-head span,
@@ -156,36 +149,24 @@ function text(value: unknown) {
 }
 
 .priority-head strong,
-.priority-item strong {
-  color: #f1f7ff;
+.priority-item strong,
+.followup-grid span {
+  color: var(--text-main);
   overflow-wrap: anywhere;
 }
 
 .priority-section p,
-.priority-item p {
-  color: #cbd5e1;
+.priority-item p,
+.followup-grid small {
+  color: var(--text-sub);
   margin: 0;
 }
 
-.priority-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-
-.priority-item {
-  background: rgba(15, 23, 42, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-}
-
+.priority-grid,
 .followup-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .followup-grid label {
@@ -194,19 +175,18 @@ function text(value: unknown) {
 
 .followup-grid span {
   display: block;
-  color: #e5f7ff;
   font-weight: 800;
   line-height: 1.45;
 }
 
 .followup-grid small {
-  color: #b7c8d9;
   display: block;
   line-height: 1.4;
   margin-top: 6px;
 }
 
 @media (max-width: 760px) {
+  .priority-grid,
   .followup-grid {
     grid-template-columns: 1fr;
   }

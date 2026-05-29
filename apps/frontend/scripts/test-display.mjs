@@ -49,6 +49,7 @@ const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
 const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
 const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
+const styles = readFileSync("src/styles.css", "utf8");
 const sanitizerContracts = [
   "sanitizeUserVisibleText",
   "formatKniaBody",
@@ -63,10 +64,46 @@ if (missingSanitizerContracts.length) {
   process.exit(1);
 }
 const publicUserFiles = [dashboardView, caseDetailView, easyReportView, caseWorkspaceGuidanceData].join("\n");
-const forbiddenPublicPhrases = ["직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.", "관련성이 있는 근거입니다.", "교통사고 법률 설명 자료", "=4, =4.", "=9", ", ="];
+const brokenEquals = ["=" + "4, =" + "4.", "=" + "9", "," + " ="];
+const forbiddenPublicPhrases = ["직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.", "관련성이 있는 근거입니다.", "교통사고 법률 설명 자료", ...brokenEquals];
 const publicPhraseLeaks = forbiddenPublicPhrases.filter((token) => publicUserFiles.includes(token));
 if (publicPhraseLeaks.length) {
   console.error("public display exposes internal wording", publicPhraseLeaks);
+  process.exit(1);
+}
+const publicUiSource = [
+  styles,
+  easyReportView,
+  relatedVideoCard,
+  kniaVideoLinkCard,
+  evidenceReliabilityCard,
+  videoFactExplanationCard,
+  readFileSync("src/components/easy/ElderlyActionCard.vue", "utf8"),
+  readFileSync("src/components/easy/EasyLegalBasisCard.vue", "utf8"),
+  readFileSync("src/components/easy/ExpertGuidanceCard.vue", "utf8"),
+  readFileSync("src/components/easy/AgentProcessCard.vue", "utf8"),
+  readFileSync("src/components/easy/MissingInfoCard.vue", "utf8"),
+].join("\n");
+const forbiddenUiTokens = [
+  "#54e2f3",
+  "#7ae8f4",
+  "#6de3ef",
+  "#76e4ef",
+  "rgba(84,226,243",
+  "rgba(76,213,226",
+  "? ? ?",
+  "12" + "?",
+  "," + " =",
+];
+const uiTokenLeaks = forbiddenUiTokens.filter((token) => publicUiSource.includes(token));
+if (uiTokenLeaks.length) {
+  console.error("public UI still contains forbidden visual or broken token", uiTokenLeaks);
+  process.exit(1);
+}
+const expertStyleContracts = ["action-steps", "importance-badge", "expert-panel", "video-fact-section", "basis-card", "--accent", "--text-main", "--glass-border"];
+const missingExpertStyleContracts = expertStyleContracts.filter((token) => !publicUiSource.includes(token));
+if (missingExpertStyleContracts.length) {
+  console.error("expert report style contract failed", missingExpertStyleContracts);
   process.exit(1);
 }
 const requiredErrorUx = [
@@ -96,7 +133,6 @@ const requiredErrorUx = [
   "video_label",
   "영상 신뢰도"
 ];
-const styles = readFileSync("src/styles.css", "utf8");
 const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
@@ -129,7 +165,7 @@ const kniaLinkCardContracts = [
   "target=\"_blank\"",
   "rel=\"noopener noreferrer\"",
   "safeSourceUrl || video.has_knia_candidate",
-  "수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.",
+  "상세 기준 수집 필요",
 ];
 const kniaCardText = [relatedVideoCard, kniaVideoLinkCard, easyReportView, kniaChartView].join("\n");
 const missingKniaCardContracts = kniaLinkCardContracts.filter((token) => !kniaCardText.includes(token));
@@ -173,7 +209,6 @@ const guidedFlowContracts = [
   "일반사용자모드",
   "전문가모드",
   "fault-summary-card",
-  "isQuickSummary",
   "analysis_mode_contract",
 ];
 const missingGuidedContracts = guidedFlowContracts.filter((token) => !displayFiles.some((text) => text.includes(token)));

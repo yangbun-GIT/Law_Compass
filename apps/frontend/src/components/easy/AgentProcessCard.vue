@@ -3,13 +3,13 @@
     <div class="process-header">
       <div>
         <p class="kv">Agent 검증 상태</p>
-        <h2>{{ text(card.title || "판단 검증 흐름") }}</h2>
+        <h2>{{ text(card.title, "판단 검증 흐름") }}</h2>
       </div>
-      <span class="process-status">{{ text(card.status_label || "확인 필요") }}</span>
+      <span class="process-status">{{ text(card.status_label, "확인 필요") }}</span>
     </div>
     <p class="big-text">{{ text(card.summary) }}</p>
-    <div class="process-stats">
-      <div v-for="item in card.stats || []" :key="`${item.label}-${item.value}`" class="process-stat">
+    <div v-if="card.stats?.length" class="process-stats">
+      <div v-for="item in card.stats" :key="`${item.label}-${item.value}`" class="process-stat">
         <span>{{ text(item.label) }}</span>
         <strong>{{ text(item.value) }}</strong>
       </div>
@@ -38,8 +38,8 @@ import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 const props = defineProps<{ card?: any }>();
 const card = computed(() => props.card);
 
-function text(value: unknown) {
-  return sanitizeDisplayText(value);
+function text(value: unknown, fallback = "") {
+  return sanitizeDisplayText(value, fallback);
 }
 </script>
 
@@ -57,24 +57,27 @@ function text(value: unknown) {
 }
 
 .process-status {
-  background: rgba(120, 215, 207, 0.18);
-  border: 1px solid rgba(68, 185, 176, 0.26);
+  background: var(--accent-soft);
+  border: 1px solid rgba(201, 169, 98, 0.40);
   border-radius: 999px;
-  color: var(--primary-content);
+  color: var(--accent-strong);
   flex: 0 0 auto;
-  font-weight: 800;
+  font-weight: 900;
   padding: 9px 13px;
 }
 
-.process-stats {
+.process-stats,
+.process-steps {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 }
 
-.process-stat {
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid rgba(87, 75, 99, 0.12);
+.process-stat,
+.process-step,
+.decision-notes li {
+  background: linear-gradient(145deg, rgba(61, 51, 43, 0.92), rgba(37, 30, 25, 0.94));
+  border: 1px solid rgba(201, 169, 98, 0.28);
   border-radius: 16px;
   min-width: 0;
   padding: 14px;
@@ -89,28 +92,14 @@ function text(value: unknown) {
 
 .process-stat strong,
 .process-step strong {
-  color: var(--base-content);
+  color: var(--text-main);
   display: block;
   margin-top: 6px;
 }
 
-.process-steps {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.process-step {
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid rgba(87, 75, 99, 0.12);
-  border-radius: 16px;
-  min-width: 0;
-  padding: 13px;
-}
-
 .process-step .step-phase {
-  color: var(--primary-content);
-  font-weight: 800;
+  color: var(--accent-strong);
+  font-weight: 900;
 }
 
 .decision-notes {
@@ -122,22 +111,13 @@ function text(value: unknown) {
 }
 
 .decision-notes li {
-  background: rgba(120, 215, 207, 0.12);
-  border: 1px solid rgba(68, 185, 176, 0.18);
-  border-radius: 14px;
-  color: var(--base-content);
+  color: var(--text-main);
   line-height: 1.55;
-  padding: 10px 12px;
 }
 
 @media (max-width: 760px) {
   .process-header {
     display: grid;
-  }
-
-  .process-stats,
-  .process-steps {
-    grid-template-columns: 1fr;
   }
 
   .process-status {
