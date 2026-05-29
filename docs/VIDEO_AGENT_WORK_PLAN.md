@@ -261,3 +261,10 @@ P2-2f가 완료되었으므로 다음 단계는 P2-3 근거 검색/표시 적합
 - `case_json`은 일반 사용자가 줄 수 있는 사고 설명과 구조화 입력만 담고, `reference.label_json`이나 AI-Hub 라벨 필드를 가리키거나 복사하면 안 된다.
 - `video_accuracy_batch.py`는 `sample.reference`를 `video_agent_e2e.py`에 전달하지 않는다. reference는 실행 후 aggregate에만 붙어서 evaluator가 비교한다.
 - YOLO나 OpenAI 프레임 분석 보강은 실제 사용자 영상에도 적용되는 일반 규칙이어야 하며, 특정 테스트 영상이나 라벨 값을 맞추는 조건문을 추가하지 않는다.
+
+## 2026-05-30 P2-2g 이륜차/자전거 작은 대상 recall 보강
+
+- 목표: 작은 이륜차/자전거가 원거리나 화면 가장자리에서 작게 보이는 경우에도 영상 관찰 후보와 OpenAI target retry 입력에서 누락되지 않도록 한다.
+- 처리: YOLO 기본 분석 프레임 수를 전처리 최대치와 맞춰 30장으로 늘리고, YOLO가 감지한 자전거/이륜차 bbox를 `small_target_crop_hints`로 보존해 OpenAI target retry crop에 우선 전달한다.
+- 경계: YOLO bbox는 사고 판단이나 과실비율 근거가 아니라 작은 대상 확대 입력이다. `direct_collision_partner_type` 확정은 계속 Agent fact arbitration과 다중 프레임/접촉 근거가 필요하다.
+- 상태: 완료. Worker 계약 테스트에 작은 대상 crop hint와 YOLO bbox crop 우선순위 회귀 테스트를 추가했다.

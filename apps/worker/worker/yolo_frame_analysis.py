@@ -26,7 +26,7 @@ ENABLE_YOLO_FRAME_ANALYSIS = os.getenv("ENABLE_YOLO_FRAME_ANALYSIS", "0") == "1"
 YOLO_MODEL_PATH = os.getenv("YOLO_MODEL_PATH", "").strip()
 YOLO_DEVICE = os.getenv("YOLO_DEVICE", "cpu").strip() or "cpu"
 YOLO_CONFIDENCE = max(0.01, min(0.95, _float_env("YOLO_CONFIDENCE", 0.25)))
-YOLO_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(60, _int_env("YOLO_FRAME_ANALYSIS_MAX_FRAMES", 18)))
+YOLO_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(60, _int_env("YOLO_FRAME_ANALYSIS_MAX_FRAMES", 30)))
 YOLO_MAX_DETECTIONS = max(0, min(5000, _int_env("YOLO_MAX_DETECTIONS", 1000)))
 YOLO_MAX_FRAME_REFS = max(1, min(60, _int_env("YOLO_MAX_FRAME_REFS", 24)))
 
@@ -41,6 +41,7 @@ TARGET_CLASS_GROUPS = {
     "bicycle": BICYCLE_CLASSES,
     "pedestrian": PEDESTRIAN_CLASSES,
 }
+SMALL_TARGET_TYPES = {"bicycle", "motorcycle"}
 MOBILE_TARGET_CLASSES = set().union(*TARGET_CLASS_GROUPS.values())
 OVERLAY_NOISE_CLASSES = {"person"}
 
@@ -169,6 +170,7 @@ def _build_yolo_payload(
     object_observations = _observation_candidates(class_frame_refs, class_confidences, YOLO_MAX_FRAME_REFS)
     event_candidate_summary = _event_candidate_summaries(detections, selected_frames)
     temporal_sequence_summary = _temporal_sequence_summaries(detections, event_candidate_summary, selected_frames)
+    small_target_crop_hints = _small_target_crop_hints(detections, YOLO_MAX_FRAME_REFS)
     sequence_observations = _sequence_observation_candidates(
         temporal_sequence_summary,
         YOLO_MAX_FRAME_REFS,
@@ -197,10 +199,12 @@ def _build_yolo_payload(
             "target_type_counts": target_counts,
             "event_candidate_count": len(event_candidate_summary),
             "top_event_candidate_id": event_candidate_summary[0]["event_candidate_id"] if event_candidate_summary else "",
+            "small_target_crop_hint_count": len(small_target_crop_hints),
             "sequence_observation_count": len(sequence_observations),
         },
         "event_candidate_summary": event_candidate_summary,
         "temporal_sequence_summary": temporal_sequence_summary,
+        "small_target_crop_hints": small_target_crop_hints,
         "observations": observations,
         "detections": stored_detections,
         "ignored_detections": stored_ignored_detections,
@@ -317,6 +321,82 @@ def _is_edge_overlay_candidate(geometry: dict[str, float]) -> bool:
     return near_edge and near_corner_or_ui_band
 
 
+def _small_target_crop_hints(detections: list[dict[str, Any]], max_frame_refs: int) -> list[dict[str, Any]]:
+    hints: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, int, int]] = set()
+    sorted_detections = sorted(
+        detections,
+        key=lambda item: (
+            _target_type_for_label(str(item.get("label") or "")) not in SMALL_TARGET_TYPES,
+            -float(item.get("confidence") or 0.0),
+            str(item.get("frame_ref") or ""),
+        ),
+    )
+    for detection in sorted_detections:
+        target_type = _target_type_for_label(str(detection.get("label") or ""))
+        if target_type not in SMALL_TARGET_TYPES:
+            continue
+        geometry = _normalized_bbox_geometry(detection)
+        if not geometry:
+            continue
+        crop_region = _expanded_target_crop_region(geometry)
+        if not crop_region:
+            continue
+        frame_ref = str(detection.get("frame_ref") or "")
+        key = (
+            frame_ref,
+            target_type,
+            round(float(crop_region["left"]) / 0.04),
+            round(float(crop_region["top"]) / 0.04),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        hints.append({
+            "frame_ref": frame_ref,
+            "target_type": target_type,
+            "label": detection.get("label"),
+            "confidence": detection.get("confidence"),
+            "bbox_ratio": crop_region,
+            "source": "vision_model:yolo",
+            "reason": "small two-wheeled target crop hint for OpenAI target retry",
+        })
+        if len(hints) >= max_frame_refs:
+            break
+    return hints
+
+
+def _expanded_target_crop_region(geometry: dict[str, float]) -> dict[str, float]:
+    cx = float(geometry.get("cx") or 0.5)
+    cy = float(geometry.get("cy") or 0.5)
+    left = float(geometry.get("left") or 0.0) - 0.10
+    top = float(geometry.get("top") or 0.0) - 0.10
+    right = float(geometry.get("right") or 0.0) + 0.10
+    bottom = float(geometry.get("bottom") or 0.0) + 0.10
+    width = max(0.0, right - left)
+    height = max(0.0, bottom - top)
+    min_width = 0.34
+    min_height = 0.34
+    if width < min_width:
+        left = cx - min_width / 2
+        right = cx + min_width / 2
+    if height < min_height:
+        top = cy - min_height / 2
+        bottom = cy + min_height / 2
+    left = max(0.0, min(1.0, left))
+    top = max(0.0, min(1.0, top))
+    right = max(0.0, min(1.0, right))
+    bottom = max(0.0, min(1.0, bottom))
+    if right - left < 0.08 or bottom - top < 0.08:
+        return {}
+    return {
+        "left": round(left, 4),
+        "top": round(top, 4),
+        "right": round(right, 4),
+        "bottom": round(bottom, 4),
+    }
+
+
 def rank_frame_details_by_yolo(frame_details: list[dict[str, Any]], yolo_payload: dict[str, Any]) -> list[dict[str, Any]]:
     """Annotate frame details with the strongest YOLO-backed accident-window candidate.
 
@@ -333,23 +413,42 @@ def rank_frame_details_by_yolo(frame_details: list[dict[str, Any]], yolo_payload
         return frame_details
     rank_by_id = {str(item["event_candidate_id"]): index + 1 for index, item in enumerate(summaries)}
     score_by_id = {str(item["event_candidate_id"]): item.get("score") for item in summaries}
+    crop_hints_by_ref: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for hint in yolo_payload.get("small_target_crop_hints") or []:
+        if not isinstance(hint, dict):
+            continue
+        frame_ref = str(hint.get("frame_ref") or "")
+        if frame_ref:
+            crop_hints_by_ref[frame_ref].append(hint)
     enriched: list[dict[str, Any]] = []
     for frame in frame_details:
         candidate_id = str(frame.get("event_candidate_id") or "")
         rank = rank_by_id.get(candidate_id)
-        if not rank:
+        frame_ref = Path(str(frame.get("path") or "")).name
+        crop_hints = crop_hints_by_ref.get(frame_ref, [])
+        if not rank and not crop_hints:
             enriched.append(frame)
             continue
         reason = str(frame.get("selection_reason") or "")
         if rank == 1 and "yolo_ranked_event_candidate" not in reason:
             reason = f"{reason}+yolo_ranked_event_candidate" if reason else "yolo_ranked_event_candidate"
-        enriched.append({
+        next_frame = {
             **frame,
-            "vision_event_candidate_rank": rank,
-            "vision_event_score": score_by_id.get(candidate_id),
             "selection_reason": reason,
             "vision_event_source": "vision_model:yolo",
-        })
+        }
+        if rank:
+            next_frame = {
+                **next_frame,
+                "vision_event_candidate_rank": rank,
+                "vision_event_score": score_by_id.get(candidate_id),
+            }
+        if crop_hints:
+            next_frame = {
+                **next_frame,
+                "vision_target_crop_regions": crop_hints[:3],
+            }
+        enriched.append(next_frame)
     return enriched
 
 

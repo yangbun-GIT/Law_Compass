@@ -575,11 +575,11 @@ def _target_retry_crop_frames(base_frames: list[dict[str, Any]]) -> list[dict[st
         from PIL import ImageEnhance
     except Exception:
         return []
-    crop_specs = [
-        ("road_full", (0.0, 0.20, 1.0, 1.0)),
-        ("road_center", (0.16, 0.24, 0.84, 1.0)),
-        ("road_left", (0.0, 0.22, 0.62, 1.0)),
-        ("road_right", (0.38, 0.22, 1.0, 1.0)),
+    default_crop_specs = [
+        ("road_full", (0.0, 0.20, 1.0, 1.0), "static_road_context"),
+        ("road_center", (0.16, 0.24, 0.84, 1.0), "static_road_context"),
+        ("road_left", (0.0, 0.22, 0.62, 1.0), "static_road_context"),
+        ("road_right", (0.38, 0.22, 1.0, 1.0), "static_road_context"),
     ]
     event_frames = [
         frame for frame in base_frames
@@ -595,7 +595,7 @@ def _target_retry_crop_frames(base_frames: list[dict[str, Any]]) -> list[dict[st
                 width, height = image.size
                 crop_dir = source_path.parent / "openai_target_crops"
                 crop_dir.mkdir(parents=True, exist_ok=True)
-                for label, ratios in crop_specs:
+                for label, ratios, crop_source in _target_retry_crop_specs_for_frame(frame, default_crop_specs):
                     if len(crop_frames) >= OPENAI_FRAME_ANALYSIS_TARGET_RETRY_MAX_CROPS:
                         return crop_frames
                     left, top, right, bottom = ratios
@@ -625,11 +625,34 @@ def _target_retry_crop_frames(base_frames: list[dict[str, Any]]) -> list[dict[st
                         "role": "target_retry_crop",
                         "parent_frame_ref": source_path.name,
                         "crop_region": label,
+                        "crop_source": crop_source,
                         "selection_reason": "zoomed enhanced target-identification crop for small or dark accident objects",
                     })
         except Exception:
             continue
     return crop_frames
+
+
+def _target_retry_crop_specs_for_frame(
+    frame: dict[str, Any],
+    default_crop_specs: list[tuple[str, tuple[float, float, float, float], str]],
+) -> list[tuple[str, tuple[float, float, float, float], str]]:
+    yolo_specs: list[tuple[str, tuple[float, float, float, float], str]] = []
+    for index, hint in enumerate(frame.get("vision_target_crop_regions") or [], start=1):
+        if not isinstance(hint, dict):
+            continue
+        bbox = hint.get("bbox_ratio") if isinstance(hint.get("bbox_ratio"), dict) else {}
+        ratios = (
+            as_float(bbox.get("left"), 0.0),
+            as_float(bbox.get("top"), 0.0),
+            as_float(bbox.get("right"), 0.0),
+            as_float(bbox.get("bottom"), 0.0),
+        )
+        if ratios[2] <= ratios[0] or ratios[3] <= ratios[1]:
+            continue
+        target_type = str(hint.get("target_type") or "target").strip().lower().replace(" ", "_")
+        yolo_specs.append((f"yolo_{target_type}_{index}", ratios, "vision_model:yolo_bbox"))
+    return [*yolo_specs, *default_crop_specs]
 
 
 def _error_retry_frames(selected_frames: list[dict[str, Any]]) -> list[dict[str, Any]]:

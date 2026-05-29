@@ -271,6 +271,41 @@ class FrameAnalysisContractTest(unittest.TestCase):
             )
             self.assertTrue(all(frame["path"].endswith("_enhanced.jpg") for frame in crop_frames))
 
+    def test_target_retry_frames_use_yolo_small_target_crop_before_road_regions(self):
+        try:
+            from PIL import Image
+        except Exception:
+            self.skipTest("Pillow is not available")
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROPS = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY_ENHANCE = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY_MAX_CROPS = 2
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frame_path = Path(tmp) / "frame_001.jpg"
+            Image.new("RGB", (640, 360), "black").save(frame_path)
+            frames = [{
+                "path": str(frame_path),
+                "time_sec": 1,
+                "role": "accident_candidate",
+                "event_phase": "event_candidate",
+                "vision_target_crop_regions": [
+                    {
+                        "target_type": "bicycle",
+                        "bbox_ratio": {"left": 0.42, "top": 0.38, "right": 0.62, "bottom": 0.78},
+                    }
+                ],
+            }]
+
+            retry_frames = frame_analysis._target_retry_frames_with_crops(
+                frames,
+                {"event_frame_refs": ["frame_001.jpg"]},
+            )
+
+            crop_frames = [frame for frame in retry_frames if frame.get("role") == "target_retry_crop"]
+            self.assertEqual([frame["crop_region"] for frame in crop_frames], ["yolo_bicycle_1", "road_full"])
+            self.assertEqual(crop_frames[0]["crop_source"], "vision_model:yolo_bbox")
+            self.assertTrue(Path(crop_frames[0]["path"]).exists())
+
     def test_target_retry_frames_keep_temporal_anchors_when_event_window_is_wrong(self):
         with tempfile.TemporaryDirectory() as tmp:
             frames = []

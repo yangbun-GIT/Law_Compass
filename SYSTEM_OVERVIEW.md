@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-30 이륜차/자전거 작은 대상 recall 보강
+
+영상 처리 Worker에서 작은 사고 대상이 프레임 선택과 OpenAI 재분석 입력에서 누락되는 문제를 줄이도록 YOLO 보조 관찰 계약을 보강했다. 이 변경은 YOLO를 사고 판단 모델로 승격하지 않고, 작은 대상 후보를 더 잘 보이게 만드는 입력 품질 개선이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| YOLO 프레임 범위 | 기본 YOLO 분석 프레임 수를 현재 전처리 최대 프레임 정책과 맞춰 18장에서 30장으로 늘렸다. 필요하면 `YOLO_FRAME_ANALYSIS_MAX_FRAMES`로 낮출 수 있다. |
+| 작은 대상 crop hint | YOLO가 자전거 또는 이륜차 bbox를 감지하면 `small_target_crop_hints`를 생성하고, 해당 프레임의 `vision_target_crop_regions`로 전달한다. |
+| OpenAI 재분석 연결 | target 재시도 crop 생성 시 YOLO bbox 기반 crop을 일반 도로 crop보다 먼저 넣어 작은 대상이 확대된 상태로 OpenAI target retry에 전달되도록 했다. |
+| 판단 경계 | `primary_collision_target`은 여전히 candidate로 유지한다. YOLO bbox나 객체 존재만으로 `direct_collision_partner_type` 또는 과실 판단을 확정하지 않는다. |
+| 검증 | Worker 계약 테스트에 작은 대상 crop hint 전달과 YOLO bbox crop 우선순위 회귀 테스트를 추가했다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. Worker 환경변수 기본값 중 `YOLO_FRAME_ANALYSIS_MAX_FRAMES`의 기본 동작만 더 넓은 분석으로 바뀐다.
+
 ## 2026-05-29 P2-2f AI-Hub 597 라벨 기반 reference 평가 연결 완료
 
 AI-Hub 597 영상 라벨을 사고 영상 사실 추출의 대규모 reference 후보로 연결하는 P2-2f를 완료했다. 이 단계는 OpenAI/YOLO를 새로 호출하지 않고, 이미 내려받은 AI-Hub 라벨 JSON을 사용해 사고대상 오염 방지와 평가 coverage를 넓히는 정적 reference 준비 단계다.

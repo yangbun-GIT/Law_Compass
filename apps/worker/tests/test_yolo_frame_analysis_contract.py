@@ -240,6 +240,34 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
         self.assertNotIn("direct_collision_partner_type", bicycle_fields)
         self.assertEqual(bicycle_fields["primary_collision_target"]["value"], "bicycle_candidate")
         self.assertLess(bicycle_fields["primary_collision_target"]["confidence"], 0.79)
+        self.assertGreaterEqual(motorcycle_payload["summary"]["small_target_crop_hint_count"], 1)
+        self.assertGreaterEqual(bicycle_payload["summary"]["small_target_crop_hint_count"], 1)
+
+    def test_yolo_small_target_crop_hints_are_attached_to_frame_details(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frame_path = Path(tmp) / "frame_001.jpg"
+            frame_path.write_bytes(b"exists")
+            frames = [{
+                "path": str(frame_path),
+                "time_sec": 1.0,
+                "role": "accident_candidate",
+                "event_candidate_id": "event_window_1",
+                "event_phase": "event_candidate",
+            }]
+
+            payload = yolo_frame_analysis._build_yolo_payload(
+                [_FakeResult("ignored_1.jpg", {1: "bicycle"}, [_FakeBox(1, 0.91, [540, 260, 570, 320])])],
+                frames,
+                {"case_id": "case-1", "upload_id": "upload-1"},
+                {"available_frame_count": 1, "selected_frame_count": 1, "frame_selection_strategy": "test"},
+            )
+            ranked = yolo_frame_analysis.rank_frame_details_by_yolo(frames, payload)
+
+        hints = payload["small_target_crop_hints"]
+        self.assertEqual(hints[0]["target_type"], "bicycle")
+        self.assertEqual(hints[0]["frame_ref"], "frame_001.jpg")
+        self.assertIn("bbox_ratio", hints[0])
+        self.assertEqual(ranked[0]["vision_target_crop_regions"][0]["target_type"], "bicycle")
 
     def test_static_edge_person_overlay_is_ignored_before_observation(self):
         with tempfile.TemporaryDirectory() as tmp:
