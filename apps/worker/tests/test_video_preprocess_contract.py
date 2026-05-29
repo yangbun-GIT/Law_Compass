@@ -1,6 +1,7 @@
 import unittest
 
 from worker.video_preprocess import (
+    VIDEO_PREPROCESS_MAX_FRAMES,
     event_focused_frame_times,
     event_window_candidates,
     frame_times_for_duration,
@@ -17,15 +18,16 @@ class VideoPreprocessContractTest(unittest.TestCase):
     def test_short_accident_video_gets_dense_representative_frames(self):
         times = frame_times_for_duration(5.0)
 
-        self.assertGreaterEqual(len(times), 14)
-        self.assertLessEqual(len(times), 18)
+        self.assertGreaterEqual(len(times), 20)
+        self.assertLessEqual(len(times), VIDEO_PREPROCESS_MAX_FRAMES)
         self.assertEqual(times[0], 0.0)
         self.assertAlmostEqual(times[-1], 4.9, places=1)
 
     def test_ten_second_accident_video_keeps_more_context_than_openai_budget(self):
         times = frame_times_for_duration(10.0)
 
-        self.assertEqual(len(times), 18)
+        self.assertGreaterEqual(len(times), 24)
+        self.assertLessEqual(len(times), VIDEO_PREPROCESS_MAX_FRAMES)
         self.assertIn(0.2, times)
         self.assertLessEqual(min(abs(value - 5.0) for value in times), 0.3)
         self.assertAlmostEqual(times[-1], 9.9, places=1)
@@ -33,14 +35,14 @@ class VideoPreprocessContractTest(unittest.TestCase):
     def test_longer_video_is_capped_for_storage_and_cost_control(self):
         times = frame_times_for_duration(45.0)
 
-        self.assertEqual(len(times), 18)
+        self.assertEqual(len(times), VIDEO_PREPROCESS_MAX_FRAMES)
         self.assertEqual(times[0], 0.0)
         self.assertAlmostEqual(times[-1], 44.9, places=1)
 
     def test_long_video_with_event_signal_prioritizes_accident_window(self):
         times = frame_times_for_duration(120.0, event_times=[72.4])
 
-        self.assertLessEqual(len(times), 18)
+        self.assertLessEqual(len(times), VIDEO_PREPROCESS_MAX_FRAMES)
         self.assertEqual(times[0], 0.0)
         self.assertAlmostEqual(times[-1], 119.9, places=1)
         self.assertTrue(any(abs(value - 72.4) <= 0.5 for value in times))
