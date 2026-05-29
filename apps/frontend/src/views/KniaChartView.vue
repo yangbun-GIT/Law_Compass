@@ -314,7 +314,7 @@ onMounted(load);
 .notice { padding: 12px 14px; border-radius: 16px; font-weight: 800; }
 .notice.success { background: rgba(53, 211, 154, 0.13); border: 1px solid rgba(53, 211, 154, 0.35); color: #9ff5d4; }
 .notice.error { background: rgba(255, 112, 132, 0.13); border: 1px solid rgba(255, 112, 132, 0.35); color: #ffb7c3; white-space: pre-line; }
-.detail-hero { border-color: rgba(76, 216, 255, 0.28); }
+.detail-hero { border-color: rgba(201, 169, 98, 0.34); }
 .detail-ok { background: rgba(57, 255, 194, 0.14); color: #9ff5d4; }
 .detail-needed { background: rgba(251, 191, 36, 0.13); color: #fde68a; }
 .tab-card { display: grid; gap: 18px; }

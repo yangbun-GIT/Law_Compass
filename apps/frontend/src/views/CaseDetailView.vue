@@ -141,6 +141,21 @@
           <div class="progress-fill" :style="{ width: `${progressPercent}%` }"></div>
         </div>
 
+        <div class="progress-status-grid">
+          <div class="progress-status-item">
+            <span>현재 단계</span>
+            <strong>{{ progressStageLabel }}</strong>
+          </div>
+          <div class="progress-status-item">
+            <span>남은 단계</span>
+            <strong>{{ remainingProgressSteps.length ? remainingProgressSteps.join(" · ") : "결과 준비 중" }}</strong>
+          </div>
+          <div class="progress-status-item">
+            <span>예상 대기</span>
+            <strong>{{ progressEtaText }}</strong>
+          </div>
+        </div>
+
         <ol class="progress-steps">
           <li
               v-for="step in progressSteps"
@@ -156,10 +171,7 @@
 
         <div class="progress-note">
           <strong>다음 단계</strong>
-          <p v-if="progressPercent < 60">사고유형과 영상 정보를 확인하고 있습니다.</p>
-          <p v-else-if="progressPercent < 88">KNIA 기준과 과실 가감요소를 확인하고 있습니다.</p>
-          <p v-else-if="progressPercent < 100">결과 화면을 정리하고 있습니다. 곧 자동으로 표시됩니다.</p>
-          <p v-else>분석 결과가 준비되었습니다.</p>
+          <p>{{ progressStatusText }}</p>
         </div>
       </section>
 
@@ -177,6 +189,21 @@
 
           <div class="progress-bar">
             <div class="progress-fill" :style="{ width: `${progressPercent}%` }"></div>
+          </div>
+
+          <div class="progress-status-grid">
+            <div class="progress-status-item">
+              <span>현재 단계</span>
+              <strong>{{ progressStageLabel }}</strong>
+            </div>
+            <div class="progress-status-item">
+              <span>남은 단계</span>
+              <strong>{{ remainingProgressSteps.length ? remainingProgressSteps.join(" · ") : "결과 표시 준비" }}</strong>
+            </div>
+            <div class="progress-status-item">
+              <span>예상 대기</span>
+              <strong>{{ progressEtaText }}</strong>
+            </div>
           </div>
         </div>
 
@@ -283,6 +310,9 @@ const {
   progressStageLabel,
   progressMessage,
   progressSteps,
+  remainingProgressSteps,
+  progressEtaText,
+  progressStatusText,
   resultStreaming,
   viewUrl,
   jobs,

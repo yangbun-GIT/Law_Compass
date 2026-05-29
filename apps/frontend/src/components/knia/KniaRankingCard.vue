@@ -62,11 +62,15 @@ function formatPercent(value: unknown) {
   gap: 12px;
   align-items: center;
   padding: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(7, 14, 28, 0.28);
+  border-bottom: 1px solid rgba(201, 169, 98, 0.18);
+  background: rgba(28, 23, 20, 0.42);
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
-.knia-ranking-row:hover { background: rgba(76, 216, 255, 0.08); }
-.rank-col { color: #dce9ff; font-weight: 900; }
+.knia-ranking-row:hover {
+  background: rgba(201, 169, 98, 0.08);
+  border-color: rgba(201, 169, 98, 0.34);
+}
+.rank-col { color: #e8dfd4; font-weight: 900; }
 .chart-badge {
   display: inline-flex;
   justify-content: center;
@@ -74,33 +78,33 @@ function formatPercent(value: unknown) {
   min-height: 34px;
   padding: 0 10px;
   border-radius: 999px;
-  background: rgba(76, 216, 255, 0.16);
-  border: 1px solid rgba(76, 216, 255, 0.42);
-  color: #9eecff;
+  background: rgba(201, 169, 98, 0.14);
+  border: 1px solid rgba(201, 169, 98, 0.46);
+  color: #d4b872;
   font-weight: 900;
   text-decoration: none;
   white-space: nowrap;
 }
 .title-col { display: grid; gap: 4px; min-width: 0; }
-.ranking-title { color: #f3f7ff; font-weight: 850; text-decoration: none; line-height: 1.35; }
-.ranking-title:hover, .chart-badge:hover { color: #ffffff; }
-.source-category, .meta-label { color: #8fa3bd; font-size: 0.78rem; }
+.ranking-title { color: #f3e9dc; font-weight: 850; text-decoration: none; line-height: 1.45; }
+.ranking-title:hover, .chart-badge:hover { color: #d4b872; }
+.source-category, .meta-label { color: rgba(191, 175, 157, 0.86); font-size: 0.78rem; }
 .detail-chip {
   align-self: start;
-  border: 1px solid rgba(251, 191, 36, 0.28);
+  border: 1px solid rgba(215, 181, 109, 0.34);
   border-radius: 999px;
-  color: #fde68a;
+  color: #ead08f;
   font-size: 0.76rem;
   font-weight: 900;
   justify-self: start;
   padding: 4px 8px;
 }
 .detail-chip.ready {
-  border-color: rgba(53, 211, 154, 0.35);
-  color: #9ff5d4;
+  border-color: rgba(167, 193, 122, 0.42);
+  color: #d7e7b7;
 }
 .count-col, .percent-col { display: grid; gap: 3px; }
-.count-col strong, .percent-col strong { color: #f3f7ff; white-space: nowrap; }
+.count-col strong, .percent-col strong { color: #f3e9dc; white-space: nowrap; }
 .actions-col { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
 .compact { min-height: 34px; padding: 8px 11px; font-size: 0.88rem; white-space: nowrap; }
 button[disabled] { opacity: 0.48; cursor: not-allowed; }
@@ -123,5 +127,6 @@ button[disabled] { opacity: 0.48; cursor: not-allowed; }
   .knia-ranking-row { grid-template-columns: 1fr; grid-template-areas: none; }
   .rank-col, .chart-badge, .title-col, .count-col, .percent-col, .actions-col { grid-area: auto; }
   .actions-col .btn { flex: 1; justify-content: center; }
+  .chart-badge { justify-self: start; }
 }
 </style>

@@ -55,6 +55,41 @@ export function publicJobTypeLabel(type?: string) {
   return labels[String(type || "")] || "분석 준비 중";
 }
 
+function elapsedSeconds(value: any) {
+  const timestamp = value ? new Date(value).getTime() : Date.now();
+  if (!Number.isFinite(timestamp)) return 0;
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+}
+
+function stagePercent(stepKey: string, basePercent: number, elapsed: number) {
+  if (stepKey === "scene") return Math.min(58, basePercent + Math.min(10, Math.floor(elapsed / 6)));
+  if (stepKey === "scenario") return Math.min(72, basePercent + Math.min(10, Math.floor(elapsed / 6)));
+  if (stepKey === "knia") return Math.min(87, basePercent + Math.min(12, Math.floor(elapsed / 8)));
+  if (stepKey === "adjustment") return Math.min(96, basePercent + Math.min(8, Math.floor(elapsed / 8)));
+  return basePercent;
+}
+
+function estimateRemainingSeconds(stepKey: string, elapsed: number) {
+  const targets: Record<string, number> = {
+    input: 10,
+    upload: 15,
+    scene: 45,
+    scenario: 40,
+    knia: 55,
+    adjustment: 25,
+    result: 0,
+  };
+  return Math.max(0, (targets[stepKey] ?? 30) - elapsed);
+}
+
+function userStatusNote(stepKey: string, remainingSteps: string[]) {
+  if (stepKey === "result") return "결과 화면으로 이동할 수 있습니다.";
+  if (stepKey === "knia") return "KNIA 기준과 과실 가감요소를 대조하고 있습니다.";
+  if (stepKey === "scene") return "영상에서 사고 장면과 핵심 단서를 확인하고 있습니다.";
+  if (remainingSteps.length) return `${remainingSteps.length}개 단계가 남았습니다.`;
+  return "결과 화면을 준비하고 있습니다.";
+}
+
 export function composeGuidedProgressPayload(
   caseRow: AnyRecord | null | undefined,
   jobs: AnyRecord[] = [],
@@ -71,12 +106,14 @@ export function composeGuidedProgressPayload(
     ];
 
   const normalizedJobs = jobs.slice(0, 5).map((job) => {
-    const status = String(job.status || "");
+    const status = String(job.status || "").toLowerCase();
+    const elapsed = elapsedSeconds(job.created_at ?? job.updated_at);
     return {
       label: publicJobTypeLabel(job.type),
       status_label: publicStatusLabel(status),
       type: String(job.type || ""),
       status,
+      elapsed_seconds: elapsed,
       is_active: ["queued", "running", "retrying", "processing", "analyzing"].includes(status),
       is_done: ["completed", "succeeded", "success", "done", "finished"].includes(status),
       is_failed: ["failed", "error", "cancelled", "canceled"].includes(status),
@@ -93,6 +130,8 @@ export function composeGuidedProgressPayload(
       progress_percent: 100,
       result_ready: true,
       can_show_result: true,
+      estimated_remaining_seconds: 0,
+      status_note: "결과 화면으로 이동할 수 있습니다.",
       steps: stepDefs.map((step) => ({ ...step, status: "done" })),
       remaining_steps: [],
       jobs: normalizedJobs.map(({ type: _type, ...safe }) => safe),
@@ -123,12 +162,15 @@ export function composeGuidedProgressPayload(
   } else if (hasAnyJob) {
     currentStep = "upload";
     currentIndex = 1;
-  } else if (String(caseRow?.status || "") === "analyzing") {
+  } else if (String(caseRow?.status || "").toLowerCase() === "analyzing") {
     currentStep = "scenario";
     currentIndex = 3;
   }
 
   const current = stepDefs[currentIndex];
+  const currentElapsed = activeJob?.elapsed_seconds ?? 0;
+  const remainingSteps = stepDefs.slice(currentIndex + 1).map((step) => step.label);
+  const progressPercent = failedJob ? 100 : stagePercent(currentStep, current.percent, currentElapsed);
 
   return {
     version: GUIDED_PROGRESS_VERSION,
@@ -138,14 +180,16 @@ export function composeGuidedProgressPayload(
       : current.message,
     current_step: currentStep,
     current_step_index: currentIndex,
-    progress_percent: failedJob ? 100 : current.percent,
+    progress_percent: progressPercent,
     result_ready: false,
     can_show_result: false,
+    estimated_remaining_seconds: failedJob ? 0 : estimateRemainingSeconds(currentStep, currentElapsed),
+    status_note: failedJob ? "다시 시도하거나 고급 진단을 확인해 주세요." : userStatusNote(currentStep, remainingSteps),
     steps: stepDefs.map((step, index) => ({
       ...step,
       status: index < currentIndex ? "done" : index === currentIndex ? "active" : "waiting",
     })),
-    remaining_steps: stepDefs.slice(currentIndex + 1).map((step) => step.label),
+    remaining_steps: remainingSteps,
     jobs: normalizedJobs.map(({ type: _type, ...safe }) => safe),
     hide_internal_terms: true,
   };

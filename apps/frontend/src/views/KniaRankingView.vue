@@ -207,7 +207,14 @@ onMounted(load);
 .knia-ranking-page { display: grid; gap: 18px; }
 .ranking-hero { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
 .source-link { white-space: nowrap; }
-.ranking-controls-card { display: grid; gap: 16px; border-color: rgba(76, 216, 255, 0.28); }
+.ranking-controls-card {
+  display: grid;
+  gap: 16px;
+  border-color: rgba(201, 169, 98, 0.34);
+  background:
+      linear-gradient(135deg, rgba(232, 223, 212, 0.055), rgba(201, 169, 98, 0.04)),
+      rgba(37, 30, 25, 0.86);
+}
 .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
 .section-heading h3 { margin: 0; font-size: 1.35rem; }
 .section-heading.compact { margin-bottom: 12px; }
@@ -216,10 +223,32 @@ onMounted(load);
 .ranking-search-row input { min-height: 46px; }
 .collect-btn { min-width: 190px; }
 .detail-status { margin: 0; }
-.notice { padding: 12px 14px; border-radius: 16px; font-weight: 700; }
-.notice.success { background: rgba(53, 211, 154, 0.13); border: 1px solid rgba(53, 211, 154, 0.35); color: #9ff5d4; }
-.notice.error { background: rgba(255, 112, 132, 0.13); border: 1px solid rgba(255, 112, 132, 0.35); color: #ffb7c3; white-space: pre-line; }
-.ranking-table-head { display: grid; grid-template-columns: 56px 96px minmax(260px, 1fr) 140px 80px 220px; gap: 12px; padding: 0 14px 8px; color: #9fb1ca; font-size: 0.82rem; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.notice {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+.notice.success {
+  background: rgba(167, 193, 122, 0.13);
+  border: 1px solid rgba(167, 193, 122, 0.34);
+  color: #d7e7b7;
+}
+.notice.error {
+  background: rgba(139, 38, 53, 0.22);
+  border: 1px solid rgba(213, 137, 137, 0.36);
+  color: #f0c1c1;
+  white-space: pre-line;
+}
+.ranking-table-head {
+  display: grid;
+  grid-template-columns: 56px 96px minmax(260px, 1fr) 140px 80px 220px;
+  gap: 12px;
+  padding: 0 14px 10px;
+  color: rgba(232, 223, 212, 0.68);
+  font-size: 0.82rem;
+  font-weight: 800;
+  border-bottom: 1px solid rgba(201, 169, 98, 0.2);
+}
 .ranking-list { display: grid; gap: 0; }
 .ranking-empty { display: grid; gap: 10px; justify-items: start; padding: 22px; }
 .ranking-empty strong { font-size: 1.1rem; }

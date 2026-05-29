@@ -101,8 +101,8 @@ function text(value: unknown) {
 
 .status-strip {
   align-items: center;
-  background: rgba(103, 232, 249, 0.1);
-  border: 1px solid rgba(103, 232, 249, 0.28);
+  background: rgba(201, 169, 98, 0.1);
+  border: 1px solid rgba(201, 169, 98, 0.28);
   border-radius: 8px;
   display: flex;
   gap: 10px;
@@ -132,7 +132,7 @@ function text(value: unknown) {
 
 .change-stats span {
   display: block;
-  color: #67e8f9;
+  color: var(--accent);
   font-size: 1.1rem;
   font-weight: 900;
   line-height: 1.1;
@@ -171,7 +171,7 @@ function text(value: unknown) {
 }
 
 .answer-result-item span {
-  color: #67e8f9;
+  color: var(--accent);
   font-size: 0.85rem;
   font-weight: 900;
 }
@@ -204,7 +204,7 @@ function text(value: unknown) {
 }
 
 .change-row b {
-  color: #67e8f9;
+  color: var(--accent);
 }
 
 .evidence-diff-grid {
@@ -234,7 +234,7 @@ function text(value: unknown) {
 }
 
 .evidence-diff-item span {
-  color: #67e8f9;
+  color: var(--accent);
   font-size: 0.82rem;
   font-weight: 900;
 }

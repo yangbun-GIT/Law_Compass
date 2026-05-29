@@ -472,8 +472,8 @@ function formatJson(value: unknown) {
 }
 
 .mode-tab.active {
-  border-color: rgba(103, 232, 249, 0.72);
-  background: rgba(103, 232, 249, 0.18);
+  border-color: rgba(201, 169, 98, 0.72);
+  background: rgba(201, 169, 98, 0.18);
 }
 
 .mode-tab strong,

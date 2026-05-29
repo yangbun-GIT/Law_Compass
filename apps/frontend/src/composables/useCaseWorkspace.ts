@@ -87,6 +87,38 @@ export function useCaseWorkspace(caseId: string) {
     let pollTimer: number | null = null;
 
     const activeUploadId = computed(() => selectedUploadId.value);
+    const remainingProgressSteps = computed(() =>
+        progressSteps.value
+            .filter((step) => Number(step.percent || 0) > progressPercent.value)
+            .map((step) => step.label || step.message)
+            .filter(Boolean)
+    );
+    const progressEtaText = computed(() => {
+        if (progressPercent.value >= 100) return "완료되었습니다.";
+
+        const backendSeconds = Number(progress.value?.estimated_remaining_seconds);
+
+        if (Number.isFinite(backendSeconds) && backendSeconds > 0) {
+            if (backendSeconds >= 60) return `약 ${Math.ceil(backendSeconds / 60)}분 이내`;
+            return `약 ${Math.max(5, Math.ceil(backendSeconds / 5) * 5)}초 이내`;
+        }
+
+        if (progressPercent.value >= 88) return "결과 화면을 정리하고 있습니다.";
+        if (progressPercent.value >= 75) return "KNIA 기준과 가감요소를 대조하고 있습니다.";
+        if (progressPercent.value >= 45) return "영상과 사고 정보를 확인하고 있습니다.";
+
+        return "잠시 후 다음 단계로 넘어갑니다.";
+    });
+    const progressStatusText = computed(() => {
+        const backendNote = String(progress.value?.status_note || "").trim();
+        if (backendNote) return backendNote;
+
+        if (remainingProgressSteps.value.length) {
+            return `${remainingProgressSteps.value.length}개 단계가 남았습니다.`;
+        }
+
+        return "결과 화면으로 이동할 준비를 하고 있습니다.";
+    });
 
     function showMessage(text: string, ok = true) {
         message.value = text;
@@ -464,6 +496,24 @@ export function useCaseWorkspace(caseId: string) {
             const hasRunningJob = jobs.value.some(isRunningJob);
             const hasFailedJob = jobs.value.some(isFailedJob);
             const hasFinishedJob = jobs.value.some(isFinishedJob);
+            const shouldProbeReport =
+                progress.value?.result_ready === true ||
+                progress.value?.can_show_result === true ||
+                progressPercent.value >= 75 ||
+                hasFinishedJob;
+
+            if (shouldProbeReport) {
+                await loadReport();
+
+                if (isReadyReport(report.value)) {
+                    markReportReady();
+                    guidedStep.value = "result";
+                    resultStreaming.value = false;
+                    stopPolling();
+                    showMessage("분석 결과가 준비되었습니다.");
+                    return;
+                }
+            }
 
             if (hasRunningJob) {
                 const runningJob = jobs.value.find(isRunningJob);
@@ -665,6 +715,9 @@ export function useCaseWorkspace(caseId: string) {
         progressStageLabel,
         progressMessage,
         progressSteps,
+        remainingProgressSteps,
+        progressEtaText,
+        progressStatusText,
         resultWaitAttempt,
         analysisStarted,
         resultStreaming,

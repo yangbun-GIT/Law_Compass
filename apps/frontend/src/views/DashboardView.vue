@@ -123,7 +123,7 @@ onMounted(load);
 <style scoped>
 .dashboard {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .dashboard-hero {
@@ -133,6 +133,11 @@ onMounted(load);
   align-items: stretch;
   min-height: 260px;
   padding: 22px;
+  background:
+      radial-gradient(620px 340px at 4% 0%, rgba(139, 38, 53, 0.16), transparent 62%),
+      linear-gradient(135deg, rgba(232, 223, 212, 0.06), rgba(201, 169, 98, 0.05)),
+      rgba(37, 30, 25, 0.88);
+  border-color: rgba(201, 169, 98, 0.38);
 }
 
 .hero-copy {
@@ -146,12 +151,13 @@ onMounted(load);
   margin: 0 0 12px;
   font-size: 2.75rem;
   line-height: 1.12;
+  color: #f3e9dc;
 }
 
 .hero-text {
   max-width: 720px;
   margin: 0;
-  color: #dce8f7;
+  color: rgba(232, 223, 212, 0.84);
   font-size: 1.05rem;
   line-height: 1.7;
 }
@@ -165,9 +171,9 @@ onMounted(load);
   align-content: center;
   gap: 12px;
   padding: 18px;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  background: rgba(61, 51, 43, 0.62);
+  border: 1px solid rgba(201, 169, 98, 0.32);
 }
 
 .workflow-panel ol {
@@ -178,8 +184,8 @@ onMounted(load);
 }
 
 .workflow-panel li {
-  color: #edf8ff;
-  line-height: 1.45;
+  color: rgba(232, 223, 212, 0.9);
+  line-height: 1.58;
 }
 
 .dashboard-knia-grid {
@@ -191,34 +197,47 @@ onMounted(load);
 .knia-entry-card {
   display: grid;
   gap: 8px;
-  min-height: 122px;
-  padding: 20px;
-  border-radius: 16px;
+  min-height: 142px;
+  padding: 22px;
+  border-radius: 12px;
   text-decoration: none;
-  color: #effbff;
-  background: linear-gradient(135deg, rgba(43, 210, 255, 0.18), rgba(255, 255, 255, 0.07));
-  border: 1px solid rgba(105, 225, 255, 0.28);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
+  color: #f3e9dc;
+  background:
+      linear-gradient(135deg, rgba(201, 169, 98, 0.16), rgba(61, 51, 43, 0.7)),
+      rgba(37, 30, 25, 0.86);
+  border: 1px solid rgba(201, 169, 98, 0.38);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .knia-entry-card.secondary-entry {
-  background: linear-gradient(135deg, rgba(78, 255, 190, 0.14), rgba(255, 255, 255, 0.06));
-  border-color: rgba(122, 255, 204, 0.24);
+  background:
+      linear-gradient(135deg, rgba(139, 38, 53, 0.16), rgba(61, 51, 43, 0.68)),
+      rgba(37, 30, 25, 0.86);
+  border-color: rgba(201, 169, 98, 0.34);
+}
+
+.knia-entry-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(212, 184, 114, 0.68);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.32);
 }
 
 .entry-kicker {
-  color: #4fe4ff;
+  color: #d4b872;
   font-size: 0.86rem;
   font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .knia-entry-card strong {
   font-size: 1.12rem;
+  color: #f7ead8;
 }
 
 .knia-entry-card small {
-  color: #b8c7d9;
-  line-height: 1.45;
+  color: rgba(232, 223, 212, 0.76);
+  line-height: 1.55;
 }
 
 .case-list-card {
@@ -253,6 +272,9 @@ onMounted(load);
   gap: 16px;
   align-items: center;
   padding: 16px;
+  border: 1px solid rgba(201, 169, 98, 0.24);
+  background: rgba(28, 23, 20, 0.38);
+  border-radius: 12px;
 }
 
 .case-main {
@@ -273,9 +295,9 @@ onMounted(load);
   justify-items: start;
   gap: 10px;
   padding: 24px;
-  border: 1px dashed rgba(255,255,255,0.2);
-  border-radius: 16px;
-  background: rgba(255,255,255,0.05);
+  border: 1px dashed rgba(201, 169, 98, 0.32);
+  border-radius: 12px;
+  background: rgba(61, 51, 43, 0.38);
 }
 
 @media (max-width: 900px) {
@@ -296,6 +318,10 @@ onMounted(load);
 
   .case-actions {
     justify-content: flex-start;
+  }
+
+  .case-actions .btn {
+    flex: 1 1 180px;
   }
 }
 </style>

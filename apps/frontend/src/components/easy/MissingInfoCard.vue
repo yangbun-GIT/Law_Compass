@@ -135,8 +135,8 @@ function text(value: unknown) {
 }
 
 .priority-section {
-  background: rgba(103, 232, 249, 0.08);
-  border: 1px solid rgba(103, 232, 249, 0.22);
+  background: rgba(201, 169, 98, 0.08);
+  border: 1px solid rgba(201, 169, 98, 0.22);
   border-radius: 8px;
   display: grid;
   gap: 12px;
@@ -150,7 +150,7 @@ function text(value: unknown) {
 
 .priority-head span,
 .priority-item span {
-  color: #67e8f9;
+  color: var(--accent);
   font-size: 0.85rem;
   font-weight: 900;
 }

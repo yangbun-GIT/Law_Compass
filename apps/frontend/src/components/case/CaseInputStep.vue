@@ -155,7 +155,7 @@ function updateFact(key: keyof AccidentFacts, value: AccidentFacts[keyof Acciden
   place-items: center;
   border-radius: 12px;
   color: #06202a;
-  background: linear-gradient(135deg, var(--accent), #a7f3d0);
+  background: linear-gradient(180deg, #D4B872 0%, #C9A962 62%, #B8953F 100%);
   font-weight: 900;
 }
 </style>
