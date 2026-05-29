@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.parse
 import urllib.request
@@ -43,10 +44,37 @@ def parse_args() -> argparse.Namespace:
         help="YouTube search query. Requires YOUTUBE_API_KEY unless --api-key-env is changed.",
     )
     parser.add_argument(
+        "--yt-dlp-search",
+        action="append",
+        default=[],
+        help="Search YouTube through local yt-dlp and collect public metadata without requiring YouTube Data API.",
+    )
+    parser.add_argument(
+        "--yt-dlp-search-max-results",
+        type=int,
+        default=3,
+        help="Maximum yt-dlp search results per --yt-dlp-search query. Capped to 10.",
+    )
+    parser.add_argument(
         "--urls",
         nargs="*",
         default=[],
         help="Public video URLs to add without downloading the original media.",
+    )
+    parser.add_argument(
+        "--yt-dlp-metadata",
+        action="store_true",
+        help="Use local yt-dlp to read public title/description metadata for --urls without downloading media.",
+    )
+    parser.add_argument(
+        "--allow-video-download",
+        action="store_true",
+        help="Optionally download URL media with yt-dlp into --download-dir for local-only evaluation. Never commit the result.",
+    )
+    parser.add_argument(
+        "--download-dir",
+        default=".local/public-video-cache",
+        help="Local ignored directory for optional --allow-video-download artifacts.",
     )
     parser.add_argument(
         "--channel-id",
@@ -136,6 +164,7 @@ def build_case(
     published_at: str = "",
     query: str = "",
     collected_at: str = "",
+    local_video_path: str = "",
 ) -> dict[str, Any]:
     collected_at = collected_at or utc_now()
     summary = description_excerpt(description, 220) or (
@@ -146,7 +175,7 @@ def build_case(
         "사고 상황, 전문가 의견, 실제 처리 결과는 수동 검토 후 reference expectations에 반영합니다.",
         "이 reference는 Agent 입력 사실이 아니라 오염 탐지와 calibration 평가에만 사용합니다.",
     ]
-    return {
+    case = {
         "id": reference_id_for_url(url, title),
         "title": title or "Public accident video reference candidate",
         "source_type": "public_reference_link",
@@ -184,6 +213,10 @@ def build_case(
             "notes": "Public reference links are collected for evaluation planning only. Do not commit raw video files or inject commentary as user facts.",
         },
     }
+    if local_video_path:
+        case["local_video_path"] = local_video_path
+        case["usage_policy"]["notes"] += " local_video_path is for local-only temporary evaluation and must stay ignored."
+    return case
 
 
 def youtube_search(api_key: str, query: str, channel_id: str, max_results: int) -> list[str]:
@@ -253,7 +286,7 @@ def collect_from_queries(args: argparse.Namespace) -> list[dict[str, Any]]:
     return cases
 
 
-def collect_from_urls(urls: list[str]) -> list[dict[str, Any]]:
+def collect_from_urls(urls: list[str], *, use_ytdlp_metadata: bool = False, allow_video_download: bool = False, download_dir: str = "") -> list[dict[str, Any]]:
     collected_at = utc_now()
     cases: list[dict[str, Any]] = []
     for url in urls:
@@ -261,16 +294,115 @@ def collect_from_urls(urls: list[str]) -> list[dict[str, Any]]:
         if not normalized:
             continue
         video_id = extract_youtube_video_id(normalized) or ""
-        title = f"YouTube reference candidate {video_id}" if video_id else "Public reference candidate"
+        metadata = ytdlp_metadata(normalized) if use_ytdlp_metadata else {}
+        local_video_path = ""
+        if allow_video_download:
+            local_video_path = ytdlp_download(normalized, download_dir)
+        title = metadata.get("title") or (f"YouTube reference candidate {video_id}" if video_id else "Public reference candidate")
         cases.append(
             build_case(
                 url=normalized,
                 title=title,
-                platform_video_id=video_id,
+                description=metadata.get("description", ""),
+                platform_video_id=video_id or metadata.get("id", ""),
+                channel_title=metadata.get("channel", "") or metadata.get("uploader", ""),
+                published_at=metadata.get("upload_date", ""),
                 collected_at=collected_at,
+                local_video_path=local_video_path,
             )
         )
     return cases
+
+
+def collect_from_ytdlp_searches(args: argparse.Namespace) -> list[dict[str, Any]]:
+    if not args.yt_dlp_search:
+        return []
+    cases: list[dict[str, Any]] = []
+    collected_at = utc_now()
+    seen: set[str] = set()
+    max_results = min(max(int(args.yt_dlp_search_max_results or 1), 1), 10)
+    for query in args.yt_dlp_search:
+        for metadata in ytdlp_search_metadata(query, max_results):
+            url = metadata.get("webpage_url") or metadata.get("original_url") or ""
+            video_id = metadata.get("id") or extract_youtube_video_id(url) or ""
+            if not url or video_id in seen:
+                continue
+            seen.add(video_id)
+            cases.append(
+                build_case(
+                    url=url,
+                    title=metadata.get("title", ""),
+                    description=metadata.get("description", ""),
+                    platform_video_id=video_id,
+                    channel_title=metadata.get("channel", "") or metadata.get("uploader", ""),
+                    published_at=str(metadata.get("upload_date") or ""),
+                    query=query,
+                    collected_at=collected_at,
+                )
+            )
+    return cases
+
+
+def ytdlp_metadata(url: str) -> dict[str, Any]:
+    cmd = ["yt-dlp", "--skip-download", "--dump-json", url]
+    try:
+        proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=45)
+    except FileNotFoundError as exc:
+        raise SystemExit("yt-dlp is not installed. Install it locally or omit --yt-dlp-metadata.") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise SystemExit(f"yt-dlp metadata timed out for {url}") from exc
+    if proc.returncode != 0:
+        raise SystemExit(f"yt-dlp metadata failed for {url}: {(proc.stderr or '').strip()[:300]}")
+    return json.loads(proc.stdout or "{}")
+
+
+def ytdlp_search_metadata(query: str, max_results: int) -> list[dict[str, Any]]:
+    target = f"ytsearch{max_results}:{query}"
+    cmd = ["yt-dlp", "--skip-download", "--dump-json", target]
+    try:
+        proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+    except FileNotFoundError as exc:
+        raise SystemExit("yt-dlp is not installed. Install it locally or use --query with YouTube Data API.") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise SystemExit(f"yt-dlp search timed out for query: {query}") from exc
+    if proc.returncode != 0:
+        raise SystemExit(f"yt-dlp search failed for {query}: {(proc.stderr or '').strip()[:300]}")
+    results: list[dict[str, Any]] = []
+    for line in (proc.stdout or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parsed = json.loads(line)
+        if isinstance(parsed, dict):
+            results.append(parsed)
+    return results
+
+
+def ytdlp_download(url: str, download_dir: str) -> str:
+    target = Path(download_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    before = {path.resolve() for path in target.glob("*") if path.is_file()}
+    cmd = [
+        "yt-dlp",
+        "--restrict-filenames",
+        "--write-info-json",
+        "--paths",
+        str(target),
+        "-f",
+        "bv*+ba/best",
+        url,
+    ]
+    try:
+        proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=600)
+    except FileNotFoundError as exc:
+        raise SystemExit("yt-dlp is not installed. Install it locally or omit --allow-video-download.") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise SystemExit(f"yt-dlp download timed out for {url}") from exc
+    if proc.returncode != 0:
+        raise SystemExit(f"yt-dlp download failed for {url}: {(proc.stderr or '').strip()[:300]}")
+    after = [path.resolve() for path in target.glob("*") if path.is_file() and path.resolve() not in before]
+    videos = [path for path in after if path.suffix.lower() in {".mp4", ".webm", ".mkv", ".mov"}]
+    return str(sorted(videos, key=lambda item: item.stat().st_mtime, reverse=True)[0]) if videos else ""
 
 
 def load_manifest(path: Path) -> dict[str, Any]:
@@ -293,7 +425,12 @@ def merge_cases(existing: list[dict[str, Any]], incoming: list[dict[str, Any]]) 
 def main() -> int:
     args = parse_args()
     output = Path(args.output)
-    incoming = collect_from_urls(args.urls) + collect_from_queries(args)
+    incoming = collect_from_urls(
+        args.urls,
+        use_ytdlp_metadata=args.yt_dlp_metadata,
+        allow_video_download=args.allow_video_download,
+        download_dir=args.download_dir,
+    ) + collect_from_queries(args) + collect_from_ytdlp_searches(args)
     manifest = load_manifest(output) if args.append else {
         "version": dt.date.today().isoformat(),
         "purpose": "Public reference candidates for video observation contamination checks. Do not inject reference notes into Agent user-case payloads.",

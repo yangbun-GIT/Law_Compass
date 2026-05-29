@@ -1,6 +1,6 @@
 # 공개 사고 영상 reference 자동 수집 절차
 
-이 문서는 사고 영상과 사고 설명이 함께 있는 공개 자료를 LawCompass 영상 정확도 테스트 reference 후보로 수집하는 절차다. 수집 대상은 원본 영상 파일이 아니라 링크와 공개 메타데이터다.
+이 문서는 사고 영상과 사고 설명이 함께 있는 공개 자료를 LawCompass 영상 정확도 테스트 reference 후보로 수집하는 절차다. 기본 수집 대상은 원본 영상 파일이 아니라 링크와 공개 메타데이터다.
 
 ## 목적
 
@@ -10,7 +10,7 @@
 
 ## 금지 사항
 
-- 공개 영상 원본 다운로드를 기본 흐름으로 두지 않는다.
+- 공개 영상 원본 다운로드를 기본 흐름으로 두지 않는다. 사용 목적과 권한을 확인한 비상업 로컬 평가에서만 임시 다운로드를 허용하고, 결과 파일은 `.local/` 또는 `storage/`처럼 Git ignore 대상 경로에만 둔다.
 - 원본 영상 파일, AI Hub 원본 데이터, API key, 다운로드 로그, 개인 로컬 경로를 Git에 올리지 않는다.
 - 전문가 의견이나 공개 영상 설명을 Agent 사용자 입력 사실로 주입하지 않는다.
 - 수집 후보를 검토하지 않고 바로 정확도 평가 정답으로 사용하지 않는다.
@@ -33,6 +33,35 @@ py -3 scripts\collect_public_video_references.py `
 ```powershell
 py -3 scripts\collect_public_video_references.py `
   --urls "https://www.youtube.com/watch?v=VIDEO_ID" `
+  --output .local\video_reference_candidates.json
+```
+
+URL의 공개 제목/설명란까지 함께 가져오려면 로컬에 `yt-dlp`가 설치되어 있을 때 아래처럼 실행한다. 이 명령은 영상을 다운로드하지 않고 metadata만 읽는다.
+
+```powershell
+py -3 scripts\collect_public_video_references.py `
+  --urls "https://www.youtube.com/watch?v=VIDEO_ID" `
+  --yt-dlp-metadata `
+  --output .local\video_reference_candidates.json
+```
+
+YouTube Data API key 없이 검색어로 후보를 찾고 싶으면 `yt-dlp` 검색을 사용할 수 있다. 이 역시 원본 영상을 다운로드하지 않고 metadata만 기록한다.
+
+```powershell
+py -3 scripts\collect_public_video_references.py `
+  --yt-dlp-search "한문철 블랙박스 교차로 사고 신호" `
+  --yt-dlp-search-max-results 3 `
+  --output .local\video_reference_candidates.json
+```
+
+원본 영상 분석까지 꼭 필요하고 사용 목적/권한을 확인했다면 로컬 임시 파일로만 다운로드할 수 있다. 이 파일과 manifest는 Git에 올리지 않는다.
+
+```powershell
+py -3 scripts\collect_public_video_references.py `
+  --urls "https://www.youtube.com/watch?v=VIDEO_ID" `
+  --yt-dlp-metadata `
+  --allow-video-download `
+  --download-dir .local\public-video-cache `
   --output .local\video_reference_candidates.json
 ```
 
@@ -69,7 +98,7 @@ py -3 scripts\validate_reference_case_manifest.py `
 
 `warning`은 후보가 아직 약하다는 뜻이고, `error`는 평가에 쓰면 안 되는 상태다. 예를 들어 공개 영상 후보의 직접 충돌 대상이 `unknown`이고 expected context도 비어 있으면 수동 검토가 더 필요하다는 경고가 나온다.
 
-원본 영상 분석이 꼭 필요하면, 사용 가능한 범위에서 로컬 테스트 파일로만 보관하고 manifest에는 로컬 전용 경로를 둔다. 이 manifest는 Git에 올리지 않는다.
+원본 영상 분석이 꼭 필요하면, 사용 가능한 범위에서 로컬 테스트 파일로만 보관하고 manifest에는 로컬 전용 경로를 둔다. 이 manifest는 Git에 올리지 않는다. 테스트 후 법적/약관상 문제가 있거나 계속 보관할 필요가 없으면 `.local\public-video-cache`의 파일을 삭제한다.
 
 ## P0-2 연결
 

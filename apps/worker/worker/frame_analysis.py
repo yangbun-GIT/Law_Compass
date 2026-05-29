@@ -281,7 +281,10 @@ def _openai_frame_analysis_payload(
             "text": (
                 f"frame_ref={Path(frame['path']).name}, time_sec={frame.get('time_sec')}, "
                 f"role={frame.get('role')}, event_candidate_id={frame.get('event_candidate_id')}, "
-                f"event_phase={frame.get('event_phase')}, selection_reason={frame.get('selection_reason')}"
+                f"event_phase={frame.get('event_phase')}, "
+                f"vision_event_candidate_rank={frame.get('vision_event_candidate_rank')}, "
+                f"vision_event_score={frame.get('vision_event_score')}, "
+                f"selection_reason={frame.get('selection_reason')}"
             ),
         })
         content.append({
@@ -311,12 +314,13 @@ def _openai_frame_analysis_prompt(context: dict[str, Any], fallback: bool = Fals
         )
     return (
         f"{retry_intro}"
-        "You are extracting observable traffic accident facts from dashcam frame sequence images. "
+        "You are extracting compact, quantitative traffic accident observations from dashcam frame sequence images. "
         "Return JSON only. Do not decide legal liability, insurance responsibility, or fault ratio. "
+        "Do not write a broad narrative. Produce only observable facts that can be represented as structured fields. "
         "Use unknown and low confidence when a fact is not clearly visible. "
         "Primary task: identify the accident target/object, collision point, and collision partner first. "
         "Before writing observations, inspect every provided frame_ref in chronological order and identify the most likely actual impact/contact moment or immediate pre/post-impact window. "
-        "Frames may include event_candidate_id and event_phase metadata from ffmpeg scene-change clustering. Use those only as candidate windows to compare, not as proof of a crash. "
+        "Frames may include event_candidate_id and event_phase metadata from ffmpeg scene-change clustering and vision_event_candidate_rank from YOLO object inventory. Use those only as candidate windows to compare, not as proof of a crash. "
         "When several event_candidate_id values are present, compare the pre_event_context, event_candidate, and post_event_context frames for each candidate before choosing the actual accident window. "
         "Do not treat the first risky scene, visible pedestrian, crosswalk, parked vehicle, signal, near miss, or lane conflict as the accident merely because it appears first. "
         "If the selected sequence shows multiple possible event candidates, compare all candidates and base collision_partner_type, primary_collision_target, collision_point_visible, impact_direction, and opponent_behavior on the candidate with visible contact, abrupt impact evidence, or immediate aftermath. "
@@ -640,6 +644,8 @@ def _public_frame_ref(frame: dict[str, Any]) -> dict[str, Any]:
         "role": frame.get("role"),
         "event_candidate_id": frame.get("event_candidate_id"),
         "event_phase": frame.get("event_phase"),
+        "vision_event_candidate_rank": frame.get("vision_event_candidate_rank"),
+        "vision_event_score": frame.get("vision_event_score"),
     }
 
 

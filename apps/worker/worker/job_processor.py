@@ -25,7 +25,7 @@ from worker.frame_analysis import analyze_frames_with_openai
 from worker.storage.base import frame_key
 from worker.storage.factory import create_storage_adapter
 from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION, extract_event_frames, probe_video, summarize_frame_selection
-from worker.yolo_frame_analysis import analyze_frames_with_yolo
+from worker.yolo_frame_analysis import analyze_frames_with_yolo, rank_frame_details_by_yolo
 
 STREAM_KEY = os.getenv("REDIS_STREAM_KEY", "jobs:v1:stream")
 DB_URL = os.getenv("DATABASE_URL", "")
@@ -109,7 +109,6 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
 
         metadata = probe_video(str(local_video_path))
         frame_details = extract_event_frames(str(local_video_path), str(row[1]), str(row[2]), metadata.get("duration_sec"), LOCAL_VIDEO_CACHE_DIR)
-        frame_selection_summary = summarize_frame_selection(frame_details)
         cur.execute(
             """
             SELECT c.structured_facts, c.selected_keywords, c.analysis_mode
@@ -119,8 +118,10 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
         )
         case_inputs = cur.fetchone()
         frame_analysis_context = build_frame_analysis_context(row, metadata, case_inputs)
-        openai_frame_analysis = analyze_frames_with_openai(frame_details, frame_analysis_context)
         yolo_frame_analysis = analyze_frames_with_yolo(frame_details, frame_analysis_context)
+        frame_details = rank_frame_details_by_yolo(frame_details, yolo_frame_analysis)
+        frame_selection_summary = summarize_frame_selection(frame_details)
+        openai_frame_analysis = analyze_frames_with_openai(frame_details, frame_analysis_context)
         frame_observations = _merge_frame_observations(openai_frame_analysis, yolo_frame_analysis)
         frame_details = _persist_processed_frames(storage_adapter, frame_details, str(row[1]), str(row[2]))
         frames = [item.get("storage_key") or item["path"] for item in frame_details]

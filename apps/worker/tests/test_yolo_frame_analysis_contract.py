@@ -22,10 +22,10 @@ class _Vector:
 
 
 class _FakeBox:
-    def __init__(self, class_id, confidence):
+    def __init__(self, class_id, confidence, xyxy=None):
         self.cls = [_Scalar(class_id)]
         self.conf = [_Scalar(confidence)]
-        self.xyxy = [_Vector([1, 2, 3, 4])]
+        self.xyxy = [_Vector(xyxy or [1, 2, 3, 4])]
 
 
 class _FakeResult:
@@ -118,6 +118,54 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(payload["summary"]["total_detections"], 1)
         self.assertEqual(payload["detections"][0]["frame_ref"], "source_frame_001.jpg")
         self.assertEqual(payload["observations"][0]["frame_refs"], ["source_frame_001.jpg"])
+
+    def test_yolo_event_candidate_summary_ranks_vehicle_dense_window(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index, candidate_id in [(1, "event_window_1"), (2, "event_window_2"), (3, "event_window_2")]:
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "accident_candidate",
+                    "event_candidate_id": candidate_id,
+                    "event_phase": "event_candidate",
+                })
+
+            payload = yolo_frame_analysis._build_yolo_payload(
+                [
+                    _FakeResult("ignored_1.jpg", {2: "car"}, [_FakeBox(2, 0.55, [1, 1, 50, 50])]),
+                    _FakeResult("ignored_2.jpg", {2: "car"}, [_FakeBox(2, 0.92, [1, 1, 500, 400])]),
+                    _FakeResult("ignored_3.jpg", {2: "car"}, [_FakeBox(2, 0.90, [1, 1, 480, 390])]),
+                ],
+                frames,
+                {"case_id": "case-1", "upload_id": "upload-1"},
+                {"available_frame_count": 3, "selected_frame_count": 3, "frame_selection_strategy": "test"},
+            )
+
+        summaries = payload["event_candidate_summary"]
+        self.assertEqual(summaries[0]["event_candidate_id"], "event_window_2")
+        self.assertEqual(payload["summary"]["top_event_candidate_id"], "event_window_2")
+
+    def test_rank_frame_details_by_yolo_marks_top_candidate_for_openai_selection(self):
+        frames = [
+            {"path": "frame_001.jpg", "event_candidate_id": "event_window_1", "selection_reason": "event_window_context"},
+            {"path": "frame_002.jpg", "event_candidate_id": "event_window_2", "selection_reason": "event_window_accident_candidate"},
+        ]
+        payload = {
+            "enabled": True,
+            "event_candidate_summary": [
+                {"event_candidate_id": "event_window_2", "score": 8.5},
+                {"event_candidate_id": "event_window_1", "score": 2.0},
+            ],
+        }
+
+        result = yolo_frame_analysis.rank_frame_details_by_yolo(frames, payload)
+
+        self.assertEqual(result[0]["vision_event_candidate_rank"], 2)
+        self.assertEqual(result[1]["vision_event_candidate_rank"], 1)
+        self.assertIn("yolo_ranked_event_candidate", result[1]["selection_reason"])
 
     def test_yolo_frame_selection_keeps_event_candidate_context(self):
         yolo_frame_analysis.YOLO_FRAME_ANALYSIS_MAX_FRAMES = 5

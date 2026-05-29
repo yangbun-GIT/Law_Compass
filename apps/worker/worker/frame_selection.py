@@ -31,6 +31,13 @@ def frame_selection_metadata(
 
 
 def _object_first_frame_indexes(frames: list[dict[str, Any]], max_frames: int) -> list[int]:
+    ranked_indexes = [
+        index for index, frame in enumerate(frames)
+        if frame.get("vision_event_candidate_rank") == 1
+    ]
+    if ranked_indexes:
+        return _with_neighbor_context(frames, ranked_indexes, max_frames)
+
     event_indexes = [
         index for index, frame in enumerate(frames)
         if frame.get("role") in {"accident_candidate", "event_context"}
@@ -54,6 +61,32 @@ def _object_first_frame_indexes(frames: list[dict[str, Any]], max_frames: int) -
         add(index)
     for offset in (-1, 1, -2, 2):
         for index in distributed_events:
+            add(index + offset)
+            if len(selected) >= max_frames:
+                return sorted(selected)
+    for index in _event_focused_frame_indexes(len(frames), max_frames):
+        add(index)
+        if len(selected) >= max_frames:
+            break
+    return sorted(selected)
+
+
+def _with_neighbor_context(frames: list[dict[str, Any]], focus_indexes: list[int], max_frames: int) -> list[int]:
+    selected: list[int] = []
+
+    def add(index: int) -> None:
+        if len(selected) >= max_frames:
+            return
+        clamped = max(0, min(len(frames) - 1, index))
+        if clamped not in selected:
+            selected.append(clamped)
+
+    add(0)
+    add(len(frames) - 1)
+    for index in _spread_indexes(focus_indexes, min(len(focus_indexes), max(1, max_frames - len(selected)))):
+        add(index)
+    for offset in (-1, 1, -2, 2, -3, 3):
+        for index in focus_indexes:
             add(index + offset)
             if len(selected) >= max_frames:
                 return sorted(selected)

@@ -256,6 +256,7 @@ def summarize_frame_selection(frame_details: list[dict[str, Any]]) -> dict[str, 
     reason_counts: dict[str, int] = {}
     phase_counts: dict[str, int] = {}
     event_window_ids: set[str] = set()
+    yolo_ranked_event_ids: set[str] = set()
     for frame in frame_details:
         role = str(frame.get("role") or "unknown")
         reason = str(frame.get("selection_reason") or "unknown")
@@ -266,6 +267,8 @@ def summarize_frame_selection(frame_details: list[dict[str, Any]]) -> dict[str, 
         phase_counts[phase] = phase_counts.get(phase, 0) + 1
         if candidate_id:
             event_window_ids.add(candidate_id)
+        if frame.get("vision_event_candidate_rank") == 1 and candidate_id:
+            yolo_ranked_event_ids.add(candidate_id)
     return {
         "strategy": "scene-change-windowed-event-frame-selection",
         "frame_count": len(frame_details),
@@ -273,6 +276,8 @@ def summarize_frame_selection(frame_details: list[dict[str, Any]]) -> dict[str, 
         "reason_counts": reason_counts,
         "event_phase_counts": phase_counts,
         "event_window_candidate_count": len(event_window_ids),
+        "yolo_ranked_event_candidate_count": len(yolo_ranked_event_ids),
+        "yolo_ranked_event_candidate_ids": sorted(yolo_ranked_event_ids),
         "has_multiple_event_windows": len(event_window_ids) > 1,
         "accident_candidate_count": role_counts.get("accident_candidate", 0),
         "event_context_count": role_counts.get("event_context", 0),

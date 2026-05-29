@@ -179,6 +179,29 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(metadata["available_frame_count"], 12)
         self.assertEqual(metadata["selected_frame_count"], 10)
 
+    def test_openai_frame_selection_prioritizes_yolo_ranked_event_window(self):
+        frame_analysis.OPENAI_FRAME_ANALYSIS_MAX_FRAMES = 6
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 13):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index * 0.5,
+                    "role": "accident_candidate" if index in {9, 10} else "time_sequence",
+                    "event_candidate_id": "event_window_2" if index in {8, 9, 10} else "event_window_1",
+                    "vision_event_candidate_rank": 1 if index in {8, 9, 10} else 2,
+                })
+
+            selected = frame_analysis._select_openai_frames(frames, 6)
+
+        refs = [Path(frame["path"]).name for frame in selected]
+        self.assertIn("frame_001.jpg", refs)
+        self.assertIn("frame_012.jpg", refs)
+        self.assertTrue({"frame_008.jpg", "frame_009.jpg", "frame_010.jpg"} <= set(refs))
+
     def test_gpt5_payload_uses_cost_controls_without_temperature(self):
         captured = {}
 

@@ -584,14 +584,15 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
     stop_or_avoid_text = _contains_any(hay, ("멈췄", "정지", "급정거", "피하", "avoid", "stopped"))
     direct_bicycle_collision_text = _contains_any(hay, ("자전거를 쳤", "자전거와 충돌", "자전거 추돌", "hit bicycle", "collided with bicycle"))
     if bicycle_trigger_text and rear_vehicle_text and stop_or_avoid_text and not direct_bicycle_collision_text:
-        _set_if_empty(enriched, "non_contact_trigger", True)
-        _set_if_empty(enriched, "trigger_actor_type", "bicycle")
-        _set_if_empty(enriched, "possible_trigger_vehicle", "bicycle")
-        _set_if_empty(enriched, "rear_vehicle_collision", True)
-        _set_if_empty(enriched, "collision_partner_type", "vehicle")
-        _set_if_empty(enriched, "direct_collision_partner_type", "vehicle")
-        _set_if_empty(enriched, "accident_party_type", "car_vs_car")
-        _set_if_empty(enriched, "accident_type", "non_contact_trigger")
+        enriched["non_contact_trigger"] = True
+        enriched["trigger_actor_type"] = "bicycle"
+        enriched["possible_trigger_vehicle"] = "bicycle"
+        enriched["rear_vehicle_collision"] = True
+        enriched["collision_partner_type"] = "vehicle"
+        enriched["direct_collision_partner_type"] = "vehicle"
+        enriched["accident_party_type"] = "car_vs_car"
+        enriched["knia_major_party_type"] = "car_vs_car"
+        enriched["accident_type"] = "non_contact_trigger"
     enriched = _enrich_stealth_illegal_parked_vehicle_facts(enriched, hay)
 
     if _has_rear_end_victim_context(hay):
@@ -617,6 +618,13 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
     )
     user_facts = _apply_party_agent_result(user_facts, party_agent_result)
     user_facts = _enrich_textual_traffic_facts(user_facts, clean_text)
+    party_agent_result = route_party_agent(
+        description_text=clean_text,
+        structured_facts=user_facts,
+        selected_keywords=keywords,
+        video_metadata=video_contract,
+    )
+    user_facts = _apply_party_agent_result(user_facts, party_agent_result)
     deterministic_filter = _deterministic_accident_input_filter(clean_text, user_facts)
     llm_filter = generate_accident_input_filter(
         description_text=clean_text,

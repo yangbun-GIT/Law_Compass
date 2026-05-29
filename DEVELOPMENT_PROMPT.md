@@ -160,7 +160,8 @@
 
     <guideline name="video_observation_contract">
       영상 분석의 1순위는 사고 대상, 주 충돌 대상, 충돌 지점, 충돌 직전/직후 관계를 식별하는 것입니다. 횡단보도, 중앙선, 신호, 주정차, 도로 장애물 같은 사고 환경은 이 대상 식별을 보조하는 맥락으로만 사용합니다.
-      영상 관찰값은 사용자가 선택하지 못하거나 정확히 설명하지 못한 객관적 도로 맥락을 보완하는 입력 계약으로 다룹니다.
+      영상 관찰값은 사용자가 선택하지 못하거나 정확히 설명하지 못한 객관적 도로 맥락을 보완하는 입력 계약으로 다룹니다. 영상 분석의 출력은 상세 감상문이 아니라 사고 기점 기준의 정량 관찰값이어야 합니다. 예를 들어 신호 색상/전환, 충돌 대상, 충돌 지점, 정차/이동 여부, 차선/중앙선, 보행자·자전거·객체의 당사자 여부를 field/value/confidence/frame_refs로 남깁니다.
+      YOLO 같은 객체 감지 모델은 사고 판단 모델이 아니라 사고 기점 후보와 객체 위치 후보를 만드는 선행 관찰 모델입니다. 가능한 경우 YOLO로 사고 후보 구간을 먼저 랭킹하고, 그 후보 구간의 전후 프레임을 OpenAI/비전 API 정량 관찰 입력으로 우선 전달한 뒤, YOLO 후보와 API 관찰값을 Agent fact arbitration에서 함께 검토하십시오.
       `analysis_mode`는 빠른 요약, 과실 중심, 법률/판례 중심, 보험/대응 중심처럼 결과 표현과 강조점을 조절하는 출력 모드입니다. 사고 유형이나 사고 사실처럼 Agent 분류 텍스트에 섞지 말고, 사고 사실은 `accident_party_type`, `accident_type`, 영상 관찰값, 사용자 보완 답변에서만 결정하십시오.
       `crosswalk_nearby`는 횡단보도 위치 정보일 뿐이며, `pedestrian_visible` 또는 명시적 보행자 사실 없이 차대사람 사고로 분류하지 않습니다.
       `collision_partner_type=vehicle`처럼 실제 충돌 대상이 차량으로 관찰되면 보행자, 횡단보도, 보행자 신호는 사고 환경 맥락으로만 사용하고 차대사람 사고로 승격하지 않습니다.
@@ -462,6 +463,7 @@ The updated Agentic Design Pattern lecture should be applied as durable engineer
 - Guardrails: user input must not override system policy, tool authority, internal tokens, evidence requirements, finality policy, or display sanitization. Prompt-injection and unsafe-input regression tests should be added or preserved when these surfaces change.
 - Evaluation: judgment changes should keep repeatable evaluation evidence. At minimum, representative scenarios should report pass/fail, evidence coverage, finality/reference-only status, OpenAI usage, and latency when measurable.
 - Video/reference accuracy changes should keep the fixed P2-2 metrics inspectable: direct collision target accuracy, accident-party accuracy, context pollution rate, zero-observation rate, evidence mismatch rate, and conditional-branch coverage. Use `scripts/evaluate_video_reference_metrics.py` with a safe reference manifest when these surfaces change.
+- Verification honesty: do not report unresolved or unverified work as fixed. If a metric, test, real-video run, external API call, or regression check fails or was not run, say that directly and keep it in the next-step list instead of moving on as if it passed.
 - Expert lawyer opinions, insurer/police outcomes, or real dispute results may be used as calibration references, but they must not be injected into the user case payload as observed facts. Keep them in evaluation manifests or test expectations and compare whether the Agent can reach a reasonable guidance range through video facts, user facts, KNIA/legal evidence, and uncertainty handling.
 
 ### Escalation Patterns
@@ -479,8 +481,8 @@ The updated Agentic Design Pattern lecture should be applied as durable engineer
 사고 영상과 사고 설명이 함께 있는 외부 자료는 영상 관찰값 오염을 찾기 위한 평가 reference로 사용한다. 특정 reference의 전문가 의견이나 실제 처리 결과를 Agent 사용자 입력 사실로 주입하지 않는다.
 
 - 기존 사용자 제공 사고 영상은 로컬 테스트 기준선으로 사용하되 원본 영상은 Git에 커밋하지 않는다.
-- 공개 영상 플랫폼 자료는 링크, 제목, 짧은 수동 요약, 전문가 의견 요약, 실제 결과 공개 여부, 평가 focus만 manifest에 기록한다.
-- 공개 영상 원본을 무단 다운로드, 재배포, 스크래핑, 학습 데이터셋 편입하는 흐름을 기본 개발 경로로 두지 않는다.
+- 공개 영상 플랫폼 자료는 링크, 제목, 공개 설명의 짧은 요약, 전문가 의견 요약, 실제 결과 공개 여부, 평가 focus만 manifest에 기록한다.
+- 공개 영상 원본을 무단 다운로드, 재배포, 스크래핑, 학습 데이터셋 편입하는 흐름을 기본 개발 경로로 두지 않는다. 다만 사용 목적과 권한을 확인한 비상업 로컬 평가에서는 `yt-dlp` 같은 로컬 도구로 `.local/` 아래 임시 파일을 받을 수 있으며, 이 파일은 Git에 올리지 않고 테스트 후 삭제 가능해야 한다.
 - AI Hub 자료는 승인과 API key가 있는 경우에도 전체 원본 다운로드를 기본값으로 삼지 않고, 샘플 또는 작은 filekey 단위로만 선택 사용한다.
 - AI Hub 원본 데이터, API key, 다운로드 로그 중 민감정보, 공개 영상 원본, 로컬 테스트 영상은 Git에 포함하지 않는다.
 - reference manifest는 `docs/VIDEO_REFERENCE_DATA_POLICY.md`와 `tests/fixtures/video_accuracy/reference_case_manifest.schema.json` 기준을 따른다.
