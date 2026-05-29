@@ -57,10 +57,10 @@ function text(value: unknown) {
 }
 
 .process-status {
-  background: rgba(84, 226, 243, 0.14);
-  border: 1px solid rgba(84, 226, 243, 0.46);
+  background: rgba(120, 215, 207, 0.18);
+  border: 1px solid rgba(68, 185, 176, 0.26);
   border-radius: 999px;
-  color: #7ae8f4;
+  color: var(--primary-content);
   flex: 0 0 auto;
   font-weight: 800;
   padding: 9px 13px;
@@ -73,23 +73,23 @@ function text(value: unknown) {
 }
 
 .process-stat {
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(87, 75, 99, 0.12);
+  border-radius: 16px;
   min-width: 0;
   padding: 14px;
 }
 
 .process-stat span,
 .process-step span {
-  color: #b9c6d8;
+  color: var(--text-sub);
   display: block;
   font-size: 0.9rem;
 }
 
 .process-stat strong,
 .process-step strong {
-  color: #f1f7ff;
+  color: var(--base-content);
   display: block;
   margin-top: 6px;
 }
@@ -101,15 +101,15 @@ function text(value: unknown) {
 }
 
 .process-step {
-  background: rgba(9, 16, 28, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(87, 75, 99, 0.12);
+  border-radius: 16px;
   min-width: 0;
   padding: 13px;
 }
 
 .process-step .step-phase {
-  color: #6de3ef;
+  color: var(--primary-content);
   font-weight: 800;
 }
 
@@ -122,10 +122,10 @@ function text(value: unknown) {
 }
 
 .decision-notes li {
-  background: rgba(84, 226, 243, 0.08);
-  border: 1px solid rgba(84, 226, 243, 0.18);
-  border-radius: 10px;
-  color: #d8e5f6;
+  background: rgba(120, 215, 207, 0.12);
+  border: 1px solid rgba(68, 185, 176, 0.18);
+  border-radius: 14px;
+  color: var(--base-content);
   line-height: 1.55;
   padding: 10px 12px;
 }

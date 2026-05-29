@@ -49,6 +49,26 @@ const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
 const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
 const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
+const sanitizerContracts = [
+  "sanitizeUserVisibleText",
+  "formatKniaBody",
+  "splitLegalBasisParagraphs",
+  "참고할 수 있는 근거",
+  "교통사고 법률 설명 자료",
+  "직접 충돌 대상이 사람이면"
+];
+const missingSanitizerContracts = sanitizerContracts.filter((token) => !displaySanitizer.includes(token));
+if (missingSanitizerContracts.length) {
+  console.error("display sanitizer contract failed", missingSanitizerContracts);
+  process.exit(1);
+}
+const publicUserFiles = [dashboardView, caseDetailView, easyReportView, caseWorkspaceGuidanceData].join("\n");
+const forbiddenPublicPhrases = ["직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.", "관련성이 있는 근거입니다.", "교통사고 법률 설명 자료", "=4, =4."];
+const publicPhraseLeaks = forbiddenPublicPhrases.filter((token) => publicUserFiles.includes(token));
+if (publicPhraseLeaks.length) {
+  console.error("public display exposes internal wording", publicPhraseLeaks);
+  process.exit(1);
+}
 const requiredErrorUx = [
   "export function formatApiError",
   "normalizeValidation(data?.error?.details?.validation)",

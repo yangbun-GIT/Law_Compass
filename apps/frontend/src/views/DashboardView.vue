@@ -92,7 +92,7 @@ function statusLabel(status: string) {
     draft: "작성 중",
     ready: "분석 가능",
     analyzing: "분석 중",
-    completed: "완료",
+    completed: "분석 완료",
     failed: "실패"
   };
   return labels[status] || status;

@@ -181,16 +181,16 @@ function text(value: unknown) {
 
 .video-fact-stat,
 .video-fact-item {
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(87, 75, 99, 0.12);
+  border-radius: 16px;
   min-width: 0;
   padding: 14px;
 }
 
 .video-fact-stat span,
 .item-label {
-  color: #76e4ef;
+  color: var(--primary-content);
   display: block;
   font-size: 0.9rem;
   font-weight: 800;
@@ -198,7 +198,7 @@ function text(value: unknown) {
 
 .video-fact-stat strong,
 .video-fact-item strong {
-  color: #f1f7ff;
+  color: var(--base-content);
   display: block;
   margin-top: 6px;
 }
@@ -215,7 +215,7 @@ function text(value: unknown) {
 }
 
 .video-fact-item p {
-  color: #c5d0df;
+  color: var(--text-sub);
   margin: 10px 0 0;
 }
 
@@ -227,10 +227,10 @@ function text(value: unknown) {
 }
 
 .comparison-row span {
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  color: #edf6ff;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(87, 75, 99, 0.12);
+  border-radius: 14px;
+  color: var(--base-content);
   font-weight: 800;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -238,21 +238,21 @@ function text(value: unknown) {
 }
 
 .quality-section {
-  background: rgba(76, 213, 226, 0.08);
-  border: 1px solid rgba(76, 213, 226, 0.22);
-  border-radius: 12px;
+  background: rgba(120, 215, 207, 0.12);
+  border: 1px solid rgba(68, 185, 176, 0.18);
+  border-radius: 16px;
   padding: 14px;
 }
 
 .event-section {
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(76, 213, 226, 0.22);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(68, 185, 176, 0.18);
+  border-radius: 16px;
   padding: 14px;
 }
 
 .event-section p {
-  color: #c5d0df;
+  color: var(--text-sub);
   margin: 8px 0 0;
 }
 
@@ -264,7 +264,7 @@ function text(value: unknown) {
 }
 
 .quality-head strong {
-  color: #f1f7ff;
+  color: var(--base-content);
   display: block;
   margin-top: 6px;
 }
@@ -282,14 +282,14 @@ function text(value: unknown) {
 }
 
 .recovery-item {
-  background: rgba(255, 221, 119, 0.08);
-  border: 1px solid rgba(255, 221, 119, 0.22);
-  border-radius: 10px;
+  background: rgba(244, 217, 142, 0.22);
+  border: 1px solid rgba(116, 75, 29, 0.14);
+  border-radius: 14px;
   padding: 12px;
 }
 
 .recovery-item p {
-  color: #d7dfeb;
+  color: var(--text-sub);
   margin: 8px 0 0;
 }
 
