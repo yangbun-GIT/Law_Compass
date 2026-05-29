@@ -11,6 +11,7 @@
 - `이미지` 라벨은 객체/환경 인지 보조 검증에는 사용할 수 있지만, 영상 시간 순서 검증에는 직접 쓰지 않는다.
 - `TS_*`, `VS_*` 원천데이터는 용량이 크므로 기본 다운로드 대상에서 제외하고, 필요한 소량만 선택한다.
 - AI-Hub API key는 환경변수로만 전달하고 문서나 커밋에 남기지 않는다.
+- 원천 영상 filekey 전체 목록과 smoke/recommended 선택 기준은 `docs/AIHUB_597_SOURCE_VIDEO_FILEKEYS.md`를 따른다.
 
 ## 1. Training 라벨링데이터
 
@@ -136,6 +137,9 @@ powershell -ExecutionPolicy Bypass -File scripts\download_aihub597_labels.ps1 -S
 
 - `-Scope Video`: TL/VL 영상 라벨만 다운로드한다.
 - `-Scope All`: TL/VL 영상 라벨과 이미지 라벨을 모두 다운로드한다.
+- `-Scope SourceSmoke`: 원천 Validation 영상 중 차대차/차대보행자/차대이륜차/차대자전거 각 1개씩, 총 4개 파일만 다운로드한다.
+- `-Scope SourceValidationRecommended`: 원천 Validation 영상 중 사고대상별 추천 소량 세트를 다운로드한다.
+- `-Scope SourceValidationVideoAll`: 원천 Validation 영상 전체를 다운로드한다. 대용량 파일이 포함되므로 바로 실행하지 말고 필요한지 확인한다.
 - `-FileKeys 509386,509418`: 지정한 filekey만 다운로드한다.
 - 인증 실패가 나면 AI-Hub 데이터셋 상세 페이지에서 다운로드 승인 상태와 API key가 같은 계정의 것인지 먼저 확인한다.
 

@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("Video", "All")]
+    [ValidateSet("Video", "All", "SourceSmoke", "SourceValidationRecommended", "SourceValidationVideoAll")]
     [string]$Scope = "Video",
     [int[]]$FileKeys = @()
 )
@@ -46,9 +46,39 @@ $validationImageKeys = @(
     509423, 509424, 509425, 509426, 509427, 509428, 509429, 509430
 )
 
+$sourceSmokeVideoKeys = @(
+    509431, # VS car-vs-pedestrian, crosswalk without signal, 33.65 MB
+    509442, # VS car-vs-motorcycle, T intersection, 122.12 MB
+    509454, # VS car-vs-bicycle, four-way intersection with signal, 55.86 MB
+    509466  # VS car-vs-car, road/non-road place, 189.42 MB
+)
+
+$sourceValidationRecommendedVideoKeys = @(
+    509431, 509432, 509433, 509434, 509435,
+    509442, 509443, 509444, 509446,
+    509453, 509454, 509455,
+    509464, 509466, 509467
+)
+
+$sourceValidationVideoKeys = @(
+    509431, 509432, 509433, 509434, 509435,
+    509442, 509443, 509444, 509445, 509446,
+    509453, 509454, 509455,
+    509460, 509461, 509462, 509463, 509464, 509465, 509466, 509467
+)
+
 $keys = @($trainingVideoKeys + $validationVideoKeys)
 if ($Scope -eq "All") {
     $keys = @($keys + $trainingImageKeys + $validationImageKeys)
+}
+if ($Scope -eq "SourceSmoke") {
+    $keys = @($sourceSmokeVideoKeys)
+}
+if ($Scope -eq "SourceValidationRecommended") {
+    $keys = @($sourceValidationRecommendedVideoKeys)
+}
+if ($Scope -eq "SourceValidationVideoAll") {
+    $keys = @($sourceValidationVideoKeys)
 }
 if ($FileKeys.Count -gt 0) {
     $keys = @($FileKeys)
@@ -56,7 +86,7 @@ if ($FileKeys.Count -gt 0) {
 
 $wslShellDir = "/mnt/c/Users/yangbun/Documents/OSS/Law_Compass/datasets/aihub/traffic-accident-video/aihubshell"
 
-Write-Host "Downloading AI-Hub 597 label files. Scope=$Scope, Count=$($keys.Count)"
+Write-Host "Downloading AI-Hub 597 files. Scope=$Scope, Count=$($keys.Count)"
 Write-Host "Download directory: $shellDir"
 Write-Host "API key is read from AIHUB_API_KEY and will not be printed."
 
