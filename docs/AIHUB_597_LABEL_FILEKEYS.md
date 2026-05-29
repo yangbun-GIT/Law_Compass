@@ -136,4 +136,18 @@ powershell -ExecutionPolicy Bypass -File scripts\download_aihub597_labels.ps1 -S
 
 - `-Scope Video`: TL/VL 영상 라벨만 다운로드한다.
 - `-Scope All`: TL/VL 영상 라벨과 이미지 라벨을 모두 다운로드한다.
+- `-FileKeys 509386,509418`: 지정한 filekey만 다운로드한다.
 - 인증 실패가 나면 AI-Hub 데이터셋 상세 페이지에서 다운로드 승인 상태와 API key가 같은 계정의 것인지 먼저 확인한다.
+
+2026-05-29 기준으로 새 API key를 사용해 `-Scope Video` 다운로드를 완료했다. 결과는 `datasets/aihub/traffic-accident-video/aihubshell/095.교통사고_영상_데이터/` 아래에 ZIP 및 JSON으로 로컬 생성되며 Git에는 포함하지 않는다. 확인된 영상 라벨 JSON 수는 19,852개다.
+
+## Reference manifest 변환
+
+AI-Hub 영상 라벨 JSON은 바로 Agent 입력으로 쓰지 않고 평가/보정 후보 manifest로 변환해서 사용한다.
+
+```powershell
+py -3.13 scripts\aihub597_labels_to_manifest.py --limit 200 --output .local\aihub597_video_label_manifest.json
+py -3.13 scripts\validate_reference_case_manifest.py --manifest .local\aihub597_video_label_manifest.json
+```
+
+변환 스크립트는 `video.accident_negligence_rateA/B`, `traffic_accident_type`, `accident_object`, `accident_place`, `accident_place_feature`, `vehicle_a_progress_info`, `vehicle_b_progress_info` 등을 reference 후보로 보존한다. 생성 manifest는 `.local/` 아래에 두며 Git에 올리지 않는다.

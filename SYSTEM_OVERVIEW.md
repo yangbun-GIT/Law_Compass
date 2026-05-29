@@ -15,6 +15,19 @@ P2-2b~d 보강 이후 실제 사고 영상 1~5를 OpenAI 프레임 분석과 YOL
 
 이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. P2-2e 기준선은 통과했으므로 다음 단계는 P2-3 Agent 근거 검색/표시 적합도 보강이다. 남은 리스크는 `evidence_mismatch_rate=0.2`가 threshold 상한에 걸쳐 있다는 점이며, P2-3에서 사고유형과 KNIA/법령/판례 근거가 같은 축으로 묶이는지 보강해야 한다.
 
+## 2026-05-29 AI-Hub 597 영상 라벨 reference 기반 추가
+
+AI-Hub `교통사고 영상 데이터` 데이터셋 597의 TL/VL 영상 라벨 filekey를 `docs/AIHUB_597_LABEL_FILEKEYS.md`에 정리하고, 로컬 전용 다운로드/변환 흐름을 추가했다. AI-Hub API key는 문서나 코드에 저장하지 않고 실행 세션 환경변수로만 전달한다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 다운로드 스크립트 | `scripts/download_aihub597_labels.ps1`가 `AIHUB_API_KEY` 환경변수를 WSL에 전달해 `aihubshell -mode d -datasetkey 597 -filekey ...`를 실행한다. 기본 `-Scope Video`는 TL/VL 영상 라벨 45개만 받는다. |
+| 로컬 산출물 | `datasets/aihub/traffic-accident-video/aihubshell/095.교통사고_영상_데이터/` 아래에 ZIP 및 JSON이 생성된다. 이 경로는 Git 제외 대상이다. |
+| 다운로드 상태 | 2026-05-29 기준 `-Scope Video` 다운로드 및 압축 해제를 완료했고 영상 라벨 JSON 19,852개를 확인했다. |
+| 변환 스크립트 | `scripts/aihub597_labels_to_manifest.py`가 AI-Hub 라벨 JSON을 LawCompass reference manifest 후보로 변환한다. 기본 산출물은 `.local/aihub597_video_label_manifest.json`이다. |
+| 검증 | `py -3.13 scripts\validate_reference_case_manifest.py --manifest .local\aihub597_video_label_manifest.json`로 200건 샘플 manifest 검증을 통과했다. |
+| 사용 제한 | AI-Hub 라벨은 평가/보정 reference로만 사용하고, Agent 입력 사실이나 사용자 사건의 정답으로 주입하지 않는다. 원천 영상과 라벨 ZIP/JSON은 Git에 올리지 않는다. |
+
 ## 2026-05-29 P2-2d 조건별 결과 분기 Coverage 보강
 
 Gateway 결과 조립에서 조건별 결과 카드의 감지 축을 payload로 남기도록 확장했다. 신호, 비접촉 유발, 중앙선 침범 사유, 정차/후방추돌 사유, 사고 대상 확인 중 어떤 축이 missing/uncertain/conflict로 걸렸는지 `branch_key`, `detected_branch_keys`, `secondary_branches`, `coverage`로 기록한다.

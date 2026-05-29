@@ -1,6 +1,7 @@
 param(
     [ValidateSet("Video", "All")]
-    [string]$Scope = "Video"
+    [string]$Scope = "Video",
+    [int[]]$FileKeys = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,18 +50,44 @@ $keys = @($trainingVideoKeys + $validationVideoKeys)
 if ($Scope -eq "All") {
     $keys = @($keys + $trainingImageKeys + $validationImageKeys)
 }
+if ($FileKeys.Count -gt 0) {
+    $keys = @($FileKeys)
+}
 
-$fileKeyArg = ($keys -join ",")
 $wslShellDir = "/mnt/c/Users/yangbun/Documents/OSS/Law_Compass/datasets/aihub/traffic-accident-video/aihubshell"
 
 Write-Host "Downloading AI-Hub 597 label files. Scope=$Scope, Count=$($keys.Count)"
 Write-Host "Download directory: $shellDir"
 Write-Host "API key is read from AIHUB_API_KEY and will not be printed."
 
-$bashCommand = @"
+$previousWslEnv = $env:WSLENV
+if ($previousWslEnv) {
+    if ($previousWslEnv -notmatch "(^|:)AIHUB_API_KEY/u(:|$)") {
+        $env:WSLENV = "AIHUB_API_KEY/u:$previousWslEnv"
+    }
+} else {
+    $env:WSLENV = "AIHUB_API_KEY/u"
+}
+
+try {
+    foreach ($fileKey in $keys) {
+        Write-Host "Downloading filekey=$fileKey"
+        $bashCommand = @"
 cd "$wslShellDir" &&
 chmod +x ./aihubshell &&
-./aihubshell -mode d -datasetkey 597 -filekey "$fileKeyArg" -aihubapikey "`$AIHUB_API_KEY"
+./aihubshell -mode d -datasetkey 597 -filekey "$fileKey" -aihubapikey "`$AIHUB_API_KEY"
 "@
 
-$env:AIHUB_API_KEY | wsl bash -lc "read AIHUB_API_KEY; export AIHUB_API_KEY; $bashCommand"
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $output = wsl bash -lc "$bashCommand" 2>&1
+        $ErrorActionPreference = $previousErrorActionPreference
+        $output | ForEach-Object { Write-Host $_ }
+        $joinedOutput = $output -join "`n"
+        if ($LASTEXITCODE -ne 0 -or $joinedOutput -match 'Download failed|HTTP status 502|Error msg' -or $joinedOutput -notmatch 'Download successful') {
+            throw "AI-Hub download command failed for filekey=$fileKey"
+        }
+    }
+} finally {
+    $env:WSLENV = $previousWslEnv
+}
