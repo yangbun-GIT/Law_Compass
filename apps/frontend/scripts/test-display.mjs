@@ -145,6 +145,42 @@ if (relatedVideoCard.includes("<img") || kniaVideoLinkCard.includes("<img")) {
   console.error("KNIA link cards must not render default thumbnails as images");
   process.exit(1);
 }
+
+const brokenKniaSelectors = [
+  /(^|,|\s)factor-row\s*\{/m,
+  /(^|,|\s)mini-badge\s*\{/m,
+  /(^|,|\s)reference-card\s*\{/m,
+  /,\s*factor-row\s+\.(factor-source|delta)/m,
+  /,\s*factor-row\s*\[/m,
+];
+const brokenKniaSelectorHits = brokenKniaSelectors.filter((pattern) => pattern.test(kniaChartView));
+if (brokenKniaSelectorHits.length) {
+  console.error("KNIA chart view has class selectors missing dot", brokenKniaSelectorHits.map(String));
+  process.exit(1);
+}
+
+const requiredKniaUiTokens = [
+  "knia-tabs",
+  "factor-table",
+  "fault-bar",
+  "fault-segment",
+  "factor-mobile-meta",
+  "factor-state",
+  "factor-row.selected",
+];
+const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaChartView.includes(token));
+if (missingKniaUiTokens.length) {
+  console.error("KNIA chart mobile UI contract missing", missingKniaUiTokens);
+  process.exit(1);
+}
+
+const forbiddenKniaColors = ["#2dd4bf", "#3b82f6", "#60efff", "#67e8f9", "#8dd7ff", "#0a1628", "#050c18"];
+const kniaColorLeaks = forbiddenKniaColors.filter((token) => kniaChartView.includes(token) || kniaRankingView.includes(token));
+if (kniaColorLeaks.length) {
+  console.error("KNIA ranking/chart views still use legacy cyan/blue colors", kniaColorLeaks);
+  process.exit(1);
+}
+
 const userFriendlyKniaContracts = [
   "관련 KNIA 근거 및 영상",
   "RelatedVideoCard v-if=\"simpleKniaLinkCard\"",

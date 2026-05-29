@@ -71,14 +71,34 @@
             </div>
             <span class="kv">{{ adjustmentFactors.length }}개 수집</span>
           </div>
-          <div v-if="adjustmentFactors.length" class="factor-table">
+          <div v-if="adjustmentFactors.length" class="factor-table" role="list">
             <div class="factor-head"><span>적용</span><span>가감요소</span><span>A</span><span>B</span><span>근거</span></div>
-            <label v-for="factor in adjustmentFactors" :key="factorKey(factor)" class="factor-row">
-              <input type="checkbox" :value="factorKey(factor)" v-model="manualSelected" />
-              <span class="factor-label">{{ text(factor.label) }}</span>
+            <label
+              v-for="factor in adjustmentFactors"
+              :key="factorKey(factor)"
+              class="factor-row"
+              :class="{ selected: isFactorSelected(factor) }"
+              role="listitem"
+            >
+              <span class="factor-check">
+                <input type="checkbox" :value="factorKey(factor)" v-model="manualSelected" />
+              </span>
+              <span class="factor-main">
+                <span class="factor-label">{{ text(factor.label) }}</span>
+                <span v-if="factor.description || factor.condition_text" class="factor-description">
+                  {{ text(factor.description || factor.condition_text) }}
+                </span>
+                <span class="factor-mobile-meta">
+                  <span :class="deltaClass(factor.delta_a)">A {{ formatDelta(factor.delta_a) }}</span>
+                  <span :class="deltaClass(factor.delta_b)">B {{ formatDelta(factor.delta_b) }}</span>
+                  <span class="factor-state" :class="{ selected: isFactorSelected(factor) }">
+                    {{ isFactorSelected(factor) ? '선택됨' : '미선택' }}
+                  </span>
+                </span>
+              </span>
               <span :class="deltaClass(factor.delta_a)">{{ formatDelta(factor.delta_a) }}</span>
               <span :class="deltaClass(factor.delta_b)">{{ formatDelta(factor.delta_b) }}</span>
-              <span class="factor-source">KNIA 원문</span>
+              <span class="factor-source">{{ isFactorSelected(factor) ? '선택됨' : '미선택' }}</span>
             </label>
           </div>
           <p v-else class="empty-note">{{ missingDetailText('가감요소') }}</p>
@@ -277,6 +297,9 @@ function safeThumbnail(value: unknown) {
   return url.includes("logo_test.jpg") ? "" : url;
 }
 function factorKey(factor: any) { return `${factor.factor_order ?? factor.label}-${factor.label}-${factor.delta_a}-${factor.delta_b}`; }
+function isFactorSelected(factor: any) {
+  return manualSelected.value.includes(factorKey(factor));
+}
 function formatDelta(value: any) {
   const n = Number(value || 0);
   return n > 0 ? `+${n}` : String(n);
@@ -294,10 +317,51 @@ function missingDetailText(label: string) {
 const FaultBar = defineComponent({
   props: { a: { type: Number, required: true }, b: { type: Number, required: true } },
   setup(props) {
-    return () => h("div", { class: "fault-bar" }, [
-      h("div", { class: "fault-a", style: { width: `${props.a}%` } }, `A ${props.a}%`),
-      h("div", { class: "fault-b", style: { width: `${props.b}%` } }, `B ${props.b}%`),
-    ]);
+    function normalizeFaultPair(a: unknown, b: unknown) {
+      const aRaw = toPercent(a, 0);
+      const bRaw = toPercent(b, 0);
+      const total = aRaw + bRaw;
+      if (total <= 0) return { a: 50, b: 50, isUnknown: true };
+      if (total === 100) return { a: aRaw, b: bRaw, isUnknown: false };
+      const nextA = Math.round((aRaw / total) * 100);
+      return { a: nextA, b: 100 - nextA, isUnknown: false };
+    }
+
+    function toPercent(value: unknown, fallback = 0) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(0, Math.min(100, Math.round(n)));
+    }
+
+    return () => {
+      const normalized = normalizeFaultPair(props.a, props.b);
+      return h(
+        "div",
+        {
+          class: ["fault-bar", { "is-unknown": normalized.isUnknown }],
+          role: "img",
+          "aria-label": normalized.isUnknown ? "기준 과실 수집 필요" : `A ${normalized.a}%, B ${normalized.b}%`,
+        },
+        [
+          h(
+            "div",
+            {
+              class: ["fault-segment", "fault-a", { "is-zero": normalized.a <= 0, "is-full": normalized.a >= 100 }],
+              style: { width: `${normalized.a}%` },
+            },
+            [h("span", {}, `A ${normalized.a}%`)]
+          ),
+          h(
+            "div",
+            {
+              class: ["fault-segment", "fault-b", { "is-zero": normalized.b <= 0, "is-full": normalized.b >= 100 }],
+              style: { width: `${normalized.b}%` },
+            },
+            [h("span", {}, `B ${normalized.b}%`)]
+          ),
+        ]
+      );
+    };
   }
 });
 
@@ -312,36 +376,48 @@ onMounted(load);
 .knia-chart-page { display: grid; gap: 18px; }
 .top-actions { justify-content: space-between; }
 .notice { padding: 12px 14px; border-radius: 16px; font-weight: 800; }
-.notice.success { background: rgba(53, 211, 154, 0.13); border: 1px solid rgba(53, 211, 154, 0.35); color: #9ff5d4; }
+.notice.success { background: rgba(167, 193, 122, 0.13); border: 1px solid rgba(167, 193, 122, 0.35); color: #d7e7b7; }
 .notice.error { background: rgba(255, 112, 132, 0.13); border: 1px solid rgba(255, 112, 132, 0.35); color: #ffb7c3; white-space: pre-line; }
 .detail-hero { border-color: rgba(201, 169, 98, 0.34); }
-.detail-ok { background: rgba(57, 255, 194, 0.14); color: #9ff5d4; }
+.detail-ok { background: rgba(167, 193, 122, 0.14); color: #d7e7b7; }
 .detail-needed { background: rgba(251, 191, 36, 0.13); color: #fde68a; }
-.tab-card { display: grid; gap: 18px; }
-.knia-tabs { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px; border-radius: 20px; background: rgba(5, 12, 24, 0.45); border: 1px solid rgba(255,255,255,0.09); }
-.tab-button { border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #dbeafe; border-radius: 999px; padding: 11px 16px; font-weight: 800; cursor: pointer; }
-.tab-button.active { background: linear-gradient(135deg, rgba(45, 212, 191, 0.28), rgba(59, 130, 246, 0.26)); border-color: rgba(96, 239, 255, 0.45); color: white; box-shadow: 0 10px 30px rgba(37, 99, 235, 0.18); }
+.tab-card { display: grid; gap: 18px; overflow: hidden; }
+.knia-tabs { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px; border-radius: 18px; background: rgba(28, 23, 20, 0.58); border: 1px solid rgba(201, 169, 98, 0.28); box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.06); }
+.tab-button { min-height: 44px; border: 1px solid rgba(201, 169, 98, 0.28); background: rgba(232, 223, 212, 0.08); color: var(--text-sub); border-radius: 999px; padding: 11px 16px; font-weight: 900; font-size: 0.96rem; cursor: pointer; transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease; }
+.tab-button:hover { transform: translateY(-1px); border-color: rgba(201, 169, 98, 0.48); color: var(--text-main); }
+.tab-button.active { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); border-color: rgba(201, 169, 98, 0.78); color: var(--accent-foreground); box-shadow: 0 10px 24px rgba(201, 169, 98, 0.20); }
 .tab-panel { display: grid; gap: 16px; }
 .fault-grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 14px; }
-.glass-box, .reference-card { border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.055); border-radius: 22px; padding: 18px; box-shadow: 0 18px 48px rgba(0,0,0,0.18); }
-.glass-box.emphasis { border-color: rgba(45, 212, 191, 0.32); }
+.glass-box, .reference-card { border: 1px solid rgba(201, 169, 98, 0.28); background: linear-gradient(145deg, rgba(61, 51, 43, 0.84), rgba(37, 30, 25, 0.92)); border-radius: 18px; padding: 18px; box-shadow: 0 18px 42px rgba(0,0,0,0.22); }
+.glass-box.emphasis { border-color: rgba(201, 169, 98, 0.48); background: linear-gradient(145deg, rgba(201, 169, 98, 0.15), rgba(37, 30, 25, 0.92)); }
 .plain-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
-.fault-bar { display: flex; height: 42px; overflow: hidden; border-radius: 999px; border: 1px solid rgba(255,255,255,0.16); background: rgba(0,0,0,0.18); }
-.fault-a, .fault-b { display: grid; place-items: center; min-width: 42px; font-weight: 900; font-size: 0.9rem; transition: width 0.2s ease; }
-.fault-a { background: linear-gradient(135deg, #fb7185, #f97316); color: white; }
-.fault-b { background: linear-gradient(135deg, #f59e0b, #facc15); color: #2b1700; }
-.fault-caption { margin: 10px 0 0; color: #cbd5e1; font-weight: 700; }
-.factor-box { display: grid; gap: 12px; }
-.factor-table { display: grid; gap: 8px; }
-.factor-head, .factor-row { display: grid; grid-template-columns: 54px minmax(220px, 1fr) 64px 64px 110px; gap: 10px; align-items: center; }
-.factor-head { color: #9fb1ca; font-size: 0.82rem; font-weight: 900; padding: 0 10px; }
-.factor-row { padding: 12px 10px; border-radius: 16px; background: rgba(10, 22, 40, 0.55); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; }
-.factor-row input { width: 18px; height: 18px; }
-.factor-label { font-weight: 800; color: #f8fafc; }
-.delta { font-weight: 900; }
-.delta.plus { color: #ffb4a8; }
-.delta.minus { color: #8dd7ff; }
-.factor-source, .mini-badge { color: #9ff5d4; font-weight: 800; font-size: 0.82rem; }
+.fault-bar { display: flex; width: 100%; height: 48px; overflow: hidden; border-radius: 999px; border: 1px solid rgba(201, 169, 98, 0.34); background: rgba(28, 23, 20, 0.56); box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.08); }
+.fault-segment { display: grid; place-items: center; min-width: 42px; height: 100%; font-weight: 950; font-size: 0.95rem; line-height: 1; white-space: nowrap; transition: width 0.22s ease, opacity 0.18s ease; }
+.fault-segment span { display: inline-flex; align-items: center; min-width: 0; padding: 0 8px; }
+.fault-a { background: linear-gradient(135deg, #8B2635, #B84B55); color: #FFF2F2; }
+.fault-b { background: linear-gradient(135deg, var(--accent-dark), var(--accent-strong)); color: var(--accent-foreground); }
+.fault-segment.is-zero { min-width: 0; width: 0 !important; padding: 0; opacity: 0; overflow: hidden; }
+.fault-segment.is-zero span { display: none; }
+.fault-segment.is-full { min-width: 100%; }
+.fault-caption { margin: 10px 0 0; color: var(--text-sub); font-weight: 800; line-height: 1.5; }
+.factor-box { display: grid; gap: 14px; }
+.factor-table { display: grid; gap: 10px; width: 100%; overflow: hidden; }
+.factor-head, .factor-row { display: grid; grid-template-columns: 56px minmax(220px, 1fr) 74px 74px 112px; gap: 10px; align-items: center; }
+.factor-head { color: var(--text-faint); font-size: 0.84rem; font-weight: 950; padding: 0 12px; }
+.factor-row { padding: 14px 12px; border-radius: 16px; background: rgba(37, 30, 25, 0.72); border: 1px solid rgba(201, 169, 98, 0.20); cursor: pointer; transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease; }
+.factor-row:hover { transform: translateY(-1px); border-color: rgba(201, 169, 98, 0.42); background: rgba(61, 51, 43, 0.86); }
+.factor-row.selected { border-color: rgba(201, 169, 98, 0.64); background: linear-gradient(145deg, rgba(201, 169, 98, 0.18), rgba(61, 51, 43, 0.90)); box-shadow: 0 12px 28px rgba(201, 169, 98, 0.12); }
+.factor-check { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
+.factor-row input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; }
+.factor-main { display: grid; gap: 5px; min-width: 0; }
+.factor-label { color: var(--text-main); font-size: 0.98rem; font-weight: 900; line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; }
+.factor-description { color: var(--text-sub); font-size: 0.9rem; line-height: 1.45; }
+.factor-mobile-meta { display: none; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
+.delta { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; width: fit-content; min-width: 48px; padding: 5px 10px; border-radius: 999px; font-weight: 950; font-size: 0.92rem; border: 1px solid rgba(232, 223, 212, 0.12); }
+.delta.plus { color: #FFD3C9; background: rgba(139, 38, 53, 0.28); border-color: rgba(213, 137, 137, 0.32); }
+.delta.minus { color: #BDEEDB; background: rgba(127, 231, 200, 0.12); border-color: rgba(127, 231, 200, 0.28); }
+.factor-source, .mini-badge, .factor-state { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 30px; padding: 5px 10px; border-radius: 999px; background: rgba(232, 223, 212, 0.08); border: 1px solid rgba(201, 169, 98, 0.24); color: var(--text-sub); font-size: 0.84rem; font-weight: 900; }
+.factor-row.selected .factor-source, .factor-state.selected { background: var(--accent-soft); border-color: rgba(201, 169, 98, 0.48); color: var(--accent-strong); }
 .cards-panel { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .reference-card h3 { margin: 10px 0 8px; font-size: 1.08rem; }
 .reference-card p { white-space: pre-line; line-height: 1.75; }
@@ -357,7 +433,21 @@ onMounted(load);
 @media (max-width: 900px) {
   .fault-grid { grid-template-columns: 1fr; }
   .factor-head { display: none; }
-  .factor-row { grid-template-columns: 36px 1fr; }
-  .factor-row .delta, .factor-row .factor-source { grid-column: 2; }
+  .factor-table { gap: 12px; }
+  .factor-row { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; align-items: flex-start; padding: 16px; }
+  .factor-row > .delta, .factor-row > .factor-source { display: none; }
+  .factor-mobile-meta { display: flex; }
+  .factor-label { font-size: 1rem; }
+  .factor-description { font-size: 0.92rem; }
+}
+@media (max-width: 640px) {
+  .knia-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  .tab-button { flex: 0 0 auto; scroll-snap-align: start; min-height: 46px; padding: 12px 15px; font-size: 0.95rem; white-space: nowrap; }
+  .fault-bar { height: 44px; }
+  .fault-segment { font-size: 0.9rem; min-width: 38px; }
+}
+@media (max-width: 480px) {
+  .factor-row { padding: 15px 14px; border-radius: 15px; }
+  .factor-check { min-width: 42px; min-height: 42px; }
 }
 </style>
