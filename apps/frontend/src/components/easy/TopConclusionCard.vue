@@ -5,7 +5,6 @@
     <div v-if="faultLabel" class="fault-summary-card">{{ faultLabel }}</div>
     <div class="chips">
       <span class="chip selected">{{ text(report.summary_for_user?.accident_type_label || "교통사고") }}</span>
-      <span class="chip">참고용 분석입니다</span>
     </div>
     <p class="easy-summary">{{ text(report.summary_for_user?.short_summary) }}</p>
     <p v-if="report.summary_for_user?.warning" class="soft-warning">{{ text(report.summary_for_user.warning) }}</p>
@@ -13,8 +12,8 @@
 </template>
 
 <script setup lang="ts">
-import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 import { computed } from "vue";
+import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 
 const props = defineProps<{ report: any }>();
 

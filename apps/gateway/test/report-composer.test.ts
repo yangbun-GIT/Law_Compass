@@ -27,6 +27,24 @@ describe("report composer", () => {
     expect(enriched.simple_report.situation_summary).not.toContain("적용 가능 법규");
   });
 
+  it("removes raw JSON fragments and duplicate phrases from user-friendly summaries", () => {
+    const enriched: any = enrichEasyReport(
+      {
+        simple_report: {
+          situation_summary:
+            '정차 중 후미추돌 사고 정차 중 후미추돌 사고 블랙박스 과실비율 {"injury": null',
+        },
+      },
+      {
+        analysis_mode: "user_friendly",
+      },
+    );
+
+    const text = JSON.stringify(enriched.simple_report);
+    expect(text).not.toContain('{"inj');
+    expect(text).not.toContain("정차 중 후미추돌 사고 정차 중 후미추돌 사고");
+  });
+
   it("keeps detailed report fields and adds compact display metadata in user-friendly mode", () => {
     const enriched: any = enrichEasyReport(
       sanitizeEasyReport({
@@ -91,6 +109,8 @@ describe("report composer", () => {
     const text = JSON.stringify(enriched.simple_report);
     expect(text).not.toContain("chunk_id");
     expect(text).not.toContain("internal-knia-chunk");
+    expect(text).not.toContain("영상 파일은 LawCompass 서버에 저장하지 않고");
+    expect(text).not.toContain("과실비율정보포털에서 제공하는 유사 사고 기준");
   });
 
   it("adds a user-safe evidence reliability card without raw claim internals", () => {

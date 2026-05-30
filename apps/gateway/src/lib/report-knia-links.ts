@@ -1,14 +1,15 @@
 import {
   asArray,
   cleanText,
+  cleanUserFacingCopy,
+  resolveAccidentPartyLabel,
   safeKniaThumbnailUrl,
   safeKniaUrl,
   toNumber,
   type AnyRecord,
 } from "./report-composer-common.js";
 
-const KNIA_SOURCE_LINK_NOTICE = "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.";
-const KNIA_MISSING_SOURCE_NOTICE = "상세 기준 수집 필요: 수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.";
+const KNIA_MISSING_SOURCE_NOTICE = "상세 기준 수집 필요";
 
 export function composeKniaLinkCards(result: AnyRecord = {}, report: AnyRecord = {}): AnyRecord {
   const candidates = collectKniaDisplayCandidates(result, report);
@@ -132,9 +133,9 @@ function normalizeKniaCandidate(item: AnyRecord = {}) {
     subchart_no: cleanText(item.subchart_no, ""),
     chart_type: cleanText(item.chart_type, ""),
     title: cleanText(item.title ?? item.chart_title ?? item.article_title, ""),
-    summary: cleanText(item.summary ?? item.description ?? item.accident_situation, ""),
+    summary: cleanUserFacingCopy(cleanText(item.summary ?? item.description ?? item.accident_situation, "")),
     menu_path: asArray(item.menu_path).map((part) => cleanText(part, "")).filter(Boolean),
-    match_reason: cleanText(item.match_reason ?? item.why_matched, ""),
+    match_reason: cleanUserFacingCopy(cleanText(item.match_reason ?? item.why_matched, "")),
     base_fault: item.base_fault ?? item.knia_reference_fault?.base_fault,
     final_fault: item.final_fault ?? item.adjusted_fault ?? item.knia_reference_fault?.final_fault,
     fault_range: item.fault_range ?? item.knia_reference_fault?.fault_range,
@@ -142,7 +143,11 @@ function normalizeKniaCandidate(item: AnyRecord = {}) {
     source_url_is_fallback: item.source_url_is_fallback === true,
     accident_party_type: cleanText(item.accident_party_type ?? item.major_party_type, ""),
     major_party_type: cleanText(item.major_party_type ?? item.accident_party_type, ""),
-    accident_party_label: cleanText(item.accident_party_label, ""),
+    accident_party_label: resolveAccidentPartyLabel({
+      accident_party_label: item.accident_party_label,
+      accident_party_type: item.accident_party_type ?? item.major_party_type,
+      chart_no: item.chart_no ?? item.subchart_no,
+    }),
     video_url: videoUrl,
     source_detail_url: sourceDetailUrl,
     source_page_url: sourcePageUrl,
@@ -228,8 +233,7 @@ function isVideoUrl(value: string) {
 function buildKniaLinkCard(item: AnyRecord = {}) {
   const hasUrl = Boolean(item.source_url || item.button_url);
   return {
-    title: "KNIA 원문 기준 및 관련 영상",
-    description: "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
+    title: item.title || undefined,
     chart_no: item.chart_no || undefined,
     subchart_no: item.subchart_no || undefined,
     chart_type: item.chart_type || undefined,
@@ -242,7 +246,11 @@ function buildKniaLinkCard(item: AnyRecord = {}) {
     fault_range: item.fault_range || undefined,
     reference_only: item.reference_only === true,
     source_url_is_fallback: item.source_url_is_fallback === true,
-    accident_party_label: item.accident_party_label || undefined,
+    accident_party_label: resolveAccidentPartyLabel({
+      accident_party_label: item.accident_party_label,
+      accident_party_type: item.accident_party_type ?? item.major_party_type,
+      chart_no: item.chart_no ?? item.subchart_no,
+    }),
     display_mode: "external_link",
     button_url: item.source_url || undefined,
     source_url: item.source_url || undefined,
@@ -251,10 +259,8 @@ function buildKniaLinkCard(item: AnyRecord = {}) {
     source_page_url: item.source_page_url || undefined,
     thumbnail_url: item.thumbnail_url || undefined,
     button_label: item.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기",
-    notice: hasUrl ? KNIA_SOURCE_LINK_NOTICE : KNIA_MISSING_SOURCE_NOTICE,
     missing_source_notice: hasUrl ? undefined : KNIA_MISSING_SOURCE_NOTICE,
     has_knia_candidate: true,
-    source_label: "자료 출처: 과실비율정보포털",
   };
 }
 

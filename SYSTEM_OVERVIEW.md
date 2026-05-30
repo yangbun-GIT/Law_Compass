@@ -1,5 +1,13 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-30 일반 사용자 리포트 표시 문구/KNIA 링크 정리
+
+일반 사용자 결과 화면은 source_link_only 저장소 안내, "참고용 분석", 조건부 판단 구조 설명, 후속 확인 질문 목록, raw JSON fragment를 기본 화면에 표시하지 않는다. Gateway/Frontend 표시 계층은 사용자용 요약을 plain text로 정리하고 `{"inj` 같은 미완성 JSON 조각과 중복 사고 제목을 제거한다.
+
+KNIA 원문/영상 링크는 별도 반복 카드가 아니라 "관련 KNIA 근거 및 영상"의 기준 카드 안 버튼으로 표시한다. chart 번호 prefix 또는 accident party type으로 대분류 라벨을 보정해 `차41-1` 같은 차대차 기준이 "대분류: 확인이 필요합니다."로 보이지 않게 한다. 고급진단 카드의 process stat/step은 dark card 디자인과 줄바꿈 규칙을 따른다.
+
+분석 진행 spinner는 기존 원형/퍼센트 표현을 유지하되 단계명과 긴 설명 문구를 spinner 아래 텍스트 블록으로 분리한다. 이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. 사용자 요청에 따라 Codex는 docker/npm/pytest/python/DB/브라우저 검증 명령을 실행하지 않고 코드와 정적 표시 계약만 갱신했다.
+
 ## 2026-05-30 일반사용자모드 사고 제목/KNIA 가감 표시 보강
 
 일반사용자모드 결과 payload에서 사고 제목과 사고 설명을 분리해 표시하도록 보강했다. Agent 최종 리포트는 `accident_title`을 생성할 수 있으며, Gateway `simple_report`는 `situation_title`과 `situation_summary`를 함께 내려준다. 기존 저장 결과처럼 상황 요약에 법규 검토 fallback 문장이 섞인 경우 Gateway가 응답 조립 시 사고 제목과 사용자용 요약을 분리한다.

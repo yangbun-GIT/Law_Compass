@@ -224,8 +224,7 @@ const manualFault = computed(() => {
   return { A: a, B: 100 - a };
 });
 const videoCard = computed(() => ({
-  title: "KNIA 원문 기준 및 관련 영상",
-  description: "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
+  title: chart.value?.title || chart.value?.chart_title || "",
   source_url: safeKniaUrl(chart.value?.video_url || chart.value?.source_detail_url || chart.value?.source_url),
   video_url: safeKniaUrl(chart.value?.video_url) || undefined,
   source_detail_url: safeKniaUrl(chart.value?.source_detail_url) || undefined,
@@ -235,10 +234,8 @@ const videoCard = computed(() => ({
   thumbnail_url: safeThumbnail(chart.value?.thumbnail_url),
   display_mode: "external_link",
   button_label: chart.value?.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기",
-  notice: "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.",
   has_knia_candidate: Boolean(chart.value?.chart_no),
-  missing_source_notice: "수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.",
-  source_label: "자료 출처: 과실비율정보포털"
+  missing_source_notice: "상세 기준 수집 필요",
 }));
 
 async function load() {

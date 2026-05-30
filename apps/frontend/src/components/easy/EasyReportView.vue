@@ -18,9 +18,8 @@
           variant="user"
         />
         <p class="easy-summary">
-          {{ simpleFaultRatio.basis || simpleFaultRatio.summary || safeReport?.fault_ratio_summary || "입력한 사고 사실과 KNIA 기준을 함께 검토한 참고용 산정입니다." }}
+          {{ text(simpleFaultRatio.basis || simpleFaultRatio.summary || safeReport?.fault_ratio_summary || "입력한 사고 사실과 KNIA 기준을 함께 검토했습니다.") }}
         </p>
-        <p v-if="simpleFaultRatio.reference_only" class="kv">확정값이 아니라 참고 범위입니다.</p>
         <ul v-if="simpleFaultRatio.key_factors?.length" class="check-list">
           <li v-for="factor in simpleFaultRatio.key_factors.slice(0, 4)" :key="String(factor)">
             {{ text(factor) }}
@@ -31,13 +30,15 @@
       <section class="card easy-card simple-section corner-flourish">
         <p class="eyebrow">관련 KNIA 근거 및 영상</p>
         <h2>가장 가까운 기준</h2>
-        <RelatedVideoCard v-if="simpleKniaLinkCard" :video="simpleKniaLinkCard" />
 
         <div v-if="simpleKniaEvidence" class="basis-card">
           <p class="accent-text">
             {{ simpleKniaEvidence.chart_no || simpleKniaEvidence.subchart_no || "KNIA 기준 확인 중" }}
             <span v-if="simpleKniaEvidence.title"> · {{ text(simpleKniaEvidence.title) }}</span>
           </p>
+          <div v-if="simpleKniaPartyLabel" class="chips">
+            <span class="chip">대분류: {{ simpleKniaPartyLabel }}</span>
+          </div>
           <p v-if="simpleKniaEvidence.menu_path?.length">
             {{ simpleKniaEvidence.menu_path.map(text).join(" > ") }}
           </p>
@@ -56,15 +57,8 @@
             target="_blank"
             rel="noopener noreferrer"
           >
-            {{ simpleKniaEvidence.button_label || (simpleKniaEvidence.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기") }}
+            {{ simpleKniaEvidence.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기" }}
           </a>
-          <p v-else-if="simpleKniaEvidence.missing_source_notice" class="kv">
-            {{ text(simpleKniaEvidence.missing_source_notice) }}
-          </p>
-          <p v-if="simpleKniaEvidence.source_url_is_fallback" class="kv">
-            원문 링크 형식은 차트번호 기반으로 생성되었습니다.
-          </p>
-          <p class="kv">{{ text(simpleKniaEvidence.source_notice || "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.") }}</p>
         </div>
         <div v-if="userAdjustmentRows.length" class="user-adjustment-panel">
           <div class="user-adjustment-head">
@@ -476,6 +470,11 @@ const simpleKniaLinkCard = computed<any>(() => {
   const card = safeReport.value?.related_knia_video_card || safeReport.value?.related_video || safeReport.value?.simple_report?.knia_and_video?.primary;
   return card && (card.has_knia_candidate || card.button_url || card.source_url || card.video_url) ? card : null;
 });
+const simpleKniaPartyLabel = computed(() => resolveAccidentPartyLabel({
+  accident_party_label: simpleKniaEvidence.value?.accident_party_label || simpleKniaEvidence.value?.major_party_label,
+  accident_party_type: simpleKniaEvidence.value?.major_party_type || simpleKniaEvidence.value?.accident_party_type || safeReport.value?.accident_party_type,
+  chart_no: simpleKniaEvidence.value?.chart_no || simpleKniaEvidence.value?.subchart_no,
+}));
 const simpleVideoSummary = computed(() => textOrFallback(
   safeReport.value?.simple_report?.video_summary,
   safeReport.value?.video_summary,
@@ -486,6 +485,32 @@ const simpleVideoSummary = computed(() => textOrFallback(
 
 function text(value: unknown) { return sanitizeDisplayText(value); }
 function kniaParagraphs(value: unknown) { return formatKniaBody(value); }
+
+function resolveAccidentPartyLabel(input: { accident_party_label?: unknown; accident_party_type?: unknown; chart_no?: unknown }) {
+  const existing = sanitizeDisplayText(input.accident_party_label, "");
+  if (existing && existing !== "확인이 필요합니다.") return existing;
+  const type = String(input.accident_party_type || "").trim();
+  const byType: Record<string, string> = {
+    car_vs_car: "차대차 사고",
+    vehicle_vs_vehicle: "차대차 사고",
+    car_vs_person: "차대보행자 사고",
+    pedestrian_crosswalk_accident: "차대보행자 사고",
+    car_vs_bicycle: "차대자전거 사고",
+    bicycle_collision: "차대자전거 사고",
+    single_vehicle: "단독 사고",
+    single_vehicle_accident: "단독 사고",
+    object_collision: "물체/시설물 사고",
+    car_vs_object: "물체/시설물 사고",
+  };
+  if (byType[type]) return byType[type];
+  const chartNo = sanitizeDisplayText(input.chart_no, "");
+  if (chartNo.startsWith("차")) return "차대차 사고";
+  if (chartNo.startsWith("보")) return "차대보행자 사고";
+  if (chartNo.startsWith("자") || chartNo.startsWith("거")) return "차대자전거 사고";
+  if (chartNo.startsWith("단")) return "단독 사고";
+  if (chartNo.startsWith("기") || chartNo.startsWith("물")) return "물체/시설물 사고";
+  return "";
+}
 
 function extractSituationTitle(value: unknown) {
   let raw = sanitizeDisplayText(value);

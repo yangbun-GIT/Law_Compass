@@ -4,9 +4,11 @@ import {
   TECHNICAL_KEYS,
   asArray,
   cleanText,
+  cleanUserFacingCopy,
   compactDisplayItems,
   hasAny,
   isPlainObject,
+  resolveAccidentPartyLabel,
   safeHttpUrl,
   safeKniaUrl,
   scenarioLabel,
@@ -1708,7 +1710,7 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
             range: faultRatio.fault_range ?? faultRatio.range ?? null,
             basis: cleanText(
                 faultRatio.basis || faultRatio.summary || faultRatio.simple_summary || "",
-                "입력한 사고 사실과 KNIA 기준을 함께 검토한 참고용 산정입니다.",
+                "입력한 사고 사실과 KNIA 기준을 함께 검토했습니다.",
             ),
             key_factors: keyFactors,
             reference_only:
@@ -1720,7 +1722,6 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
         knia_and_video: {
             primary: knia,
             candidates: kniaCandidates.slice(0, 3),
-            source_notice: "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.",
         },
         video_summary: videoSummary,
     };
@@ -1813,7 +1814,7 @@ function rawSituationText(value: any): string {
     const raw = String(value).replace(/\u0000/g, "").trim();
     if (!raw || raw === "unknown" || raw === "null") return "";
     if ((raw.startsWith("{") && raw.endsWith("}")) || (raw.startsWith("[") && raw.endsWith("]"))) return "";
-    return raw
+    return cleanUserFacingCopy(raw)
         .replace(/(?:^|,\s*)=\d+(?:\s*,\s*=\d+)+(?:\.)?/g, " ")
         .replace(/(?:^|[\s,])=\d+(?=$|[\s,.;])/g, " ")
         .replace(/\s+\./g, ".")
@@ -1894,24 +1895,28 @@ function normalizeSimpleKniaCandidate(candidate: any): AnyRecord | null {
         chart_no: chartNo,
         subchart_no: subchartNo,
         title,
+        accident_party_label: resolveAccidentPartyLabel({
+            accident_party_label: candidate.accident_party_label,
+            accident_party_type: candidate.accident_party_type ?? candidate.major_party_type,
+            chart_no: chartNo || subchartNo,
+        }),
         major_party_type: cleanText(candidate.major_party_type ?? candidate.accident_party_type, ""),
         accident_party_type: cleanText(candidate.accident_party_type ?? candidate.major_party_type, ""),
-        summary: cleanText(candidate.summary ?? candidate.description ?? candidate.accident_situation, ""),
+        summary: cleanUserFacingCopy(cleanText(candidate.summary ?? candidate.description ?? candidate.accident_situation, "")),
         menu_path: asArray(candidate.menu_path).map((item) => cleanText(item, "")).filter(Boolean),
         source_url: sourceUrl,
         button_url: buttonUrl,
         video_url: videoUrl,
         button_label: videoUrl ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기",
         source_url_is_fallback: candidate.source_url_is_fallback === true,
-        match_reason: cleanText(candidate.match_reason || candidate.why_matched, ""),
+        match_reason: cleanUserFacingCopy(cleanText(candidate.match_reason || candidate.why_matched, "")),
         reference_only: candidate.reference_only === true || candidate.presentation_status === "reference_only",
         base_fault: baseFault,
         final_fault: finalFault,
         fault_range: faultRange,
-        source_notice: cleanText(candidate.notice, "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다."),
         missing_source_notice: sourceUrl
             ? ""
-            : cleanText(candidate.missing_source_notice, "상세 기준 수집 필요: KNIA 원문 링크는 아직 연결되지 않았습니다."),
+            : cleanText(candidate.missing_source_notice, "상세 기준 수집 필요"),
         candidate_charts: asArray(candidate.candidate_charts).slice(0, 3),
         has_knia_candidate: true,
     };

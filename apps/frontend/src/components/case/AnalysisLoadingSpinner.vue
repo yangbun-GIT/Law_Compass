@@ -1,14 +1,18 @@
 <template>
   <div class="analysis-loading-spinner" role="status" aria-live="polite">
     <div
-        class="spinner-orb"
-        :style="{ '--progress': `${safePercent * 3.6}deg` }"
-        aria-hidden="true"
+      class="spinner-orb"
+      :style="{ '--progress': `${safePercent * 3.6}deg` }"
+      aria-hidden="true"
     >
       <div class="spinner-core">
         <strong>{{ safePercent }}%</strong>
-        <span>{{ label }}</span>
       </div>
+    </div>
+
+    <div class="analysis-loading-text">
+      <p class="analysis-loading-title">{{ label }}</p>
+      <p v-if="message" class="analysis-loading-message">{{ message }}</p>
     </div>
   </div>
 </template>
@@ -17,16 +21,16 @@
 import { computed } from "vue";
 
 const props = withDefaults(
-    defineProps<{
-      percent?: number;
-      label?: string;
-      message?: string;
-    }>(),
-    {
-      percent: 0,
-      label: "분석 중",
-      message: "사고 정보를 정리하고 있습니다.",
-    },
+  defineProps<{
+    percent?: number;
+    label?: string;
+    message?: string;
+  }>(),
+  {
+    percent: 0,
+    label: "분석 중",
+    message: "사고 정보를 정리하고 있습니다.",
+  },
 );
 
 const safePercent = computed(() => {
@@ -38,11 +42,16 @@ const safePercent = computed(() => {
 
 <style scoped>
 .analysis-loading-spinner {
-  display: grid;
-  place-items: center;
-  min-height: 178px;
-  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 220px;
+  padding: 24px 16px;
   overflow: visible;
+  text-align: center;
 }
 
 .spinner-orb {
@@ -52,18 +61,19 @@ const safePercent = computed(() => {
   aspect-ratio: 1;
   display: grid;
   place-items: center;
+  flex: 0 0 auto;
   border-radius: 50%;
   background:
-      radial-gradient(circle at 50% 50%, rgba(28, 23, 20, 0.96) 0 49%, transparent 50%),
-      conic-gradient(
-          from 220deg,
-          #c9a962 0deg,
-          #d4b872 var(--progress),
-          rgba(232, 223, 212, 0.10) var(--progress) 360deg
-      );
+    radial-gradient(circle at 50% 50%, rgba(28, 23, 20, 0.96) 0 49%, transparent 50%),
+    conic-gradient(
+      from 220deg,
+      #c9a962 0deg,
+      #d4b872 var(--progress),
+      rgba(232, 223, 212, 0.10) var(--progress) 360deg
+    );
   box-shadow:
-      0 10px 24px rgba(0, 0, 0, 0.28),
-      inset 0 0 10px rgba(201, 169, 98, 0.10);
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    inset 0 0 10px rgba(201, 169, 98, 0.10);
 }
 
 .spinner-orb::before {
@@ -91,7 +101,6 @@ const safePercent = computed(() => {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 5px;
   place-items: center;
   max-width: 78%;
   text-align: center;
@@ -106,17 +115,28 @@ const safePercent = computed(() => {
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.46);
 }
 
-.spinner-core span {
-  color: var(--accent-strong);
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-  white-space: nowrap;
+.analysis-loading-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(100%, 560px);
+  line-height: 1.55;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
-.spinner-core small {
-  display: none;
+.analysis-loading-title {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: clamp(1rem, 2.6vw, 1.25rem);
+  font-weight: 900;
+}
+
+.analysis-loading-message {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: clamp(0.9rem, 2.2vw, 1rem);
 }
 
 @keyframes analysis-spin {
@@ -133,8 +153,8 @@ const safePercent = computed(() => {
 
 @media (max-width: 520px) {
   .analysis-loading-spinner {
-    min-height: 154px;
-    padding: 14px 8px;
+    min-height: 200px;
+    padding: 20px 12px;
   }
 
   .spinner-orb {
@@ -154,8 +174,8 @@ const safePercent = computed(() => {
     font-size: clamp(1.45rem, 6vw, 1.95rem);
   }
 
-  .spinner-core span {
-    font-size: 0.72rem;
+  .analysis-loading-text {
+    max-width: 92vw;
   }
 }
 </style>

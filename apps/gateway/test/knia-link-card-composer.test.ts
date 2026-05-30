@@ -16,9 +16,26 @@ describe("KNIA link card composition", () => {
       },
     });
 
-    expect((enriched as any).related_knia_video_card.title).toBe("KNIA 원문 기준 및 관련 영상");
+    expect((enriched as any).related_knia_video_card.title).toBe("임의 KNIA 기준");
     expect((enriched as any).related_knia_video_card.button_label).toBe("KNIA 원문 기준 보기");
     expect((enriched as any).related_knia_video_card.source_url).toContain("https://accident.knia.or.kr");
+    expect((enriched as any).related_knia_video_card.notice).toBeUndefined();
+    expect((enriched as any).related_knia_video_card.accident_party_label).toBe("확인이 필요합니다.");
+  });
+
+  it("falls back to a public accident party label from KNIA chart prefixes", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      knia_basis_cards: [
+        {
+          chart_no: "차41-1",
+          title: "양 차량 주행 중 후방 추돌",
+          source_url: "https://accident.knia.or.kr/myaccident-content?chartNo=%EC%B0%A841-1",
+        },
+      ],
+    });
+
+    expect((enriched as any).related_knia_video_card.accident_party_label).toBe("차대차 사고");
+    expect(JSON.stringify(enriched)).not.toContain("대분류: 확인이 필요합니다");
   });
 
   it("prefers KNIA video urls and drops default logo thumbnails", () => {
@@ -39,7 +56,7 @@ describe("KNIA link card composition", () => {
     expect(card.source_url).toBe("https://accident.knia.or.kr/video/generic-2.mp4");
     expect(card.thumbnail_url).toBeUndefined();
     expect(card.display_mode).toBe("external_link");
-    expect(card.notice).toContain("LawCompass 서버에 저장하지 않고");
+    expect(card.notice).toBeUndefined();
     expect((enriched as any).simple_report.knia_and_video.primary.button_label).toBe("KNIA 관련 영상 보기");
   });
 
@@ -59,7 +76,7 @@ describe("KNIA link card composition", () => {
     const card = (enriched as any).related_knia_video_card;
     expect(card.source_url).toBeUndefined();
     expect(card.missing_source_notice).toContain("상세 기준 수집 필요");
-    expect(card.missing_source_notice).toContain("수집된 KNIA 원문 링크가 없습니다");
+    expect(card.missing_source_notice).not.toContain("수집된 KNIA 원문 링크가 없습니다");
     expect(text).not.toContain("javascript:");
     expect(text).not.toContain("data:text");
     expect(text).not.toContain("file://");

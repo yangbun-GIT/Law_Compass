@@ -46,6 +46,61 @@ const BAD_PATTERNS = [
   /(?:^|[\s,])=\s*\d+(?=$|[\s,.;])/g,
   /,\s*=0/g,
 ];
+
+const HIDDEN_USER_COPY_PATTERNS = [
+  /영상 파일은 LawCompass 서버에 저장하지 않고.*?(?:제공합니다\.?|$)/g,
+  /과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다\.?/g,
+  /참고용 분석입니다\.?/g,
+  /조건부 결과는 특정 테스트 영상에 맞춘 답이 아니라[\s\S]*?판단 구조입니다\.?/g,
+  /이 내용은 유사 근거와 입력 사실을 바탕으로 한 참고용 예상입니다\.[\s\S]*?달라질 수 있습니다\.?/g,
+  /실제 결과는 보험사, 분쟁심의, 수사기관, 법원의 판단에 따라 달라질 수 있습니다\.?/g,
+  /더 확인하면 좋은 사실/g,
+  /차량 파손 정도는 어느 정도인가요\??/g,
+  /인명피해 여부/g,
+  /신호 상태/g,
+  /사고 장소/g,
+  /상대방 행위/g,
+];
+
+const REPEATED_USER_PHRASES = [
+  "정차 중 후미추돌 사고",
+  "후미추돌 사고",
+  "차대차 사고",
+  "블랙박스 과실비율",
+];
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function removeRawJsonFragments(value: string): string {
+  return value
+    .replace(/\{["']?[A-Za-z_가-힣][^{}]{0,180}(?=$|\s)/g, " ")
+    .replace(/"\s*:\s*("[^"]*"|\d+|true|false|null)?/g, " ")
+    .replace(/\[[\s,":A-Za-z_가-힣0-9-]{0,120}(?=$|\s)/g, " ")
+    .trim();
+}
+
+export function collapseRepeatedPhrases(value: string): string {
+  let output = value.replace(/\s+/g, " ").trim();
+  for (const phrase of REPEATED_USER_PHRASES) {
+    output = output.replace(new RegExp(`(?:${escapeRegExp(phrase)}\\s*){2,}`, "g"), `${phrase} `);
+  }
+  return output.replace(/\s{2,}/g, " ").trim();
+}
+
+export function cleanUserFacingCopy(value: unknown): string {
+  let text = String(value ?? "");
+  for (const pattern of HIDDEN_USER_COPY_PATTERNS) {
+    text = text.replace(pattern, " ");
+  }
+  return collapseRepeatedPhrases(removeRawJsonFragments(text))
+    .replace(/\s+([,.])/g, "$1")
+    .replace(/^[\s,.;:·|-]+|[\s,.;:·|-]+$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 export function shouldHideTechnicalKey(key: string) {
   const normalized = String(key || "").trim();
   if (TECHNICAL_KEYS.has(normalized)) return true;
@@ -88,6 +143,7 @@ export function sanitizeDisplayText(value: unknown, fallback = ""): string {
   text = text.replace(/검수 필요 구조화 KNIA 참고 기준입니다\.?/g, "현재 사고와 가장 가까운 KNIA 참고 기준입니다. 실제 적용 전 추가 확인이 필요합니다.");
   text = text.replace(/상세 기준 수집 필요/g, "상세 기준이 부족해 같은 대분류의 참고 기준을 함께 보여드립니다.");
   for (const pattern of BAD_PATTERNS) text = text.replace(pattern, "");
+  text = cleanUserFacingCopy(text);
   text = text
     .replace(/(^|\s),\s*=\d+(,\s*=\d+)*\.?/g, " ")
     .replace(/\s{2,}/g, " ")

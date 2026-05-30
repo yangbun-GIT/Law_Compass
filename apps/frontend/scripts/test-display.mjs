@@ -46,11 +46,14 @@ const evidenceView = readFileSync("src/views/EvidenceDetailView.vue", "utf8");
 const easyReportView = readFileSync("src/components/easy/EasyReportView.vue", "utf8");
 const relatedVideoCard = readFileSync("src/components/knia/RelatedVideoCard.vue", "utf8");
 const kniaVideoLinkCard = readFileSync("src/components/knia/KniaVideoLinkCard.vue", "utf8");
+const topConclusionCard = readFileSync("src/components/easy/TopConclusionCard.vue", "utf8");
+const accidentPartyTypeActionCard = readFileSync("src/components/result/AccidentPartyTypeActionCard.vue", "utf8");
 const elderlyActionCard = readFileSync("src/components/easy/ElderlyActionCard.vue", "utf8");
 const expertGuidanceCard = readFileSync("src/components/easy/ExpertGuidanceCard.vue", "utf8");
 const easyLegalBasisCard = readFileSync("src/components/easy/EasyLegalBasisCard.vue", "utf8");
 const evidenceReliabilityCard = readFileSync("src/components/easy/EvidenceReliabilityCard.vue", "utf8");
 const videoFactExplanationCard = readFileSync("src/components/easy/VideoFactExplanationCard.vue", "utf8");
+const agentProcessCard = readFileSync("src/components/easy/AgentProcessCard.vue", "utf8");
 const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
 const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
 const kniaFaultRatioBar = readFileSync("src/components/knia/KniaFaultRatioBar.vue", "utf8");
@@ -58,6 +61,9 @@ const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vu
 const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
 const sanitizerContracts = [
   "sanitizeUserVisibleText",
+  "cleanUserFacingCopy",
+  "removeRawJsonFragments",
+  "collapseRepeatedPhrases",
   "formatKniaBody",
   "splitLegalBasisParagraphs",
   "참고할 수 있는 근거",
@@ -70,10 +76,42 @@ if (missingSanitizerContracts.length) {
   process.exit(1);
 }
 const publicUserFiles = [dashboardView, caseDetailView, easyReportView, caseWorkspaceGuidanceData].join("\n");
-const forbiddenPublicPhrases = ["직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.", "관련성이 있는 근거입니다.", "교통사고 법률 설명 자료", "=4, =4.", "=9", ", ="];
+const forbiddenPublicPhrases = [
+  "직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.",
+  "관련성이 있는 근거입니다.",
+  "교통사고 법률 설명 자료",
+  "=4, =4.",
+  "=9",
+  ", =",
+];
+const publicReportFiles = [easyReportView, relatedVideoCard, kniaVideoLinkCard, topConclusionCard].join("\n");
+const forbiddenGeneralReportPhrases = [
+  "영상 파일은 LawCompass 서버에 저장하지 않고",
+  "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다",
+  "참고용 분석입니다",
+  "조건부 결과는 특정 테스트 영상에 맞춘 답이 아니라",
+  "이 내용은 유사 근거와 입력 사실을 바탕으로 한 참고용 예상입니다",
+  "더 확인하면 좋은 사실",
+  "차량 파손 정도는 어느 정도인가요",
+  "인명피해 여부",
+  "신호 상태",
+  "사고 장소",
+  "상대방 행위",
+  "{\"inj",
+  "정차 중 후미추돌 사고 정차 중 후미추돌 사고",
+];
 const publicPhraseLeaks = forbiddenPublicPhrases.filter((token) => publicUserFiles.includes(token));
 if (publicPhraseLeaks.length) {
   console.error("public display exposes internal wording", publicPhraseLeaks);
+  process.exit(1);
+}
+const publicReportPhraseLeaks = forbiddenGeneralReportPhrases.filter((token) => publicReportFiles.includes(token));
+if (publicReportPhraseLeaks.length) {
+  console.error("general user report exposes hidden copy", publicReportPhraseLeaks);
+  process.exit(1);
+}
+if (accidentPartyTypeActionCard.includes("먼저 해 주세요") || accidentPartyTypeActionCard.includes("top_actions")) {
+  console.error("accident party card must not duplicate action checklist shown in the three-action card");
   process.exit(1);
 }
 const styles = readFileSync("src/styles.css", "utf8");
@@ -83,6 +121,7 @@ const expertSource = [
   videoFactExplanationCard,
   easyLegalBasisCard,
   easyReportView,
+  agentProcessCard,
   styles,
   displaySanitizer,
 ].join("\n");
@@ -91,6 +130,7 @@ const expertScopedSource = [
   expertGuidanceCard,
   videoFactExplanationCard,
   easyLegalBasisCard,
+  agentProcessCard,
 ].join("\n");
 const requiredExpertTokens = [
   "importance-badge",
@@ -171,7 +211,7 @@ const requiredErrorUx = [
   "video_label",
   "영상 신뢰도"
 ];
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, kniaFaultRatioBar, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, topConclusionCard, relatedVideoCard, kniaVideoLinkCard, kniaFaultRatioBar, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
@@ -198,12 +238,11 @@ if (evidenceLeaks.length) {
 }
 
 const kniaLinkCardContracts = [
-  "KNIA 원문 기준 및 관련 영상",
-  "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
   "target=\"_blank\"",
   "rel=\"noopener noreferrer\"",
-  "safeSourceUrl || video.has_knia_candidate",
-  "수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.",
+  "safeSourceUrl || hasKniaCandidate",
+  "KNIA 관련 영상 보기",
+  "KNIA 원문 기준 보기",
 ];
 const kniaCardText = [relatedVideoCard, kniaVideoLinkCard, easyReportView, kniaChartView].join("\n");
 const missingKniaCardContracts = kniaLinkCardContracts.filter((token) => !kniaCardText.includes(token));
@@ -217,6 +256,17 @@ if (kniaCardText.includes("<iframe") || kniaCardText.includes("<video")) {
 }
 if (relatedVideoCard.includes("<img") || kniaVideoLinkCard.includes("<img")) {
   console.error("KNIA link cards must not render default thumbnails as images");
+  process.exit(1);
+}
+const forbiddenKniaNoticeText = [
+  "KNIA 원문 기준 및 관련 영상",
+  "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
+  "영상 파일은 LawCompass 서버에 저장하지 않고",
+  "자료 출처: 과실비율정보포털",
+];
+const kniaNoticeLeaks = forbiddenKniaNoticeText.filter((token) => kniaVideoLinkCard.includes(token) || easyReportView.includes(token));
+if (kniaNoticeLeaks.length) {
+  console.error("user-facing KNIA link copy should stay inside evidence cards without notice text", kniaNoticeLeaks);
   process.exit(1);
 }
 
@@ -298,11 +348,11 @@ if (kniaColorLeaks.length) {
 
 const userFriendlyKniaContracts = [
   "관련 KNIA 근거 및 영상",
-  "RelatedVideoCard v-if=\"simpleKniaLinkCard\"",
   "simple_report?.knia_and_video?.primary",
   "KNIA 관련 영상 보기",
   "KNIA 원문 기준 보기",
-  "상세 기준 수집 필요",
+  "simpleKniaPartyLabel",
+  "차대차 사고",
 ];
 const missingUserFriendlyKnia = userFriendlyKniaContracts.filter((token) => !easyReportView.includes(token) && !kniaVideoLinkCard.includes(token));
 if (missingUserFriendlyKnia.length) {
@@ -370,6 +420,9 @@ if (collisionTargetIndex < 0 || locationIndex < 0 || collisionTargetIndex > loca
 
 const spinnerContracts = [
   "analysis-loading-spinner",
+  "analysis-loading-text",
+  "analysis-loading-title",
+  "analysis-loading-message",
   "spinner-orb",
   "--progress",
   "safePercent",
@@ -379,6 +432,20 @@ const spinnerContracts = [
 const missingSpinnerContracts = spinnerContracts.filter((token) => !analysisLoadingSpinner.includes(token) && !caseDetailView.includes(token));
 if (missingSpinnerContracts.length) {
   console.error("analysis loading spinner contract failed", missingSpinnerContracts);
+  process.exit(1);
+}
+
+const agentProcessContracts = [
+  ".agent-process-card",
+  ".process-stat",
+  ".process-step",
+  "overflow-wrap: anywhere",
+  "rgba(201, 169, 98",
+  "grid-template-columns: repeat(auto-fit",
+];
+const missingAgentProcessContracts = agentProcessContracts.filter((token) => !agentProcessCard.includes(token));
+if (missingAgentProcessContracts.length) {
+  console.error("agent process diagnostics card contract failed", missingAgentProcessContracts);
   process.exit(1);
 }
 

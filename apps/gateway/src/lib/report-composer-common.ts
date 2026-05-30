@@ -38,6 +38,81 @@ export const BAD_VALUE_PATTERNS = [
   /,\s*=0/g,
 ];
 
+export const HIDDEN_USER_COPY_PATTERNS = [
+  /영상 파일은 LawCompass 서버에 저장하지 않고.*?(?:제공합니다\.?|$)/g,
+  /과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다\.?/g,
+  /참고용 분석입니다\.?/g,
+  /조건부 결과는 특정 테스트 영상에 맞춘 답이 아니라[\s\S]*?판단 구조입니다\.?/g,
+  /이 내용은 유사 근거와 입력 사실을 바탕으로 한 참고용 예상입니다\.[\s\S]*?달라질 수 있습니다\.?/g,
+  /실제 결과는 보험사, 분쟁심의, 수사기관, 법원의 판단에 따라 달라질 수 있습니다\.?/g,
+  /더 확인하면 좋은 사실/g,
+  /차량 파손 정도는 어느 정도인가요\??/g,
+  /인명피해 여부/g,
+  /신호 상태/g,
+  /사고 장소/g,
+  /상대방 행위/g,
+];
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function removeRawJsonFragments(value: string) {
+  return value
+    .replace(/\{["']?[A-Za-z_가-힣][^{}]{0,180}(?=$|\s)/g, " ")
+    .replace(/"\s*:\s*("[^"]*"|\d+|true|false|null)?/g, " ")
+    .trim();
+}
+
+export function collapseRepeatedPhrases(value: string) {
+  const phrases = ["정차 중 후미추돌 사고", "후미추돌 사고", "차대차 사고", "블랙박스 과실비율"];
+  let output = value.replace(/\s+/g, " ").trim();
+  for (const phrase of phrases) {
+    output = output.replace(new RegExp(`(?:${escapeRegExp(phrase)}\\s*){2,}`, "g"), `${phrase} `);
+  }
+  return output.replace(/\s{2,}/g, " ").trim();
+}
+
+export function cleanUserFacingCopy(value: any) {
+  let text = String(value ?? "");
+  for (const pattern of HIDDEN_USER_COPY_PATTERNS) text = text.replace(pattern, " ");
+  return collapseRepeatedPhrases(removeRawJsonFragments(text))
+    .replace(/\s+([,.])/g, "$1")
+    .replace(/^[\s,.;:·|-]+|[\s,.;:·|-]+$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+export function resolveAccidentPartyLabel(input: {
+  accident_party_label?: any;
+  accident_party_type?: any;
+  chart_no?: any;
+}) {
+  const existing = cleanText(input.accident_party_label, "");
+  if (existing && existing !== "확인이 필요합니다.") return existing;
+  const type = String(input.accident_party_type || "").trim();
+  const byType: AnyRecord = {
+    car_vs_car: "차대차 사고",
+    vehicle_vs_vehicle: "차대차 사고",
+    car_vs_person: "차대보행자 사고",
+    pedestrian_crosswalk_accident: "차대보행자 사고",
+    car_vs_bicycle: "차대자전거 사고",
+    bicycle_collision: "차대자전거 사고",
+    single_vehicle: "단독 사고",
+    single_vehicle_accident: "단독 사고",
+    object_collision: "물체/시설물 사고",
+    car_vs_object: "물체/시설물 사고",
+  };
+  if (byType[type]) return byType[type];
+  const chartNo = cleanText(input.chart_no, "");
+  if (chartNo.startsWith("차")) return "차대차 사고";
+  if (chartNo.startsWith("보")) return "차대보행자 사고";
+  if (chartNo.startsWith("자") || chartNo.startsWith("거")) return "차대자전거 사고";
+  if (chartNo.startsWith("단")) return "단독 사고";
+  if (chartNo.startsWith("기") || chartNo.startsWith("물")) return "물체/시설물 사고";
+  return "확인이 필요합니다.";
+}
+
 export const SAFE_INPUT_FIELDS = new Set(["accident_party_type", "accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "pedestrian_visible", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "pedestrian_signal", "bicycle_location", "bicycle_direction", "centerline_crossed", "centerline_cross_reason", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "non_contact_trigger", "trigger_actor_type", "trigger_actor_behavior", "direct_collision_partner_type", "rear_vehicle_collision", "collision_partner_type", "primary_collision_target", "collision_point_visible", "collision_point_location", "front_vehicle_stopped", "ego_turn_direction", "intersection", "stopped_vehicle_without_lights", "highway_or_expressway"]);
 
 export function asArray(value: any): any[] {
@@ -72,6 +147,7 @@ export function cleanText(value: any, fallback = "확인이 필요합니다.") {
   if (mapped) return mapped;
   let text = raw;
   for (const pattern of BAD_VALUE_PATTERNS) text = text.replace(pattern, "");
+  text = cleanUserFacingCopy(text);
   text = text
     .replace(/^\s*[,.]\s*/g, "")
     .replace(/\s*,\s*,\s*/g, ", ")
