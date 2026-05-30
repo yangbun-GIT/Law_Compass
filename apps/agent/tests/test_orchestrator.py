@@ -18,6 +18,7 @@ def test_analyze_case_minimum_fields():
         "agent_task_packets",
         "agent_goal_result",
         "agent_replan",
+        "specialist_consensus",
         "agent_trace",
         "agent_quality_packet",
         "reflection_loop",
@@ -58,11 +59,13 @@ def test_analyze_case_minimum_fields():
     assert "agent_task_packets" in result["agent_quality_packet"]["packet_contract"]["present_packets"]
     assert "agent_goal_result" in result["agent_quality_packet"]["packet_contract"]["present_packets"]
     assert "agent_replan" in result["agent_quality_packet"]["packet_contract"]["present_packets"]
+    assert "specialist_consensus" in result["agent_quality_packet"]["packet_contract"]["present_packets"]
     assert result["agent_quality_packet"]["guardrail_checks"]["safe_metadata_only"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["task_plan_safe_metadata_only"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["task_packets_safe_metadata_only"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["goal_result_safe_metadata_only"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["replan_safe_metadata_only"] is True
+    assert result["agent_quality_packet"]["guardrail_checks"]["specialist_consensus_safe_metadata_only"] is True
     assert result["agent_quality_packet"]["evidence_source_status"]["version"] == "evidence-source-status-v2"
     assert result["expert_guidance_sections"]["version"] == "expert-guidance-sections-v1"
     assert "expert_guidance_sections" in AnalysisOutput(**result).model_dump()
@@ -72,10 +75,12 @@ def test_analyze_case_minimum_fields():
     assert "agent_replan" in AnalysisOutput(**result).model_dump()
     assert "specialist_agent_results" in AnalysisOutput(**result).model_dump()
     assert "specialist_prompt_registry" in AnalysisOutput(**result).model_dump()
+    assert "specialist_consensus" in AnalysisOutput(**result).model_dump()
     assert result["model_info"]["agent_plan_version"] == "agent-plan-v1"
     assert result["model_info"]["agent_task_packets_version"] == "agent-task-packets-v1"
     assert result["model_info"]["agent_goal_result_version"] == "agent-goal-result-v1"
     assert result["model_info"]["agent_replan_version"] == "agent-replan-v1"
+    assert result["model_info"]["specialist_consensus_version"] == "specialist-consensus-v1"
     assert result["model_info"]["agent_quality_packet_version"] == "agent-quality-packet-v1"
     assert result["model_info"]["evidence_source_status"]["version"] == "evidence-source-status-v2"
     assert result["reflection_loop"]["version"] == "agent-reflection-loop-v1"

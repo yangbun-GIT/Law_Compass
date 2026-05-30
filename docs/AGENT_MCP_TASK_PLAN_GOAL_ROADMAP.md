@@ -799,6 +799,16 @@ P4-3 완료 기록:
 
 - 충돌 fixture에서 50:50 fallback으로 바로 도망가지 않고 조건부 결과 또는 질문이 생성되는지 확인한다.
 
+P4-4 완료 기록:
+
+- `apps/agent/app/services/specialist_consensus.py`를 추가해 Agent 결과와 기존 goal/fact arbitration 충돌을 `accident_target_conflict`, `accident_type_conflict`, `signal_status_conflict`, `knia_standard_conflict`, `fault_direction_conflict`, `civil_criminal_conflict` taxonomy로 분류한다.
+- 합의 우선순위는 `confirmed_video_fact`, `explicit_user_fact`, `direct_evidence`, `llm_summary`, `fallback` 순서로 기록한다.
+- 조건부 과실 분기나 신호 불확실성이 있으면 `needs_conditionals`와 `present_conditional_results_before_fault_ratio` answer policy로 남기고, 충돌이 있으면 flat 50:50 fallback을 금지하는 metadata를 남긴다.
+- `orchestration_output.py`는 prompt registry 이후 `specialist_consensus`를 연결하고 `model_info.specialist_consensus_version`을 기록한다.
+- `agent_execution_trace.py`와 `agent_quality_packet.py`가 consensus status, conflict count, conditional conflict count, answer policy, safe metadata 여부를 추적한다.
+- `AnalysisOutput`에 `specialist_consensus`를 additive 필드로 추가했다. 기존 public route, DB schema, Redis key, storage path, 외부 API 종류는 변경하지 않았다.
+- 검증은 `tests/test_specialist_consensus.py`, 기존 prompt/runner/goal/contract/orchestrator/task/replan 회귀 테스트로 수행한다.
+
 ### P5. 영상 사실 추출과 Agent 입력 계약 고도화
 
 목적: 영상 처리 결과가 Agent 판단에 필요한 정량 사실로 연결되게 하되, 오염된 사실은 확정하지 않게 한다.
@@ -1139,8 +1149,8 @@ P4-3 완료 기록:
 | P1 | 완료 | Agent 실행 packet, Specialist Agent/persona, MCP Tool 계약을 additive schema와 단위 테스트로 고정 |
 | P2 | 준비 완료 | Task-Plan-Goal 런타임 연결 |
 | P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
-| P4 | 진행 중 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter, P4-3 persona/prompt version registry 완료. 다음은 P4-4 Agent 합의/충돌 처리 |
-| P5 | 대기 | 영상 사실 추출 고도화 |
+| P4 | 완료 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter, P4-3 persona/prompt version registry, P4-4 Agent consensus/conflict packet 완료 |
+| P5 | 진행 준비 | 다음은 P5-1 사고 기점 탐지 강화 |
 | P6 | 대기 | 근거 검색/판단 계약 고도화 |
 | P7 | 대기 | Gateway/Frontend 표시 계약 |
 | P8 | 대기 | 관측성/비용/운영 리스크 |
@@ -1151,6 +1161,6 @@ P4-3 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P4-4. Agent 합의/충돌 처리**부터 진행한다.
+다음 개발은 **P5-1. 사고 기점 탐지 강화**부터 진행한다.
 
-P4-4를 시작할 때는 Specialist Agent 결과 간 충돌 유형을 먼저 정의하고, 확정 영상 fact, 사용자 명시 입력, KNIA/법령/판례 근거, LLM 요약, fallback의 우선순위가 trace 또는 quality packet에서 확인되도록 한다. 충돌이 해결되지 않으면 50:50 fallback으로 바로 도망가지 않고 조건부 결과 또는 추가 질문으로 넘긴다.
+P5-1을 시작할 때는 사고 전 등장 객체, 횡단보도, 자막, 블랙박스 UI가 직접 사고 대상으로 승격되지 않도록 사고 후보 구간을 먼저 잡는다. YOLO/OpenAI/frame observation은 확정 사고 사실이 아니라 후보 관찰값으로 시작하고, 충분한 근거가 있을 때만 Agent 입력 계약에서 반영 가능한 상태로 올린다.

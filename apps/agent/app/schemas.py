@@ -78,6 +78,7 @@ class AnalysisOutput(BaseModel):
     agent_replan: dict[str, Any] = Field(default_factory=dict)
     specialist_agent_results: dict[str, Any] = Field(default_factory=dict)
     specialist_prompt_registry: dict[str, Any] = Field(default_factory=dict)
+    specialist_consensus: dict[str, Any] = Field(default_factory=dict)
     agent_trace: dict[str, Any] = Field(default_factory=dict)
     agent_quality_packet: dict[str, Any] = Field(default_factory=dict)
     expert_guidance_sections: dict[str, Any] = Field(default_factory=dict)

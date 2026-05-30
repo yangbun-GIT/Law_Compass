@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P4-4 Specialist Agent Consensus
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P4-4 단계를 완료했다. 이번 변경은 Specialist Agent 결과와 기존 goal/fact arbitration 충돌을 별도 합의 packet으로 분류해, 불확실한 사고에서 50:50 fallback으로 바로 떨어지지 않도록 조건부 결과 또는 추가 질문 정책을 노출하는 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Consensus packet | `apps/agent/app/services/specialist_consensus.py`를 추가했다. 사고 대상, 사고 유형, 신호 상태, KNIA 기준, 과실 방향, 형사/민사 판단 충돌을 표준 taxonomy로 분류한다. |
+| 우선순위 | `confirmed_video_fact`, `explicit_user_fact`, `direct_evidence`, `llm_summary`, `fallback` 순서의 합의 우선순위를 packet에 기록한다. |
+| 결과 연결 | `orchestration_output.py`에서 prompt registry 이후 `specialist_consensus`를 붙이고, `model_info.specialist_consensus_version`을 기록한다. |
+| Trace/quality | `agent_execution_trace.py`와 `agent_quality_packet.py`가 consensus status, conflict count, conditional conflict count, answer policy, flat 50:50 fallback 차단 여부를 추적한다. |
+| Schema | `AnalysisOutput`에 `specialist_consensus`를 additive 필드로 추가했다. 기존 public route, DB schema, Redis key, storage path, 외부 API 종류는 변경하지 않았다. |
+| 검증 | Agent 컨테이너에서 `python -m pytest tests/test_specialist_consensus.py tests/test_specialist_prompt_registry.py tests/test_specialist_agent_runners.py tests/test_agent_goal_aggregator.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_agent_task_packets.py tests/test_agent_replan.py`를 실행해 합의 packet과 기존 Agent 결과 회귀를 확인했다. |
+
+P4-4는 실제 사용자 문구를 즉시 바꾸기보다, Agent 결과가 충돌하거나 조건부 분기가 필요할 때 이를 판단 계약에서 관측 가능하게 만든 단계다. 다음 P5-1에서는 영상 사실 추출 쪽으로 넘어가 사고 기점 탐지와 후보 구간 품질을 보강한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P4-3 Specialist Agent Prompt/Persona Version
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P4-3 단계를 완료했다. 이번 변경은 LLM을 쓰는 Specialist Agent와 deterministic Agent를 구분하고, prompt/persona guardrail version을 trace와 quality packet에서 확인할 수 있게 만든 작업이다.

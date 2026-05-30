@@ -24,6 +24,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
     replan = output.get("agent_replan") or {}
     specialist_results = output.get("specialist_agent_results") or {}
     prompt_registry = output.get("specialist_prompt_registry") or {}
+    specialist_consensus = output.get("specialist_consensus") or {}
 
     steps = [
         _step(
@@ -104,6 +105,20 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
             },
         ),
         _step(
+            "specialist_consensus",
+            "verify",
+            "completed" if specialist_consensus.get("status") in {"ready", "resolved_by_priority"} else "needs_review",
+            {
+                "version": specialist_consensus.get("version"),
+                "status": specialist_consensus.get("status"),
+                "conflict_count": specialist_consensus.get("conflict_count", 0),
+                "blocking_conflict_count": specialist_consensus.get("blocking_conflict_count", 0),
+                "conditional_conflict_count": specialist_consensus.get("conditional_conflict_count", 0),
+                "answer_policy": (specialist_consensus.get("resolution") or {}).get("answer_policy"),
+                "safe_metadata_only": specialist_consensus.get("safe_metadata_only") is True,
+            },
+        ),
+        _step(
             "claim_validation",
             "verify",
             "needs_review" if claim_evidence.get("unsupported_claim_count") else "completed",
@@ -158,6 +173,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
         "replan": _replan_summary(replan),
         "specialist_agent_results": _specialist_results_summary(specialist_results),
         "specialist_prompt_registry": _prompt_registry_summary(prompt_registry),
+        "specialist_consensus": _specialist_consensus_summary(specialist_consensus),
         "step_count": len(steps),
         "steps": steps,
     }
@@ -270,4 +286,18 @@ def _prompt_registry_summary(prompt_registry: dict[str, Any]) -> dict[str, Any]:
         "role_count": prompt_registry.get("role_count", 0),
         "coverage_complete": prompt_registry.get("coverage_complete") is True,
         "safe_metadata_only": prompt_registry.get("safe_metadata_only") is True,
+    }
+
+
+def _specialist_consensus_summary(specialist_consensus: dict[str, Any]) -> dict[str, Any]:
+    resolution = specialist_consensus.get("resolution") if isinstance(specialist_consensus.get("resolution"), dict) else {}
+    return {
+        "version": specialist_consensus.get("version"),
+        "status": specialist_consensus.get("status"),
+        "conflict_count": specialist_consensus.get("conflict_count", 0),
+        "blocking_conflict_count": specialist_consensus.get("blocking_conflict_count", 0),
+        "conditional_conflict_count": specialist_consensus.get("conditional_conflict_count", 0),
+        "unresolved_conflict_count": specialist_consensus.get("unresolved_conflict_count", 0),
+        "answer_policy": resolution.get("answer_policy"),
+        "safe_metadata_only": specialist_consensus.get("safe_metadata_only") is True,
     }

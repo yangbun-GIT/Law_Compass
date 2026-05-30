@@ -18,6 +18,10 @@ from app.services.specialist_prompt_registry import (
     VERSION as SPECIALIST_PROMPT_REGISTRY_VERSION,
     attach_specialist_prompt_registry,
 )
+from app.services.specialist_consensus import (
+    VERSION as SPECIALIST_CONSENSUS_VERSION,
+    attach_specialist_consensus,
+)
 from app.services.agent_execution_trace import (
     VERSION as AGENT_TRACE_VERSION,
     build_agent_execution_trace,
@@ -119,6 +123,8 @@ def enrich_analysis_output(
     output["model_info"]["specialist_agent_runners_version"] = SPECIALIST_AGENT_RUNNERS_VERSION
     attach_specialist_prompt_registry(output)
     output["model_info"]["specialist_prompt_registry_version"] = SPECIALIST_PROMPT_REGISTRY_VERSION
+    attach_specialist_consensus(output)
+    output["model_info"]["specialist_consensus_version"] = SPECIALIST_CONSENSUS_VERSION
     output["agent_trace"] = build_agent_execution_trace(output)
     output["model_info"]["agent_trace_version"] = AGENT_TRACE_VERSION
     output["agent_quality_packet"] = build_agent_quality_packet(output)
