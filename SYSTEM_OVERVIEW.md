@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P3-4 표준 MCP 도입 판단 Gate
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P3-4 단계를 완료했다. 이번 변경은 표준 MCP Host/Client/Server를 바로 도입하지 않고, 현재 내부 MCP-like executor를 유지할지 표준 MCP 도입 검토로 넘어갈지를 같은 조건표로 판단하도록 고정한 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 판단 모듈 | `apps/agent/app/mcp/standard_mcp_gate.py`를 추가해 `evaluate_standard_mcp_adoption()`이 표준 MCP 도입 여부를 deterministic metadata로 반환한다. |
+| 도입 조건 | 외부 tool/agent 합계 3개 이상, 현재 executor scope 분리 부족, cross-host tool reuse 필요, 표준 MCP client 연동 필요, 독립 process 격리 필요 조건 중 하나라도 충족되면 `adopt_standard_mcp`를 권고한다. |
+| 유지 조건 | 위 조건이 없으면 `keep_internal_mcp_like`를 반환하고 내부 registry/executor hardening을 계속한다. |
+| 비변경 범위 | 표준 MCP runtime, transport, 외부 server/client, 기존 tool 실행 동작은 변경하지 않았다. 이번 단계는 판단 gate와 테스트만 추가한다. |
+| 검증 | Agent 컨테이너에서 `python -m pytest tests/test_standard_mcp_gate.py tests/test_mcp_tool_registry.py tests/test_mcp_tool_executor.py tests/test_mcp_route_boundaries.py tests/test_agent_contracts.py`를 실행해 P3 tool boundary 회귀를 확인했다. |
+
+P3-4는 표준 MCP 도입을 감으로 결정하지 않도록 하는 기준선이다. 다음 구조 보강 단계는 P4 `전문 Agent 역할 독립화`다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P3-3 직접 Service 호출 경로 정리
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P3-3 단계를 완료했다. 이번 변경은 모든 내부 pure function을 무조건 tool executor로 보내지 않고, DB/RAG/검색/캐시/권한 경계가 있는 route부터 MCP-like executor를 경유하도록 정리한 작업이다.

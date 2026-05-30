@@ -648,6 +648,14 @@ P3-3 제한 사항:
 
 - 도입 여부가 감정적 결정이 아니라 조건표로 판단되는지 문서화한다.
 
+P3-4 완료 기록:
+
+- `apps/agent/app/mcp/standard_mcp_gate.py`에 `evaluate_standard_mcp_adoption()`을 추가했다.
+- 표준 MCP 도입 조건은 외부 tool/agent 합계 3개 이상, 내부 executor 권한 분리 부족, cross-host reuse, 표준 MCP client 필요, 독립 process 격리 필요로 고정했다.
+- 조건이 충족되지 않으면 현재 내부 MCP-like registry/executor를 유지하고 hardening을 계속한다.
+- 이번 단계는 판단 gate만 추가했으며 표준 MCP runtime, transport, 외부 server/client, 기존 tool 실행 동작은 변경하지 않았다.
+- 검증은 `tests/test_standard_mcp_gate.py`와 기존 P3 MCP registry/executor/route boundary 회귀 테스트로 수행한다.
+
 ### P4. 전문 Agent 역할 독립화
 
 목적: persona 이름만 있는 구조를 벗어나, 각 전문 Agent가 독립 결과를 만들고 합의/충돌을 남기게 한다.
@@ -1097,7 +1105,7 @@ P3-3 제한 사항:
 | P0 | 완료 | P0-1 용어/성공 기준, P0-2 구현 inventory, P0-3 회귀 기준선, P0-4 작업 문서 연결 완료. 이후 단계는 기존 동작과 결과 품질 비회귀 기준을 유지해야 함 |
 | P1 | 완료 | Agent 실행 packet, Specialist Agent/persona, MCP Tool 계약을 additive schema와 단위 테스트로 고정 |
 | P2 | 준비 완료 | Task-Plan-Goal 런타임 연결 |
-| P3 | 대기 | 내부 MCP 계층 강화 |
+| P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
 | P4 | 대기 | 전문 Agent 역할 독립화 및 persona/role 고도화 |
 | P5 | 대기 | 영상 사실 추출 고도화 |
 | P6 | 대기 | 근거 검색/판단 계약 고도화 |
