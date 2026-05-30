@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P5-3 핵심 정량 fact 상태 계약
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P5-3 단계를 완료했다. 이번 변경은 영상 분석과 사용자 입력이 만들어낸 핵심 fact를 단순 값 목록이 아니라 `confirmed`, `candidate`, `needs_confirmation`, `conflict`, `ignored` 상태로 추적할 수 있게 만든 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Video input contract | `apps/agent/app/services/video_input_contract.py`가 `observation_states`와 `observation_state_summary`를 반환한다. 신호, 중앙선, 충돌 대상 후보, 정차, 2차 충돌 같은 관찰값이 어떤 상태로 판단 흐름에 들어가는지 확인할 수 있다. |
+| Observation state helper | `apps/agent/app/services/video_input_contract_observations.py`에 상태 생성 helper를 추가했다. accepted는 `confirmed`, confirmation candidate는 `needs_confirmation`, `*_candidate`/supporting 관찰값은 `candidate`, 계약 밖 값은 `ignored`로 분리한다. |
+| Fact arbitration contract | `apps/agent/app/services/fact_arbitration.py`가 사용자 입력과 영상 fact를 병합한 뒤 `fact_states`와 `fact_state_summary`를 반환한다. 충돌 fact는 `conflict`, 보완 질문으로 넘겨야 하는 fact는 `needs_confirmation`으로 표시된다. |
+| 정량 fact 검증 | 신호 가시성과 신호 색상 분리, 중앙선 침범과 침범 사유, 충돌 대상 후보의 확인 필요 상태를 회귀 테스트로 고정했다. |
+| 비변경 범위 | public API route, DB schema, Redis key, storage path, OpenAI/YOLO 호출 방식, 기존 사용자 결과 필드는 변경하지 않았다. 추가 필드는 additive contract다. |
+| 검증 | Agent 컨테이너에서 `python -m pytest tests/test_video_input_contract.py tests/test_fact_arbitration.py`, `tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_agent_task_packets.py tests/test_agent_goal_aggregator.py`를 실행했고, Worker 컨테이너에서 `python -m unittest discover -s tests -p 'test_frame_analysis_contract.py'`를 실행했다. |
+
+P5-3은 판단용 물리 fact의 상태를 드러내는 단계다. 다음 P5-4에서는 AI-Hub/공개 reference 평가 데이터를 실제 사용자 입력으로 주입하지 않고, 별도 reference 검증 자료로만 관리하는 경계를 더 명확히 한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P5-2 영상 직접 사고대상 추출 강화
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P5-2 단계를 완료했다. 이번 변경은 영상 분석에서 “화면에 보이는 객체 후보”와 “직접 충돌 대상”을 분리해, 차대차 사고가 보행자·자전거·이륜차 후보로 오염되는 문제를 줄이는 작업이다.

@@ -1180,3 +1180,10 @@ P5-2를 시작할 때는 `vehicle`, `pedestrian`, `bicycle`, `motorcycle`, `obje
 - 차대차 사고에서 보행자가 화면에 보이거나 횡단보도가 있어도 직접 충돌 대상이 차량이면 차대사람 Agent로 오염되지 않는 회귀 테스트를 추가했다.
 - 실제 보행자 직접 충돌이 구조화된 직접 대상 값으로 들어오면 기존처럼 차대사람 Agent로 라우팅되는 회귀 테스트를 함께 유지했다.
 - 다음 개발은 P5-3 핵심 정량 fact 추출이다. 신호등 유무·색상, 내 차량/상대 차량 신호의 가시성, 차선·중앙선·정차·2차 충돌·충돌 방향 같은 핵심 정량 fact가 `confirmed`, `candidate`, `needs_confirmation`, `conflict`, `ignored` 중 하나의 상태를 갖도록 정리한다.
+
+## 2026-05-31 진행 기록 보강 2
+
+- P5-3 핵심 정량 fact 추출 완료: 영상 관찰값과 fact arbitration 결과에 `confirmed`, `candidate`, `needs_confirmation`, `conflict`, `ignored` 상태를 명시하는 additive contract를 추가했다.
+- `video_input_contract`는 `observation_states`와 `observation_state_summary`를 반환한다. 신호 가시성, 신호 색상, 중앙선 침범, 충돌 대상 후보처럼 판단에 쓰이는 물리 fact가 어떤 상태인지 관리자/테스트 화면에서 추적할 수 있다.
+- `fact_arbitration`은 `fact_states`와 `fact_state_summary`를 반환한다. 사용자 입력과 영상 fact가 일치하면 `confirmed`, 보완 질문이 필요하면 `needs_confirmation`, 실제 충돌이면 `conflict`로 구분한다.
+- 다음 개발은 P5-4 AI-Hub/공개 reference 평가 연결이다. AI-Hub 라벨/공개 영상 설명은 실제 사용자 case fact로 주입하지 않고, 영상 추출 정확도 검증용 reference로만 분리해 사용해야 한다.

@@ -742,6 +742,61 @@ def test_direct_collision_partner_vehicle_corrects_broader_partner_type():
     assert "pedestrian_visible" not in contract["fact_patch"]
 
 
+def test_video_contract_exposes_observation_states_for_quantitative_facts():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "centerline_crossed",
+                        "value": True,
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
+                    },
+                    {
+                        "field": "centerline_cross_reason",
+                        "value": "road_obstruction",
+                        "confidence": 0.82,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
+                    },
+                    {
+                        "field": "opponent_signal",
+                        "value": "red",
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_3.jpg", "frame_4.jpg"],
+                    },
+                    {
+                        "field": "opponent_signal_visible",
+                        "value": False,
+                        "confidence": 0.92,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_3.jpg", "frame_4.jpg"],
+                    },
+                    {
+                        "field": "primary_collision_target",
+                        "value": "bicycle_candidate",
+                        "confidence": 0.78,
+                        "source": "vision_model:yolo_sequence",
+                        "frame_refs": ["frame_5.jpg", "frame_6.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    states = {item["field"]: item["status"] for item in contract["observation_states"]}
+    assert states["centerline_crossed"] == "confirmed"
+    assert states["centerline_cross_reason"] == "confirmed"
+    assert states["opponent_signal_visible"] == "confirmed"
+    assert states["opponent_signal"] == "needs_confirmation"
+    assert states["primary_collision_target"] == "needs_confirmation"
+    assert contract["observation_state_summary"]["counts"]["confirmed"] == 3
+    assert "opponent_signal" in contract["observation_state_summary"]["high_priority_fields"]
+
+
 def test_right_turn_front_vehicle_and_signal_visibility_video_facts():
     contract = normalize_video_input_contract(
         {

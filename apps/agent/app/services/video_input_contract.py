@@ -15,6 +15,8 @@ from app.services.video_input_contract_observations import (
     confirmation_groups as build_confirmation_groups,
     has_observation_source,
     normalize_observation,
+    observation_state_summary,
+    observation_states as build_observation_states,
     passes_fact_quality,
     quality_summary,
 )
@@ -83,6 +85,7 @@ def normalize_video_input_contract(
     apply_video_fact_guards(fact_patch, accepted, uncertain)
     confirmation_candidates = build_confirmation_candidates(uncertain)
     confirmation_groups = build_confirmation_groups(accepted, confirmation_candidates)
+    observation_states = build_observation_states(accepted, uncertain, ignored, supporting, confirmation_candidates)
     warnings: list[str] = []
     if technical and not accepted:
         warnings.append("technical_video_metadata_not_treated_as_accident_fact")
@@ -102,6 +105,8 @@ def normalize_video_input_contract(
         "confirmation_candidates": confirmation_candidates,
         "confirmation_groups": confirmation_groups,
         "analysis_recovery": analysis_recovery,
+        "observation_states": observation_states,
+        "observation_state_summary": observation_state_summary(observation_states),
         "observation_quality_summary": quality_summary(accepted, uncertain, ignored, supporting, confirmation_candidates, confirmation_groups, analysis_recovery),
         "warnings": warnings,
         "fact_confidence_threshold": MIN_FACT_CONFIDENCE,

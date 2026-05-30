@@ -164,6 +164,53 @@ def quality_summary(
     }
 
 
+def observation_states(
+    accepted: list[dict[str, Any]],
+    uncertain: list[dict[str, Any]],
+    ignored: list[dict[str, Any]],
+    supporting: list[dict[str, Any]],
+    confirmation_candidates: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    confirmation_keys = {
+        _state_key(item)
+        for item in (confirmation_candidates or [])
+        if isinstance(item, dict)
+    }
+    states: list[dict[str, Any]] = []
+    for item in accepted:
+        states.append(_observation_state_item(item, "confirmed"))
+    for item in uncertain:
+        status = "needs_confirmation" if _state_key(item) in confirmation_keys else _uncertain_state(item)
+        states.append(_observation_state_item(item, status))
+    for item in supporting:
+        states.append(_observation_state_item(item, "candidate"))
+    for item in ignored:
+        states.append(_observation_state_item(item, "ignored"))
+    return sorted(
+        states,
+        key=lambda item: (
+            _status_rank(str(item.get("status") or "")),
+            str(item.get("field") or ""),
+            -float(item.get("confidence") or 0.0),
+        ),
+    )
+
+
+def observation_state_summary(states: list[dict[str, Any]]) -> dict[str, Any]:
+    counts: dict[str, int] = {status: 0 for status in ("confirmed", "candidate", "needs_confirmation", "conflict", "ignored")}
+    high_priority: list[str] = []
+    for item in states:
+        status = str(item.get("status") or "ignored")
+        counts[status] = counts.get(status, 0) + 1
+        field = str(item.get("field") or "")
+        if status in {"needs_confirmation", "conflict"} and field:
+            high_priority.append(field)
+    return {
+        "counts": counts,
+        "high_priority_fields": list(dict.fromkeys(high_priority))[:8],
+    }
+
+
 def confirmation_candidates(uncertain: list[dict[str, Any]]) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for item in uncertain:
@@ -236,3 +283,40 @@ def confirmation_groups(
             "reason": "opponent_signal_violation_observed",
         })
     return groups
+
+
+def _state_key(item: dict[str, Any]) -> tuple[str, str]:
+    return (str(item.get("field") or ""), str(item.get("value") or ""))
+
+
+def _uncertain_state(item: dict[str, Any]) -> str:
+    value = str(item.get("value") or "").strip().lower()
+    reason = str(item.get("reason") or "").strip().lower()
+    field = str(item.get("field") or "")
+    if value.endswith("_candidate") or "candidate" in reason or field in SUPPORTING_OBSERVATION_FIELDS:
+        return "candidate"
+    return "ignored"
+
+
+def _observation_state_item(item: dict[str, Any], status: str) -> dict[str, Any]:
+    out = {
+        "field": item.get("field"),
+        "value": item.get("value"),
+        "status": status,
+        "confidence": item.get("confidence"),
+        "source": item.get("source"),
+        "frame_ref_count": frame_ref_count_of(item),
+    }
+    if item.get("reason"):
+        out["reason"] = item.get("reason")
+    return out
+
+
+def _status_rank(status: str) -> int:
+    return {
+        "conflict": 0,
+        "needs_confirmation": 1,
+        "confirmed": 2,
+        "candidate": 3,
+        "ignored": 4,
+    }.get(status, 9)

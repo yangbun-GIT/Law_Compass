@@ -276,3 +276,44 @@ def test_primary_collision_target_candidate_conflicts_with_cross_field_user_targ
     assert pending["normalized_video_value"] == "pedestrian"
     assert pending["normalized_user_value"] == "vehicle"
     assert pending["matched_user_field"] == "collision_partner_type"
+
+
+def test_arbitration_exposes_fact_states_for_confirmed_confirmation_and_conflict():
+    result = arbitrate_facts(
+        user_facts={"stopped": True, "collision_partner_type": "vehicle"},
+        video_contract={
+            "fact_patch": {"stopped": True, "opponent_signal_visible": False},
+            "accepted_observations": [
+                {
+                    "field": "stopped",
+                    "value": True,
+                    "confidence": 0.96,
+                    "source": "frame_analysis:openai",
+                    "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
+                },
+                {
+                    "field": "opponent_signal_visible",
+                    "value": False,
+                    "confidence": 0.9,
+                    "source": "frame_analysis:openai",
+                    "frame_refs": ["frame_3.jpg"],
+                },
+            ],
+            "uncertain_observations": [
+                {
+                    "field": "primary_collision_target",
+                    "value": "pedestrian_candidate",
+                    "confidence": 0.74,
+                    "source": "vision_model:yolo",
+                    "frame_refs": ["frame_4.jpg", "frame_5.jpg"],
+                    "reason": "primary_collision_target_candidate_requires_direct_contact_evidence",
+                }
+            ],
+        },
+    )
+
+    states = {item["field"]: item["status"] for item in result["contract"]["fact_states"]}
+    assert states["stopped"] == "confirmed"
+    assert states["opponent_signal_visible"] == "confirmed"
+    assert states["direct_collision_partner_type"] == "needs_confirmation"
+    assert result["contract"]["fact_state_summary"]["counts"]["needs_confirmation"] == 1

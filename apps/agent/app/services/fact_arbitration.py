@@ -175,6 +175,16 @@ def arbitrate_facts(
         *[item for item in conflicts if item.get("needs_confirmation")],
         *[item for item in pending_video_confirmations if item.get("needs_confirmation")],
     ]
+    fact_states = _fact_states(
+        facts=facts,
+        conflicts=conflicts,
+        pending_video_confirmations=pending_video_confirmations,
+        applied_video_fields=applied_video_fields,
+        confirmed_fields=confirmed_fields,
+        kept_user_fields=kept_user_fields,
+        tentatively_supported_fields=tentatively_supported_fields,
+        fact_sources=fact_sources,
+    )
     arbitration_contract = {
         "version": VERSION,
         "policy": {
@@ -196,6 +206,8 @@ def arbitrate_facts(
         "pending_video_confirmations": pending_video_confirmations,
         "requires_confirmation": requires_confirmation,
         "confirmation_fields": sorted(_confirmation_field_names(requires_confirmation)),
+        "fact_states": fact_states,
+        "fact_state_summary": _fact_state_summary(fact_states),
     }
     return {"facts": facts, "contract": arbitration_contract}
 
@@ -387,6 +399,91 @@ def _confirmation_field_names(items: list[dict[str, Any]]) -> set[str]:
         if question_field:
             fields.add(question_field)
     return fields
+
+
+def _fact_states(
+    *,
+    facts: dict[str, Any],
+    conflicts: list[dict[str, Any]],
+    pending_video_confirmations: list[dict[str, Any]],
+    applied_video_fields: list[str],
+    confirmed_fields: list[str],
+    kept_user_fields: list[str],
+    tentatively_supported_fields: list[str],
+    fact_sources: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    states: dict[str, dict[str, Any]] = {}
+    for field, value in facts.items():
+        if _is_empty(value):
+            continue
+        source = fact_sources.get(field, {})
+        status = "confirmed" if field in confirmed_fields or field in applied_video_fields else "candidate"
+        if field in kept_user_fields:
+            status = "needs_confirmation"
+        if field in tentatively_supported_fields:
+            status = "candidate"
+        states[field] = {
+            "field": field,
+            "value": value,
+            "status": status,
+            "source": source.get("source") or "user",
+            "authority": source.get("authority") or _authority(field),
+        }
+    for item in pending_video_confirmations:
+        field = str(item.get("question_field") or item.get("recommended_fact_field") or item.get("field") or "")
+        if not field:
+            continue
+        states[field] = {
+            "field": field,
+            "value": item.get("recommended_fact_value", item.get("video_value")),
+            "status": "needs_confirmation",
+            "source": item.get("video_source") or "video",
+            "authority": item.get("authority") or _authority(field),
+            "reason": item.get("reason"),
+        }
+    for item in conflicts:
+        field = str(item.get("field") or "")
+        if not field:
+            continue
+        states[field] = {
+            "field": field,
+            "value": item.get("video_value"),
+            "user_value": item.get("user_value"),
+            "status": "conflict",
+            "source": item.get("video_source") or "video",
+            "authority": item.get("authority") or _authority(field),
+            "winner": item.get("winner"),
+            "reason": item.get("reason"),
+        }
+    return sorted(
+        states.values(),
+        key=lambda item: (_fact_state_rank(str(item.get("status") or "")), str(item.get("field") or "")),
+    )
+
+
+def _fact_state_summary(fact_states: list[dict[str, Any]]) -> dict[str, Any]:
+    counts: dict[str, int] = {status: 0 for status in ("confirmed", "candidate", "needs_confirmation", "conflict", "ignored")}
+    for item in fact_states:
+        status = str(item.get("status") or "ignored")
+        counts[status] = counts.get(status, 0) + 1
+    return {
+        "counts": counts,
+        "blocking_fields": [
+            str(item.get("field") or "")
+            for item in fact_states
+            if item.get("status") in {"needs_confirmation", "conflict"} and item.get("field")
+        ],
+    }
+
+
+def _fact_state_rank(status: str) -> int:
+    return {
+        "conflict": 0,
+        "needs_confirmation": 1,
+        "confirmed": 2,
+        "candidate": 3,
+        "ignored": 4,
+    }.get(status, 9)
 
 
 def _target_confirmation_bridge(field: str, video_value: Any, user: dict[str, Any]) -> dict[str, Any]:
