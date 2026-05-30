@@ -687,6 +687,14 @@ P3-4 완료 기록:
 - 하나의 Agent가 법률, 보험, 형사, 영상 판단을 모두 섞어서 반환하지 않는지 확인한다.
 - prompt가 길어졌다는 이유로 근거 검증, finality, safety constraint가 약해지지 않는지 확인한다.
 
+P4-0 완료 기록:
+
+- `apps/agent/app/services/specialist_role_inventory.py`를 추가해 현재 analyst/persona/specialist/report composer와 목표 Specialist Agent 역할의 mapping을 inventory로 고정했다.
+- 역할 group을 판단 책임 Agent, 관찰·검증 Agent, 표현·안내 Agent로 나누었다.
+- `no_agent_final_verdict`, `evidence_first`, `video_candidate_guard`, `role_handoff_required`, `presentation_cannot_add_facts`를 P4 이후 공통 role boundary rule로 기록했다.
+- 기존 orchestrator 실행 순서, public API/DTO, DB schema, Redis key, storage path, 외부 API 종류, LLM 호출 정책은 변경하지 않았다.
+- 검증은 `tests/test_specialist_role_inventory.py`와 기존 Agent contract/orchestrator 회귀 테스트로 수행한다.
+
 #### P4-1. Agent 역할 재정의
 
 - 최소 Agent 역할을 다음으로 고정한다.
@@ -1106,7 +1114,7 @@ P3-4 완료 기록:
 | P1 | 완료 | Agent 실행 packet, Specialist Agent/persona, MCP Tool 계약을 additive schema와 단위 테스트로 고정 |
 | P2 | 준비 완료 | Task-Plan-Goal 런타임 연결 |
 | P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
-| P4 | 대기 | 전문 Agent 역할 독립화 및 persona/role 고도화 |
+| P4 | 진행 중 | P4-0 role inventory와 boundary rule 완료. 다음은 P4-1 Specialist Agent 역할 interface 연결 |
 | P5 | 대기 | 영상 사실 추출 고도화 |
 | P6 | 대기 | 근거 검색/판단 계약 고도화 |
 | P7 | 대기 | Gateway/Frontend 표시 계약 |

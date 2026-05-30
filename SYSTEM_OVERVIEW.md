@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P4-0 Persona/Role 고도화 기준 정리
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P4-0 단계를 완료했다. 이번 변경은 기존 analyst/persona/specialist 이름을 바로 독립 Agent로 바꾸지 않고, 현재 파일과 목표 Specialist Agent 역할을 먼저 inventory로 묶어 역할 경계를 고정한 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Role inventory | `apps/agent/app/services/specialist_role_inventory.py`를 추가해 현재 분석 모듈, evidence stage, video input contract, report composer가 향후 어떤 Specialist Agent 역할로 분리될지 기록했다. |
+| Role group | 판단 책임 Agent, 관찰·검증 Agent, 표현·안내 Agent를 분리했다. 영상 관찰 Agent는 과실비율·형사책임을 판단하지 않고, 표현 Agent는 새 사고 사실이나 법률 주장을 추가하지 않는다. |
+| Boundary rule | `no_agent_final_verdict`, `evidence_first`, `video_candidate_guard`, `role_handoff_required`, `presentation_cannot_add_facts`를 P4 이후 공통 기준으로 고정했다. |
+| 비변경 범위 | 기존 orchestrator 실행 순서, public API/DTO, DB schema, Redis key, storage path, 외부 API 종류, LLM 호출 정책은 변경하지 않았다. |
+| 검증 | Agent 컨테이너에서 `python -m pytest tests/test_specialist_role_inventory.py tests/test_agent_contracts.py tests/test_orchestrator.py`를 실행해 role inventory와 기존 Agent 계약 회귀를 확인했다. |
+
+P4-0은 역할 기준 정리 단계다. 다음 단계 P4-1에서는 이 기준을 `run(input_packet) -> SpecialistAgentResult` 형태의 공통 interface로 연결한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P3-4 표준 MCP 도입 판단 Gate
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P3-4 단계를 완료했다. 이번 변경은 표준 MCP Host/Client/Server를 바로 도입하지 않고, 현재 내부 MCP-like executor를 유지할지 표준 MCP 도입 검토로 넘어갈지를 같은 조건표로 판단하도록 고정한 작업이다.
