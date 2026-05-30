@@ -125,6 +125,10 @@
           <strong>{{ uploadId || "-" }}</strong>
         </div>
         <div>
+          <span>영상 처리</span>
+          <strong>{{ preprocessJobId || "-" }}</strong>
+        </div>
+        <div>
           <span>분석 작업</span>
           <strong>{{ analysisJobId || "-" }}</strong>
         </div>
@@ -143,6 +147,75 @@
         </li>
       </ul>
       <p v-else class="kv">아직 등록된 작업이 없습니다.</p>
+    </article>
+
+    <article v-if="videoPreprocessDiagnostic" class="card video-diagnostic-panel">
+      <div class="diagnostic-head">
+        <div>
+          <p class="eyebrow">Video Preprocess</p>
+          <h3>Agent 전달 전 영상 처리 결과</h3>
+          <p class="kv">
+            YOLO 객체 후보와 OpenAI 프레임 관찰값이 Agent로 넘어가기 전에 어떤 데이터로 정리됐는지 확인합니다.
+          </p>
+        </div>
+        <button
+          v-if="canContinueAgentAnalysis"
+          class="btn"
+          :disabled="busy"
+          @click="continueAgentAnalysis"
+        >
+          {{ busy === "video-analysis" ? "Agent 분석 실행 중..." : "Agent 분석 계속 실행" }}
+        </button>
+      </div>
+
+      <div class="diagnostic-grid">
+        <div class="diagnostic-stat">
+          <span>대표 프레임</span>
+          <strong>{{ diagnosticFrameCount }}장</strong>
+        </div>
+        <div class="diagnostic-stat">
+          <span>OpenAI 관찰</span>
+          <strong>{{ diagnosticOpenAiCount }}개</strong>
+          <small>{{ diagnosticOpenAiStatus }}</small>
+        </div>
+        <div class="diagnostic-stat">
+          <span>YOLO 관찰</span>
+          <strong>{{ diagnosticYoloCount }}개</strong>
+          <small>{{ diagnosticYoloStatus }}</small>
+        </div>
+        <div class="diagnostic-stat">
+          <span>병합 관찰값</span>
+          <strong>{{ diagnosticMergedCount }}개</strong>
+        </div>
+      </div>
+
+      <div class="observation-section">
+        <h4>사람이 보기 쉬운 관찰값</h4>
+        <ul v-if="diagnosticObservations.length" class="list-reset observation-list">
+          <li v-for="(item, index) in diagnosticObservations" :key="`${item.field}-${index}`">
+            <div>
+              <strong>{{ item.display_label || observationFieldLabel(item.field) }}</strong>
+              <span class="badge" :class="diagnosticStatusClass(item.status)">
+                {{ item.status_label || item.source_family || "merged" }}
+              </span>
+            </div>
+            <p>{{ item.display_value || observationValueLabel(item.field, item.value) }}</p>
+            <p v-if="item.reason" class="kv">{{ item.reason }}</p>
+            <p class="kv">
+              신뢰도 {{ formatConfidence(item.confidence) }}
+              <template v-if="item.frame_ref_count">/ 프레임 {{ item.frame_ref_count }}장</template>
+              <template v-if="item.source_families?.length">/ 출처 {{ item.source_families.join(", ") }}</template>
+              <template v-else-if="item.source_family">/ 출처 {{ item.source_family }}</template>
+            </p>
+          </li>
+        </ul>
+        <p v-else class="kv">아직 영상 관찰값이 없습니다. 영상 전처리 작업 완료 후 표시됩니다.</p>
+      </div>
+
+      <details class="raw-diagnostic">
+        <summary>원본 진단 JSON 보기</summary>
+        <pre>{{ formatJson(videoPreprocessDiagnostic) }}</pre>
+      </details>
     </article>
 
     <EasyReportView
@@ -218,9 +291,11 @@ const facts = reactive<AccidentFacts>({});
 const file = ref<File | null>(null);
 const currentCaseId = ref("");
 const uploadId = ref("");
+const preprocessJobId = ref("");
 const analysisJobId = ref("");
 const jobs = ref<any[]>([]);
 const report = ref<any>(null);
+const videoPreprocessDiagnostic = ref<any>(null);
 const traceDiagnostic = ref<any>(null);
 const busy = ref(false);
 const message = ref("");
@@ -230,12 +305,46 @@ const followupError = ref("");
 
 const usesText = computed(() => mode.value === "text" || mode.value === "both");
 const usesVideo = computed(() => mode.value === "video" || mode.value === "both");
+const hasCompletedVideoAnalysis = computed(() => jobs.value.some(isCompletedVideoAnalysisJob));
+const canContinueAgentAnalysis = computed(() => Boolean(
+  currentCaseId.value
+  && uploadId.value
+  && videoPreprocessDiagnostic.value
+  && !hasCompletedVideoAnalysis.value
+));
+const diagnosticFrameCount = computed(() => videoPreprocessDiagnostic.value?.frame_selection?.representative_frame_count ?? 0);
+const diagnosticOpenAiCount = computed(() => videoPreprocessDiagnostic.value?.openai_frame_analysis?.observation_count ?? 0);
+const diagnosticYoloCount = computed(() => videoPreprocessDiagnostic.value?.yolo_frame_analysis?.observation_count ?? 0);
+const diagnosticMergedCount = computed(() => videoPreprocessDiagnostic.value?.merged_observations?.observation_count ?? 0);
+const diagnosticObservations = computed(() => (
+  videoPreprocessDiagnostic.value?.merged_observations?.human_observations
+  ?? videoPreprocessDiagnostic.value?.merged_observations?.observations
+  ?? []
+));
+const diagnosticOpenAiStatus = computed(() => {
+  const payload = videoPreprocessDiagnostic.value?.openai_frame_analysis;
+  if (!payload) return "대기";
+  return payload.enabled ? `${payload.model || "모델"} / ${payload.selected_frame_count ?? 0}장` : "비활성";
+});
+const diagnosticYoloStatus = computed(() => {
+  const payload = videoPreprocessDiagnostic.value?.yolo_frame_analysis;
+  if (!payload) return "대기";
+  return payload.enabled ? `${payload.model || "모델"} / ${payload.selected_frame_count ?? 0}장` : "비활성";
+});
 const canRun = computed(() => {
   if (!title.value.trim()) return false;
   if (usesText.value && !description.value.trim()) return false;
   if (usesVideo.value && !file.value) return false;
   return true;
 });
+
+function isSuccessfulJobStatus(status: unknown) {
+  return ["succeeded", "completed", "success", "done", "finished"].includes(String(status));
+}
+
+function isCompletedVideoAnalysisJob(job: any) {
+  return String(job?.type) === "video_analyze" && isSuccessfulJobStatus(job?.status);
+}
 
 function onFile(event: Event) {
   const selected = (event.target as HTMLInputElement).files?.[0] || null;
@@ -250,9 +359,11 @@ function onFile(event: Event) {
 function resetRun() {
   currentCaseId.value = "";
   uploadId.value = "";
+  preprocessJobId.value = "";
   analysisJobId.value = "";
   jobs.value = [];
   report.value = null;
+  videoPreprocessDiagnostic.value = null;
   traceDiagnostic.value = null;
   message.value = "";
 }
@@ -279,13 +390,14 @@ async function runTest() {
     currentCaseId.value = created.case.id;
 
     if (usesVideo.value) {
-      setMessage("영상을 업로드하고 전처리/분석 작업을 등록하고 있습니다.");
+      setMessage("영상을 업로드하고 Agent 전달 전 영상 처리 작업을 등록하고 있습니다.");
       const uploaded = await api.localUpload(created.case.id, file.value as File);
       uploadId.value = uploaded.upload_id;
-      const queued = await api.completeUpload(uploaded.upload_id);
-      analysisJobId.value = queued.job_id;
-      const finalVideoJob = await pollVideoPipelineUntilAnalyzed(created.case.id);
-      analysisJobId.value = finalVideoJob?.id || analysisJobId.value;
+      const queued = await api.completeUpload(uploaded.upload_id, { autoAnalyzeAfterPreprocess: false });
+      preprocessJobId.value = queued.job_id;
+      await pollVideoPreprocessUntilReady(created.case.id);
+      await loadVideoPreprocessDiagnostic();
+      setMessage("영상 처리 결과를 불러왔습니다. 아래 관찰값을 확인한 뒤 Agent 분석 계속 실행을 눌러 주세요.");
     } else {
       setMessage("텍스트 분석을 실행하고 있습니다.");
       await api.analyzeText(created.case.id, {
@@ -295,6 +407,7 @@ async function runTest() {
     }
 
     await refreshOutputs();
+    if (usesVideo.value) return;
     setMessage(report.value ? "테스트 분석 결과를 불러왔습니다." : "테스트 요청은 완료됐지만 아직 표시할 결과가 없습니다.", Boolean(report.value));
   } catch (error: any) {
     setMessage(formatApiError(error, "관리자 테스트 실행에 실패했습니다."), false);
@@ -306,9 +419,11 @@ async function runTest() {
 function resetOutputs() {
   currentCaseId.value = "";
   uploadId.value = "";
+  preprocessJobId.value = "";
   analysisJobId.value = "";
   jobs.value = [];
   report.value = null;
+  videoPreprocessDiagnostic.value = null;
   traceDiagnostic.value = null;
   followupError.value = "";
 }
@@ -378,6 +493,61 @@ async function submitFollowup(answers: Record<string, string>) {
   }
 }
 
+async function continueAgentAnalysis() {
+  if (!currentCaseId.value || !uploadId.value) {
+    setMessage("먼저 영상 처리 결과를 만든 뒤 Agent 분석을 실행해 주세요.", false);
+    return;
+  }
+
+  busy.value = true;
+  setMessage("영상 처리 결과와 입력값을 Agent 분석으로 전달하고 있습니다.");
+
+  try {
+    const payload = buildAnalysisPayload();
+    await api.analyzeVideo(currentCaseId.value, {
+      upload_id: uploadId.value,
+      structured_facts: payload.structured_facts,
+      selected_keywords: payload.selected_keywords,
+      analysis_mode: payload.analysis_mode
+    });
+    const finalVideoJob = await pollVideoPipelineUntilAnalyzed(currentCaseId.value);
+    analysisJobId.value = finalVideoJob?.id || analysisJobId.value;
+    await refreshOutputs();
+    setMessage(report.value ? "Agent 분석 결과를 불러왔습니다." : "Agent 분석은 완료됐지만 아직 표시할 결과가 없습니다.", Boolean(report.value));
+  } catch (error: any) {
+    setMessage(formatApiError(error, "Agent 분석 실행에 실패했습니다."), false);
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function loadVideoPreprocessDiagnostic() {
+  if (!uploadId.value) return null;
+  const response = await api.adminGetVideoPreprocessDiagnostic(uploadId.value);
+  videoPreprocessDiagnostic.value = response.diagnostic || response;
+  return videoPreprocessDiagnostic.value;
+}
+
+async function pollVideoPreprocessUntilReady(caseId: string) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    await sleep(attempt === 0 ? 600 : 2000);
+    const response = await api.getJobs(caseId);
+    jobs.value = response.items || [];
+    const failedJob = jobs.value.find((job) => FAILED_JOB_STATUSES.has(String(job.status)));
+    if (failedJob) {
+      throw new Error(`${failedJob.type || "video job"} 작업이 실패했습니다. ${failedJob.last_error || ""}`.trim());
+    }
+    const preprocessJob = jobs.value.find((job) => String(job.type) === "video_preprocess");
+    if (preprocessJob?.id) {
+      preprocessJobId.value = preprocessJob.id;
+    }
+    if (String(preprocessJob?.status) === "succeeded") {
+      return preprocessJob;
+    }
+  }
+  throw new Error("영상 처리 작업이 아직 완료되지 않았습니다. 잠시 뒤 결과/진단 새로고침을 눌러 확인해 주세요.");
+}
+
 async function pollVideoPipelineUntilAnalyzed(caseId: string) {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     await sleep(attempt === 0 ? 600 : 2500);
@@ -391,7 +561,7 @@ async function pollVideoPipelineUntilAnalyzed(caseId: string) {
     if (videoAnalyzeJob?.id) {
       analysisJobId.value = videoAnalyzeJob.id;
     }
-    if (String(videoAnalyzeJob?.status) === "succeeded") {
+    if (isSuccessfulJobStatus(videoAnalyzeJob?.status)) {
       return videoAnalyzeJob;
     }
   }
@@ -405,15 +575,25 @@ async function refreshOutputs() {
   } catch {
     jobs.value = [];
   }
-  try {
-    report.value = await api.getEasyReport(currentCaseId.value);
-  } catch {
+  const shouldLoadReport = !usesVideo.value || jobs.value.some(isCompletedVideoAnalysisJob);
+  if (shouldLoadReport) {
+    try {
+      report.value = await api.getEasyReport(currentCaseId.value);
+    } catch {
+      report.value = null;
+    }
+  } else {
     report.value = null;
   }
   try {
     traceDiagnostic.value = await api.adminGetAgentTrace(currentCaseId.value);
   } catch {
     traceDiagnostic.value = null;
+  }
+  try {
+    if (uploadId.value) await loadVideoPreprocessDiagnostic();
+  } catch {
+    videoPreprocessDiagnostic.value = null;
   }
 }
 
@@ -424,6 +604,67 @@ function setMessage(text: string, ok = true) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function observationFieldLabel(field: string) {
+  const labels: Record<string, string> = {
+    accident_event_candidate: "사고 발생 구간 후보",
+    primary_collision_target: "주 충돌 대상 후보",
+    collision_partner_type: "충돌 상대 유형",
+    direct_collision_partner_type: "직접 충돌 상대",
+    collision_point_visible: "충돌 지점 보임",
+    collision_point_location: "충돌 위치",
+    impact_direction: "충돌 방향",
+    stopped: "정차 여부",
+    front_vehicle_stopped: "앞차 정차",
+    pedestrian_visible: "보행자 보임",
+    pedestrian_context: "보행자 관련 관찰",
+    bicycle_visible: "자전거 보임",
+    motorcycle_visible: "이륜차 보임",
+    traffic_light_visible: "신호등 보임",
+    signal_state: "신호 상태",
+    visual_evidence_limited: "영상 근거 제한",
+    damage_level: "파손 정도"
+  };
+  return labels[field] || field;
+}
+
+function diagnosticStatusClass(status: string) {
+  if (status === "conflict") return "needs-review";
+  if (status === "candidate") return "pending";
+  if (status === "confirmed") return "done";
+  return "";
+}
+
+function observationValueLabel(field: string, value: unknown) {
+  const text = String(value);
+  const labels: Record<string, string> = {
+    true: "예",
+    false: "아니오",
+    vehicle: "차량",
+    vehicle_candidate: "차량 후보",
+    pedestrian: "보행자",
+    pedestrian_candidate: "보행자 후보",
+    bicycle: "자전거",
+    bicycle_candidate: "자전거 후보",
+    motorcycle: "이륜차",
+    motorcycle_candidate: "이륜차 후보",
+    object: "물체",
+    object_candidate: "물체 후보",
+    front_ego_to_rear_opponent: "내 차량 전면과 상대 후면 방향",
+    front_right: "전방 우측",
+    moderate: "중간 정도"
+  };
+  if (field === "primary_collision_target" && text.endsWith("_candidate")) {
+    return `${labels[text] || text}입니다. 확정 사실이 아니라 Agent 판단 전 확인 후보입니다.`;
+  }
+  return labels[text] || text;
+}
+
+function formatConfidence(value: unknown) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return "-";
+  return `${Math.round(numberValue * 100)}%`;
 }
 
 function formatJson(value: unknown) {
@@ -553,14 +794,119 @@ function formatJson(value: unknown) {
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.video-diagnostic-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.diagnostic-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.diagnostic-head h3,
+.diagnostic-head p {
+  margin-top: 0;
+}
+
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.diagnostic-stat {
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid rgba(143, 162, 185, 0.32);
+  border-radius: 8px;
+  background: rgba(12, 21, 33, 0.36);
+}
+
+.diagnostic-stat span,
+.diagnostic-stat small {
+  display: block;
+  color: #bed0e1;
+}
+
+.diagnostic-stat strong {
+  display: block;
+  margin: 6px 0;
+  font-size: 1.6rem;
+}
+
+.observation-section {
+  display: grid;
+  gap: 10px;
+}
+
+.observation-section h4 {
+  margin: 0;
+}
+
+.observation-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.observation-list li {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(94, 226, 240, 0.22);
+  border-radius: 8px;
+  background: rgba(13, 23, 35, 0.42);
+}
+
+.observation-list li > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.observation-list p {
+  margin: 0;
+}
+
+.observation-list .badge.needs-review {
+  color: #fde68a;
+  border-color: rgba(250, 204, 21, 0.65);
+}
+
+.observation-list .badge.pending {
+  color: #cffafe;
+  border-color: rgba(94, 234, 212, 0.58);
+}
+
+.observation-list .badge.done {
+  color: #dcfce7;
+  border-color: rgba(134, 239, 172, 0.58);
+}
+
+.raw-diagnostic pre {
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 900px) {
   .workspace-head {
     flex-direction: column;
   }
 
   .mode-tabs,
-  .state-grid {
+  .state-grid,
+  .diagnostic-grid,
+  .observation-list {
     grid-template-columns: 1fr;
+  }
+
+  .diagnostic-head {
+    display: grid;
   }
 }
 </style>

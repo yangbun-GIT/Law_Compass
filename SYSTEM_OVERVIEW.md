@@ -22,6 +22,18 @@ Frontend 일반사용자모드는 과실 숫자를 `%` 단위로 표시하고, K
 
 이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. 결과 payload에 사용자 표시용 `accident_title`/`simple_report.situation_title`이 추가되는 additive 변경이다.
 
+## 2026-05-30 관리자 영상 전처리 진단 표시 보강
+
+관리자 Agent 테스트 페이지에서 Agent 전달 전 영상 처리 결과를 확인할 때, OpenAI 프레임 분석과 YOLO 객체 관찰값을 원시 목록 그대로 노출하지 않고 사람이 판단하기 쉬운 통합 관찰값으로 한 번 더 정리한다. 이 변경은 Agent 판단 로직을 바꾸지 않고, 관리자 진단 UI에서 충돌/후보/확인 상태를 명확히 보여주기 위한 표시 계약 보강이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Gateway 진단 payload | `GET /api/v1/admin/uploads/:uploadId/video-preprocess` 응답의 `merged_observations`에 `human_observations`와 `human_observation_count`를 추가했다. 원시 `observations`는 JSON 상세 보기용으로 계속 보존한다. |
+| 보행자 오염 방지 표시 | `pedestrian_visible=false`와 YOLO의 `pedestrian_candidate=true`처럼 의미가 다른 관찰값이 함께 있을 때, 이를 두 개의 확정 사실처럼 표시하지 않고 `보행자 관련 관찰 / 확인 필요` 한 항목으로 묶는다. |
+| 사고 대상 후보 표시 | `primary_collision_target`이 여러 출처에서 반복되거나 복수 후보로 들어오면 중복 카드 대신 하나의 후보/확인 필요 카드로 합친다. |
+| 관리자 UI | `AdminAgentTestView.vue`는 `human_observations`를 우선 표시하고, 없을 때만 기존 원시 관찰값으로 fallback한다. 원본 JSON은 진단 상세에서 확인할 수 있다. 영상 전처리만 완료된 상태에서는 easy report를 읽지 않고 `Agent 분석 계속 실행` 버튼을 유지하며, `video_analyze` 성공 후에만 결과 리포트를 불러온다. |
+| 책임 경계 | 이 기능은 관리자 테스트 가독성 보강이다. 법률 판단, 과실비율 산정, DB schema, Redis key, storage path, 외부 API 종류는 변경하지 않는다. |
+
 ## 2026-05-30 영상 사고대상 오염 방지 ReAct 측정 통과
 
 영상 처리 Worker에서 OpenAI 프레임 분석과 YOLO 보조 관찰을 함께 사용하는 실제 경로를 기준으로 사고대상 추출 오염을 줄이는 ReAct 보강을 진행했다. 이 단계의 목표는 과실 판단을 확정하는 것이 아니라, 영상에서 보이는 직접 사고대상 후보를 잘못된 확정 사실로 승격하지 않도록 만드는 것이다.
