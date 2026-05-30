@@ -1,5 +1,11 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-30 KNIA 검색순위 자전거 분류 fallback
+
+`/api/v1/knia/ranking`은 DB의 `accident_party_type` 또는 원본 ranking 탭 분류가 부정확할 수 있어 KNIA 기준번호 prefix를 함께 사용한다. `car_vs_bicycle` 검색은 `자*`, `거*` 기준과 `자전거`, `차대자전거`, `자전거도로`, `자전거 사고` 키워드를 포함해 ranking 테이블과 상세 기준 테이블을 모두 확인한다.
+
+ranking 테이블에서 결과가 없거나 쿼리 오류가 발생해도 사용자 화면에 500 raw error를 노출하지 않고, 상세 기준 테이블 fallback 또는 빈 목록/안전한 오류 payload를 반환한다. 사용자 표시 label은 chart prefix 기준으로 보정해 `거*`, `자*` 기준은 `차대자전거 사고`로 표시한다.
+
 ## 2026-05-30 일반 사용자 리포트 표시 문구/KNIA 링크 정리
 
 일반 사용자 결과 화면은 source_link_only 저장소 안내, "참고용 분석", 조건부 판단 구조 설명, 후속 확인 질문 목록, raw JSON fragment를 기본 화면에 표시하지 않는다. Gateway/Frontend 표시 계층은 사용자용 요약을 plain text로 정리하고 `{"inj` 같은 미완성 JSON 조각과 중복 사고 제목을 제거한다.

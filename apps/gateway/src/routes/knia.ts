@@ -37,6 +37,175 @@ function publicKniaThumbnail(value: any) {
   return text;
 }
 
+const KNIA_RANKING_CATEGORIES = [
+  { label: "전체", value: "all", source_value: "전체" },
+  { label: "차대차", value: "car_vs_car", source_value: "차대차" },
+  { label: "차대사람", value: "car_vs_person", source_value: "차대사람" },
+  { label: "차대자전거", value: "car_vs_bicycle", source_value: "차대자전거" }
+];
+
+const KNIA_PARTY_LABELS: Record<string, string> = {
+  car_vs_car: "차대차 사고",
+  car_vs_person: "차대보행자 사고",
+  car_vs_bicycle: "차대자전거 사고",
+  single_vehicle: "단독 사고",
+  car_vs_object: "물체/시설물 사고",
+  unknown: "확인이 필요합니다."
+};
+
+function normalizeKniaRankingQuery(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  try {
+    return decodeURIComponent(raw).replace(/\s+/g, " ").trim().slice(0, 120);
+  } catch {
+    return raw.replace(/\s+/g, " ").trim().slice(0, 120);
+  }
+}
+
+function parameter(params: any[], value: any) {
+  params.push(value);
+  return `$${params.length}`;
+}
+
+function kniaPartyFromChartNo(value: unknown) {
+  const chartNo = String(value ?? "").trim();
+  if (chartNo.startsWith("차")) return "car_vs_car";
+  if (chartNo.startsWith("보")) return "car_vs_person";
+  if (chartNo.startsWith("자") || chartNo.startsWith("거")) return "car_vs_bicycle";
+  if (chartNo.startsWith("단")) return "single_vehicle";
+  if (chartNo.startsWith("기") || chartNo.startsWith("물")) return "car_vs_object";
+  return "";
+}
+
+function normalizeKniaRankingParty(input: { accident_party_type?: any; chart_no?: any; source_category?: any }) {
+  const byPrefix = kniaPartyFromChartNo(input.chart_no);
+  if (byPrefix) return byPrefix;
+  const raw = String(input.accident_party_type ?? "").trim();
+  if (raw && raw !== "unknown") return raw;
+  const source = String(input.source_category ?? "").trim();
+  if (source.includes("차대자전거") || source.includes("자전거")) return "car_vs_bicycle";
+  if (source.includes("차대사람") || source.includes("보행")) return "car_vs_person";
+  if (source.includes("차대차")) return "car_vs_car";
+  return raw || "unknown";
+}
+
+function kniaRankingPartyLabel(input: { accident_party_label?: any; accident_party_type?: any; chart_no?: any; source_category?: any }) {
+  const existing = String(input.accident_party_label ?? "").trim();
+  if (existing && existing !== "확인이 필요합니다." && existing !== "사고유형 확인 필요") return existing;
+  const party = normalizeKniaRankingParty(input);
+  return KNIA_PARTY_LABELS[party] ?? KNIA_PARTY_LABELS.unknown;
+}
+
+function rankingSourceCategoryForParty(party: string) {
+  return KNIA_RANKING_CATEGORIES.find((item) => item.value === party)?.source_value ?? "";
+}
+
+function buildKniaRankingPartyClause(alias: string, params: any[], accidentPartyType: string, sourceAlias?: string) {
+  if (!accidentPartyType || accidentPartyType === "all") return "";
+  const partyParam = parameter(params, accidentPartyType);
+  const sourceLabel = rankingSourceCategoryForParty(accidentPartyType);
+  const sourceClause = sourceAlias && sourceLabel ? ` OR ${sourceAlias}.source_category=${parameter(params, sourceLabel)}` : "";
+
+  if (accidentPartyType === "car_vs_car") {
+    return ` AND (${alias}.accident_party_type=${partyParam} OR ${alias}.chart_no LIKE '차%'${sourceClause})`;
+  }
+  if (accidentPartyType === "car_vs_person") {
+    return ` AND (${alias}.accident_party_type=${partyParam} OR ${alias}.chart_no LIKE '보%'${sourceClause})`;
+  }
+  if (accidentPartyType === "car_vs_bicycle") {
+    return ` AND (${alias}.accident_party_type=${partyParam} OR ${alias}.chart_no LIKE '자%' OR ${alias}.chart_no LIKE '거%'${sourceClause})`;
+  }
+  if (accidentPartyType === "single_vehicle") {
+    return ` AND (${alias}.accident_party_type=${partyParam} OR ${alias}.chart_no LIKE '단%'${sourceClause})`;
+  }
+  return ` AND (${alias}.accident_party_type=${partyParam}${sourceClause})`;
+}
+
+function rankingSearchTerms(q: string, accidentPartyType: string) {
+  const terms = [q].filter(Boolean);
+  const isBicycleQuery = accidentPartyType === "car_vs_bicycle" || /자전거|차대자전거|bike|bicycle/i.test(q);
+  if (isBicycleQuery) {
+    for (const term of ["자전거", "차대자전거", "자전거도로", "자전거 사고"]) {
+      if (!terms.includes(term)) terms.push(term);
+    }
+  }
+  return terms;
+}
+
+function buildKniaRankingSearchClause(params: any[], q: string, accidentPartyType: string) {
+  if (!q) return "";
+  const includesBicyclePrefix = /자전거|차대자전거|bike|bicycle/i.test(q);
+  const clauses = rankingSearchTerms(q, accidentPartyType).map((term) => {
+    const like = parameter(params, `%${term}%`);
+    return `(
+      r.chart_no ILIKE ${like}
+      OR r.title ILIKE ${like}
+      OR COALESCE(r.source_category, '') ILIKE ${like}
+      OR COALESCE(r.source_url, '') ILIKE ${like}
+      OR COALESCE(r.source_detail_url, '') ILIKE ${like}
+      OR COALESCE(c.accident_summary, '') ILIKE ${like}
+      OR COALESCE(c.basic_fault_text, '') ILIKE ${like}
+      OR COALESCE(c.display_tags::text, '') ILIKE ${like}
+      OR COALESCE(c.category_path::text, '') ILIKE ${like}
+    )`;
+  });
+  const prefixFallback = includesBicyclePrefix ? " OR r.chart_no LIKE '자%' OR r.chart_no LIKE '거%'" : "";
+  return ` AND (${clauses.join(" OR ")}${prefixFallback})`;
+}
+
+function buildKniaChartFallbackSearchClause(params: any[], q: string, accidentPartyType: string) {
+  if (!q) return "";
+  const includesBicyclePrefix = /자전거|차대자전거|bike|bicycle/i.test(q);
+  const clauses = rankingSearchTerms(q, accidentPartyType).map((term) => {
+    const like = parameter(params, `%${term}%`);
+    return `(
+      c.chart_no ILIKE ${like}
+      OR c.title ILIKE ${like}
+      OR COALESCE(c.accident_summary, '') ILIKE ${like}
+      OR COALESCE(c.basic_fault_text, '') ILIKE ${like}
+      OR COALESCE(c.display_tags::text, '') ILIKE ${like}
+      OR COALESCE(c.category_path::text, '') ILIKE ${like}
+      OR COALESCE(c.source_url, '') ILIKE ${like}
+      OR COALESCE(c.source_detail_url, '') ILIKE ${like}
+    )`;
+  });
+  const prefixFallback = includesBicyclePrefix ? " OR c.chart_no LIKE '자%' OR c.chart_no LIKE '거%'" : "";
+  return ` AND (${clauses.join(" OR ")}${prefixFallback})`;
+}
+
+function normalizeKniaRankingRow(row: any) {
+  const party = normalizeKniaRankingParty(row);
+  const chartType = row.chart_type ?? "1";
+  const chartNo = row.chart_no;
+  const localUrl = row.local_chart_url ?? row.chart_url ?? `/knia/charts/${encodeURIComponent(chartNo)}?chartType=${encodeURIComponent(chartType)}`;
+  return {
+    rank: row.rank == null ? null : Number(row.rank),
+    rank_no: row.rank == null ? null : Number(row.rank),
+    chart_no: chartNo,
+    chart_type: chartType,
+    title: row.title || `KNIA 과실비율 인정기준 ${chartNo}`,
+    search_count: row.search_count == null ? null : Number(row.search_count),
+    percentage: row.percentage == null ? null : Number(row.percentage),
+    source_category: row.source_category || rankingSourceCategoryForParty(party) || "전체",
+    accident_party_type: party,
+    accident_party_label: kniaRankingPartyLabel(row),
+    source_url: row.source_url,
+    source_detail_url: row.source_detail_url,
+    local_chart_url: localUrl,
+    source_onclick: row.source_onclick,
+    chart_url: localUrl,
+    has_detail: !!row.has_detail,
+    base_fault_a: row.base_fault_a == null ? null : Number(row.base_fault_a),
+    base_fault_b: row.base_fault_b == null ? null : Number(row.base_fault_b),
+    adjustment_factor_count: Number(row.adjustment_factor_count ?? 0),
+    reference_section_count: Number(row.reference_section_count ?? 0),
+    collected_at: row.collected_at,
+    summary: row.summary ?? row.accident_summary ?? row.basic_fault_text ?? null,
+    matched_by: row.matched_by ?? "ranking",
+  };
+}
+
 export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions) {
   const { env, db, errorPayload } = opts;
 
@@ -53,77 +222,121 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
   }
 
   app.get(`${env.apiPrefix}/knia/ranking`, async (req, reply) => {
-    const traceId = req.headers["x-correlation-id"] as string;
-    const limit = Math.min(Number((req.query as any)?.limit ?? 20), 50);
+    const traceId = (req.headers["x-correlation-id"] as string) || "";
+    const limit = Math.max(1, Math.min(Number((req.query as any)?.limit ?? 20) || 20, 50));
     const rawType = String((req.query as any)?.accidentPartyType ?? "all").trim() || "all";
-    const q = String((req.query as any)?.q ?? "").trim();
-    const categories = [
-      { label: "\uC804\uCCB4", value: "all", source_value: "\uC804\uCCB4" },
-      { label: "\uCC28\uB300\uCC28", value: "car_vs_car", source_value: "\uCC28\uB300\uCC28" },
-      { label: "\uCC28\uB300\uC0AC\uB78C", value: "car_vs_person", source_value: "\uCC28\uB300\uC0AC\uB78C" },
-      { label: "\uCC28\uB300\uC790\uC804\uAC70", value: "car_vs_bicycle", source_value: "\uCC28\uB300\uC790\uC804\uAC70" }
-    ];
+    const q = normalizeKniaRankingQuery((req.query as any)?.q);
     const typeMap: Record<string, { value: string; source: string }> = {};
-    for (const category of categories) {
+    for (const category of KNIA_RANKING_CATEGORIES) {
       typeMap[category.value] = { value: category.value, source: category.source_value };
       typeMap[category.source_value] = { value: category.value, source: category.source_value };
     }
     const selected = typeMap[rawType] ?? typeMap.all;
-    const params: any[] = [selected.source];
-    let where = `source_category=$1`;
-    if (q) {
-      params.push(`%${q}%`);
-      where += ` AND (title ILIKE $${params.length} OR chart_no ILIKE $${params.length})`;
+
+    let rankingError: unknown = null;
+    let rows: any = { rowCount: 0, rows: [] };
+    try {
+      const params: any[] = [];
+      const where = [
+        "1=1",
+        buildKniaRankingPartyClause("r", params, selected.value, "r"),
+        buildKniaRankingSearchClause(params, q, selected.value),
+      ].join(" ");
+      const limitParam = parameter(params, limit);
+      rows = await db.query(
+        `SELECT r.rank, r.chart_no, r.chart_type, r.title,
+                r.search_count, r.percentage, r.source_category,
+                r.accident_party_type, r.source_url, r.source_detail_url,
+                r.local_chart_url, r.source_onclick, r.chart_url,
+                r.collected_at,
+                c.accident_party_label, c.accident_summary, c.basic_fault_text,
+                c.base_fault_a, c.base_fault_b,
+                CASE WHEN c.detail_collected_at IS NOT NULL THEN true ELSE false END AS has_detail,
+                (SELECT COUNT(*)::int FROM knia_adjustment_factors af
+                  WHERE af.chart_no=r.chart_no AND af.chart_type=COALESCE(r.chart_type, '1')) AS adjustment_factor_count,
+                (SELECT COUNT(*)::int FROM knia_chart_reference_sections rs
+                  WHERE rs.chart_no=r.chart_no AND rs.chart_type=COALESCE(r.chart_type, '1')) AS reference_section_count,
+                'ranking' AS matched_by
+         FROM knia_ranking_items r
+         LEFT JOIN knia_fault_charts c
+           ON c.chart_no=r.chart_no AND c.chart_type=COALESCE(r.chart_type, '1')
+         WHERE ${where}
+         ORDER BY
+           CASE WHEN $${params.length + 1}::text='car_vs_bicycle' AND (r.chart_no LIKE '자%' OR r.chart_no LIKE '거%') THEN 0 ELSE 1 END,
+           r.rank ASC,
+           r.chart_no ASC
+         LIMIT ${limitParam}`,
+        [...params, selected.value],
+      );
+    } catch (err) {
+      rankingError = err;
+      req.log?.error?.({ err, trace_id: traceId, q, accidentPartyType: selected.value }, "KNIA ranking query failed");
     }
-    params.push(limit);
-    const rows = await db.query(
-      `SELECT knia_ranking_items.rank, knia_ranking_items.chart_no, knia_ranking_items.chart_type, knia_ranking_items.title,
-              knia_ranking_items.search_count, knia_ranking_items.percentage, knia_ranking_items.source_category,
-              knia_ranking_items.accident_party_type, knia_ranking_items.source_url, knia_ranking_items.source_detail_url,
-              knia_ranking_items.local_chart_url, knia_ranking_items.source_onclick, knia_ranking_items.chart_url,
-              knia_ranking_items.collected_at,
-              c.base_fault_a, c.base_fault_b,
-              CASE WHEN c.detail_collected_at IS NOT NULL THEN true ELSE false END AS has_detail,
-              (SELECT COUNT(*)::int FROM knia_adjustment_factors af
-                WHERE af.chart_no=knia_ranking_items.chart_no AND af.chart_type=COALESCE(knia_ranking_items.chart_type, '1')) AS adjustment_factor_count,
-              (SELECT COUNT(*)::int FROM knia_chart_reference_sections rs
-                WHERE rs.chart_no=knia_ranking_items.chart_no AND rs.chart_type=COALESCE(knia_ranking_items.chart_type, '1')) AS reference_section_count
-       FROM knia_ranking_items
-       LEFT JOIN knia_fault_charts c
-         ON c.chart_no=knia_ranking_items.chart_no AND c.chart_type=COALESCE(knia_ranking_items.chart_type, '1')
-       WHERE ${where}
-       ORDER BY rank ASC
-       LIMIT $${params.length}`,
-      params,
-    );
-    const items = rows.rows.map((row: any) => ({
-        rank: Number(row.rank),
-        rank_no: Number(row.rank),
-        chart_no: row.chart_no,
-        chart_type: row.chart_type ?? "1",
-        title: row.title,
-        search_count: row.search_count == null ? null : Number(row.search_count),
-        percentage: row.percentage == null ? null : Number(row.percentage),
-        source_category: row.source_category,
-        accident_party_type: row.accident_party_type,
-        source_url: row.source_url,
-        source_detail_url: row.source_detail_url,
-        local_chart_url: row.local_chart_url ?? row.chart_url ?? `/knia/charts/${encodeURIComponent(row.chart_no)}?chartType=${encodeURIComponent(row.chart_type ?? "1")}`,
-        source_onclick: row.source_onclick,
-        chart_url: row.chart_url ?? row.local_chart_url ?? `/knia/charts/${encodeURIComponent(row.chart_no)}?chartType=${encodeURIComponent(row.chart_type ?? "1")}`,
-        has_detail: !!row.has_detail,
-        base_fault_a: row.base_fault_a == null ? null : Number(row.base_fault_a),
-        base_fault_b: row.base_fault_b == null ? null : Number(row.base_fault_b),
-        adjustment_factor_count: Number(row.adjustment_factor_count ?? 0),
-        reference_section_count: Number(row.reference_section_count ?? 0),
-        collected_at: row.collected_at,
-      }));
+
+    let items = (rows.rows ?? []).map(normalizeKniaRankingRow);
+
+    if (!items.length) {
+      try {
+        const params: any[] = [];
+        const where = [
+          "1=1",
+          buildKniaRankingPartyClause("c", params, selected.value),
+          buildKniaChartFallbackSearchClause(params, q, selected.value),
+        ].join(" ");
+        const limitParam = parameter(params, limit);
+        const fallbackRows = await db.query(
+          `SELECT NULL::int AS rank,
+                  c.chart_no, c.chart_type, c.title,
+                  NULL::int AS search_count, NULL::numeric AS percentage,
+                  c.accident_party_type, c.accident_party_label,
+                  c.source_url, c.source_detail_url,
+                  NULL::text AS local_chart_url, NULL::text AS source_onclick, NULL::text AS chart_url,
+                  c.updated_at AS collected_at,
+                  c.accident_summary, c.basic_fault_text,
+                  c.base_fault_a, c.base_fault_b,
+                  CASE WHEN c.detail_collected_at IS NOT NULL THEN true ELSE false END AS has_detail,
+                  (SELECT COUNT(*)::int FROM knia_adjustment_factors af
+                    WHERE af.chart_no=c.chart_no AND af.chart_type=COALESCE(c.chart_type, '1')) AS adjustment_factor_count,
+                  (SELECT COUNT(*)::int FROM knia_chart_reference_sections rs
+                    WHERE rs.chart_no=c.chart_no AND rs.chart_type=COALESCE(c.chart_type, '1')) AS reference_section_count,
+                  'chart_fallback' AS matched_by
+           FROM knia_fault_charts c
+           WHERE ${where}
+           ORDER BY
+             CASE WHEN $${params.length + 1}::text='car_vs_bicycle' AND (c.chart_no LIKE '자%' OR c.chart_no LIKE '거%') THEN 0 ELSE 1 END,
+             c.detail_collected_at DESC NULLS LAST,
+             c.updated_at DESC NULLS LAST,
+             c.chart_no ASC
+           LIMIT ${limitParam}`,
+          [...params, selected.value],
+        );
+        items = (fallbackRows.rows ?? []).map(normalizeKniaRankingRow);
+      } catch (err) {
+        req.log?.error?.({ err, rankingError, trace_id: traceId, q, accidentPartyType: selected.value }, "KNIA ranking fallback query failed");
+        return reply.send({
+          items: [],
+          categories: KNIA_RANKING_CATEGORIES,
+          total: 0,
+          query: q,
+          accident_party_type: selected.value,
+          detail_summary: summarizeRankingDetailStatus([]),
+          trace_id: traceId,
+          empty_message: "관련 기준을 찾지 못했습니다. 검색어를 바꿔 다시 시도해 주세요.",
+          error: errorPayload("KNIA_RANKING_UNAVAILABLE", "검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", traceId).error,
+        });
+      }
+    }
+
     return reply.send({
       items,
-      categories,
-      detail_summary: summarizeRankingDetailStatus(rows.rows),
+      categories: KNIA_RANKING_CATEGORIES,
+      total: items.length,
+      query: q,
+      accident_party_type: selected.value,
+      detail_summary: summarizeRankingDetailStatus(items),
       trace_id: traceId,
-      empty_message: rows.rowCount === 0 ? "\uC544\uC9C1 \uC218\uC9D1\uB41C \uAC80\uC0C9\uC21C\uC704\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uAD00\uB9AC\uC790 \uC218\uC9D1\uC744 \uBA3C\uC800 \uC2E4\uD589\uD558\uC138\uC694." : undefined,
+      empty_message: items.length === 0 ? "관련 기준을 찾지 못했습니다. 검색어를 바꿔 다시 시도해 주세요." : undefined,
+      ...(rankingError && items.length ? { warning: { code: "KNIA_RANKING_FALLBACK_USED", message: "검색순위 대신 상세 기준에서 결과를 찾았습니다." } } : {}),
     });
   });
 

@@ -267,8 +267,11 @@ def search_knia_fault_charts(
         where = ["chart_no IS NOT NULL"]
         params: list[Any] = []
         if party != "unknown":
-            where.append("(major_party_type=%s OR accident_party_type=%s)")
-            params.extend([party, party])
+            prefixes = _party_prefix_patterns(party)
+            prefix_clause = " OR ".join(["chart_no LIKE %s"] * len(prefixes))
+            prefix_sql = f" OR {prefix_clause}" if prefix_clause else ""
+            where.append(f"(major_party_type=%s OR accident_party_type=%s{prefix_sql})")
+            params.extend([party, party, *prefixes])
         if scenario_type:
             where.append("(scenario_type=%s OR %s='')")
             params.extend([scenario_type, scenario_type])
@@ -310,16 +313,20 @@ def list_knia_fault_charts_by_party(party_type: str | None, limit: int = 20) -> 
     party = canonicalize_party_type(party_type)
     capped = max(1, min(int(limit or 20), 200))
     try:
+        prefixes = _party_prefix_patterns(party)
+        prefix_clause = " OR ".join(["chart_no LIKE %s"] * len(prefixes))
+        prefix_sql = f" OR {prefix_clause}" if prefix_clause else ""
+        party_clause = f"(%s='unknown' OR major_party_type=%s OR accident_party_type=%s{prefix_sql})"
         with psycopg.connect(_db_url()) as conn, conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
             cur.execute(
-                """
+                f"""
                 SELECT *
                 FROM knia_fault_charts
-                WHERE (%s='unknown' OR major_party_type=%s OR accident_party_type=%s)
+                WHERE {party_clause}
                 ORDER BY review_required ASC NULLS LAST, parsing_confidence DESC NULLS LAST, chart_no ASC
                 LIMIT %s
                 """,
-                (party, party, party, capped),
+                (party, party, party, *prefixes, capped),
             )
             return [_normalize_chart_row(dict(row)) for row in cur.fetchall()]
     except Exception:
@@ -549,6 +556,16 @@ def _normalize_chart_row(row: dict[str, Any]) -> dict[str, Any]:
 
 def normalize_text(value: Any) -> str:
     return " ".join(re.sub(r"[^0-9A-Za-z가-힣\-\s]", " ", str(value or "")).split()).lower()
+
+
+def _party_prefix_patterns(party: str | None) -> list[str]:
+    return {
+        "car_vs_car": ["차%"],
+        "car_vs_person": ["보%"],
+        "car_vs_bicycle": ["자%", "거%"],
+        "car_vs_object": ["기%"],
+        "single_vehicle": ["단%"],
+    }.get(canonicalize_party_type(party), [])
 
 
 def tokenize(value: Any) -> list[str]:

@@ -1,10 +1,10 @@
 <template>
   <li class="knia-ranking-row">
-    <div class="rank-col">{{ item.rank ?? item.rank_no }}위</div>
+    <div class="rank-col">{{ rankLabel }}</div>
     <RouterLink class="chart-badge" :to="localUrl">{{ text(item.chart_no) }}</RouterLink>
     <div class="title-col">
       <RouterLink class="ranking-title" :to="localUrl">{{ text(item.title) }}</RouterLink>
-      <span class="source-category">{{ text(item.source_category || '전체') }} 검색순위</span>
+      <span class="source-category">{{ rankingPartyLabel }}</span>
       <span class="detail-chip" :class="{ ready: item.has_detail }">
         {{ item.has_detail ? '상세 수집 완료' : '상세 수집 필요' }}
       </span>
@@ -38,6 +38,21 @@ import { sanitizeDisplayText } from '../../utils/displaySanitizer';
 const props = defineProps<{ item: any }>();
 
 const localUrl = computed(() => props.item.local_chart_url || props.item.chart_url || `/knia/charts/${encodeURIComponent(props.item.chart_no)}?chartType=${encodeURIComponent(props.item.chart_type || '1')}`);
+const rankLabel = computed(() => {
+  const rank = Number(props.item.rank ?? props.item.rank_no);
+  return Number.isFinite(rank) && rank > 0 ? `${rank}위` : '기준';
+});
+const rankingPartyLabel = computed(() => {
+  const existing = text(props.item.accident_party_label);
+  if (existing && existing !== '확인이 필요합니다.' && existing !== '사고유형 확인 필요') return existing;
+  const party = String(props.item.accident_party_type || '');
+  const chartNo = String(props.item.chart_no || '');
+  if (party === 'car_vs_bicycle' || chartNo.startsWith('자') || chartNo.startsWith('거')) return '차대자전거 사고';
+  if (party === 'car_vs_person' || chartNo.startsWith('보')) return '차대보행자 사고';
+  if (party === 'car_vs_car' || chartNo.startsWith('차')) return '차대차 사고';
+  if (party === 'single_vehicle' || chartNo.startsWith('단')) return '단독 사고';
+  return text(props.item.source_category || '전체');
+});
 const hasDetailUrl = computed(() => {
   const url = String(props.item.source_detail_url || '');
   return !!url && url !== 'https://accident.knia.or.kr/ranking' && /chartNo=/.test(url);

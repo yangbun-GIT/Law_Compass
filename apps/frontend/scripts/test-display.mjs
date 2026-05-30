@@ -211,7 +211,7 @@ const requiredErrorUx = [
   "개발자 전용 원문",
   "법률 근거가 부족합니다",
   "근거 연결 상태",
-  "검색 조건에 맞는 기준이 없습니다",
+  "관련 기준을 찾지 못했습니다.",
   "상세 기준 수집 필요",
   "상세 기준 수집",
   "검색순위에만 저장",
@@ -358,6 +358,23 @@ const forbiddenKniaColors = ["#2dd4bf", "#3b82f6", "#60efff", "#67e8f9", "#8dd7f
 const kniaColorLeaks = forbiddenKniaColors.filter((token) => kniaChartView.includes(token) || kniaRankingView.includes(token));
 if (kniaColorLeaks.length) {
   console.error("KNIA ranking/chart views still use legacy cyan/blue colors", kniaColorLeaks);
+  process.exit(1);
+}
+
+const kniaRankingSearchContracts = [
+  "관련 기준을 찾지 못했습니다.",
+  "검색어를 바꿔 다시 시도해 주세요.",
+  "검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  "accident_party_label",
+  "차대자전거 사고",
+];
+const missingKniaRankingSearchContracts = kniaRankingSearchContracts.filter((token) => ![kniaRankingView, readFileSync("src/components/knia/KniaRankingCard.vue", "utf8")].some((text) => text.includes(token)));
+if (missingKniaRankingSearchContracts.length) {
+  console.error("KNIA ranking bicycle search UX contract failed", missingKniaRankingSearchContracts);
+  process.exit(1);
+}
+if (kniaRankingView.includes("요청 처리 중 문제가 발생했습니다.")) {
+  console.error("KNIA ranking view must not surface the generic red request failure copy");
   process.exit(1);
 }
 

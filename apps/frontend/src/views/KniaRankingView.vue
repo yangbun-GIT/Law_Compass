@@ -109,10 +109,10 @@ const detailStatusText = computed(() => {
     ? `표시된 ${total}건 중 상세 기준 ${ready}건 수집 완료, ${missing}건은 상세 본문 수집이 필요합니다.`
     : `표시된 ${total}건의 상세 기준이 모두 준비되어 있습니다.`;
 });
-const emptyTitle = computed(() => isFiltered.value ? '검색 조건에 맞는 기준이 없습니다.' : '아직 수집된 검색순위가 없습니다.');
+const emptyTitle = computed(() => isFiltered.value ? '관련 기준을 찾지 못했습니다.' : '아직 수집된 검색순위가 없습니다.');
 const emptyDescription = computed(() =>
   isFiltered.value
-    ? '기준번호나 사고유형 단어를 줄여 다시 검색하거나 전체 탭에서 확인해 주세요.'
+    ? '검색어를 바꿔 다시 시도해 주세요.'
     : '검색순위 수집/새로고침을 실행하면 KNIA 원본 ranking 데이터를 로컬 DB에 저장한 뒤 표시합니다.'
 );
 
@@ -146,8 +146,14 @@ async function load(options: { preserveMessage?: boolean } = {}) {
     const data = await api.getKniaRanking(20, selectedParty.value, searchQuery.value.trim());
     items.value = data.items || [];
     detailSummary.value = data.detail_summary || null;
+    if (data.error) {
+      error.value = '검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+    }
   } catch (err: any) {
-    error.value = formatApiError(err, '검색순위를 불러오지 못했습니다.');
+    const formatted = formatApiError(err, '검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    error.value = formatted.includes('요청 처리 중 문제가 발생했습니다.')
+      ? '검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      : formatted;
   } finally {
     loading.value = false;
   }

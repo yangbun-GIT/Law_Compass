@@ -113,6 +113,9 @@ def classify_knia_accident_party_type(chart_data: dict[str, Any]) -> dict[str, A
 def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -> str:
     facts = facts or {}
     hay = " ".join([text or "", str(facts)]).lower()
+    prefix_party = _party_from_chart_no(facts.get("chart_no"))
+    if prefix_party:
+        return prefix_party
     declared_party = str(facts.get("accident_party_type") or "").strip().lower()
     if declared_party in {"car_vs_parked_vehicle", "vehicle", "car", "truck", "parked_vehicle", "stopped_vehicle"}:
         return "car_vs_car"
@@ -153,7 +156,7 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         return "car_vs_car"
     checks = [
         ("car_vs_person", ["차대사람", "보행자", "무단횡단", "어린이보호구역", "민식이", "사람을", "사람과", "아이와", "인명피해"]),
-        ("car_vs_bicycle", ["차대자전거", "자전거와 충돌", "자전거를 쳤", "자전거 추돌", "자전거 운전자"]),
+        ("car_vs_bicycle", ["차대자전거", "자전거", "자전거도로", "자전거 사고", "자전거와 충돌", "자전거를 쳤", "자전거 추돌", "자전거 운전자"]),
         ("car_vs_motorcycle", ["차대오토바이", "차대이륜차", "오토바이", "이륜차", "원동기장치자전거", "바이크"]),
         ("car_vs_object", ["차대기물", "기물", "시설물", "가드레일", "전봇대", "중앙분리대", "주차장 기둥", "벽", "낙하물", "물체"]),
         ("single_vehicle", ["차량단독", "단독사고", "혼자", "미끄러", "빗길", "눈길", "졸음운전", "운전미숙", "전복", "도로 이탈"]),
@@ -164,6 +167,21 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         if any(word.lower() in hay for word in words):
             return party
     return "unknown"
+
+
+def _party_from_chart_no(chart_no: Any) -> str | None:
+    value = str(chart_no or "").strip()
+    if value.startswith("차"):
+        return "car_vs_car"
+    if value.startswith("보"):
+        return "car_vs_person"
+    if value.startswith(("자", "거")):
+        return "car_vs_bicycle"
+    if value.startswith("기"):
+        return "car_vs_object"
+    if value.startswith("단"):
+        return "single_vehicle"
+    return None
 
 def _vehicle_role_a(party: str) -> str | None:
     return {
