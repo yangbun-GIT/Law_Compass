@@ -18,6 +18,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
     reflection_loop = output.get("reflection_loop") or {}
     video_contract = output.get("video_input_contract") or {}
     claim_evidence = output.get("claim_evidence") or {}
+    agent_plan = output.get("agent_plan") or {}
 
     steps = [
         _step(
@@ -125,6 +126,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
         "pattern": "plan_observe_verify_trace",
         "overall_status": judgment.get("overall_status") or "unknown",
         "trace_policy": "safe_metadata_only_no_raw_user_text",
+        "task_plan": _task_plan_summary(agent_plan),
         "step_count": len(steps),
         "steps": steps,
     }
@@ -164,3 +166,18 @@ def _analyst_status(output: dict[str, Any]) -> str:
     if any(status in {"needs_review", "review_required", "partial", "insufficient"} for status in statuses):
         return "needs_review"
     return "completed"
+
+
+def _task_plan_summary(agent_plan: dict[str, Any]) -> dict[str, Any]:
+    tasks = agent_plan.get("tasks") if isinstance(agent_plan.get("tasks"), list) else []
+    return {
+        "version": agent_plan.get("version"),
+        "plan_id": agent_plan.get("plan_id"),
+        "input_mode": agent_plan.get("input_mode"),
+        "plan_status": agent_plan.get("plan_status"),
+        "created_by": agent_plan.get("created_by"),
+        "task_count": len(tasks),
+        "execution_order": list(agent_plan.get("execution_order") or []),
+        "blocked_task_count": len([task for task in tasks if isinstance(task, dict) and task.get("status") == "blocked"]),
+        "safe_metadata_only": True,
+    }

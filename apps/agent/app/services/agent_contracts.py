@@ -9,6 +9,8 @@ TaskStatus = Literal["pending", "running", "succeeded", "needs_review", "blocked
 FinalityStatus = Literal["decision_ready", "needs_review", "reference_only", "blocked"]
 Visibility = Literal["public", "internal", "restricted"]
 ToolScope = Literal["knia.read", "legal.read", "evidence.audit", "cache.write", "storage.read", "video.observe"]
+PlanInputMode = Literal["text_only", "video_only", "text_and_video", "followup_reanalysis", "admin_diagnostic"]
+PlanStatus = Literal["ready", "safe_fallback", "blocked"]
 
 SPECIALIST_ROLE_IDS = {
     "traffic_accident_attorney",
@@ -135,13 +137,17 @@ class AgentTask(BaseModel):
 class AgentPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    version: str = "agent-plan-v1"
     plan_id: str
     case_id: str
     trace_id: str
+    input_mode: PlanInputMode = "text_only"
+    plan_status: PlanStatus = "ready"
     tasks: list[AgentTask]
     execution_order: list[str]
     replan_policy: Literal["none", "bounded_on_blocker", "manual_only"] = "none"
     created_by: Literal["static_stage_adapter", "planner", "admin_diagnostic"] = "static_stage_adapter"
+    failure_observations: list[dict[str, Any]] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _guard_execution_order(self) -> "AgentPlan":

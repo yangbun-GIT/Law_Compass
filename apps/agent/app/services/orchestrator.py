@@ -13,6 +13,7 @@ from app.services.orchestration_stages import (
     run_analysis_stage,
     run_reflection_requery_stage,
 )
+from app.services.planner import AGENT_PLAN_VERSION, build_safe_fallback_plan, build_task_plan
 from app.services.reflection_loop import build_reflection_loop_result
 from app.services.report_composer import compose_analysis_output
 from app.services.specialists import pick_specialists
@@ -26,7 +27,9 @@ def analyze_case(
     analysis_mode: str | None = None,
     ai_profile: str | None = None,
     specialist_roles: list[str] | None = None,
+    case_id: str | None = None,
 ) -> dict[str, Any]:
+    input_mode = _input_mode_for_text(structured_facts, selected_keywords, video_metadata)
     return _analyze_core(
         description_text=description_text,
         structured_facts=structured_facts,
@@ -35,6 +38,8 @@ def analyze_case(
         ai_profile=ai_profile,
         specialist_roles=specialist_roles,
         video_metadata=video_metadata,
+        input_mode=input_mode,
+        case_id=case_id,
     )
 
 
@@ -46,7 +51,10 @@ def analyze_video_case(
     structured_facts: dict[str, Any] | None = None,
     selected_keywords: list[str] | None = None,
     analysis_mode: str | None = None,
+    case_id: str | None = None,
+    upload_id: str | None = None,
 ) -> dict[str, Any]:
+    input_mode = _input_mode_for_video(structured_facts, selected_keywords, video_metadata)
     return _analyze_core(
         description_text=preprocessed_summary or "영상 분석 정보가 충분하지 않습니다. 사고 상황을 글로 조금 더 입력해 주세요.",
         structured_facts=structured_facts,
@@ -55,6 +63,9 @@ def analyze_video_case(
         ai_profile=ai_profile,
         specialist_roles=specialist_roles,
         video_metadata=video_metadata,
+        input_mode=input_mode,
+        case_id=case_id,
+        upload_id=upload_id,
     )
 
 
@@ -67,6 +78,9 @@ def analyze_scenario(payload: dict[str, Any]) -> dict[str, Any]:
         ai_profile=payload.get("ai_profile"),
         specialist_roles=payload.get("specialist_roles"),
         video_metadata=payload.get("video_metadata"),
+        input_mode="admin_diagnostic",
+        case_id=payload.get("case_id"),
+        upload_id=payload.get("upload_id"),
     )
 
 
@@ -79,7 +93,20 @@ def _analyze_core(
     ai_profile: str | None,
     specialist_roles: list[str] | None,
     video_metadata: dict[str, Any] | None,
+    input_mode: str | None,
+    case_id: str | None,
+    upload_id: str | None = None,
 ) -> dict[str, Any]:
+    agent_plan = _build_agent_plan_safe(
+        description_text=description_text,
+        structured_facts=structured_facts,
+        selected_keywords=selected_keywords,
+        video_metadata=video_metadata,
+        analysis_mode=analysis_mode,
+        input_mode=input_mode,
+        case_id=case_id,
+        upload_id=upload_id,
+    )
     context = build_case_context(
         description_text=description_text,
         structured_facts=structured_facts,
@@ -155,6 +182,8 @@ def _analyze_core(
         llm_enabled=bool(os.getenv("OPENAI_API_KEY")),
         ai_profile=profile,
     )
+    output["agent_plan"] = agent_plan.model_dump()
+    output["model_info"]["agent_plan_version"] = AGENT_PLAN_VERSION
     return enrich_analysis_output(
         output=output,
         context=context,
@@ -162,6 +191,81 @@ def _analyze_core(
         analysis_bundle=analysis_bundle,
         judgment_contract=judgment_contract,
         reflection_loop=reflection_loop,
+    )
+
+
+def _build_agent_plan_safe(
+    *,
+    description_text: str,
+    structured_facts: dict[str, Any] | None,
+    selected_keywords: list[str] | None,
+    video_metadata: dict[str, Any] | None,
+    analysis_mode: str | None,
+    input_mode: str | None,
+    case_id: str | None,
+    upload_id: str | None,
+) -> Any:
+    try:
+        return build_task_plan(
+            description_text=description_text,
+            structured_facts=structured_facts,
+            selected_keywords=selected_keywords,
+            video_metadata=video_metadata,
+            analysis_mode=analysis_mode,
+            input_mode=input_mode,  # type: ignore[arg-type]
+            case_id=case_id,
+            upload_id=upload_id,
+        )
+    except Exception as exc:  # pragma: no cover - defensive guard for production safety
+        return build_safe_fallback_plan(
+            error=exc,
+            input_mode=input_mode if input_mode in {"text_only", "video_only", "text_and_video", "followup_reanalysis", "admin_diagnostic"} else None,  # type: ignore[arg-type]
+            case_id=case_id,
+        )
+
+
+def _input_mode_for_text(
+    structured_facts: dict[str, Any] | None,
+    selected_keywords: list[str] | None,
+    video_metadata: dict[str, Any] | None,
+) -> str:
+    facts = structured_facts if isinstance(structured_facts, dict) else {}
+    if _has_followup_markers(facts):
+        return "followup_reanalysis"
+    if _has_video_metadata(video_metadata):
+        return "text_and_video"
+    if selected_keywords:
+        return "text_only"
+    return "text_only"
+
+
+def _input_mode_for_video(
+    structured_facts: dict[str, Any] | None,
+    selected_keywords: list[str] | None,
+    video_metadata: dict[str, Any] | None,
+) -> str:
+    facts = structured_facts if isinstance(structured_facts, dict) else {}
+    if _has_followup_markers(facts):
+        return "followup_reanalysis"
+    if facts or selected_keywords:
+        return "text_and_video"
+    return "video_only" if _has_video_metadata(video_metadata) else "text_only"
+
+
+def _has_followup_markers(structured_facts: dict[str, Any]) -> bool:
+    return any(str(key).startswith("_followup_") for key in structured_facts)
+
+
+def _has_video_metadata(video_metadata: dict[str, Any] | None) -> bool:
+    if not isinstance(video_metadata, dict) or not video_metadata:
+        return False
+    metadata = video_metadata.get("metadata") if isinstance(video_metadata.get("metadata"), dict) else video_metadata
+    return bool(
+        metadata.get("representative_frames")
+        or metadata.get("observations")
+        or metadata.get("duration_sec")
+        or metadata.get("file_name")
+        or video_metadata.get("upload_id")
     )
 
 

@@ -437,6 +437,21 @@ P1 검증 결과:
 - 기존 결과 payload가 깨지지 않는지 확인한다.
 - plan이 생성되지 않으면 분석이 조용히 계속되지 않고 safe observation을 남기는지 확인한다.
 
+P2-1 실행 계획 연결 결과 (2026-05-31):
+
+| 구분 | 구현 파일 | 내용 |
+| --- | --- | --- |
+| 실행 계획 생성 | `apps/agent/app/services/planner.py` | `build_task_plan`이 텍스트만, 영상만, 텍스트+영상, 보완 답변 재분석, 관리자 진단 입력 모드별 `AgentPlan`을 생성한다. 계획에는 raw user text를 넣지 않고 입력 존재 여부, fact 수, 영상 frame/observation 수 같은 안전 metadata만 남긴다. |
+| Orchestrator 연결 | `apps/agent/app/services/orchestrator.py`, `apps/agent/app/routers/internal_routes/analysis.py` | 기존 stage 순서를 바꾸지 않고 분석 시작 시 `agent_plan`을 생성해 최종 output에 additive하게 연결한다. 내부 route는 `case_id`, `upload_id`를 plan 식별자에 넘긴다. |
+| Trace/Quality packet | `apps/agent/app/services/agent_execution_trace.py`, `apps/agent/app/services/agent_quality_packet.py`, `apps/agent/app/schemas.py` | `agent_trace.task_plan`에 plan 요약을 포함하고, `agent_quality_packet`의 required packet에 `agent_plan`을 추가했다. `AnalysisOutput`에도 `agent_plan` 필드를 추가했다. |
+| 실패 안전성 | `apps/agent/app/services/planner.py` | plan 생성 실패 시 분석 전체를 중단하지 않고 `safe_fallback` plan과 `agent_plan_creation_failed` observation을 남긴다. |
+| 검증 | `apps/agent/tests/test_planner.py`, `apps/agent/tests/test_orchestrator.py` | Docker Agent 컨테이너에서 `python -m pytest tests/test_planner.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_video_input_contract.py`를 실행했고 60건이 모두 통과했다. |
+
+P2-1 제한 사항:
+
+- 아직 각 stage의 실제 실행 상태를 task packet으로 업데이트하지 않는다. 이 작업은 P2-2에서 진행한다.
+- public UI에 task raw payload를 직접 노출하지 않는 정책은 유지한다. `agent_plan`은 API payload에 포함되지만 raw user text, prompt, secret, token을 포함하지 않는다.
+
 #### P2-2. Stage별 task packet 연결
 
 - input normalization stage를 task로 감싼다.

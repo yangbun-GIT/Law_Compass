@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P2-1 실행 계획 연결
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P2-1 단계를 완료했다. 이번 변경은 기존 분석 stage 순서를 변경하지 않고, 분석 시작 시 입력 모드별 `agent_plan`을 생성해 최종 결과 payload, 실행 trace, quality packet에 안전 metadata로 연결하는 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Planner 실사용 전환 | `apps/agent/app/services/planner.py`의 `build_task_plan`이 `AgentPlan` 계약을 반환하도록 전환했다. 텍스트만, 영상만, 텍스트+영상, 보완 답변 재분석, 관리자 진단 입력 모드를 구분하고 stage 실행 순서에 맞는 task 목록을 만든다. |
+| 안전 metadata 정책 | `agent_plan`에는 raw user text, prompt, secret, token을 넣지 않는다. 입력 존재 여부, 구조화 fact 수, selected keyword 수, 영상 대표 frame 수, 영상 observation 수 같은 안전 metadata만 남긴다. |
+| Orchestrator 연결 | `apps/agent/app/services/orchestrator.py`가 분석 시작 시 plan을 생성하고 `compose_analysis_output` 이후 `agent_plan`과 `model_info.agent_plan_version`을 붙인다. plan 생성 실패 시 분석을 중단하지 않고 `safe_fallback` plan과 실패 observation을 남긴다. |
+| Trace/Quality packet | `agent_trace.task_plan`에 plan 요약을 포함하고, `agent_quality_packet`의 required packet에 `agent_plan`을 추가했다. `AnalysisOutput` schema에도 `agent_plan` 필드를 추가했다. |
+| 내부 route | `apps/agent/app/routers/internal_routes/analysis.py`가 text/video 분석 요청의 `case_id`, `upload_id`를 planner에 전달한다. public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키는 변경하지 않았다. |
+| 검증 | Agent 컨테이너에서 `docker compose exec -T agent python -m pytest tests/test_planner.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_video_input_contract.py`를 실행했고 60건이 통과했다. |
+
+P2-1은 stage별 실제 task 상태를 아직 runtime result로 갱신하지 않는다. 다음 구조 보강 단계는 P2-2 `Stage별 task packet 연결`이며, 현재 stage 결과를 `pending/running/succeeded/needs_review/blocked/failed` 상태로 감싸 trace에 반영하는 작업이다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P1 계약 정의
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P1 단계를 기존 production 실행 흐름을 바꾸지 않는 additive 계약 정의로 완료했다. 이번 변경은 P2에서 실제 runtime 연결을 시작하기 전에 Agent task/goal, Specialist Agent/persona, MCP tool metadata의 공통 schema를 먼저 고정하는 작업이다.
