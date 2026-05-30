@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P1 계약 정의
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P1 단계를 기존 production 실행 흐름을 바꾸지 않는 additive 계약 정의로 완료했다. 이번 변경은 P2에서 실제 runtime 연결을 시작하기 전에 Agent task/goal, Specialist Agent/persona, MCP tool metadata의 공통 schema를 먼저 고정하는 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Agent 실행 packet | `apps/agent/app/services/agent_contracts.py`에 `AgentInputRef`, `EvidenceRequirement`, `AgentClaim`, `AgentTask`, `AgentPlan`, `AgentGoalResult`를 추가했다. `AgentInputRef`는 public visibility에서 raw user text, prompt, secret, token 노출을 차단한다. |
+| Specialist Agent/persona | 같은 파일에 `SpecialistRoleProfile`, `SpecialistAgentResult`, `validate_specialist_result_against_profile`을 추가했다. 역할 profile은 단순 말투가 아니라 판단 권한, 금지 판단, 필요 근거, handoff 제약을 나타내는 실행 계약이다. |
+| MCP Tool 계약 | 같은 파일에 `MCPToolSpec`, `MCPToolErrorPacket`, `P1_INTERNAL_TOOL_SPECS`, `build_tool_error_packet`을 추가했다. 현재 내부 registry에 등록되는 8개 tool의 schema/권한 scope/실패 packet 기준을 문서화 가능한 코드 계약으로 고정했다. |
+| 검증 | `apps/agent/tests/test_agent_contracts.py`를 추가했고, Agent 컨테이너에서 `docker compose exec -T agent python -m pytest tests/test_agent_contracts.py` 실행 결과 5건이 통과했다. 기존 trace/judgment/video input 계약 비회귀 확인으로 `docker compose exec -T agent python -m pytest tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_video_input_contract.py`를 실행해 50건이 통과했다. |
+
+이 변경은 `orchestrator.py`, `planner.py`, `tool_executor.py`의 production caller를 바꾸지 않으며 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 다음 단계는 P2-1 `planner.py` 실사용 전환이며, 기존 stage pipeline과 결과 payload를 유지한 채 plan/task metadata를 trace와 quality packet에 additive하게 연결해야 한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P0 기준선 확정
 
 Agent/MCP/Task-Plan-Goal 구조 보강 로드맵의 P0 단계를 완료했다. 이번 변경은 코드 동작을 바꾸지 않고, 앞으로 구조 수정과 Agent 고도화를 진행할 때 기존 사용자 흐름과 결과 품질을 깨지 않도록 기준선과 작업 문서 연결을 고정한 것이다.

@@ -395,6 +395,27 @@ P0-4 연결 결과 (2026-05-31):
 - 등록된 tool 목록과 schema 목록이 일치하는지 테스트한다.
 - 없는 tool 호출, 잘못된 payload, 권한 없는 tool 호출 실패 테스트를 추가한다.
 
+P1 통합 계약 정의 결과 (2026-05-31):
+
+| 구분 | 구현 파일 | 내용 |
+| --- | --- | --- |
+| Agent 실행 packet | `apps/agent/app/services/agent_contracts.py` | `AgentInputRef`, `EvidenceRequirement`, `AgentClaim`, `AgentTask`, `AgentPlan`, `AgentGoalResult` Pydantic 계약을 추가했다. 기존 orchestration caller는 변경하지 않고 additive schema로만 추가했다. |
+| Specialist Agent/persona | `apps/agent/app/services/agent_contracts.py` | `SpecialistRoleProfile`, `SpecialistAgentResult`, `validate_specialist_result_against_profile`을 추가했다. persona는 말투가 아니라 판단 권한, 금지 판단, 필요 근거, handoff 제약으로 다루도록 고정했다. |
+| MCP Tool 계약 | `apps/agent/app/services/agent_contracts.py` | `MCPToolSpec`, `MCPToolErrorPacket`, `P1_INTERNAL_TOOL_SPECS`, `build_tool_error_packet`을 추가했다. 현재 내부 registry에 등록되는 8개 tool의 계약 metadata를 P1 기준으로 고정했다. |
+| 검증 | `apps/agent/tests/test_agent_contracts.py` | packet ordering, public raw text/secret 차단, specialist structured result 강제, role/profile mismatch 차단, 등록 tool과 spec 목록 일치, tool error packet 계약을 검증한다. |
+
+P1 제한 사항:
+
+- P1은 계약 정의 단계이므로 `orchestrator.py`, `planner.py`, `tool_executor.py`의 production 실행 흐름은 변경하지 않았다.
+- P2에서 실제 연결할 때도 기존 `agent_trace`, `agent_quality_packet`, `judgment_contract`, `video_input_contract`와 호환되는 additive 방식으로 시작한다.
+- P3 전까지 MCP tool 실행 강제 권한 검사는 metadata와 테스트 기준으로만 존재한다. 실제 executor 권한 enforcement는 P3 작업이다.
+
+P1 검증 결과:
+
+- Agent 컨테이너에 테스트 실행용 `pytest==9.0.3`을 설치한 뒤 `docker compose exec -T agent python -m pytest tests/test_agent_contracts.py`를 실행했고 5건 모두 통과했다.
+- 기존 trace/judgment/video input 계약 비회귀 확인을 위해 `docker compose exec -T agent python -m pytest tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_video_input_contract.py`를 실행했고 50건 모두 통과했다.
+- 로컬 Python 3.14에서는 `psycopg-binary==3.2.6` wheel 미지원으로 Agent requirements 전체 설치가 막혔다. Agent 검증은 Docker 컨테이너 기준으로 수행한다.
+
 ### P2. Task-Plan-Goal 런타임 연결
 
 목적: 현재 고정 orchestration을 유지하되, 실제 실행 단위가 plan/task/goal로 기록되도록 만든다.
@@ -971,8 +992,8 @@ P0-4 연결 결과 (2026-05-31):
 | 단계 | 상태 | 메모 |
 | --- | --- | --- |
 | P0 | 완료 | P0-1 용어/성공 기준, P0-2 구현 inventory, P0-3 회귀 기준선, P0-4 작업 문서 연결 완료. 이후 단계는 기존 동작과 결과 품질 비회귀 기준을 유지해야 함 |
-| P1 | 준비 완료 | 계약 설계 |
-| P2 | 대기 | Task-Plan-Goal 런타임 연결 |
+| P1 | 완료 | Agent 실행 packet, Specialist Agent/persona, MCP Tool 계약을 additive schema와 단위 테스트로 고정 |
+| P2 | 준비 완료 | Task-Plan-Goal 런타임 연결 |
 | P3 | 대기 | 내부 MCP 계층 강화 |
 | P4 | 대기 | 전문 Agent 역할 독립화 및 persona/role 고도화 |
 | P5 | 대기 | 영상 사실 추출 고도화 |
@@ -986,6 +1007,6 @@ P0-4 연결 결과 (2026-05-31):
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P1-1. Agent 실행 packet 계약 정의**부터 진행한다.
+다음 개발은 **P2-1. `planner.py` 실사용 전환**부터 진행한다.
 
-P1-1을 시작할 때는 현재 고정 stage pipeline을 깨지 않고 `AgentTask`, `AgentPlan`, `AgentGoalResult` 계약을 additive하게 설계한다. 기존 `agent_trace`, `agent_quality_packet`, `judgment_contract`, `video_input_contract` payload와 호환되어야 하며, 기존 사용자/관리자 결과 품질이 나빠지면 해당 변경은 완료로 보지 않는다.
+P2-1을 시작할 때는 현재 고정 stage pipeline을 깨지 않고 `build_task_plan()`을 입력 모드별 plan 생성에 연결한다. 먼저 trace/quality packet에 additive metadata로 붙이고, 기존 사용자/관리자 report payload나 과실/근거 결과 품질이 나빠지면 해당 변경은 완료로 보지 않는다.
