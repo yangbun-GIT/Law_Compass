@@ -53,6 +53,7 @@ const evidenceReliabilityCard = readFileSync("src/components/easy/EvidenceReliab
 const videoFactExplanationCard = readFileSync("src/components/easy/VideoFactExplanationCard.vue", "utf8");
 const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
 const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
+const kniaFaultRatioBar = readFileSync("src/components/knia/KniaFaultRatioBar.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
 const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
 const sanitizerContracts = [
@@ -170,7 +171,7 @@ const requiredErrorUx = [
   "video_label",
   "영상 신뢰도"
 ];
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, kniaFaultRatioBar, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
@@ -235,19 +236,35 @@ if (brokenKniaSelectorHits.length) {
 const requiredKniaUiTokens = [
   "knia-tabs",
   "factor-table",
-  "fault-bar",
-  "fault-bar-wrap",
-  "fault-segment",
-  "fault-ratio-readout",
+  "KniaFaultRatioBar",
+  "knia-fault-ratio-track",
+  "knia-fault-ratio-segment",
+  "knia-fault-ratio-a",
+  "knia-fault-ratio-b",
+  "knia-fault-ratio-readout",
   "factor-mobile-meta",
   "factor-state",
   "factor-row.selected",
   "font-variant-numeric: tabular-nums",
   "transition:",
 ];
-const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaChartView.includes(token) && !styles.includes(token));
+const kniaRatioSource = [kniaChartView, kniaFaultRatioBar, styles].join("\n");
+const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaRatioSource.includes(token));
 if (missingKniaUiTokens.length) {
   console.error("KNIA chart mobile UI contract missing", missingKniaUiTokens);
+  process.exit(1);
+}
+
+const ratioBarContracts = [
+  ":style=\"{ flexBasis:",
+  "min-width: 0",
+  "height: 56px",
+  "fallbackText",
+  "normalizeRatioPair",
+];
+const missingRatioBarContracts = ratioBarContracts.filter((token) => !kniaFaultRatioBar.includes(token));
+if (missingRatioBarContracts.length) {
+  console.error("KNIA fault ratio bar contract missing", missingRatioBarContracts);
   process.exit(1);
 }
 
@@ -266,7 +283,7 @@ if (missingStableRatioContracts.length) {
   process.exit(1);
 }
 
-const unstableKniaTransitions = [kniaChartView, styles].join("\n").match(/transition:\s*all\b/g);
+const unstableKniaTransitions = [kniaChartView, kniaFaultRatioBar, styles].join("\n").match(/transition:\s*all\b/g);
 if (unstableKniaTransitions?.length) {
   console.error("KNIA/fault ratio UI must not use transition: all");
   process.exit(1);

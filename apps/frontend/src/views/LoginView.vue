@@ -5,7 +5,7 @@
       <p class="kv">기존 계정으로 케이스를 조회하고 분석을 진행하세요.</p>
       <form class="auth-form" @submit.prevent="submit">
         <label>이메일
-          <input v-model.trim="email" type="email" autocomplete="email" placeholder="name@example.com" />
+          <input v-model.trim="email" type="text" inputmode="email" autocomplete="username" placeholder="name@example.com" />
         </label>
         <label>비밀번호
           <input v-model="password" type="password" autocomplete="current-password" placeholder="8자 이상" />
@@ -39,9 +39,10 @@ const route = useRoute();
 const session = useSessionStore();
 const email = ref(typeof route.query.email === "string" ? route.query.email : "");
 const password = ref("");
+const localTestLoginEnabled = import.meta.env.DEV;
 
 const messageClass = computed(() => (ok.value ? "msg-ok" : "msg-error"));
-const canSubmit = computed(() => isEmail(email.value) && password.value.length >= 8);
+const canSubmit = computed(() => isLocalTestLogin() || (isEmail(email.value) && password.value.length >= 8));
 
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -49,12 +50,15 @@ function isEmail(value: string) {
 
 async function submit() {
   if (!canSubmit.value) {
-    message.value = "이메일 형식과 8자 이상 비밀번호를 입력해 주세요.";
+    message.value = "이메일 형식과 8자 이상 비밀번호를 입력해 주세요. 로컬 개발에서는 test/test도 사용할 수 있습니다.";
     ok.value = false;
     return;
   }
   try {
-    await session.login(email.value, password.value);
+    const credentials = isLocalTestLogin()
+      ? { email: "test@test.local", password: "testtest" }
+      : { email: email.value, password: password.value };
+    await session.login(credentials.email, credentials.password);
     message.value = "로그인 성공";
     ok.value = true;
     const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "/";
@@ -63,5 +67,9 @@ async function submit() {
     message.value = formatApiError(e, "로그인에 실패했습니다.");
     ok.value = false;
   }
+}
+
+function isLocalTestLogin() {
+  return localTestLoginEnabled && email.value.trim().toLowerCase() === "test" && password.value === "test";
 }
 </script>

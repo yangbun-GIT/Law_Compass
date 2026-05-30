@@ -5,8 +5,8 @@
 ## 0. 생성 정보
 
 - Root: `C:\Users\shy\IdeaProjects\Law_Compass`
-- Generated at: `2026-05-30T12:44:29`
-- Included files: `507`
+- Generated at: `2026-05-30T15:16:44`
+- Included files: `508`
 - Max file size: `1,000,000` bytes
 - Max chars per file: `80,000` chars
 - Max total chars: `3,000,000` chars
@@ -605,6 +605,7 @@ Law_Compass/
 - `apps/frontend/src/components/easy/VideoFactExplanationCard.vue`
 - `apps/frontend/src/components/knia/AccidentPartyTypeTabs.vue`
 - `apps/frontend/src/components/knia/KniaChartCard.vue`
+- `apps/frontend/src/components/knia/KniaFaultRatioBar.vue`
 - `apps/frontend/src/components/knia/KniaJsonEvidenceCard.vue`
 - `apps/frontend/src/components/knia/KniaJsonSearchBox.vue`
 - `apps/frontend/src/components/knia/KniaMediaLinkCard.vue`
@@ -639,7 +640,6 @@ Law_Compass/
 - `apps/frontend/src/styles.css`
 - `apps/frontend/src/types/chat.ts`
 - `apps/frontend/src/types/mlkit.ts`
-- `apps/frontend/src/types/mobileObservations.ts`
 
 ### 워커/비동기 작업
 
@@ -934,6 +934,7 @@ Law_Compass/
 - `apps/frontend/src/router/index.ts`: `VITE_APP_DEMO_ROUTE`, `VITE_ENABLE_APP_DEMO`
 - `apps/frontend/src/views/AppMlKitDemoView.vue`: `VITE_MLKIT_DEMO_MODE`
 - `apps/frontend/src/views/EvidenceDetailView.vue`: `VITE_ENABLE_DEBUG_REPORT`
+- `apps/frontend/src/views/LoginView.vue`: `DEV`
 - `apps/gateway/src/config/env.ts`: `ANALYZE_TIMEOUT_MS`, `API_PREFIX`, `DATABASE_URL`, `INTERNAL_ADMIN_TOKEN`, `INTERNAL_AGENT_URL`, `INTERNAL_SERVICE_TOKEN`, `JWT_ACCESS_SECRET`, `JWT_ACCESS_TTL_SEC`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_TTL_SEC`, `LOCAL_DOWNLOAD_URL_EXPIRES_SEC`, `LOCAL_STORAGE_ROOT`, `LOCAL_VIEW_URL_EXPIRES_SEC`, `MAX_UPLOAD_MB`, `NODE_ENV`, `PORT`, `REDIS_URL`, `REQUEST_TIMEOUT_MS`, `RETRY_COUNT`, `STORAGE_DRIVER`, `STORAGE_PROVIDER`
 - `apps/gateway/src/routes/analysis.ts`: `REDIS_STREAM_KEY`
 - `apps/gateway/src/routes/mobile-demo.ts`: `INTERNAL_AGENT_URL`, `INTERNAL_SERVICE_TOKEN`
@@ -53668,7 +53669,7 @@ console.log(JSON.stringify({ test_chat: "passed", required_files: required.lengt
 
 ### File: `apps/frontend/scripts/test-display.mjs`
 
-- size: `19,381` bytes
+- size: `20,029` bytes
 
 ```javascript
 ﻿const forbidden = ["chunk_id", "score", "model_info", "cache_key", "rag_top_k", "ai_profile", "llm_enabled", "orchestrator", "scenario_classifier", "claim_id", "evidence_refs", "required_evidence_family", "rear_end_collision", "REAR_END_SAFE_DISTANCE", "ROAD_ACCIDENT_REPORTING_DUTY", "???", '"injury":', '"stopped":', '"weather":'];
@@ -53726,6 +53727,7 @@ const evidenceReliabilityCard = readFileSync("src/components/easy/EvidenceReliab
 const videoFactExplanationCard = readFileSync("src/components/easy/VideoFactExplanationCard.vue", "utf8");
 const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
 const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
+const kniaFaultRatioBar = readFileSync("src/components/knia/KniaFaultRatioBar.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
 const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
 const sanitizerContracts = [
@@ -53843,7 +53845,7 @@ const requiredErrorUx = [
   "video_label",
   "영상 신뢰도"
 ];
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, kniaFaultRatioBar, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
@@ -53908,19 +53910,35 @@ if (brokenKniaSelectorHits.length) {
 const requiredKniaUiTokens = [
   "knia-tabs",
   "factor-table",
-  "fault-bar",
-  "fault-bar-wrap",
-  "fault-segment",
-  "fault-ratio-readout",
+  "KniaFaultRatioBar",
+  "knia-fault-ratio-track",
+  "knia-fault-ratio-segment",
+  "knia-fault-ratio-a",
+  "knia-fault-ratio-b",
+  "knia-fault-ratio-readout",
   "factor-mobile-meta",
   "factor-state",
   "factor-row.selected",
   "font-variant-numeric: tabular-nums",
   "transition:",
 ];
-const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaChartView.includes(token) && !styles.includes(token));
+const kniaRatioSource = [kniaChartView, kniaFaultRatioBar, styles].join("\n");
+const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaRatioSource.includes(token));
 if (missingKniaUiTokens.length) {
   console.error("KNIA chart mobile UI contract missing", missingKniaUiTokens);
+  process.exit(1);
+}
+
+const ratioBarContracts = [
+  ":style=\"{ flexBasis:",
+  "min-width: 0",
+  "height: 56px",
+  "fallbackText",
+  "normalizeRatioPair",
+];
+const missingRatioBarContracts = ratioBarContracts.filter((token) => !kniaFaultRatioBar.includes(token));
+if (missingRatioBarContracts.length) {
+  console.error("KNIA fault ratio bar contract missing", missingRatioBarContracts);
   process.exit(1);
 }
 
@@ -53939,7 +53957,7 @@ if (missingStableRatioContracts.length) {
   process.exit(1);
 }
 
-const unstableKniaTransitions = [kniaChartView, styles].join("\n").match(/transition:\s*all\b/g);
+const unstableKniaTransitions = [kniaChartView, kniaFaultRatioBar, styles].join("\n").match(/transition:\s*all\b/g);
 if (unstableKniaTransitions?.length) {
   console.error("KNIA/fault ratio UI must not use transition: all");
   process.exit(1);
@@ -55588,22 +55606,19 @@ const safeDebugText = computed(() => JSON.stringify(removeTechnicalFields(props.
 
 ### File: `apps/frontend/src/components/easy/EasyFaultRatioCard.vue`
 
-- size: `1,194` bytes
+- size: `959` bytes
 
 ```vue
 <template>
   <article class="card easy-card">
     <h2>{{ text(fault.title || "과실비율 참고 추정") }}</h2>
-    <div class="easy-ratio-row">
-      <div>
-        <span>{{ showPercent(fault.my_percent) }}</span>
-        <p>{{ text(fault.my_label || "내 책임") }}</p>
-      </div>
-      <div>
-        <span class="accent">{{ showPercent(fault.other_percent) }}</span>
-        <p>{{ text(fault.other_label || "상대방 책임") }}</p>
-      </div>
-    </div>
+    <KniaFaultRatioBar
+      :a="fault.my_percent"
+      :b="fault.other_percent"
+      :left-label="text(fault.my_label || '내 책임')"
+      :right-label="text(fault.other_label || '상대방 책임')"
+      variant="user"
+    />
     <p class="big-text">{{ text(fault.easy_explanation) }}</p>
     <h3>왜 이렇게 보나요?</h3>
     <ul class="check-list">
@@ -55614,6 +55629,7 @@ const safeDebugText = computed(() => JSON.stringify(removeTechnicalFields(props.
 </template>
 
 <script setup lang="ts">
+import KniaFaultRatioBar from "../knia/KniaFaultRatioBar.vue";
 import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 
 defineProps<{ fault: any }>();
@@ -55622,10 +55638,6 @@ function text(value: unknown) {
   return sanitizeDisplayText(value);
 }
 
-function showPercent(value: number | string | null | undefined) {
-  const n = Number(value);
-  return Number.isFinite(n) ? `${Math.round(n)}%` : "확인 필요";
-}
 </script>
 
 ```
@@ -55703,7 +55715,7 @@ const sourceLabel = computed(() =>
 
 ### File: `apps/frontend/src/components/easy/EasyReportView.vue`
 
-- size: `31,423` bytes
+- size: `31,552` bytes
 
 ```vue
 <template>
@@ -55718,16 +55730,13 @@ const sourceLabel = computed(() =>
       <section class="card easy-card simple-section corner-flourish">
         <p class="eyebrow">과실비율산정</p>
         <h2>예상 과실비율</h2>
-        <div class="easy-ratio-row">
-          <div>
-            <p>내 과실</p>
-            <span>{{ percentText(simpleFaultRatio.my ?? simpleFaultRatio.my_percent ?? simpleFaultRatio.my_fault) }}</span>
-          </div>
-          <div>
-            <p>상대 과실</p>
-            <span class="accent">{{ percentText(simpleFaultRatio.other ?? simpleFaultRatio.other_percent ?? simpleFaultRatio.opponent_fault) }}</span>
-          </div>
-        </div>
+        <KniaFaultRatioBar
+          :a="simpleFaultRatio.my ?? simpleFaultRatio.my_percent ?? simpleFaultRatio.my_fault"
+          :b="simpleFaultRatio.other ?? simpleFaultRatio.other_percent ?? simpleFaultRatio.opponent_fault"
+          left-label="내 과실"
+          right-label="상대 과실"
+          variant="user"
+        />
         <p class="easy-summary">
           {{ simpleFaultRatio.basis || simpleFaultRatio.summary || safeReport?.fault_ratio_summary || "입력한 사고 사실과 KNIA 기준을 함께 검토한 참고용 산정입니다." }}
         </p>
@@ -55785,9 +55794,16 @@ const sourceLabel = computed(() =>
             </div>
             <span class="chip selected">{{ selectedAdjustmentCount }}개 적용</span>
           </div>
-          <div v-if="manualFaultText" class="user-adjustment-result">
+          <div v-if="manualFault" class="user-adjustment-result">
             <span>조정 후 참고 과실</span>
-            <strong>{{ manualFaultText }}</strong>
+            <KniaFaultRatioBar
+              :a="manualFault.A"
+              :b="manualFault.B"
+              left-label="A"
+              right-label="B"
+              :caption="manualFaultText"
+              variant="compact"
+            />
           </div>
           <label
             v-for="item in userAdjustmentRows"
@@ -56000,6 +56016,7 @@ import MissingInfoCard from "./MissingInfoCard.vue";
 import DetailToggleSection from "./DetailToggleSection.vue";
 import RelatedKniaStandardCard from "../knia/RelatedKniaStandardCard.vue";
 import RelatedVideoCard from "../knia/RelatedVideoCard.vue";
+import KniaFaultRatioBar from "../knia/KniaFaultRatioBar.vue";
 import AccidentPartyTypeActionCard from "../result/AccidentPartyTypeActionCard.vue";
 import { formatKniaBody, removeTechnicalFields, sanitizeDisplayText } from "../../utils/displaySanitizer";
 
@@ -57376,6 +57393,456 @@ const faultLabel = computed(() => typeof props.chart.base_fault_a === "number" &
 const paragraphs = computed(() => formatKniaBody(props.chart.accident_summary || props.chart.basic_fault_text));
 function text(value: unknown) { return sanitizeDisplayText(value); }
 </script>
+
+```
+
+### File: `apps/frontend/src/components/knia/KniaFaultRatioBar.vue`
+
+- size: `11,197` bytes
+
+```vue
+<template>
+  <div
+    class="knia-fault-ratio-bar"
+    :class="[`is-${variant}`, { 'is-empty': !normalizedRatio }]"
+  >
+    <p v-if="!normalizedRatio" class="knia-fault-ratio-empty">
+      {{ fallbackText }}
+    </p>
+
+    <template v-else>
+      <div class="knia-fault-ratio-labels" aria-hidden="true">
+        <span class="knia-fault-ratio-party is-left">{{ leftLabel }}</span>
+        <span class="knia-fault-ratio-party is-right">{{ rightLabel }}</span>
+      </div>
+
+      <div class="knia-fault-ratio-track-shell">
+        <div
+          class="knia-fault-ratio-track"
+          role="img"
+          :aria-label="computedAriaLabel"
+        >
+          <div
+            class="knia-fault-ratio-segment knia-fault-ratio-a"
+            :class="{
+              'is-zero': normalizedRatio.left <= 0,
+              'is-full': normalizedRatio.left >= 100,
+              'is-tiny': leftTiny,
+            }"
+            :style="{ flexBasis: `${normalizedRatio.left}%` }"
+          >
+            <span class="knia-fault-ratio-percent">
+              {{ leftInsideLabel }} {{ normalizedRatio.left }}%
+            </span>
+          </div>
+
+          <div
+            class="knia-fault-ratio-segment knia-fault-ratio-b"
+            :class="{
+              'is-zero': normalizedRatio.right <= 0,
+              'is-full': normalizedRatio.right >= 100,
+              'is-tiny': rightTiny,
+            }"
+            :style="{ flexBasis: `${normalizedRatio.right}%` }"
+          >
+            <span class="knia-fault-ratio-percent">
+              {{ rightInsideLabel }} {{ normalizedRatio.right }}%
+            </span>
+          </div>
+        </div>
+
+        <div
+          class="knia-fault-ratio-marker"
+          :style="{ left: splitMarkerLeft }"
+          aria-hidden="true"
+        >
+          <span>{{ normalizedRatio.left }}:{{ normalizedRatio.right }}</span>
+        </div>
+      </div>
+
+      <div class="knia-fault-ratio-readout" aria-hidden="true">
+        <span>{{ leftLabel }} {{ normalizedRatio.left }}%</span>
+        <span>{{ rightLabel }} {{ normalizedRatio.right }}%</span>
+      </div>
+
+      <p v-if="caption" class="knia-fault-ratio-caption">
+        {{ caption }}
+      </p>
+    </template>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from "vue";
+
+type RatioValue = number | string | null | undefined;
+type RatioVariant = "knia" | "user" | "compact";
+
+type NormalizedRatio = {
+  left: number;
+  right: number;
+};
+
+const props = withDefaults(
+  defineProps<{
+    a?: RatioValue;
+    b?: RatioValue;
+    left?: RatioValue;
+    right?: RatioValue;
+    leftLabel?: string;
+    rightLabel?: string;
+    caption?: string;
+    variant?: RatioVariant;
+    ariaLabel?: string;
+    fallbackText?: string;
+  }>(),
+  {
+    leftLabel: "\uC67C\uCABD A",
+    rightLabel: "\uC624\uB978\uCABD B",
+    caption: "",
+    variant: "knia",
+    ariaLabel: "",
+    fallbackText: "\uACFC\uC2E4\uBE44\uC728 \uD655\uC778 \uD544\uC694",
+  },
+);
+
+const normalizedRatio = computed<NormalizedRatio | null>(() => {
+  return normalizeRatioPair(firstRatioValue(props.a, props.left), firstRatioValue(props.b, props.right));
+});
+
+const leftTiny = computed(() => {
+  const ratio = normalizedRatio.value;
+  return Boolean(ratio && ratio.left > 0 && ratio.left < 14);
+});
+
+const rightTiny = computed(() => {
+  const ratio = normalizedRatio.value;
+  return Boolean(ratio && ratio.right > 0 && ratio.right < 14);
+});
+
+const splitMarkerLeft = computed(() => {
+  const ratio = normalizedRatio.value;
+  if (!ratio) return "50%";
+  if (ratio.left <= 0) return "clamp(32px, 0%, calc(100% - 32px))";
+  if (ratio.left >= 100) return "clamp(32px, 100%, calc(100% - 32px))";
+  return `clamp(32px, ${ratio.left}%, calc(100% - 32px))`;
+});
+
+const computedAriaLabel = computed(() => {
+  const ratio = normalizedRatio.value;
+  if (!ratio) return props.fallbackText;
+  return props.ariaLabel || `${props.leftLabel} ${ratio.left}%, ${props.rightLabel} ${ratio.right}%`;
+});
+
+const leftInsideLabel = computed(() => props.variant === "user" ? "\uB0B4" : shortSegmentLabel(props.leftLabel, "A"));
+const rightInsideLabel = computed(() => props.variant === "user" ? "\uC0C1\uB300" : shortSegmentLabel(props.rightLabel, "B"));
+
+function firstRatioValue(...values: RatioValue[]) {
+  for (const value of values) {
+    const parsed = parseRatioValue(value);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function parseRatioValue(value: RatioValue) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const match = raw.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeRatioPair(leftValue: number | null, rightValue: number | null): NormalizedRatio | null {
+  let left = leftValue;
+  let right = rightValue;
+
+  if (left === null && right === null) return null;
+  if (left !== null && right === null) right = 100 - left;
+  if (left === null && right !== null) left = 100 - right;
+  if (left === null || right === null) return null;
+
+  const clampedLeft = clampPercent(left);
+  const clampedRight = clampPercent(right);
+  const total = clampedLeft + clampedRight;
+
+  if (total <= 0) return null;
+  if (total === 100) return { left: clampedLeft, right: clampedRight };
+
+  const nextLeft = Math.round((clampedLeft / total) * 100);
+  return { left: nextLeft, right: 100 - nextLeft };
+}
+
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function shortSegmentLabel(label: string, fallback: string) {
+  const value = String(label || "").trim();
+  if (!value) return fallback;
+  const upper = value.toUpperCase();
+  if (upper.includes("A")) return "A";
+  if (upper.includes("B")) return "B";
+  return fallback;
+}
+</script>
+
+<style scoped>
+.knia-fault-ratio-bar {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.knia-fault-ratio-labels,
+.knia-fault-ratio-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.knia-fault-ratio-party {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 169, 98, 0.42);
+  background: rgba(28, 23, 20, 0.52);
+  color: var(--text-main, #e8dfd4);
+  font-size: 0.82rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.knia-fault-ratio-party.is-left {
+  color: #ffe2e4;
+  border-color: rgba(184, 75, 85, 0.58);
+  background: rgba(139, 38, 53, 0.24);
+}
+
+.knia-fault-ratio-party.is-right {
+  color: var(--accent-foreground, #1c1714);
+  border-color: rgba(201, 169, 98, 0.58);
+  background: rgba(201, 169, 98, 0.78);
+}
+
+.knia-fault-ratio-track-shell {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.knia-fault-ratio-track {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(201, 169, 98, 0.40);
+  background:
+    linear-gradient(180deg, rgba(232, 223, 212, 0.08), transparent 40%),
+    rgba(28, 23, 20, 0.70);
+  box-shadow:
+    inset 0 1px 0 rgba(232, 223, 212, 0.10),
+    0 14px 30px rgba(0, 0, 0, 0.24);
+}
+
+.knia-fault-ratio-segment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  flex-grow: 0;
+  flex-shrink: 0;
+  color: var(--text-main, #e8dfd4);
+  font-size: 0.94rem;
+  font-weight: 950;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    flex-basis 0.22s ease,
+    opacity 0.18s ease;
+}
+
+.knia-fault-ratio-segment::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%, rgba(0, 0, 0, 0.16));
+}
+
+.knia-fault-ratio-a {
+  justify-content: flex-start;
+  padding-left: 18px;
+  padding-right: 8px;
+  background:
+    linear-gradient(90deg, rgba(116, 30, 43, 0.98), rgba(178, 73, 82, 0.96));
+  color: #fff2f2;
+}
+
+.knia-fault-ratio-b {
+  justify-content: flex-end;
+  padding-left: 8px;
+  padding-right: 18px;
+  background:
+    linear-gradient(90deg, var(--accent-dark, #b8953f), var(--accent-strong, #d4b872));
+  color: var(--accent-foreground, #1c1714);
+}
+
+.knia-fault-ratio-percent {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5ch;
+  max-width: 100%;
+  padding: 0 6px;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
+}
+
+.knia-fault-ratio-segment.is-tiny .knia-fault-ratio-percent,
+.knia-fault-ratio-segment.is-zero .knia-fault-ratio-percent {
+  display: none;
+}
+
+.knia-fault-ratio-segment.is-zero {
+  min-width: 0;
+  flex-basis: 0% !important;
+  width: 0 !important;
+  padding: 0 !important;
+  opacity: 0;
+}
+
+.knia-fault-ratio-segment.is-full {
+  flex-basis: 100% !important;
+}
+
+.knia-fault-ratio-marker {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 36px;
+  transform: translate(-50%, -50%);
+  clip-path: polygon(24% 0, 76% 0, 100% 50%, 76% 100%, 24% 100%, 0 50%);
+  background: linear-gradient(180deg, #f4d780 0%, #d7ae4f 58%, #b98d31 100%);
+  color: #2b2119;
+  border: 1px solid rgba(255, 238, 188, 0.72);
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.40);
+  font-size: 0.76rem;
+  font-weight: 950;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.knia-fault-ratio-marker span,
+.knia-fault-ratio-readout span {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.knia-fault-ratio-readout {
+  color: var(--text-sub, #bfaf9d);
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.knia-fault-ratio-readout span {
+  min-width: 7ch;
+  text-align: center;
+}
+
+.knia-fault-ratio-caption,
+.knia-fault-ratio-empty {
+  margin: 0;
+  color: var(--text-sub, #bfaf9d);
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1.55;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.knia-fault-ratio-empty {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px dashed rgba(201, 169, 98, 0.30);
+  background: rgba(28, 23, 20, 0.38);
+}
+
+.knia-fault-ratio-bar.is-compact {
+  gap: 8px;
+}
+
+.knia-fault-ratio-bar.is-compact .knia-fault-ratio-track {
+  height: 48px;
+}
+
+@media (max-width: 640px) {
+  .knia-fault-ratio-party {
+    min-height: 26px;
+    padding: 3px 10px;
+    font-size: 0.78rem;
+  }
+
+  .knia-fault-ratio-track {
+    height: 50px;
+    border-radius: 14px;
+  }
+
+  .knia-fault-ratio-segment {
+    font-size: 0.84rem;
+  }
+
+  .knia-fault-ratio-a {
+    padding-left: 12px;
+    padding-right: 6px;
+  }
+
+  .knia-fault-ratio-b {
+    padding-left: 6px;
+    padding-right: 12px;
+  }
+
+  .knia-fault-ratio-marker {
+    width: 48px;
+    height: 32px;
+    font-size: 0.7rem;
+  }
+
+  .knia-fault-ratio-readout {
+    font-size: 0.86rem;
+  }
+}
+</style>
 
 ```
 
@@ -61461,7 +61928,7 @@ export const useSessionStore = defineStore("session", {
 
 ### File: `apps/frontend/src/styles.css`
 
-- size: `61,586` bytes
+- size: `61,579` bytes
 
 ```css
 ﻿:root {
@@ -62781,9 +63248,7 @@ code {
 }
 
 .user-adjustment-result {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: grid;
     gap: 10px;
     padding: 12px 14px;
     border-radius: 14px;
@@ -62792,9 +63257,11 @@ code {
     color: var(--text-sub);
 }
 
+.user-adjustment-result > span,
 .user-adjustment-result strong {
     color: var(--accent-strong);
     font-size: 1.05rem;
+    font-weight: 900;
 }
 
 .user-adjustment-row {
@@ -65836,7 +66303,7 @@ onMounted(load);
 
 ### File: `apps/frontend/src/views/KniaChartView.vue`
 
-- size: `27,236` bytes
+- size: `24,080` bytes
 
 ```vue
 ﻿<template>
@@ -65889,16 +66356,26 @@ onMounted(load);
           <section class="glass-box">
             <p class="eyebrow">기본과실</p>
             <template v-if="hasBaseFault">
-              <FaultBar :a="baseAForBar" :b="baseBForBar" />
-              <p class="fault-caption">KNIA 원문 기본과실 A {{ baseAForBar }}% : B {{ baseBForBar }}%</p>
+              <KniaFaultRatioBar
+                :a="baseAForBar"
+                :b="baseBForBar"
+                left-label="왼쪽 A"
+                right-label="오른쪽 B"
+                :caption="`KNIA 원문 기본과실 A ${baseAForBar}% : B ${baseBForBar}%`"
+              />
             </template>
             <p v-else class="empty-note compact-note">기본과실은 상세 기준 수집 후 표시됩니다.</p>
           </section>
           <section class="glass-box emphasis">
             <p class="eyebrow">사용자 수동 조정 결과</p>
             <template v-if="hasBaseFault">
-              <FaultBar :a="manualFault.A" :b="manualFault.B" />
-              <p class="fault-caption">선택한 가감요소 기준 A {{ manualFault.A }}% : B {{ manualFault.B }}%</p>
+              <KniaFaultRatioBar
+                :a="manualFault.A"
+                :b="manualFault.B"
+                left-label="왼쪽 A"
+                right-label="오른쪽 B"
+                :caption="`선택한 가감요소 기준 A ${manualFault.A}% : B ${manualFault.B}%`"
+              />
             </template>
             <p v-else class="empty-note compact-note">수동 조정 결과는 기본과실 수집 후 계산됩니다.</p>
           </section>
@@ -66003,9 +66480,10 @@ onMounted(load);
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { api, formatApiError } from "../api/client";
+import KniaFaultRatioBar from "../components/knia/KniaFaultRatioBar.vue";
 import KniaVideoLinkCard from "../components/knia/KniaVideoLinkCard.vue";
 import { useSessionStore } from "../stores/session";
 import { sanitizeDisplayText } from "../utils/displaySanitizer";
@@ -66155,64 +66633,6 @@ function missingDetailText(label: string) {
     : `${label}는 상세 기준 수집 후 표시됩니다. 현재는 ranking 또는 기본 기준 정보만 저장된 상태입니다.`;
 }
 
-const FaultBar = defineComponent({
-  props: { a: { type: Number, required: true }, b: { type: Number, required: true } },
-  setup(props) {
-    function normalizeFaultPair(a: unknown, b: unknown) {
-      const aRaw = toPercent(a, 0);
-      const bRaw = toPercent(b, 0);
-      const total = aRaw + bRaw;
-      if (total <= 0) return { a: 50, b: 50, isUnknown: true };
-      if (total === 100) return { a: aRaw, b: bRaw, isUnknown: false };
-      const nextA = Math.round((aRaw / total) * 100);
-      return { a: nextA, b: 100 - nextA, isUnknown: false };
-    }
-
-    function toPercent(value: unknown, fallback = 0) {
-      const n = Number(value);
-      if (!Number.isFinite(n)) return fallback;
-      return Math.max(0, Math.min(100, Math.round(n)));
-    }
-
-    return () => {
-      const normalized = normalizeFaultPair(props.a, props.b);
-      return h("div", { class: "fault-bar-wrap" }, [
-        h(
-          "div",
-          {
-            class: ["fault-bar", { "is-unknown": normalized.isUnknown }],
-            role: "img",
-            "aria-label": normalized.isUnknown ? "기준 과실 수집 필요" : `A ${normalized.a}%, B ${normalized.b}%`,
-          },
-          [
-            h(
-              "div",
-              {
-                class: ["fault-segment", "fault-a", { "is-zero": normalized.a <= 0, "is-full": normalized.a >= 100 }],
-                style: { flexBasis: `${normalized.a}%` },
-              },
-              normalized.a > 0 ? [h("span", {}, `A ${normalized.a}%`)] : []
-            ),
-            h(
-              "div",
-              {
-                class: ["fault-segment", "fault-b", { "is-zero": normalized.b <= 0, "is-full": normalized.b >= 100 }],
-                style: { flexBasis: `${normalized.b}%` },
-              },
-              normalized.b > 0 ? [h("span", {}, `B ${normalized.b}%`)] : []
-            ),
-          ]
-        ),
-        h(
-          "div",
-          { class: "fault-ratio-readout", "aria-hidden": "true" },
-          [h("span", {}, `A ${normalized.a}%`), h("span", {}, `B ${normalized.b}%`)]
-        ),
-      ]);
-    };
-  }
-});
-
 watch(() => route.fullPath, () => {
   collectMessage.value = "";
   load();
@@ -66235,22 +66655,11 @@ onMounted(load);
 .tab-button:hover { transform: translateY(-1px); border-color: rgba(201, 169, 98, 0.48); color: var(--text-main); }
 .tab-button.active { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); border-color: rgba(201, 169, 98, 0.78); color: var(--accent-foreground); box-shadow: 0 10px 24px rgba(201, 169, 98, 0.20); }
 .tab-panel { display: grid; gap: 16px; }
-.fault-grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 14px; }
+.fault-grid { display: grid; grid-template-columns: minmax(260px, 0.95fr) repeat(2, minmax(300px, 1fr)); gap: 14px; align-items: stretch; }
+.fault-grid > .glass-box { min-width: 0; }
 .glass-box, .reference-card { border: 1px solid rgba(201, 169, 98, 0.28); background: linear-gradient(145deg, rgba(61, 51, 43, 0.84), rgba(37, 30, 25, 0.92)); border-radius: 18px; padding: 18px; box-shadow: 0 18px 42px rgba(0,0,0,0.22); }
 .glass-box.emphasis { border-color: rgba(201, 169, 98, 0.48); background: linear-gradient(145deg, rgba(201, 169, 98, 0.15), rgba(37, 30, 25, 0.92)); }
 .plain-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
-.fault-bar-wrap { display: grid; gap: 10px; min-width: 0; }
-.fault-bar { display: flex; width: 100%; height: 48px; overflow: hidden; border-radius: 999px; border: 1px solid rgba(201, 169, 98, 0.34); background: rgba(28, 23, 20, 0.56); box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.08); }
-.fault-segment { display: grid; place-items: center; min-width: 0; flex-grow: 0; flex-shrink: 0; height: 100%; overflow: hidden; font-weight: 950; font-size: 0.95rem; line-height: 1; white-space: nowrap; transition: flex-basis 0.2s ease, opacity 0.18s ease; }
-.fault-segment span { display: inline-flex; align-items: center; justify-content: center; min-width: 5ch; padding: 0 8px; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
-.fault-a { background: linear-gradient(135deg, #8B2635, #B84B55); color: #FFF2F2; }
-.fault-b { background: linear-gradient(135deg, var(--accent-dark), var(--accent-strong)); color: var(--accent-foreground); }
-.fault-segment.is-zero { min-width: 0; flex-basis: 0% !important; width: 0 !important; padding: 0; opacity: 0; overflow: hidden; }
-.fault-segment.is-zero span { display: none; }
-.fault-segment.is-full { flex-basis: 100% !important; }
-.fault-ratio-readout { display: flex; justify-content: space-between; gap: 10px; color: var(--text-sub); font-weight: 850; }
-.fault-ratio-readout span { min-width: 5ch; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
-.fault-caption { margin: 10px 0 0; color: var(--text-sub); font-weight: 800; line-height: 1.5; }
 .factor-box { display: grid; gap: 14px; }
 .factor-table { display: grid; gap: 10px; width: 100%; overflow: hidden; }
 .factor-head, .factor-row { display: grid; grid-template-columns: 56px minmax(220px, 1fr) 74px 74px 112px; gap: 10px; align-items: center; }
@@ -66281,8 +66690,11 @@ onMounted(load);
 .source-card { display: grid; gap: 12px; }
 .state-card { display: grid; gap: 12px; justify-items: start; }
 .error-state { border-color: rgba(255, 112, 132, 0.35); }
+@media (max-width: 1100px) {
+  .fault-grid { grid-template-columns: 1fr 1fr; }
+  .fault-grid > .glass-box:first-child { grid-column: 1 / -1; }
+}
 @media (max-width: 900px) {
-  .fault-grid { grid-template-columns: 1fr; }
   .factor-head { display: none; }
   .factor-table { gap: 12px; }
   .factor-row { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; align-items: flex-start; padding: 16px; }
@@ -66294,8 +66706,8 @@ onMounted(load);
 @media (max-width: 640px) {
   .knia-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
   .tab-button { flex: 0 0 auto; scroll-snap-align: start; min-height: 46px; padding: 12px 15px; font-size: 0.95rem; white-space: nowrap; }
-  .fault-bar { height: 44px; }
-  .fault-segment { font-size: 0.9rem; min-width: 38px; }
+  .fault-grid { grid-template-columns: 1fr; }
+  .fault-grid > .glass-box:first-child { grid-column: auto; }
 }
 @media (max-width: 480px) {
   .factor-row { padding: 15px 14px; border-radius: 15px; }
@@ -66657,7 +67069,7 @@ onMounted(load);
 
 ### File: `apps/frontend/src/views/LoginView.vue`
 
-- size: `2,566` bytes
+- size: `3,018` bytes
 
 ```vue
 ﻿<template>
@@ -66667,7 +67079,7 @@ onMounted(load);
       <p class="kv">기존 계정으로 케이스를 조회하고 분석을 진행하세요.</p>
       <form class="auth-form" @submit.prevent="submit">
         <label>이메일
-          <input v-model.trim="email" type="email" autocomplete="email" placeholder="name@example.com" />
+          <input v-model.trim="email" type="text" inputmode="email" autocomplete="username" placeholder="name@example.com" />
         </label>
         <label>비밀번호
           <input v-model="password" type="password" autocomplete="current-password" placeholder="8자 이상" />
@@ -66701,9 +67113,10 @@ const route = useRoute();
 const session = useSessionStore();
 const email = ref(typeof route.query.email === "string" ? route.query.email : "");
 const password = ref("");
+const localTestLoginEnabled = import.meta.env.DEV;
 
 const messageClass = computed(() => (ok.value ? "msg-ok" : "msg-error"));
-const canSubmit = computed(() => isEmail(email.value) && password.value.length >= 8);
+const canSubmit = computed(() => isLocalTestLogin() || (isEmail(email.value) && password.value.length >= 8));
 
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -66711,12 +67124,15 @@ function isEmail(value: string) {
 
 async function submit() {
   if (!canSubmit.value) {
-    message.value = "이메일 형식과 8자 이상 비밀번호를 입력해 주세요.";
+    message.value = "이메일 형식과 8자 이상 비밀번호를 입력해 주세요. 로컬 개발에서는 test/test도 사용할 수 있습니다.";
     ok.value = false;
     return;
   }
   try {
-    await session.login(email.value, password.value);
+    const credentials = isLocalTestLogin()
+      ? { email: "test@test.local", password: "testtest" }
+      : { email: email.value, password: password.value };
+    await session.login(credentials.email, credentials.password);
     message.value = "로그인 성공";
     ok.value = true;
     const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "/";
@@ -66725,6 +67141,10 @@ async function submit() {
     message.value = formatApiError(e, "로그인에 실패했습니다.");
     ok.value = false;
   }
+}
+
+function isLocalTestLogin() {
+  return localTestLoginEnabled && email.value.trim().toLowerCase() === "test" && password.value === "test";
 }
 </script>
 
@@ -75807,267 +76227,9 @@ if __name__ == "__main__":
           {
             "text": "차43-7 안전지대 통과 직진 대 선행 진로변경",
             "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차43-7&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "도로로 진입하는 차와 직진차와의 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차44-1 직진 대 도로가 아닌 장소에서 도로로 우회전 진입",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차44-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "앞지르기 금지 장소에서 추월사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차45-1 황색실선 추월 직진(좌회전) 대 선행 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차45-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차45-2 동일차로 내 우측 급진입 추월 이륜차 대 선행 우회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차45-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차45-3 선행 직진 대 후행 좌측 앞지르기(금지 장소)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차45-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차45-4 정체중 후행 중앙선 침범 추월 대 선행 중앙선침범 추월",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차45-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차45-5 선행 직진 대 후행 근접거리 추월(황색점선 중앙선)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차45-5&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차45-6 후행 흰색 실선 앞지르기 대 선행 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차45-6&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "선행 유턴 대 후행 유턴 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차46-1 양 차량 유턴 사고",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차46-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "정차 후 출발 대 직진(우회전) 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차47-1 정차 후 출발 대 직진(우회전) 사고",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차47-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차47-2 정차후 출발차량과 그 앞으로 진로변경(교차로 아닌 곳)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차47-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차47-3 버스정류장에서 정차후 출발 버스와 그 앞으로 진로변경",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차47-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "낙하물 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차48-1 선행차량의 적재물 낙하",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차48-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "기타 유형의 사고(주차장,회전교차로 등)",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "주차장 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차51-1 통로주행 대 주차구획 출차",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차51-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차51-2 주차구획으로 선행진입 개시 대 통로진행 추월",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차51-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "문 열림 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차52-1 후행 직진 대 문 열림",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차52-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "횡단보도 횡단 차량",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차53-1 횡단보도(보행자적색) 횡단 대 신호에 따라 직진(좌회전)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차53-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "회전교차로 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차54-1 회전 1차로 회전 대 진입",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차54-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차54-2 회전 2차로 이상 회전 대 대(大)진입",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차54-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차54-3 회전 2차로 이상 회전진출 대 진입",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차54-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차54-4 회전 2차로 이상 회전진출 대 회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차54-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차54-5 회전교차로 내로 좌우 동시 진입",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차54-5&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "긴급자동차 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차55-1 녹색직진 대 긴급자동차 적색직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차55-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차55-2 직진 대 맞은편에서 긴급자동차 좌측통행",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차55-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차55-3 좌회전(유턴) 대 같은방향에서 긴급자동차 좌측통행",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차55-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차55-4 대로주행 대 긴급자동차 소로 주행 사고",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차55-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차55-5 선행 직진 대 후행 긴급자동차",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차55-5&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차55-6 긴급자동차 진로변경 사고",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차55-6&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차55-7 진로변경 대 긴급자동차 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차55-7&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "자동차 대 이륜차 특수유형",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "자동차 대 이륜차 특수유형",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차61-1 신호 없는 교차로 정체차량 우측 좁은 공간 이륜차 직진 대 맞은편 좌회전(측면 직진)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차61-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차61-2 이륜차 보도(인도) 주행 대 자동차의 도로가 아닌 장소로 우회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차61-2&chartType=1",
-        
+            "is_sam
 
-... [TRUNCATED: 780,052 chars omitted] ...
+... [TRUNCATED: 789,147 chars omitted] ...
 
 ```
 

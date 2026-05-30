@@ -10,16 +10,13 @@
       <section class="card easy-card simple-section corner-flourish">
         <p class="eyebrow">과실비율산정</p>
         <h2>예상 과실비율</h2>
-        <div class="easy-ratio-row">
-          <div>
-            <p>내 과실</p>
-            <span>{{ percentText(simpleFaultRatio.my ?? simpleFaultRatio.my_percent ?? simpleFaultRatio.my_fault) }}</span>
-          </div>
-          <div>
-            <p>상대 과실</p>
-            <span class="accent">{{ percentText(simpleFaultRatio.other ?? simpleFaultRatio.other_percent ?? simpleFaultRatio.opponent_fault) }}</span>
-          </div>
-        </div>
+        <KniaFaultRatioBar
+          :a="simpleFaultRatio.my ?? simpleFaultRatio.my_percent ?? simpleFaultRatio.my_fault"
+          :b="simpleFaultRatio.other ?? simpleFaultRatio.other_percent ?? simpleFaultRatio.opponent_fault"
+          left-label="내 과실"
+          right-label="상대 과실"
+          variant="user"
+        />
         <p class="easy-summary">
           {{ simpleFaultRatio.basis || simpleFaultRatio.summary || safeReport?.fault_ratio_summary || "입력한 사고 사실과 KNIA 기준을 함께 검토한 참고용 산정입니다." }}
         </p>
@@ -77,9 +74,16 @@
             </div>
             <span class="chip selected">{{ selectedAdjustmentCount }}개 적용</span>
           </div>
-          <div v-if="manualFaultText" class="user-adjustment-result">
+          <div v-if="manualFault" class="user-adjustment-result">
             <span>조정 후 참고 과실</span>
-            <strong>{{ manualFaultText }}</strong>
+            <KniaFaultRatioBar
+              :a="manualFault.A"
+              :b="manualFault.B"
+              left-label="A"
+              right-label="B"
+              :caption="manualFaultText"
+              variant="compact"
+            />
           </div>
           <label
             v-for="item in userAdjustmentRows"
@@ -292,6 +296,7 @@ import MissingInfoCard from "./MissingInfoCard.vue";
 import DetailToggleSection from "./DetailToggleSection.vue";
 import RelatedKniaStandardCard from "../knia/RelatedKniaStandardCard.vue";
 import RelatedVideoCard from "../knia/RelatedVideoCard.vue";
+import KniaFaultRatioBar from "../knia/KniaFaultRatioBar.vue";
 import AccidentPartyTypeActionCard from "../result/AccidentPartyTypeActionCard.vue";
 import { formatKniaBody, removeTechnicalFields, sanitizeDisplayText } from "../../utils/displaySanitizer";
 

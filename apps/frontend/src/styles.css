@@ -1315,9 +1315,7 @@ code {
 }
 
 .user-adjustment-result {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: grid;
     gap: 10px;
     padding: 12px 14px;
     border-radius: 14px;
@@ -1326,9 +1324,11 @@ code {
     color: var(--text-sub);
 }
 
+.user-adjustment-result > span,
 .user-adjustment-result strong {
     color: var(--accent-strong);
     font-size: 1.05rem;
+    font-weight: 900;
 }
 
 .user-adjustment-row {
