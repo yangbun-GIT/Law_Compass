@@ -470,6 +470,21 @@ P2-1 제한 사항:
 - trace에 task 개수, 실패 task, blocked task가 표시되는지 확인한다.
 - public UI에는 내부 task raw payload가 노출되지 않는지 확인한다.
 
+P2-2 stage task packet 연결 결과 (2026-05-31):
+
+| 구분 | 구현 파일 | 내용 |
+| --- | --- | --- |
+| Runtime task packet | `apps/agent/app/services/agent_task_packets.py` | 기존 stage 실행 결과를 `input_normalization`, `video_observation`, `fact_arbitration`, `scenario_classification`, `evidence_retrieval`, `knia_matching`, `fault_ratio`, `criminal_liability`, `insurance_guidance`, `action_guidance`, `presentation_policy` task packet으로 변환한다. |
+| 상태 반영 | `apps/agent/app/services/agent_task_packets.py` | `agent_plan.tasks[*].status`, `result_ref`, `blocking_reasons`를 실제 stage 결과 기준으로 갱신한다. 상태는 `succeeded`, `needs_review`, `blocked`, `failed` 중 하나로 표현한다. |
+| Trace/Quality 연결 | `apps/agent/app/services/orchestration_output.py`, `agent_execution_trace.py`, `agent_quality_packet.py` | `agent_task_packets`를 output에 추가하고 `agent_trace.task_packets`, `agent_quality_packet` required packet과 guardrail check에 연결했다. |
+| 안전성 | `apps/agent/app/services/agent_contracts.py` | `AgentTaskRuntimePacket` 계약을 추가했다. packet/observation metadata에 raw user text, prompt, secret, token이 들어가면 validation에서 실패한다. |
+| 검증 | `apps/agent/tests/test_agent_task_packets.py`, `apps/agent/tests/test_orchestrator.py` | Docker Agent 컨테이너에서 `python -m pytest tests/test_agent_task_packets.py tests/test_planner.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_video_input_contract.py`를 실행했고 62건이 모두 통과했다. |
+
+P2-2 제한 사항:
+
+- 아직 task result를 최종 report에 직접 병합하지 않는다. 이 작업은 P2-3의 goal aggregator에서 진행한다.
+- `agent_task_packets`는 내부 진단/관리자용 metadata이며 public UI에 raw diagnostic payload로 노출하지 않는다.
+
 #### P2-3. Goal 결과 병합 정책 구현
 
 - 각 task result를 최종 report에 직접 붙이지 않고 goal aggregator를 거치게 한다.

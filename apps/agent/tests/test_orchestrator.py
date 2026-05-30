@@ -15,6 +15,7 @@ def test_analyze_case_minimum_fields():
         "evidence",
         "claim_evidence",
         "agent_plan",
+        "agent_task_packets",
         "agent_trace",
         "agent_quality_packet",
         "reflection_loop",
@@ -41,16 +42,23 @@ def test_analyze_case_minimum_fields():
     assert result["agent_plan"]["execution_order"][0] == "input_normalization"
     assert result["agent_trace"]["task_plan"]["task_count"] == len(result["agent_plan"]["tasks"])
     assert result["agent_trace"]["task_plan"]["input_mode"] == "text_only"
+    assert result["agent_task_packets"]["version"] == "agent-task-packets-v1"
+    assert result["agent_task_packets"]["task_count"] == len(result["agent_plan"]["tasks"])
+    assert result["agent_trace"]["task_packets"]["task_count"] == result["agent_task_packets"]["task_count"]
     assert result["agent_quality_packet"]["version"] == "agent-quality-packet-v1"
     assert result["agent_quality_packet"]["packet_contract"]["required_packets_present"] is True
     assert "agent_plan" in result["agent_quality_packet"]["packet_contract"]["present_packets"]
+    assert "agent_task_packets" in result["agent_quality_packet"]["packet_contract"]["present_packets"]
     assert result["agent_quality_packet"]["guardrail_checks"]["safe_metadata_only"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["task_plan_safe_metadata_only"] is True
+    assert result["agent_quality_packet"]["guardrail_checks"]["task_packets_safe_metadata_only"] is True
     assert result["agent_quality_packet"]["evidence_source_status"]["version"] == "evidence-source-status-v2"
     assert result["expert_guidance_sections"]["version"] == "expert-guidance-sections-v1"
     assert "expert_guidance_sections" in AnalysisOutput(**result).model_dump()
     assert "agent_plan" in AnalysisOutput(**result).model_dump()
+    assert "agent_task_packets" in AnalysisOutput(**result).model_dump()
     assert result["model_info"]["agent_plan_version"] == "agent-plan-v1"
+    assert result["model_info"]["agent_task_packets_version"] == "agent-task-packets-v1"
     assert result["model_info"]["agent_quality_packet_version"] == "agent-quality-packet-v1"
     assert result["model_info"]["evidence_source_status"]["version"] == "evidence-source-status-v2"
     assert result["reflection_loop"]["version"] == "agent-reflection-loop-v1"
@@ -69,6 +77,7 @@ def test_analyze_case_minimum_fields():
     }
     assert "신호대기 중 후방 차량 추돌" not in str(result["agent_trace"])
     assert "신호대기 중 후방 차량 추돌" not in str(result["agent_plan"])
+    assert "신호대기 중 후방 차량 추돌" not in str(result["agent_task_packets"])
     AnalysisOutput(**result)
 
 
@@ -132,6 +141,9 @@ def test_analyze_video_case_applies_video_input_contract():
     assert result["video_input_contract"]["version"] == "agent-video-input-contract-v1"
     assert result["agent_plan"]["input_mode"] == "video_only"
     assert result["agent_plan"]["execution_order"][:3] == ["input_normalization", "video_observation", "fact_arbitration"]
+    packet_by_id = {packet["task_id"]: packet for packet in result["agent_task_packets"]["packets"]}
+    assert packet_by_id["video_observation"]["status"] == "succeeded"
+    assert packet_by_id["fact_arbitration"]["status"] in {"succeeded", "needs_review"}
     assert result["model_info"]["video_input_contract"]["technical_metadata"]["representative_frame_count"] == 1
     trace_steps = {step["id"]: step for step in result["agent_trace"]["steps"]}
     assert trace_steps["input_normalization"]["packet"]["has_video_contract"] is True

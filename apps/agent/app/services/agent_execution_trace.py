@@ -19,6 +19,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
     video_contract = output.get("video_input_contract") or {}
     claim_evidence = output.get("claim_evidence") or {}
     agent_plan = output.get("agent_plan") or {}
+    task_packets = output.get("agent_task_packets") or {}
 
     steps = [
         _step(
@@ -127,6 +128,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
         "overall_status": judgment.get("overall_status") or "unknown",
         "trace_policy": "safe_metadata_only_no_raw_user_text",
         "task_plan": _task_plan_summary(agent_plan),
+        "task_packets": _task_packet_summary(task_packets),
         "step_count": len(steps),
         "steps": steps,
     }
@@ -179,5 +181,14 @@ def _task_plan_summary(agent_plan: dict[str, Any]) -> dict[str, Any]:
         "task_count": len(tasks),
         "execution_order": list(agent_plan.get("execution_order") or []),
         "blocked_task_count": len([task for task in tasks if isinstance(task, dict) and task.get("status") == "blocked"]),
+        "safe_metadata_only": True,
+    }
+
+
+def _task_packet_summary(task_packets: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "version": task_packets.get("version"),
+        "task_count": task_packets.get("task_count", 0),
+        "status_counts": dict(task_packets.get("status_counts") or {}),
         "safe_metadata_only": True,
     }

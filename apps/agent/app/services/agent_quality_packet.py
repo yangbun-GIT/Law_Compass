@@ -8,6 +8,7 @@ VERSION = "agent-quality-packet-v1"
 REQUIRED_PACKETS = (
     "input_context",
     "agent_plan",
+    "agent_task_packets",
     "evidence_audit",
     "claim_evidence",
     "judgment_contract",
@@ -25,6 +26,7 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
     evidence_audit = _dict(output.get("evidence_audit"))
     claim_evidence = _dict(output.get("claim_evidence"))
     agent_plan = _dict(output.get("agent_plan"))
+    task_packets = _dict(output.get("agent_task_packets"))
     llm_policy = _dict(_dict(output.get("model_info")).get("llm_policy"))
     packets = _packet_presence(output)
     missing_packets = [name for name, present in packets.items() if not present]
@@ -40,6 +42,8 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
             "plan_status": agent_plan.get("plan_status"),
             "plan_input_mode": agent_plan.get("input_mode"),
             "plan_task_count": len(agent_plan.get("tasks") or []),
+            "task_packet_count": task_packets.get("task_count", 0),
+            "task_status_counts": dict(task_packets.get("status_counts") or {}),
             "finality": judgment.get("finality"),
             "decision_ready": judgment.get("decision_ready"),
             "evidence_coverage_level": claim_evidence.get("coverage_level")
@@ -65,6 +69,7 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
             "safe_metadata_only": _dict(output.get("agent_trace")).get("trace_policy")
             == "safe_metadata_only_no_raw_user_text",
             "task_plan_safe_metadata_only": _dict(_dict(output.get("agent_trace")).get("task_plan")).get("safe_metadata_only") is True,
+            "task_packets_safe_metadata_only": _dict(_dict(output.get("agent_trace")).get("task_packets")).get("safe_metadata_only") is True,
             "llm_has_final_authority": False,
             "deterministic_judgment_required": True,
             "raw_user_text_in_packet": False,
@@ -80,6 +85,7 @@ def _packet_presence(output: dict[str, Any]) -> dict[str, bool]:
     return {
         "input_context": bool(output.get("structured_facts")),
         "agent_plan": bool(output.get("agent_plan")),
+        "agent_task_packets": bool(output.get("agent_task_packets")),
         "evidence_audit": bool(output.get("evidence_audit")),
         "claim_evidence": bool(output.get("claim_evidence")),
         "judgment_contract": bool(output.get("agent_judgment")),

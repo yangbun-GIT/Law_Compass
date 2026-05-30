@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P2-2 Stage별 Task Packet 연결
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P2-2 단계를 완료했다. 이번 변경은 P2-1에서 생성한 `agent_plan`의 각 task가 실제 stage 실행 결과와 연결될 수 있도록 runtime packet을 만들고, trace와 quality packet에서 같은 상태를 확인할 수 있게 한 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Runtime task packet | `apps/agent/app/services/agent_task_packets.py`를 추가해 입력 정규화, 영상 관찰, fact arbitration, scenario classification, evidence retrieval, KNIA matching, fault ratio, criminal liability, insurance guidance, action guidance, presentation policy stage별 결과를 안전 metadata packet으로 감싼다. |
+| Task 상태 반영 | `agent_plan.tasks[*]`에 `succeeded`, `needs_review`, `blocked`, `failed` 등 runtime 상태와 `result_ref`, `blocking_reasons`를 연결한다. raw user text, prompt, secret, token은 task packet에 넣지 않는다. |
+| Trace/Quality 연결 | `agent_trace.task_packets`에 version, task count, status counts, safe metadata 여부를 추가하고, `agent_quality_packet`의 required packet에 `agent_task_packets`를 추가했다. |
+| Schema 계약 | `AnalysisOutput` schema에 `agent_task_packets` 필드를 추가했다. public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키는 변경하지 않았다. |
+| 검증 | Agent 컨테이너에서 `docker compose exec -T agent python -m pytest tests/test_agent_task_packets.py tests/test_planner.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_video_input_contract.py`를 실행했고 62건이 통과했다. |
+
+P2-2는 task packet을 결과 payload에 연결하지만, 여러 stage 결과를 최종 Goal 판단으로 병합하는 정책은 아직 담당하지 않는다. 다음 구조 보강 단계는 P2-3 `Goal 결과 병합 정책 구현`이며, stage packet의 상태와 근거 충족도를 기준으로 최종 GoalResult를 만드는 작업이다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P2-1 실행 계획 연결
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P2-1 단계를 완료했다. 이번 변경은 기존 분석 stage 순서를 변경하지 않고, 분석 시작 시 입력 모드별 `agent_plan`을 생성해 최종 결과 payload, 실행 trace, quality packet에 안전 metadata로 연결하는 작업이다.

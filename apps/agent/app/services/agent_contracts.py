@@ -134,6 +134,31 @@ class AgentTask(BaseModel):
         return self
 
 
+class AgentTaskRuntimePacket(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str
+    task_type: AgentTask.model_fields["task_type"].annotation
+    status: TaskStatus
+    result_ref: str | None = None
+    input_ref_count: int = Field(default=0, ge=0)
+    output_ref_count: int = Field(default=0, ge=0)
+    evidence_ref_count: int = Field(default=0, ge=0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    packet: dict[str, Any] = Field(default_factory=dict)
+    observations: list[dict[str, Any]] = Field(default_factory=list)
+    blocking_reasons: list[str] = Field(default_factory=list)
+    safe_metadata_only: bool = True
+
+    @model_validator(mode="after")
+    def _guard_runtime_packet(self) -> "AgentTaskRuntimePacket":
+        if self.status in {"blocked", "failed"} and not self.blocking_reasons:
+            raise ValueError("blocked or failed runtime packet requires blocking_reasons")
+        if _has_sensitive_marker({"packet": self.packet, "observations": self.observations}):
+            raise ValueError("runtime packet cannot expose raw text, prompts, secrets, or tokens")
+        return self
+
+
 class AgentPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
