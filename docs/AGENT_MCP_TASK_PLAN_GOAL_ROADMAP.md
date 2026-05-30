@@ -585,6 +585,21 @@ P3-1 제한 사항:
 
 - 잘못된 payload, timeout, 내부 예외, 권한 없는 호출 테스트를 추가한다.
 
+P3-2 Tool executor 권한/검증 추가 결과 (2026-05-31):
+
+| 구분 | 구현 파일 | 내용 |
+| --- | --- | --- |
+| Payload validation | `apps/agent/app/mcp/tool_executor.py` | `MCPToolSpec.input_schema.required`와 기본 타입을 실행 전에 검증한다. |
+| Scope validation | `apps/agent/app/mcp/tool_executor.py` | `granted_scopes`가 주어진 경우 `required_scopes` 충족 여부를 확인한다. 기존 내부 호출은 scope 인자를 생략해 기존 흐름을 유지한다. |
+| Failure packet | `apps/agent/app/mcp/tool_executor.py` | payload 오류, 권한 부족, timeout, 내부 예외를 `MCPToolErrorPacket` 형태로 반환한다. raw exception 문자열은 public payload에 노출하지 않는다. |
+| Timeout 표준화 | `apps/agent/app/mcp/tool_executor.py` | sync tool을 강제 중단하지는 않지만, 실행 시간이 spec timeout을 넘으면 `tool_timeout` packet으로 표준화한다. |
+| 검증 | `apps/agent/tests/test_mcp_tool_executor.py` | Docker Agent 컨테이너에서 `python -m pytest tests/test_mcp_tool_executor.py tests/test_mcp_tool_registry.py tests/test_agent_contracts.py tests/test_agent_replan.py tests/test_agent_goal_aggregator.py tests/test_agent_task_packets.py tests/test_orchestrator.py`를 실행했고 31건이 모두 통과했다. |
+
+P3-2 제한 사항:
+
+- 아직 모든 DB/RAG/KNIA service 호출을 executor 경유로 강제하지 않는다. 호출 경계 정리는 P3-3에서 선별한다.
+- timeout은 실행 후 감지 방식이다. hard timeout interrupt가 필요하면 별도 worker/process 격리가 필요하다.
+
 #### P3-3. 직접 service 호출 경로 정리
 
 - KNIA/법령/RAG/evidence guard 중 tool 경계가 필요한 호출을 선별한다.

@@ -32,6 +32,11 @@ def get_tool_spec(name: str) -> MCPToolSpec:
     return _TOOL_SPECS[name]
 
 
+def unregister_tool(name: str) -> None:
+    _REGISTRY.pop(name, None)
+    _TOOL_SPECS.pop(name, None)
+
+
 def list_tools() -> list[str]:
     return sorted(_REGISTRY.keys())
 

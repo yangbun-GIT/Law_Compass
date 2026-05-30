@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P3-2 Tool Executor 권한/검증
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P3-2 단계를 완료했다. 이번 변경은 MCP-like tool 실행 전 payload schema와 scope를 검증하고, 실패를 raw exception 대신 표준 실패 packet으로 반환하도록 executor를 보강한 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Payload validation | `apps/agent/app/mcp/tool_executor.py`가 `MCPToolSpec.input_schema.required`와 기본 타입을 실행 전에 확인한다. |
+| Scope validation | `execute_tool(..., granted_scopes=[...])`가 전달된 경우 tool의 `required_scopes`를 모두 만족하는지 확인한다. 기존 내부 호출처럼 scope를 넘기지 않는 경로는 기존 동작을 유지한다. |
+| Failure packet | payload 오류, 권한 부족, timeout, 내부 예외를 `MCPToolErrorPacket` 형태로 반환한다. public message는 안전 문구로 제한하고 raw exception 문자열은 노출하지 않는다. |
+| Timeout 표준화 | sync tool을 강제 중단하지는 않지만, 실행 시간이 `spec.timeout_ms`를 넘으면 `tool_timeout` 실패 packet으로 표준화한다. |
+| 테스트 정리 | 테스트용 임시 tool이 registry에 남지 않도록 `unregister_tool`을 추가했다. |
+| 검증 | Agent 컨테이너에서 `docker compose exec -T agent python -m pytest tests/test_mcp_tool_executor.py tests/test_mcp_tool_registry.py tests/test_agent_contracts.py tests/test_agent_replan.py tests/test_agent_goal_aggregator.py tests/test_agent_task_packets.py tests/test_orchestrator.py`를 실행했고 31건이 통과했다. |
+
+P3-2는 executor 안전장치를 추가하지만, 기존 service 호출 경로 전체를 tool executor로 강제 이관하지는 않는다. 다음 구조 보강 단계는 P3-3 `직접 service 호출 경로 정리`다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P3-1 Tool Registry Schema화
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P3-1 단계를 완료했다. 이번 변경은 내부 MCP-like tool registry가 함수 이름만 보유하던 구조에서 `MCPToolSpec` 기반 schema, scope, timeout, trace 안전성, side effect metadata를 함께 보유하도록 정리한 작업이다.
