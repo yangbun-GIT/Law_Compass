@@ -378,6 +378,17 @@ if (kniaRankingView.includes("요청 처리 중 문제가 발생했습니다."))
   process.exit(1);
 }
 
+const forbiddenDashboardKniaSearchCardCopy = [
+  "KNIA 기준 검색",
+  "기준번호/사고유형 검색",
+  "검색순위 화면에서 기준번호나 사고유형명으로 저장된 기준을 찾습니다.",
+];
+const dashboardKniaSearchCardLeaks = forbiddenDashboardKniaSearchCardCopy.filter((token) => dashboardView.includes(token));
+if (dashboardKniaSearchCardLeaks.length || !dashboardView.includes("많이 검색된 사고유형")) {
+  console.error("dashboard must keep only the popular KNIA ranking entry card", dashboardKniaSearchCardLeaks);
+  process.exit(1);
+}
+
 const userFriendlyKniaContracts = [
   "관련 KNIA 근거 및 영상",
   "simple_report?.knia_and_video?.primary",

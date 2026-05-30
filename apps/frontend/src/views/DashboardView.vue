@@ -9,7 +9,7 @@
         </p>
         <div class="btn-row hero-actions">
           <RouterLink class="btn" to="/cases/new">새 케이스 만들기</RouterLink>
-          <RouterLink class="btn secondary" to="/knia/ranking">KNIA 기준 검색</RouterLink>
+          <RouterLink class="btn secondary" to="/knia/ranking">검색순위 보기</RouterLink>
         </div>
       </div>
 
@@ -29,11 +29,6 @@
         <span class="entry-kicker">검색순위 보기</span>
         <strong>많이 검색된 사고유형</strong>
         <small>KNIA 과실비율정보포털에서 많이 조회된 기준을 봅니다.</small>
-      </RouterLink>
-      <RouterLink class="knia-entry-card secondary-entry" to="/knia/ranking">
-        <span class="entry-kicker">KNIA 기준 검색</span>
-        <strong>기준번호/사고유형 검색</strong>
-        <small>검색순위 화면에서 기준번호나 사고유형명으로 저장된 기준을 찾습니다.</small>
       </RouterLink>
     </div>
 
@@ -190,8 +185,9 @@ onMounted(load);
 
 .dashboard-knia-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(260px, 760px);
   gap: 16px;
+  align-items: stretch;
 }
 
 .knia-entry-card {

@@ -94,6 +94,7 @@ const collectingDetails = ref(false);
 const error = ref('');
 const message = ref('');
 const session = useSessionStore();
+const rankingLoadError = '검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
 const selectedLabel = computed(() => tabs.find((x) => x.value === selectedParty.value)?.label ?? '전체');
 const isFiltered = computed(() => Boolean(searchQuery.value.trim()) || selectedParty.value !== 'all');
@@ -147,13 +148,10 @@ async function load(options: { preserveMessage?: boolean } = {}) {
     items.value = data.items || [];
     detailSummary.value = data.detail_summary || null;
     if (data.error) {
-      error.value = '검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      error.value = rankingLoadError;
     }
-  } catch (err: any) {
-    const formatted = formatApiError(err, '검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
-    error.value = formatted.includes('요청 처리 중 문제가 발생했습니다.')
-      ? '검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
-      : formatted;
+  } catch {
+    error.value = rankingLoadError;
   } finally {
     loading.value = false;
   }

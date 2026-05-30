@@ -44,7 +44,7 @@ function requiredQuestionsForReport(result: AnyRecord = {}) {
       if (!item || typeof item !== "object") return undefined;
       const field = String(item.field ?? "");
       if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
-      const question = cleanText(item.question ?? item.label);
+      const question = replaceRawFieldTokens(item.question ?? item.label, { preserveUserCopy: true });
       if (!question) return undefined;
       return {
         field,
@@ -971,7 +971,7 @@ function prioritizeMissingInfo(report: AnyRecord = {}) {
     .map(({ priority_order: _priorityOrder, ...item }) => item);
   if (!questions.length) return report;
   const questionTexts = questions.map((item: AnyRecord) => item.question);
-  const items = compactDisplayItems(asArray(missing.items), questionTexts, 8);
+  const items = compactDisplayItems(asArray(missing.items), questionTexts, 8).map(ensureSentencePeriod);
   const priorityItems = questions.slice(0, 3).map((item: AnyRecord) => ({
     label: item.label,
     question: replaceRawFieldTokens(item.question),
@@ -999,7 +999,7 @@ function annotateMissingInfoQuestion(value: any, index = 0, contextText = "") {
   const field = String(value.field ?? "");
   if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
   const label = safeInputQuestionLabel(field, value.label);
-  const question = replaceRawFieldTokens(cleanText(value.question ?? label, ""));
+  const question = replaceRawFieldTokens(value.question ?? label, { preserveUserCopy: true });
   if (!question) return undefined;
   const priority = missingInfoQuestionPriority(field, contextText);
   return {
@@ -1195,8 +1195,24 @@ function safeInputQuestionLabel(field: string, fallback: any = "") {
   return label && !containsBadValuePattern(label) ? label : "확인할 정보";
 }
 
-function replaceRawFieldTokens(value: any) {
-  let text = cleanText(value, "");
+function cleanQuestionText(value: any) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "boolean") return value ? "예" : "아니오";
+  const raw = String(value).trim();
+  if (!raw || raw === "unknown" || raw === "모름" || raw === "null") return "";
+  if ((raw.startsWith("{") && raw.endsWith("}")) || (raw.startsWith("[") && raw.endsWith("]"))) return "";
+  let text = raw;
+  for (const pattern of BAD_VALUE_PATTERNS) text = text.replace(pattern, "");
+  return text
+    .replace(/^\s*[,.]\s*/g, "")
+    .replace(/\s*,\s*,\s*/g, ", ")
+    .replace(/\s+\./g, ".")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function replaceRawFieldTokens(value: any, options: { preserveUserCopy?: boolean } = {}) {
+  let text = options.preserveUserCopy ? cleanQuestionText(value) : cleanText(value, "");
   if (!text) return text;
   for (const field of SAFE_INPUT_FIELDS) {
     const label = videoFactLabel(field);
@@ -1204,6 +1220,13 @@ function replaceRawFieldTokens(value: any) {
     text = text.split(field).join(label);
   }
   return text;
+}
+
+function ensureSentencePeriod(value: any) {
+  const text = String(value ?? "").trim();
+  if (!text) return text;
+  if (/[.!?。！？]$/.test(text)) return text;
+  return `${text}.`;
 }
 
 function containsBadValuePattern(value: string) {
@@ -2277,7 +2300,7 @@ function sanitizeInputQuestion(value: any) {
   if (!value || typeof value !== "object") return undefined;
   const field = String(value.field ?? "");
   if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
-  const question = replaceRawFieldTokens(value.question ?? value.label);
+  const question = replaceRawFieldTokens(value.question ?? value.label, { preserveUserCopy: true });
   if (!question) return undefined;
   return {
     field,

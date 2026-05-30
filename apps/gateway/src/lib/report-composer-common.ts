@@ -89,7 +89,7 @@ export function resolveAccidentPartyLabel(input: {
   chart_no?: any;
 }) {
   const existing = cleanText(input.accident_party_label, "");
-  if (existing && existing !== "확인이 필요합니다.") return existing;
+  if (existing && existing !== "확인이 필요합니다." && existing !== "확인이 필요합니다") return existing;
   const type = String(input.accident_party_type || "").trim();
   const byType: AnyRecord = {
     car_vs_car: "차대차 사고",

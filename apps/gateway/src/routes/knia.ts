@@ -135,7 +135,7 @@ function rankingSearchTerms(q: string, accidentPartyType: string) {
 
 function buildKniaRankingSearchClause(params: any[], q: string, accidentPartyType: string) {
   if (!q) return "";
-  const includesBicyclePrefix = /자전거|차대자전거|bike|bicycle/i.test(q);
+  const includesBicyclePrefix = accidentPartyType === "car_vs_bicycle" && /자전거|차대자전거|bike|bicycle/i.test(q);
   const clauses = rankingSearchTerms(q, accidentPartyType).map((term) => {
     const like = parameter(params, `%${term}%`);
     return `(
@@ -156,7 +156,7 @@ function buildKniaRankingSearchClause(params: any[], q: string, accidentPartyTyp
 
 function buildKniaChartFallbackSearchClause(params: any[], q: string, accidentPartyType: string) {
   if (!q) return "";
-  const includesBicyclePrefix = /자전거|차대자전거|bike|bicycle/i.test(q);
+  const includesBicyclePrefix = accidentPartyType === "car_vs_bicycle" && /자전거|차대자전거|bike|bicycle/i.test(q);
   const clauses = rankingSearchTerms(q, accidentPartyType).map((term) => {
     const like = parameter(params, `%${term}%`);
     return `(
@@ -243,6 +243,10 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
         buildKniaRankingSearchClause(params, q, selected.value),
       ].join(" ");
       const limitParam = parameter(params, limit);
+      const orderBy =
+        selected.value === "car_vs_bicycle"
+          ? "CASE WHEN (r.chart_no LIKE '자%' OR r.chart_no LIKE '거%') THEN 0 ELSE 1 END, r.rank ASC, r.chart_no ASC"
+          : "r.rank ASC, r.chart_no ASC";
       rows = await db.query(
         `SELECT r.rank, r.chart_no, r.chart_type, r.title,
                 r.search_count, r.percentage, r.source_category,
@@ -261,12 +265,9 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
          LEFT JOIN knia_fault_charts c
            ON c.chart_no=r.chart_no AND c.chart_type=COALESCE(r.chart_type, '1')
          WHERE ${where}
-         ORDER BY
-           CASE WHEN $${params.length + 1}::text='car_vs_bicycle' AND (r.chart_no LIKE '자%' OR r.chart_no LIKE '거%') THEN 0 ELSE 1 END,
-           r.rank ASC,
-           r.chart_no ASC
+         ORDER BY ${orderBy}
          LIMIT ${limitParam}`,
-        [...params, selected.value],
+        params,
       );
     } catch (err) {
       rankingError = err;
@@ -284,6 +285,10 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
           buildKniaChartFallbackSearchClause(params, q, selected.value),
         ].join(" ");
         const limitParam = parameter(params, limit);
+        const orderBy =
+          selected.value === "car_vs_bicycle"
+            ? "CASE WHEN (c.chart_no LIKE '자%' OR c.chart_no LIKE '거%') THEN 0 ELSE 1 END, c.detail_collected_at DESC NULLS LAST, c.updated_at DESC NULLS LAST, c.chart_no ASC"
+            : "c.detail_collected_at DESC NULLS LAST, c.updated_at DESC NULLS LAST, c.chart_no ASC";
         const fallbackRows = await db.query(
           `SELECT NULL::int AS rank,
                   c.chart_no, c.chart_type, c.title,
@@ -302,13 +307,9 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
                   'chart_fallback' AS matched_by
            FROM knia_fault_charts c
            WHERE ${where}
-           ORDER BY
-             CASE WHEN $${params.length + 1}::text='car_vs_bicycle' AND (c.chart_no LIKE '자%' OR c.chart_no LIKE '거%') THEN 0 ELSE 1 END,
-             c.detail_collected_at DESC NULLS LAST,
-             c.updated_at DESC NULLS LAST,
-             c.chart_no ASC
+           ORDER BY ${orderBy}
            LIMIT ${limitParam}`,
-          [...params, selected.value],
+          params,
         );
         items = (fallbackRows.rows ?? []).map(normalizeKniaRankingRow);
       } catch (err) {
