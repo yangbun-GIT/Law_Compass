@@ -48,9 +48,10 @@ router.beforeEach(async (to) => {
   const session = useSessionStore(pinia);
   await session.bootstrap();
   if (to.meta.requiresAuth && !session.user) {
+    if (session.authStatus === "unknown") return true;
     return { path: "/login", query: { redirect: to.fullPath } };
   }
-  if (to.meta.requiresAdmin && session.user?.role !== "admin") {
+  if (to.meta.requiresAdmin && !["admin", "superuser"].includes(String(session.user?.role || ""))) {
     return "/";
   }
   if ((to.path === "/login" || to.path === "/signup") && session.user) {

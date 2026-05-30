@@ -36,8 +36,11 @@ const caseWorkspaceFactMapping = readFileSync("src/composables/caseWorkspaceFact
 const caseWorkspaceOrchestration = readFileSync("src/composables/caseWorkspaceOrchestration.ts", "utf8");
 const caseWorkspacePayloads = readFileSync("src/composables/caseWorkspacePayloads.ts", "utf8");
 const caseWorkspaceHeader = readFileSync("src/components/case/CaseWorkspaceHeader.vue", "utf8");
+const analysisLoadingSpinner = readFileSync("src/components/case/AnalysisLoadingSpinner.vue", "utf8");
 const loginView = readFileSync("src/views/LoginView.vue", "utf8");
 const signupView = readFileSync("src/views/SignupView.vue", "utf8");
+const routerIndex = readFileSync("src/router/index.ts", "utf8");
+const sessionStore = readFileSync("src/stores/session.ts", "utf8");
 const resultView = readFileSync("src/views/CaseResultView.vue", "utf8");
 const evidenceView = readFileSync("src/views/EvidenceDetailView.vue", "utf8");
 const easyReportView = readFileSync("src/components/easy/EasyReportView.vue", "utf8");
@@ -167,7 +170,7 @@ const requiredErrorUx = [
   "video_label",
   "영상 신뢰도"
 ];
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
@@ -287,6 +290,56 @@ if (missingGuidedContracts.length) {
   console.error("guided analysis flow contract failed", missingGuidedContracts);
   process.exit(1);
 }
+
+const authStabilityContracts = [
+  "bootstrapPromise",
+  "refreshPromise",
+  "credentials: \"include\"",
+  "retryAuth",
+  "AUTH_USER_EVENT",
+  "await session.bootstrap",
+  "authStatus === \"unknown\"",
+];
+const missingAuthStability = authStabilityContracts.filter((token) => !displayFiles.some((text) => text.includes(token)));
+if (missingAuthStability.length) {
+  console.error("auth session stability contract failed", missingAuthStability);
+  process.exit(1);
+}
+
+const guidedQuestionNavigationContracts = [
+  "activeGuidedQuestionSetKey",
+  "firstUnansweredQuestionIndex",
+  "nextUnansweredQuestionIndexAfter",
+  "visibleGuidedQuestions",
+  "currentGuidedQuestionIndex",
+];
+const missingQuestionNavigation = guidedQuestionNavigationContracts.filter((token) => !useCaseWorkspace.includes(token));
+if (missingQuestionNavigation.length) {
+  console.error("guided question navigation contract failed", missingQuestionNavigation);
+  process.exit(1);
+}
+
+const collisionTargetIndex = caseWorkspaceGuidanceData.indexOf("충돌한 대상은 주차 또는 정차된 차량이었나요?");
+const locationIndex = caseWorkspaceGuidanceData.indexOf("상대 차량은 정상 주차구역이 아닌 위험한 위치에 있었나요?");
+if (collisionTargetIndex < 0 || locationIndex < 0 || collisionTargetIndex > locationIndex) {
+  console.error("stealth parked vehicle flow must ask collision target before opponent vehicle location");
+  process.exit(1);
+}
+
+const spinnerContracts = [
+  "analysis-loading-spinner",
+  "spinner-orb",
+  "--progress",
+  "safePercent",
+  "prefers-reduced-motion",
+  "AnalysisLoadingSpinner",
+];
+const missingSpinnerContracts = spinnerContracts.filter((token) => !analysisLoadingSpinner.includes(token) && !caseDetailView.includes(token));
+if (missingSpinnerContracts.length) {
+  console.error("analysis loading spinner contract failed", missingSpinnerContracts);
+  process.exit(1);
+}
+
 if (caseCreateView.includes("<select v-model=\"analysisMode\"")) {
   console.error("analysis mode dropdown must not appear on the first create screen");
   process.exit(1);

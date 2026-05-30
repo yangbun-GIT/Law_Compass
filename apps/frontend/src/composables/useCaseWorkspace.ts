@@ -1,4 +1,4 @@
-﻿import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+﻿import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { api, formatApiError, type AccidentFacts, type CaseItem, type UploadItem } from "../api/client";
 import { useRoute, useRouter } from "vue-router";
 import { formatDate, prettySize, statusClass, statusLabel } from "./caseWorkspaceFormatters";
@@ -54,6 +54,24 @@ function normalizeAnalysisMode(mode?: string | null) {
     }
 
     return "user_friendly";
+}
+
+function firstUnansweredQuestionIndex(questions: any[], answers: Record<string, string>) {
+    if (!questions.length) return 0;
+    const index = questions.findIndex((question) => !answers[getGuidedQuestionId(question)]);
+    return index >= 0 ? index : Math.max(questions.length - 1, 0);
+}
+
+function nextUnansweredQuestionIndexAfter(
+    questions: any[],
+    answers: Record<string, string>,
+    currentIndex: number,
+) {
+    if (!questions.length) return 0;
+    for (let index = currentIndex + 1; index < questions.length; index += 1) {
+        if (!answers[getGuidedQuestionId(questions[index])]) return index;
+    }
+    return firstUnansweredQuestionIndex(questions, answers);
 }
 
 export function useCaseWorkspace(caseId: string) {
@@ -665,17 +683,25 @@ export function useCaseWorkspace(caseId: string) {
         guidedStep.value = "questions";
     }
 
-    function answerGuidedQuestion(question: any, value: string) {
+    async function answerGuidedQuestion(question: any, value: string) {
+        const beforeSetKey = activeGuidedQuestionSetKey.value;
+        const beforeIndex = currentGuidedQuestionIndex.value;
         const questionId = getGuidedQuestionId(question);
         guidedAnswers.value = { ...guidedAnswers.value, [questionId]: value };
         facts.value = applyGuidedQuestionAnswer(facts.value, question, value);
 
-        const nextIndex = currentGuidedQuestionIndex.value + 1;
-        if (nextIndex < totalGuidedQuestionCount.value) {
-            window.setTimeout(() => {
-                currentGuidedQuestionIndex.value = Math.min(nextIndex, Math.max(totalGuidedQuestionCount.value - 1, 0));
-            }, 250);
-        }
+        await nextTick();
+
+        const afterSetKey = activeGuidedQuestionSetKey.value;
+        const questions = guidedQuestions.value;
+        if (!questions.length) return;
+
+        window.setTimeout(() => {
+            currentGuidedQuestionIndex.value =
+                beforeSetKey !== afterSetKey
+                    ? firstUnansweredQuestionIndex(questions, guidedAnswers.value)
+                    : nextUnansweredQuestionIndexAfter(questions, guidedAnswers.value, beforeIndex);
+        }, 250);
     }
 
     async function startGuidedAnalysis() {
@@ -738,6 +764,9 @@ export function useCaseWorkspace(caseId: string) {
 
         return getFallbackGuidedQuestions(facts.value, descriptionText.value);
     });
+    const activeGuidedQuestionSetKey = computed(() =>
+        guidedQuestions.value.map((question: any) => getGuidedQuestionId(question)).join("|") || "empty",
+    );
 
     const totalGuidedQuestionCount = computed(() => guidedQuestions.value.length);
     const answeredGuidedQuestionCount = computed(() =>
@@ -758,6 +787,11 @@ export function useCaseWorkspace(caseId: string) {
     const allGuidedQuestionsAnswered = computed(() =>
         totalGuidedQuestionCount.value === 0 || answeredGuidedQuestionCount.value >= totalGuidedQuestionCount.value,
     );
+
+    watch(activeGuidedQuestionSetKey, (next, previous) => {
+        if (!previous || next === previous) return;
+        currentGuidedQuestionIndex.value = firstUnansweredQuestionIndex(guidedQuestions.value, guidedAnswers.value);
+    });
 
     function guidedQuestionId(question: any) {
         return getGuidedQuestionId(question);
@@ -818,6 +852,7 @@ export function useCaseWorkspace(caseId: string) {
         guidedAccidentTypeOptions,
         guidedAnalysisModes,
         guidedQuestions,
+        activeGuidedQuestionSetKey,
         visibleGuidedQuestions,
         currentGuidedQuestion,
         answeredGuidedQuestionCount,

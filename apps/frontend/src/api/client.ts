@@ -89,6 +89,13 @@ export type UploadItem = {
 
 const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 const API_BASE = RAW_API_BASE.endsWith("/api/v1") ? RAW_API_BASE.slice(0, -"/api/v1".length) : RAW_API_BASE;
+const SESSION_STORAGE_KEY = "lawcompass:user";
+const AUTH_RETRY_HEADER = "x-lawcompass-auth-retry";
+export const AUTH_USER_EVENT = "lawcompass:auth-user";
+
+type ApiRequestInit = RequestInit & {
+  retryAuth?: boolean;
+};
 
 export type ApiValidationIssue = {
   field: string;
@@ -155,8 +162,51 @@ function makeApiError(message: string, code?: string, status?: number, traceId?:
   return err;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+function publishAuthenticatedUser(user: User | null) {
+  if (typeof window === "undefined") return;
+  if (user) {
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
+  } else {
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  }
+  window.dispatchEvent(new CustomEvent(AUTH_USER_EVENT, { detail: user }));
+}
+
+function isAuthRetryEligible(path: string, headers: Headers, retryAuth: boolean) {
+  if (!retryAuth || headers.has(AUTH_RETRY_HEADER)) return false;
+  return ![
+    "/api/v1/auth/login",
+    "/api/v1/auth/signup",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/refresh",
+  ].some((authPath) => path.startsWith(authPath));
+}
+
+let refreshPromise: Promise<{ access_token: string; user: User; trace_id: string } | null> | null = null;
+
+async function refreshSession() {
+  if (!refreshPromise) {
+    refreshPromise = request<{ access_token: string; user: User; trace_id: string }>("/api/v1/auth/refresh", {
+      method: "POST",
+      headers: idempo(),
+      retryAuth: false,
+    })
+      .then((data) => {
+        publishAuthenticatedUser(data.user);
+        return data;
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
+async function request<T>(path: string, init?: ApiRequestInit): Promise<T> {
   const headers = new Headers(init?.headers || {});
+  const retryAuth = init?.retryAuth !== false;
   if (!headers.has("content-type") && init?.body && !(init.body instanceof FormData)) {
     headers.set("content-type", "application/json");
   }
@@ -174,6 +224,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw makeApiError("서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.", "INVALID_JSON_RESPONSE", res.status);
   }
   if (!res.ok) {
+    if (res.status === 401 && isAuthRetryEligible(path, headers, retryAuth)) {
+      const refreshed = await refreshSession();
+      if (refreshed) {
+        const retryHeaders = new Headers(init?.headers || {});
+        retryHeaders.set(AUTH_RETRY_HEADER, "1");
+        return request<T>(path, { ...init, headers: retryHeaders, retryAuth: false });
+      }
+    }
+
     throw makeApiError(
       data?.error?.message || "요청 처리에 실패했습니다.",
       data?.error?.code,
@@ -191,12 +250,28 @@ function idempo() {
 
 export const api = {
   signup: (payload: { email: string; password: string; display_name: string }) =>
-    request<{ user: User; trace_id: string }>("/api/v1/auth/signup", { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
+    request<{ user: User; trace_id: string }>("/api/v1/auth/signup", { method: "POST", body: JSON.stringify(payload), headers: idempo(), retryAuth: false })
+      .then((data) => {
+        publishAuthenticatedUser(data.user);
+        return data;
+      }),
   login: (payload: { email: string; password: string }) =>
-    request<{ access_token: string; user: User; trace_id: string }>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
-  refresh: () => request<{ access_token: string; user: User; trace_id: string }>("/api/v1/auth/refresh", { method: "POST", headers: idempo() }),
-  me: () => request<{ user: User; trace_id: string }>("/api/v1/auth/me"),
-  logout: () => request<{ ok: boolean; trace_id: string }>("/api/v1/auth/logout", { method: "POST", headers: idempo() }),
+    request<{ access_token: string; user: User; trace_id: string }>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(payload), headers: idempo(), retryAuth: false })
+      .then((data) => {
+        publishAuthenticatedUser(data.user);
+        return data;
+      }),
+  refresh: () => refreshSession().then((data) => {
+    if (!data) throw makeApiError("로그인 세션을 갱신하지 못했습니다.", "AUTH_REFRESH_FAILED", 401);
+    return data;
+  }),
+  me: () => request<{ user: User; trace_id: string }>("/api/v1/auth/me").then((data) => {
+    publishAuthenticatedUser(data.user);
+    return data;
+  }),
+  logout: () => request<{ ok: boolean; trace_id: string }>("/api/v1/auth/logout", { method: "POST", headers: idempo(), retryAuth: false }).finally(() => {
+    publishAuthenticatedUser(null);
+  }),
 
   createCase: (payload: { title: string; description_text?: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string }) =>
     request<{ case: CaseItem; trace_id: string }>("/api/v1/cases", { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
