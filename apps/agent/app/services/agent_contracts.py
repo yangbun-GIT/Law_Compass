@@ -12,15 +12,26 @@ ToolScope = Literal["knia.read", "legal.read", "evidence.audit", "cache.write", 
 PlanInputMode = Literal["text_only", "video_only", "text_and_video", "followup_reanalysis", "admin_diagnostic"]
 PlanStatus = Literal["ready", "safe_fallback", "blocked"]
 
-SPECIALIST_ROLE_IDS = {
-    "traffic_accident_attorney",
-    "knia_standard_agent",
+STANDARD_SPECIALIST_ROLE_IDS = {
+    "video_observation_agent",
+    "fact_arbitration_agent",
+    "traffic_law_agent",
+    "knia_fault_standard_agent",
     "fault_ratio_agent",
     "criminal_liability_agent",
-    "insurance_handling_agent",
+    "insurance_claim_agent",
     "evidence_audit_agent",
-    "video_observation_agent",
+    "action_guidance_agent",
+    "presentation_policy_agent",
 }
+
+SPECIALIST_ROLE_ALIASES = {
+    "traffic_accident_attorney": "traffic_law_agent",
+    "knia_standard_agent": "knia_fault_standard_agent",
+    "insurance_handling_agent": "insurance_claim_agent",
+}
+
+SPECIALIST_ROLE_IDS = STANDARD_SPECIALIST_ROLE_IDS | set(SPECIALIST_ROLE_ALIASES)
 
 
 class AgentInputRef(BaseModel):
@@ -330,11 +341,15 @@ P1_INTERNAL_TOOL_SPECS: dict[str, MCPToolSpec] = {
 
 
 def validate_specialist_result_against_profile(result: SpecialistAgentResult, profile: SpecialistRoleProfile) -> SpecialistAgentResult:
-    if result.role_id != profile.role_id:
+    if canonical_specialist_role_id(result.role_id) != canonical_specialist_role_id(profile.role_id):
         raise ValueError("specialist result role_id does not match role profile")
     if result.finality == "decision_ready" and not profile.decision_authority:
         raise ValueError("decision_ready specialist result requires role decision_authority")
     return result
+
+
+def canonical_specialist_role_id(role_id: str) -> str:
+    return SPECIALIST_ROLE_ALIASES.get(role_id, role_id)
 
 
 def list_internal_tool_specs() -> list[MCPToolSpec]:

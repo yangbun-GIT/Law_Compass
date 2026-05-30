@@ -716,6 +716,14 @@ P4-0 완료 기록:
 - Agent별 책임표가 `SYSTEM_OVERVIEW.md`와 충돌하지 않는지 확인한다.
 - Agent별 persona/role profile이 P1-2 결과 계약과 연결되는지 확인한다.
 
+P4-1 완료 기록:
+
+- `apps/agent/app/services/agent_contracts.py`에 `STANDARD_SPECIALIST_ROLE_IDS`, `SPECIALIST_ROLE_ALIASES`, `canonical_specialist_role_id()`를 추가해 새 표준 role id와 기존 alias를 함께 허용했다.
+- `apps/agent/app/services/specialist_role_definitions.py`를 추가해 10개 Specialist Agent의 책임, 판단 권한, 금지 판단, 필요 근거, handoff 대상, safety constraint를 코드 계약으로 고정했다.
+- `apps/agent/app/services/specialist_role_inventory.py`의 목표 role id를 표준 role id로 정리하고, 기존 alias는 validation 호환층으로 유지했다.
+- 이번 단계는 역할 profile과 validation 기준을 고정하는 additive 변경이며, 기존 orchestrator 실행 순서, public API/DTO, DB schema, Redis key, storage path, 외부 API 종류, LLM 호출 정책은 변경하지 않았다.
+- 검증은 `tests/test_specialist_role_definitions.py`, `tests/test_specialist_role_inventory.py`, 기존 `tests/test_agent_contracts.py`, `tests/test_orchestrator.py`로 수행한다.
+
 #### P4-2. Agent 실행 함수 분리
 
 - 현재 orchestration 내부에 섞인 분석 함수를 Agent별 service로 분리한다.
@@ -1114,7 +1122,7 @@ P4-0 완료 기록:
 | P1 | 완료 | Agent 실행 packet, Specialist Agent/persona, MCP Tool 계약을 additive schema와 단위 테스트로 고정 |
 | P2 | 준비 완료 | Task-Plan-Goal 런타임 연결 |
 | P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
-| P4 | 진행 중 | P4-0 role inventory와 boundary rule 완료. 다음은 P4-1 Specialist Agent 역할 interface 연결 |
+| P4 | 진행 중 | P4-0 role inventory와 boundary rule, P4-1 Specialist Agent 역할 profile/interface 기준 완료. 다음은 P4-2 Agent 실행 함수 분리 |
 | P5 | 대기 | 영상 사실 추출 고도화 |
 | P6 | 대기 | 근거 검색/판단 계약 고도화 |
 | P7 | 대기 | Gateway/Frontend 표시 계약 |
@@ -1126,6 +1134,6 @@ P4-0 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P2-1. `planner.py` 실사용 전환**부터 진행한다.
+다음 개발은 **P4-2. Agent 실행 함수 분리**부터 진행한다.
 
-P2-1을 시작할 때는 현재 고정 stage pipeline을 깨지 않고 `build_task_plan()`을 입력 모드별 plan 생성에 연결한다. 먼저 trace/quality packet에 additive metadata로 붙이고, 기존 사용자/관리자 report payload나 과실/근거 결과 품질이 나빠지면 해당 변경은 완료로 보지 않는다.
+P4-2를 시작할 때는 현재 고정 stage pipeline과 사용자/관리자 결과 payload를 깨지 않고, 기존 analyst 함수를 Agent별 `run(input_packet) -> SpecialistAgentResult` adapter로 감싸는 방식부터 적용한다. orchestrator는 당장 대규모 재배선하지 않고 stage sequencing과 result aggregation 책임을 유지하며, 기존 과실/근거 결과 품질이 나빠지면 해당 변경은 완료로 보지 않는다.

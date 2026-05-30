@@ -9,11 +9,11 @@ ROLE_GROUPS: dict[str, dict[str, Any]] = {
     "judgment_responsibility_agents": {
         "purpose": "Produce bounded legal, KNIA, fault-ratio, criminal, or insurance guidance claims.",
         "role_ids": [
-            "traffic_accident_attorney",
-            "knia_standard_agent",
+            "traffic_law_agent",
+            "knia_fault_standard_agent",
             "fault_ratio_agent",
             "criminal_liability_agent",
-            "insurance_handling_agent",
+            "insurance_claim_agent",
         ],
         "must_not_do": [
             "invent_law_or_precedent",
@@ -51,14 +51,14 @@ CURRENT_AGENT_INVENTORY: list[dict[str, Any]] = [
     {
         "artifact": "apps/agent/app/services/analysts/traffic_law_analyst.py",
         "current_kind": "deterministic_or_llm_guarded_analyzer",
-        "target_role_id": "traffic_accident_attorney",
+        "target_role_id": "traffic_law_agent",
         "current_output": "traffic_law_analysis",
         "role_group": "judgment_responsibility_agents",
     },
     {
         "artifact": "apps/agent/app/services/orchestration_evidence.py",
         "current_kind": "evidence_stage_service",
-        "target_role_id": "knia_standard_agent",
+        "target_role_id": "knia_fault_standard_agent",
         "current_output": "knia_result, knia_fault_estimate, combined_evidence",
         "role_group": "judgment_responsibility_agents",
     },
@@ -79,7 +79,7 @@ CURRENT_AGENT_INVENTORY: list[dict[str, Any]] = [
     {
         "artifact": "apps/agent/app/services/analysts/insurance_analyst.py",
         "current_kind": "deterministic_or_llm_guarded_analyzer",
-        "target_role_id": "insurance_handling_agent",
+        "target_role_id": "insurance_claim_agent",
         "current_output": "insurance_guide",
         "role_group": "judgment_responsibility_agents",
     },

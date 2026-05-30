@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P4-1 Specialist Agent 역할 정의
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P4-1 단계를 완료했다. 이번 변경은 P4-0에서 정리한 역할 inventory를 실제 Specialist Agent role profile 계약으로 연결하고, 기존 role id와 새 표준 role id가 동시에 동작하도록 호환 alias를 둔 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 표준 role id | `apps/agent/app/services/agent_contracts.py`에 `STANDARD_SPECIALIST_ROLE_IDS`와 `SPECIALIST_ROLE_ALIASES`를 추가했다. 기존 `traffic_accident_attorney`, `knia_standard_agent`, `insurance_handling_agent`는 각각 `traffic_law_agent`, `knia_fault_standard_agent`, `insurance_claim_agent`로 canonicalize된다. |
+| Role profile | `apps/agent/app/services/specialist_role_definitions.py`를 추가해 영상관찰, 사실중재, 교통법률, KNIA, 과실비율, 형사책임, 보험처리, 근거감사, 대응안내, 표현정책 Agent의 책임·판단권한·금지판단·필수근거·handoff 대상을 고정했다. |
+| Inventory 정합성 | `apps/agent/app/services/specialist_role_inventory.py`의 목표 role id를 표준 role id로 정리했다. 기존 analyst/persona 실행 흐름은 바꾸지 않고 향후 P4-2 분리 작업의 기준만 세운다. |
+| 비변경 범위 | 기존 orchestrator 실행 순서, public API/DTO, DB schema, Redis key, storage path, 외부 API 종류, LLM 호출 정책은 변경하지 않았다. |
+| 검증 | Agent 컨테이너에서 `python -m pytest tests/test_specialist_role_definitions.py tests/test_specialist_role_inventory.py tests/test_agent_contracts.py tests/test_orchestrator.py`를 실행해 role profile, alias 호환성, 기존 Agent 계약 회귀를 확인했다. |
+
+P4-1은 역할 interface 기준선이다. 다음 단계 P4-2에서는 기존 analyst 함수를 Agent별 `run(input_packet) -> SpecialistAgentResult` adapter로 감싸되, 기존 사용자 결과 payload가 깨지지 않도록 additive하게 연결해야 한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P4-0 Persona/Role 고도화 기준 정리
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P4-0 단계를 완료했다. 이번 변경은 기존 analyst/persona/specialist 이름을 바로 독립 Agent로 바꾸지 않고, 현재 파일과 목표 Specialist Agent 역할을 먼저 inventory로 묶어 역할 경계를 고정한 작업이다.

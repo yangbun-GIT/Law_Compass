@@ -24,7 +24,7 @@ def test_specialist_role_inventory_separates_observation_from_judgment_authority
     assert "video_observation_agent" in observation_group["role_ids"]
 
     judgment_group = inventory["role_groups"]["judgment_responsibility_agents"]
-    assert "traffic_accident_attorney" in judgment_group["role_ids"]
+    assert "traffic_law_agent" in judgment_group["role_ids"]
     assert "invent_law_or_precedent" in judgment_group["must_not_do"]
 
 
