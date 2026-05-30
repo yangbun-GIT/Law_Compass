@@ -43,6 +43,9 @@ const evidenceView = readFileSync("src/views/EvidenceDetailView.vue", "utf8");
 const easyReportView = readFileSync("src/components/easy/EasyReportView.vue", "utf8");
 const relatedVideoCard = readFileSync("src/components/knia/RelatedVideoCard.vue", "utf8");
 const kniaVideoLinkCard = readFileSync("src/components/knia/KniaVideoLinkCard.vue", "utf8");
+const elderlyActionCard = readFileSync("src/components/easy/ElderlyActionCard.vue", "utf8");
+const expertGuidanceCard = readFileSync("src/components/easy/ExpertGuidanceCard.vue", "utf8");
+const easyLegalBasisCard = readFileSync("src/components/easy/EasyLegalBasisCard.vue", "utf8");
 const evidenceReliabilityCard = readFileSync("src/components/easy/EvidenceReliabilityCard.vue", "utf8");
 const videoFactExplanationCard = readFileSync("src/components/easy/VideoFactExplanationCard.vue", "utf8");
 const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
@@ -67,6 +70,74 @@ const forbiddenPublicPhrases = ["직접 충돌 대상이 사람이면 KNIA 보 �
 const publicPhraseLeaks = forbiddenPublicPhrases.filter((token) => publicUserFiles.includes(token));
 if (publicPhraseLeaks.length) {
   console.error("public display exposes internal wording", publicPhraseLeaks);
+  process.exit(1);
+}
+const styles = readFileSync("src/styles.css", "utf8");
+const expertSource = [
+  elderlyActionCard,
+  expertGuidanceCard,
+  videoFactExplanationCard,
+  easyLegalBasisCard,
+  easyReportView,
+  styles,
+  displaySanitizer,
+].join("\n");
+const expertScopedSource = [
+  elderlyActionCard,
+  expertGuidanceCard,
+  videoFactExplanationCard,
+  easyLegalBasisCard,
+].join("\n");
+const requiredExpertTokens = [
+  "importance-badge",
+  ".action-steps li::before",
+  ".expert-panel",
+  ".basis-meta",
+  ".source-badge.review",
+  ".video-fact-stat",
+  ".video-fact-section",
+  ".video-fact-item",
+  ".comparison-row",
+  ".basis-card",
+  ".legal-paragraphs",
+  ".inline-details",
+  "sanitizeDisplayText",
+];
+const missingExpertTokens = requiredExpertTokens.filter((token) => !expertSource.includes(token));
+if (missingExpertTokens.length) {
+  console.error("expert result UI contract missing", missingExpertTokens);
+  process.exit(1);
+}
+const brokenDisplayTokens = ["12?", "? ? ?", ", =9", "=9", "=4"];
+const brokenLeaks = brokenDisplayTokens.filter((token) => {
+  if (token === "12?") {
+    return expertSource.includes("<h3>12?</h3>") || expertSource.includes('"12?"') || expertSource.includes("'12?'");
+  }
+  return expertSource.includes(token);
+});
+if (brokenLeaks.length) {
+  console.error("broken display placeholder leaked", brokenLeaks);
+  process.exit(1);
+}
+const legacyExpertColors = [
+  "#ffffff",
+  "#fff",
+  "background: white",
+  "background-color: white",
+  "#f8fafc",
+  "#f1f5f9",
+  "#e5e7eb",
+  "#cbd5e1",
+  "#dbeafe",
+  "#0f172a",
+  "#1e293b",
+  "#2dd4bf",
+  "#3b82f6",
+  "#60efff",
+];
+const legacyExpertLeaks = legacyExpertColors.filter((token) => expertScopedSource.toLowerCase().includes(token.toLowerCase()));
+if (legacyExpertLeaks.length) {
+  console.error("legacy expert result colors leaked", legacyExpertLeaks);
   process.exit(1);
 }
 const requiredErrorUx = [
@@ -96,7 +167,6 @@ const requiredErrorUx = [
   "video_label",
   "영상 신뢰도"
 ];
-const styles = readFileSync("src/styles.css", "utf8");
 const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, loginView, signupView, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
