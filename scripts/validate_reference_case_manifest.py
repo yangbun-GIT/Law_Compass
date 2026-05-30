@@ -46,6 +46,15 @@ FORBIDDEN_COMMITTED_PATH_PATTERNS = [
     re.compile(r"^/Users/"),
     re.compile(r"^/home/[^/]+/"),
 ]
+FORBIDDEN_AGENT_INPUT_KEYS = {
+    "case",
+    "case_json",
+    "structured_facts",
+    "description_text",
+    "agent_payload",
+    "user_facts",
+    "video_metadata",
+}
 
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -158,6 +167,13 @@ def validate_case(case: Any, index: int, manifest_path: Path) -> list[dict[str, 
     if not isinstance(case, dict):
         return [issue(case_id, "case_not_object", "case must be an object")]
     case_id = str(case.get("id") or case_id)
+    leaked_agent_keys = sorted(key for key in FORBIDDEN_AGENT_INPUT_KEYS if key in case)
+    if leaked_agent_keys:
+        issues.append(issue(
+            case_id,
+            "reference_contains_agent_input_payload",
+            f"reference cases must not carry Agent input payload keys: {', '.join(leaked_agent_keys)}",
+        ))
     if not re.match(r"^[a-z0-9][a-z0-9_-]*$", case_id):
         issues.append(issue(case_id, "invalid_id", "id must use lowercase letters, numbers, underscore, or hyphen"))
     source_type = str(case.get("source_type") or "")

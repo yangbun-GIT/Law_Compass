@@ -1,5 +1,22 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P5-4 Reference 평가 경계 강화
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P5-4 단계를 완료했다. 이번 변경은 AI-Hub 라벨, 공개 영상 설명, 공개 reference 의견을 실제 사용자 사고 입력으로 섞지 않고, 영상 분석 정확도 검증용 reference로만 관리하도록 경계를 강화한 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| reference manifest 검증 | `scripts/validate_reference_case_manifest.py`가 `structured_facts`, `case_json`, `agent_payload`, `user_facts`, `video_metadata` 같은 Agent 입력 payload 성격의 필드를 reference case 안에 포함하면 실패 처리한다. |
+| AI-Hub 라벨 변환 | `scripts/aihub597_labels_to_manifest.py`로 만든 case는 `calibration_reference_only` 정책을 유지하며, 원천 영상/라벨은 Agent 입력으로 직접 주입하지 않는다. |
+| 테스트 고정 | `tests/test_reference_case_manifest_policy.py`가 reference manifest의 Agent 입력 오염 방지와 AI-Hub 변환 정책을 검증한다. |
+| 로컬 산출물 | `.local/reference_case_manifest_preflight_p5_4.json`은 검증 산출물이며 `.gitignore` 범위에 있어 저장소에 올리지 않는다. |
+
+리소스와 실행 경계는 변경하지 않았다. DB schema, Redis key, Gateway route, storage provider, public API contract는 그대로이며, 이번 단계는 reference 평가 데이터의 사용 정책과 검증만 강화했다.
+
+검증은 `python -m pytest tests/test_reference_case_manifest_policy.py tests/test_validate_video_accuracy_manifest.py tests/test_evaluate_video_reference_metrics.py`와 `python scripts/validate_reference_case_manifest.py --manifest tests/fixtures/video_accuracy/reference_case_manifest.example.json --output .local/reference_case_manifest_preflight_p5_4.json`로 완료했다.
+
+P5-4는 영상 reference 데이터가 판단 입력으로 오염되는 것을 막는 단계다. 다음 P6-1에서는 사고축 기반 evidence routing을 보강해, 차대차 사고에 보행자·횡단보도 근거가 1차 근거로 섞이지 않도록 정리한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P5-3 핵심 정량 fact 상태 계약
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P5-3 단계를 완료했다. 이번 변경은 영상 분석과 사용자 입력이 만들어낸 핵심 fact를 단순 값 목록이 아니라 `confirmed`, `candidate`, `needs_confirmation`, `conflict`, `ignored` 상태로 추적할 수 있게 만든 작업이다.

@@ -1187,3 +1187,10 @@ P5-2를 시작할 때는 `vehicle`, `pedestrian`, `bicycle`, `motorcycle`, `obje
 - `video_input_contract`는 `observation_states`와 `observation_state_summary`를 반환한다. 신호 가시성, 신호 색상, 중앙선 침범, 충돌 대상 후보처럼 판단에 쓰이는 물리 fact가 어떤 상태인지 관리자/테스트 화면에서 추적할 수 있다.
 - `fact_arbitration`은 `fact_states`와 `fact_state_summary`를 반환한다. 사용자 입력과 영상 fact가 일치하면 `confirmed`, 보완 질문이 필요하면 `needs_confirmation`, 실제 충돌이면 `conflict`로 구분한다.
 - 다음 개발은 P5-4 AI-Hub/공개 reference 평가 연결이다. AI-Hub 라벨/공개 영상 설명은 실제 사용자 case fact로 주입하지 않고, 영상 추출 정확도 검증용 reference로만 분리해 사용해야 한다.
+
+### 2026-05-31 P5-4 진행 기록
+
+- P5-4 AI-Hub/공개 reference 평가 연결 완료: reference manifest가 `structured_facts`, `case_json`, `agent_payload`, `user_facts`, `video_metadata` 같은 Agent 입력 payload 필드를 포함하면 검증 실패하도록 했다.
+- AI-Hub 597 라벨 변환 결과는 `calibration_reference_only` 정책을 유지하며, 원천 라벨/공개 reference 설명을 Agent 판단 입력으로 직접 주입하지 않는 것을 테스트로 고정했다.
+- 검증은 `python -m pytest tests/test_reference_case_manifest_policy.py tests/test_validate_video_accuracy_manifest.py tests/test_evaluate_video_reference_metrics.py`와 reference manifest preflight로 완료했다.
+- 다음 개발은 P6-1 사고축 기반 evidence routing이다. 사고 대분류와 직접 사고대상을 먼저 고정하고, 보행자·횡단보도·자전거·신호·차선변경 같은 환경축 근거가 사고축과 맞지 않을 때 1차 근거로 섞이지 않도록 정리한다.
