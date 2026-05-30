@@ -237,14 +237,6 @@ def _merge_frame_observations(*analysis_payloads: dict[str, Any]) -> list[dict[s
 
 def _sanitize_merged_frame_observations(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
     observations = _augment_pedestrian_visibility_target_candidates(observations)
-    non_vehicle_candidate_targets = {
-        _canonical_target(item.get("value"))
-        for item in observations
-        if str(item.get("field") or "") == "primary_collision_target"
-        and str(item.get("value") or "").strip().lower().replace("-", "_").endswith("_candidate")
-        and _canonical_target(item.get("value")) in NON_VEHICLE_TARGETS
-        and _as_float(item.get("confidence")) >= 0.3
-    }
     yolo_sequence_direct_targets = {
         _canonical_target(item.get("value"))
         for item in observations
@@ -259,15 +251,6 @@ def _sanitize_merged_frame_observations(observations: list[dict[str, Any]]) -> l
         field = str(item.get("field") or "")
         source = str(item.get("source") or "").strip().lower()
         target = _canonical_target(item.get("value"))
-        raw_value = str(item.get("value") or "").strip().lower().replace("-", "_")
-        if (
-            source.startswith("frame_analysis")
-            and target == "vehicle"
-            and non_vehicle_candidate_targets
-            and (field in DIRECT_TARGET_FIELDS or (field == "primary_collision_target" and not raw_value.endswith("_candidate")))
-        ):
-            sanitized.append(_demote_to_target_candidate(item, target, "openai_vehicle_direct_demoted_due_non_vehicle_target_candidate"))
-            continue
         if source.startswith("frame_analysis") and target in NON_VEHICLE_TARGETS and target not in yolo_sequence_direct_targets:
             if field in DIRECT_TARGET_FIELDS:
                 sanitized.append(_demote_to_target_candidate(item, target, "openai_direct_non_vehicle_requires_yolo_sequence_support"))

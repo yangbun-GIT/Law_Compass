@@ -171,7 +171,7 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
         self.assertEqual(by_source["frame_analysis:openai"]["field"], "direct_collision_partner_type")
         self.assertEqual(by_source["vision_model:yolo_sequence"]["field"], "direct_collision_partner_type")
 
-    def test_frame_observation_merge_demotes_openai_vehicle_direct_when_small_target_candidate_exists(self):
+    def test_frame_observation_merge_keeps_openai_vehicle_direct_when_only_small_target_candidate_exists(self):
         result = _merge_frame_observations(
             {
                 "observations": [
@@ -206,14 +206,20 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
 
         vehicle_targets = [
             item for item in result
-            if item["field"] == "primary_collision_target" and item["value"] == "vehicle_candidate"
+            if item["field"] == "primary_collision_target" and item["value"] == "vehicle"
+        ]
+        motorcycle_candidates = [
+            item for item in result
+            if item["field"] == "primary_collision_target" and item["value"] == "motorcycle_candidate"
         ]
         self.assertEqual(len(vehicle_targets), 1)
-        self.assertFalse([item for item in result if item["field"] == "collision_partner_type"])
-        self.assertTrue(all(item["confidence"] <= 0.69 for item in vehicle_targets))
-        self.assertTrue(all("vehicle_direct_demoted" in item["reason"] for item in vehicle_targets))
+        self.assertEqual(len(motorcycle_candidates), 1)
+        self.assertEqual(
+            [item["value"] for item in result if item["field"] == "collision_partner_type"],
+            ["vehicle"],
+        )
 
-    def test_frame_observation_merge_treats_visible_pedestrian_as_target_candidate_before_vehicle_direct(self):
+    def test_frame_observation_merge_keeps_vehicle_direct_and_visible_pedestrian_candidate_separate(self):
         result = _merge_frame_observations(
             {
                 "observations": [
@@ -246,9 +252,12 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
             item["value"] for item in result
             if item["field"] == "primary_collision_target"
         }
-        self.assertIn("vehicle_candidate", values)
+        self.assertIn("vehicle", values)
         self.assertIn("pedestrian_candidate", values)
-        self.assertFalse([item for item in result if item["field"] == "collision_partner_type"])
+        self.assertEqual(
+            [item["value"] for item in result if item["field"] == "collision_partner_type"],
+            ["vehicle"],
+        )
 
     def test_analysis_result_values_keep_result_contract_fields(self):
         response = {

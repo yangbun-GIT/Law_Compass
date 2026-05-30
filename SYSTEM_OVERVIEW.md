@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P5-2 영상 직접 사고대상 추출 강화
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P5-2 단계를 완료했다. 이번 변경은 영상 분석에서 “화면에 보이는 객체 후보”와 “직접 충돌 대상”을 분리해, 차대차 사고가 보행자·자전거·이륜차 후보로 오염되는 문제를 줄이는 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Worker 병합 정책 | `apps/worker/worker/job_processor.py`에서 YOLO의 `*_candidate` 객체 후보만으로 OpenAI의 차량 직접 충돌 관찰을 낮추던 경로를 제거했다. |
+| 후보 유지 | 보행자·자전거·이륜차·물체는 단순 화면 등장이나 객체 감지만으로 직접 충돌 대상이 되지 않고 `primary_collision_target=*_candidate` 후보로 남는다. |
+| 직접 대상 유지 | OpenAI가 다중 프레임에서 차량 충돌 대상과 충돌 지점을 관찰하면, 배경 보행자나 이륜차 후보가 있어도 차량 직접 대상이 유지된다. |
+| Agent 라우팅 | `apps/agent/tests/test_party_router_direct_collision_priority.py`에 차대차+보행자 화면 등장 오염 방지와 실제 보행자 직접 충돌 라우팅 회귀 테스트를 추가했다. |
+| 비변경 범위 | public API/DTO, DB schema, Redis key, storage path, 외부 API 종류, YOLO 모델 파일, OpenAI 호출 정책은 변경하지 않았다. |
+| 검증 | Worker 컨테이너에서 `python -m unittest discover -s tests -p 'test_job_processor_contract.py'`, Agent 컨테이너에서 `python -m pytest tests/test_party_router_direct_collision_priority.py tests/test_video_input_contract.py tests/test_fact_arbitration.py`를 실행했다. |
+
+P5-2는 직접 사고대상 오염을 막는 단계다. 다음 P5-3에서는 신호등, 차선, 중앙선, 정차, 2차 충돌, 충돌 방향 같은 핵심 정량 fact가 확정/후보/확인필요/충돌/무시 중 하나의 상태로 정리되도록 보강한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P5-1 영상 사고 기점 탐지 강화
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P5-1 단계를 완료했다. 이번 변경은 YOLO 객체 감지가 단순히 “객체가 보인다”는 이유만으로 사고 발생 구간 1순위가 되지 않도록, event phase 안의 대상 감지와 전후 문맥을 분리하는 보강이다.

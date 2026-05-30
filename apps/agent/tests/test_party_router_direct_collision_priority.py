@@ -53,3 +53,37 @@ def test_road_worker_text_sets_person_facts_patch() -> None:
     assert patch["road_work_context"] is True
     assert patch["pedestrian_sudden_entry"] is True
     assert "car_vs_car" in result["excluded_party_types"]
+
+
+def test_visible_pedestrian_context_does_not_override_vehicle_direct_target() -> None:
+    result = route_party_agent(
+        description_text="intersection with visible crosswalk and a person near the scene",
+        structured_facts={
+            "accident_party_type": "car_vs_car",
+            "collision_partner_type": "vehicle",
+            "direct_collision_partner_type": "vehicle",
+            "pedestrian_visible": True,
+            "crosswalk_nearby": True,
+        },
+        selected_keywords=["crosswalk", "vehicle collision"],
+        video_metadata={},
+    )
+
+    assert result["major_party_type"] == "car_vs_car"
+    assert result["direct_collision_partner_type"] == "vehicle"
+
+
+def test_direct_pedestrian_partner_still_routes_to_person_agent() -> None:
+    result = route_party_agent(
+        description_text="direct contact with pedestrian",
+        structured_facts={
+            "collision_partner_type": "pedestrian",
+            "direct_collision_partner_type": "pedestrian",
+            "collision_point_visible": True,
+        },
+        selected_keywords=[],
+        video_metadata={},
+    )
+
+    assert result["major_party_type"] == "car_vs_person"
+    assert result["direct_collision_partner_type"] == "pedestrian"
