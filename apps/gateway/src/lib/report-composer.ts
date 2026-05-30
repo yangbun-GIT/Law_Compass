@@ -468,16 +468,18 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
 
   const conflictItems = reviewItems
     .map((item: AnyRecord) => {
-      const field = String(item?.field ?? "");
+      const sourceField = String(item?.field ?? "");
+      const field = videoConfirmationQuestionField(item);
       const winner = String(item?.winner ?? item?.selected_source ?? "");
       const status = String(item?.status ?? "");
-      const videoValue = item.video_value;
-      const userValue = item.user_value;
-      const selectedValue = winner === "video" ? item.video_value : winner === "none" ? item.video_value : item.user_value;
+      const videoValue = videoConfirmationVideoValue(item);
+      const userValue = videoConfirmationUserValue(item);
+      const selectedValue = winner === "video" ? videoValue : winner === "none" ? videoValue : userValue;
       const videoValueLabel = videoFactValueLabel(field, videoValue);
       const userValueLabel = videoFactValueLabel(field, userValue);
       return {
         label: videoFactLabel(field),
+        source_label: sourceField && sourceField !== field ? videoFactLabel(sourceField) : undefined,
         selected_source: winner === "video" ? "영상" : winner === "none" ? "확인 필요" : "사용자 입력",
         selected_value: videoFactValueLabel(field, selectedValue),
         input_label: userValueLabel,
@@ -698,19 +700,21 @@ function composeVideoConflictQuestions(result: AnyRecord = {}) {
     ...asArray(arbitration.pending_video_confirmations),
   ].filter((item: AnyRecord) => item?.needs_confirmation !== false);
   for (const item of reviewItems) {
-    const field = String(item?.field ?? "");
+    const field = videoConfirmationQuestionField(item);
     if (!SAFE_INPUT_FIELDS.has(field)) continue;
     const winner = String(item?.winner ?? item?.selected_source ?? "");
     const status = String(item?.status ?? "");
-    const selectedValue = winner === "video" ? item.video_value : winner === "none" ? item.video_value : item.user_value;
-    const alternateValue = winner === "video" ? item.user_value : item.video_value;
+    const videoValue = videoConfirmationVideoValue(item);
+    const userValue = videoConfirmationUserValue(item);
+    const selectedValue = winner === "video" ? videoValue : winner === "none" ? videoValue : userValue;
+    const alternateValue = winner === "video" ? userValue : videoValue;
     const selectedLabel = videoFactValueLabel(field, selectedValue);
     const alternateLabel = videoFactValueLabel(field, alternateValue);
-    const userLabel = videoFactValueLabel(field, item.user_value);
-    const videoLabel = videoFactValueLabel(field, item.video_value);
+    const userLabel = videoFactValueLabel(field, userValue);
+    const videoLabel = videoFactValueLabel(field, videoValue);
     const label = videoFactLabel(field);
     const baseOptions = status
-      ? videoFactQuestionOptions(field, item.video_value)
+      ? videoFactQuestionOptions(field, videoValue)
       : [selectedLabel, alternateLabel, "확인 필요"];
     const options = unique(baseOptions).filter((value: string) => value && (value !== "확인 필요" || selectedLabel !== "확인 필요"));
     const question = status
@@ -732,20 +736,54 @@ function composeVideoQualityQuestions(result: AnyRecord = {}) {
   const questions: AnyRecord[] = [];
   const observations = asArray(contract.uncertain_observations).sort(compareVideoObservationPriority);
   for (const item of observations) {
-    const field = String(item?.field ?? "");
+    const rawField = String(item?.field ?? "");
+    const field = videoQualityQuestionField(rawField);
     if (!SAFE_INPUT_FIELDS.has(field)) continue;
+    const observedValue = rawField === field ? item?.value : normalizeCandidateTargetValue(item?.value);
     const label = videoFactLabel(field);
-    const observedLabel = videoFactValueLabel(field, item?.value);
+    const observedLabel = videoFactValueLabel(field, observedValue);
     const question = videoQualityQuestionText(field, label, observedLabel);
     questions.push({
       field,
       label,
       question,
       input_type: "single_choice",
-      options: videoFactQuestionOptions(field, item?.value),
+      options: videoFactQuestionOptions(field, observedValue),
     });
   }
   return questions.slice(0, 4);
+}
+
+function videoConfirmationQuestionField(item: AnyRecord = {}) {
+  return String(item?.question_field ?? item?.recommended_fact_field ?? item?.field ?? "");
+}
+
+function videoConfirmationVideoValue(item: AnyRecord = {}) {
+  return item?.normalized_video_value ?? item?.recommended_fact_value ?? item?.video_value;
+}
+
+function videoConfirmationUserValue(item: AnyRecord = {}) {
+  return item?.normalized_user_value ?? item?.user_value;
+}
+
+function videoQualityQuestionField(field: string) {
+  return field === "primary_collision_target" ? "direct_collision_partner_type" : field;
+}
+
+function normalizeCandidateTargetValue(value: any) {
+  const text = String(value ?? "").trim().toLowerCase();
+  const normalized = text.endsWith("_candidate") ? text.replace(/_candidate$/, "") : text;
+  const aliases: AnyRecord = {
+    car: "vehicle",
+    truck: "vehicle",
+    bus: "vehicle",
+    person: "pedestrian",
+    human: "pedestrian",
+    bike: "bicycle",
+    motorbike: "motorcycle",
+    two_wheeler: "motorcycle",
+  };
+  return aliases[normalized] ?? normalized;
 }
 
 function videoConflictQuestionText(field: string, label: string, videoLabel: string, userLabel: string, selectedLabel: string) {

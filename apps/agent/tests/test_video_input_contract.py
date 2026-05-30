@@ -388,6 +388,27 @@ def test_video_road_context_observations_become_agent_facts():
     assert contract["observation_quality_summary"]["accepted_count"] == 4
 
 
+def test_road_obstruction_threshold_accepts_multi_frame_video_context():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "road_obstruction",
+                        "value": True,
+                        "confidence": 0.8,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_1.jpg", "frame_7.jpg", "frame_13.jpg"],
+                    }
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"]["road_obstruction"] is True
+    assert contract["accepted_observations"][0]["quality_gate"]["min_confidence"] == 0.8
+
+
 def test_collision_target_observations_are_prioritized_agent_facts():
     contract = normalize_video_input_contract(
         {
@@ -550,6 +571,102 @@ def test_vehicle_collision_demotes_pedestrian_presence_to_context():
     reasons = {item["field"]: item["reason"] for item in contract["uncertain_observations"]}
     assert reasons["pedestrian_visible"] == "pedestrian_presence_is_context_when_collision_partner_is_vehicle"
     assert reasons["pedestrian_signal"] == "pedestrian_signal_is_context_when_collision_partner_is_vehicle"
+
+
+def test_non_vehicle_candidates_do_not_compete_with_confirmed_vehicle_contact():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "collision_partner_type",
+                        "value": "vehicle",
+                        "confidence": 0.91,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_7.jpg", "frame_8.jpg"],
+                    },
+                    {
+                        "field": "collision_point_visible",
+                        "value": True,
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_7.jpg", "frame_8.jpg"],
+                    },
+                    {
+                        "field": "primary_collision_target",
+                        "value": "pedestrian_candidate",
+                        "confidence": 0.86,
+                        "source": "vision_model:yolo",
+                        "frame_refs": ["frame_3.jpg", "frame_4.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": True,
+                        "confidence": 0.92,
+                        "source": "vision_model:yolo",
+                        "frame_refs": ["frame_3.jpg", "frame_4.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"]["collision_partner_type"] == "vehicle"
+    assert contract["fact_patch"]["collision_point_visible"] is True
+    assert "primary_collision_target" not in contract["fact_patch"]
+    assert "pedestrian_visible" not in contract["fact_patch"]
+    reasons = {item["field"]: item["reason"] for item in contract["uncertain_observations"]}
+    assert reasons["primary_collision_target"] == "primary_collision_target_candidate_requires_direct_contact_evidence"
+    assert reasons["pedestrian_visible"] == "pedestrian_presence_is_context_when_collision_partner_is_vehicle"
+
+
+def test_vehicle_target_and_collision_point_demote_background_pedestrian_presence():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "observations": [
+                    {
+                        "field": "primary_collision_target",
+                        "value": "vehicle",
+                        "confidence": 0.86,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_9.jpg", "frame_10.jpg"],
+                    },
+                    {
+                        "field": "collision_point_visible",
+                        "value": True,
+                        "confidence": 0.89,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_9.jpg", "frame_10.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": True,
+                        "confidence": 0.93,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_2.jpg", "frame_3.jpg"],
+                    },
+                    {
+                        "field": "crosswalk_nearby",
+                        "value": True,
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_1.jpg", "frame_2.jpg"],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert contract["fact_patch"]["primary_collision_target"] == "vehicle"
+    assert contract["fact_patch"]["collision_point_visible"] is True
+    assert contract["fact_patch"]["crosswalk_nearby"] is True
+    assert "pedestrian_visible" not in contract["fact_patch"]
+    assert {
+        item["reason"]
+        for item in contract["uncertain_observations"]
+        if item["field"] == "pedestrian_visible"
+    } == {"pedestrian_presence_is_context_when_collision_partner_is_vehicle"}
 
 
 def test_pedestrian_collision_partner_requires_direct_contact_evidence():

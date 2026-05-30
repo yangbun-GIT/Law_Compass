@@ -20,7 +20,7 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "pedestrian_signal": 0.82,
     "school_zone": 0.85,
     "centerline_crossed": 0.86,
-    "road_obstruction": 0.84,
+    "road_obstruction": 0.80,
     "illegal_parking_obstruction": 0.84,
     "opposing_vehicle_present": 0.82,
     "opposing_vehicle_did_not_stop": 0.88,

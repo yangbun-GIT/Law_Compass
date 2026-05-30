@@ -1,5 +1,21 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 P1-3 과실비율/KNIA 근거 싱크 보강
+
+P1-3 단계에서 영상/입력 fact가 Agent까지 연결된 뒤 사고축, 과실비율, KNIA 근거가 서로 다른 방향으로 벌어지는 문제를 보강했다. 이번 변경은 특정 사고 영상에 맞춘 결과 보정이 아니라, 신호·정차·후방추돌·무등화 정차차량·과속처럼 과실 방향을 바꾸는 공통 판단축의 우선순위를 정리하는 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 신호대기 후방추돌 분류 | `apps/agent/app/services/scenario_classifier.py`에서 `stopped_due_to_signal`, `stopped_at_red_light`, `lawful_stop_reason`과 후방추돌 맥락이 함께 있으면 `intersection_signal_violation`보다 `rear_end_collision`을 우선한다. 빨간불/교차로 키워드는 정차 중 후방추돌을 신호위반 사고로 오염시키지 못한다. |
+| 사고축 강제 보정 | 사고 대분류가 `car_vs_car`로 고정된 상태에서 scenario를 재보정할 때도 lawful signal stop rear-end 맥락을 먼저 확인해 후방추돌 축을 유지한다. |
+| 교차로 차대차 분류 | 좌회전/우회전 차량과 직진 차량의 교차로 충돌은 신호 확정 fact가 없어도 `general_collision`이나 차선변경 fallback으로 밀리지 않고 `intersection_collision`으로 유지한다. 횡단보도나 보행자가 배경에 보여도 직접 충돌 대상이 차량이면 차대사람 근거로 오염시키지 않는다. |
+| 무등화 정차차량 과속 반영 | `apps/agent/app/services/knia/adjustments/parking_stopped_vehicle.py`가 무등화/스텔스 정차차량 사고에서 제한속도 초과 fact가 확인되면 기본 스텔스 10:90으로 덮지 않고 40:60 참고 범위와 `speeding_over_limit` 가감요소를 반영한다. `reported_speed_kmh/speed_limit_kmh`뿐 아니라 정규화된 `speeding_over_limit=true`도 같은 의미로 처리한다. |
+| KNIA 근거축 필터 | `apps/agent/app/services/knia/knia_matcher.py`에서 structured lookup, fallback, hybrid lookup 모두 사고 scenario와 맞지 않는 KNIA 후보를 거른다. 중앙선·장애물 회피 사고는 차41/차42/차43 후방추돌·차선변경 기준을 primary로 쓰지 않고, 무등화 정차차량 사고는 보행자/자전거/신호/차선변경 기준을 primary로 쓰지 않는다. |
+| KNIA mismatch 테스트 경계 | `tests/test_car_vs_car_knia_filtering.py`는 structured KNIA lookup이 아닌 hybrid 후보 필터 경로를 명확히 검증하도록 테스트 경계를 고정했다. `apps/agent/tests/test_fault_knia_axis_generalization.py`는 새 입력 축에서 후방추돌, 적색 진입 교차로, 무등화 정차차량, 중앙선 장애물 회피, 횡단보도 주변 차대차 사고가 서로 오염되지 않는지 고정한다. |
+| 검증 | Python 회귀 102건을 실행했고, 별도 synthetic 샘플 6종에서 사고축/과실비율/KNIA 근거가 보행자·차선변경·후방추돌 축으로 잘못 섞이지 않는지 확인했다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 다음 단계는 실제 관리자/사용자 시연 경로에서 같은 결과 payload가 표시 계층까지 일관되게 전달되는지 확인하는 것이다.
+
 ## 2026-05-30 P1-1 사고 대상 오염/조건부 결과 보강
 
 사고 2처럼 교차로 차대차 사고에 보행자, 횡단보도, 후방추돌, 자전거 계열 근거가 사고 대상처럼 섞이는 문제를 보강했다. 이 단계는 영상 처리 자체가 아니라 Agent evidence, 조건부 과실 결과, 전문가 안내 basis의 대상 스키마 정합성을 높이는 작업이다.
@@ -3216,3 +3232,62 @@ P2-2a 단계에서 OpenAI+YOLO ON 재측정 결과를 사람이 반복 검토할
 | 남은 목표 | 현재 보강은 데이터 누수 방지와 직접 사고대상 오염 방지에 초점을 둔다. 이륜차·자전거처럼 작은 대상 recall은 더 많은 프레임 선택, 고해상도 crop, 별도 객체 감지 모델 비교로 계속 개선해야 한다. |
 
 이 변경은 public route, DB schema, Redis key, storage path를 변경하지 않는다. 평가 manifest와 라벨 파일은 계속 `.local/`, `datasets/`, `logs/` 등 Git 제외 경로에만 둔다.
+
+## 2026-05-31 P1-2 중앙선·장애물 회피 영상 fact 승격 1차 보강
+
+사고 1처럼 영상에서 접촉 또는 충돌 구간은 잡히지만 중앙선, 도로 장애물, 대향 차량 같은 시나리오 맥락이 누락되어 `일반 차대차 50:50` fallback으로 접히는 문제를 줄이기 위해 Worker와 Agent 입력 계약을 보강했다. 이번 변경은 특정 영상 이름이나 테스트 문장에 맞춘 예외가 아니라, contact evidence가 있는데 scenario context가 부족한 경우를 재확인하는 범용 흐름이다.
+
+| 범위 | 변경 내용 |
+| --- | --- |
+| Worker OpenAI frame analysis | `apps/worker/worker/frame_analysis.py`에 `road_context_observation_retry`를 추가했다. 충돌 지점, 충돌 대상, 사고 구간 후보는 있는데 중앙선/도로 장애물/대향 차량/2차 충돌 관찰값이 부족하면 제한 재분석을 실행한다. |
+| Scenario context 판정 | 약한 `lane_change_actor`, `front_vehicle_stopped` 후보가 먼저 나와도 중앙선·장애물 회피 재분석을 막지 않도록 scenario context skip 기준을 confidence 기반으로 분리했다. |
+| Agent video input contract | `apps/agent/app/services/video_input_contract_rules.py`에서 `road_obstruction` 임계값을 0.80으로 조정해 다중 프레임 기반 도로 장애물 후보가 과도하게 탈락하지 않도록 했다. |
+| 테스트 | Worker frame analysis contract 38개와 Agent video input contract 32개를 통과했다. 사고 1 영상 단독 E2E에서 `centerline_crossed`, `opposing_vehicle_present`, `primary_collision_target`, `collision_point_visible`, `pedestrian_visible=false`가 fact patch로 전달되고 `centerline` 분기가 선택되는 것을 확인했다. |
+
+남은 한계는 영상 단독에서 `road_obstruction`과 `centerline_cross_reason`이 OpenAI 출력 변동으로 항상 accepted fact까지 승격되지 않는 점이다. 따라서 과실비율은 아직 넓은 조건부 범위로 남을 수 있다. 바로 과실비율/KNIA 싱크 보강으로 넘어가기 전에 사고 1~5와 대표 reference 유형을 대상으로 영상 fact 범위 확장 검증, 오염 guard 보강, Agent 입력 계약 연결 확인을 먼저 진행한다. P1-3 과실비율/KNIA 근거 싱크 점검은 이 선행 검증이 끝난 뒤 진행한다.
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. OpenAI+YOLO ON 테스트 로그와 원본 영상은 계속 `logs/`, `storage/`, `.local/` 등 Git 제외 경로에만 둔다.
+
+## 2026-05-31 P1-2b 영상 fact 범위 확장 검증 결과
+
+P1-2 1차 보강이 사고 1에만 맞춰진 것이 아닌지 확인하기 위해 실제 사고 1~5와 AI-Hub 597 원천 영상 대표 4종을 OpenAI+YOLO ON 상태에서 재측정했다. reference 라벨과 사고 설명은 Worker/OpenAI/YOLO 추론 입력에 넣지 않고 사후 평가에만 사용했다.
+
+| 검증 묶음 | 결과 |
+| --- | --- |
+| 실제 사고 1~5 | pipeline 5/5 통과, frame observation 70개, accepted 19개, uncertain 42개, supporting 9개, applied 16개 |
+| 실제 사고 reference metrics | `status=needs_attention`, 직접 충돌 대상 정확도 0.6, 사고 대분류 정확도 0.6, 관찰값 0개 비율 0.0, evidence mismatch rate 0.8, 조건부 분기 coverage 0.8 |
+| 실제 사고 observation audit | pass 0, weak 4, fail 1. promoted pollution은 0건이지만 candidate 직접대상 4건, expected context missing 2건이 남음 |
+| AI-Hub 대표 4종 | observation target hit rate 1.0, direct target pollution rate 0.0, agent direct target pollution rate 0.0. agent target hit rate는 0.0으로, 후보값을 확정 fact로 바로 승격하지 않는 안전 정책이 유지됨 |
+
+중요한 해석은 “영상 분석이 아무것도 못 하는 상태”는 아니라는 점이다. 사고 시점 후보와 객체 후보는 잡히고 관찰값 0개도 아니다. 그러나 actual 사고 기준으로는 후보값과 확정값의 경계가 아직 약하고, 사고 2에서 `pedestrian_candidate`가 직접 충돌 대상 mismatch로 평가되는 등 후보 오염이 남아 있다. 또한 사고 1의 parked vehicle/secondary rear context, 사고 5의 bicycle non-contact trigger처럼 판단에 필요한 맥락이 충분히 안정적으로 올라오지 않는다.
+
+따라서 다음 개발은 P1-2c/P1-4c 누락·오염 유형별 guard 보강이다. 과실비율/KNIA 근거 싱크(P1-3)는 영상 fact가 여러 사고 유형에서 안정적으로 Agent 입력 계약에 들어간 뒤 진행한다.
+
+## 2026-05-31 P1-2c 후보/확정 영상 관찰값 분리 보강
+
+영상 분석에서 객체가 보였다는 사실과 실제 직접 충돌 대상이 확정됐다는 사실을 더 강하게 분리했다. 이 단계는 사고 1~5 테스트값에 맞춘 분기가 아니라, 향후 영상에서도 보행자·자전거·이륜차·주변 차량 후보가 직접 사고대상이나 법률 근거를 오염시키지 않게 하는 범용 guard 보강이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Agent 영상 입력 계약 | `apps/agent/app/services/video_input_contract_guards.py`에서 `*_candidate` target 값이 확정 차량 사고대상을 밀어내지 못하게 했다. 보행자/자전거/이륜차/객체 후보는 직접 접촉 bundle 또는 명시적 direct partner 근거가 없으면 확정 fact가 아니다. |
+| 보행자/횡단보도 오염 방지 | 차량 target 후보와 충돌 지점이 함께 관찰되면 배경 보행자, 횡단보도, 보행자 신호는 사고 환경 후보로 낮추고 차대사람 사고 근거로 바로 쓰지 않는다. |
+| 평가 스크립트 | `scripts/evaluate_video_reference_metrics.py`와 `scripts/audit_video_observation_report.py`가 후보/보류 관찰값을 확정 결과 오염으로 잘못 채점하지 않도록 `applied`, `confirmed`, `in_fact_patch` 값을 기준으로 확정값을 본다. |
+| 회귀 테스트 | Agent video input contract 테스트 34건, Worker frame analysis contract 테스트 38건, reference metrics unit 테스트 2건을 통과했다. |
+| 남은 한계 | P1-2b 실제 사고 1~5 aggregate 재평가에서 promoted pollution, zero observation, evidence mismatch는 0으로 정리됐지만 direct target accuracy는 0.2다. 후보값을 사용자 확인 질문과 Agent 판단 입력으로 연결하는 P1-2d가 필요하다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. Agent 내부 guard와 로컬 평가 스크립트 기준만 바뀐다.
+
+## 2026-05-31 P1-2d 영상 후보 관찰값 확인 질문 연결 보강
+
+P1-2c에서 직접 사고대상 후보를 확정 fact로 승격하지 않는 안전 정책을 세웠지만, 그 결과 후보값이 사용자 확인 질문이나 결과 카드로 충분히 이어지지 않는 문제가 남아 있었다. P1-2d는 후보를 확정하지 않으면서도 Agent 판단 흐름에서 잃어버리지 않게 하는 연결 보강이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Fact arbitration | `primary_collision_target`, `collision_partner_type`, `direct_collision_partner_type` 후보값을 `vehicle`, `pedestrian`, `bicycle`, `motorcycle`, `object` 축으로 정규화한다. |
+| 질문 브리지 | `primary_collision_target=vehicle_candidate` 같은 원천 후보는 `source_field`로 보존하고, 사용자 확인 필드는 `direct_collision_partner_type`으로 내려준다. |
+| 사용자 입력 교차 확인 | 사용자 입력의 사고 대분류나 충돌 상대와 영상 후보가 같은 방향이면 보강 확인 항목으로, 반대 방향이면 입력-영상 충돌 검토 항목으로 남긴다. |
+| 오염 방지 | 후보값은 `pending_video_confirmations`와 `requires_confirmation`에만 남기며, `fact_patch` 또는 확정 facts로 직접 승격하지 않는다. |
+| Gateway 표시 | 결과 카드와 추가 확인 질문은 raw 후보 key가 아니라 “실제 충돌 상대” 흐름으로 표시한다. 원천 후보 필드는 `source_label`로만 보존한다. |
+| 검증 | Agent fact arbitration/video input contract 테스트, Gateway report composer 테스트, Gateway build, Python compile을 통과했다. broader orchestrator 회귀 확인에서 기존 분류/과실 범위 테스트 2건이 실패했지만, 이번 P1-2d 변경 경로와는 별도 이슈로 분리했다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. 다음 단계는 후보 확인 답변이 들어왔을 때 과실비율과 KNIA/법률 근거가 같은 사고축으로 좁혀지는지 확인하는 P1-3 과실비율/KNIA 근거 싱크 점검이다.

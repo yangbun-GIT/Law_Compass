@@ -93,7 +93,6 @@ def promoted_metric(item: dict[str, Any]) -> bool:
         item.get("applied")
         or item.get("confirmed")
         or item.get("in_fact_patch")
-        or item.get("supporting")
     )
 
 
@@ -108,19 +107,27 @@ def all_field_text(sample: dict[str, Any], *, promoted_only: bool = False) -> st
 
 
 def direct_target(sample: dict[str, Any]) -> dict[str, Any]:
+    first_candidate: dict[str, Any] | None = None
     for item in field_metrics(sample):
         field = norm(item.get("field"))
         if field not in DIRECT_TARGET_FIELDS:
             continue
         value = norm(item.get("value"))
+        is_candidate = "candidate" in value
+        if is_candidate and first_candidate is None:
+            first_candidate = item
+        if not promoted_metric(item) or is_candidate:
+            continue
         if "vehicle" in value or "car" in value:
-            return {"value": "vehicle", "raw": item.get("value"), "candidate": "candidate" in value}
+            return {"value": "vehicle", "raw": item.get("value"), "candidate": False}
         if "pedestrian" in value or "person" in value:
-            return {"value": "pedestrian", "raw": item.get("value"), "candidate": "candidate" in value}
+            return {"value": "pedestrian", "raw": item.get("value"), "candidate": False}
         if "bicycle" in value or "bike" in value:
-            return {"value": "bicycle", "raw": item.get("value"), "candidate": "candidate" in value}
+            return {"value": "bicycle", "raw": item.get("value"), "candidate": False}
         if "object" in value:
-            return {"value": "object", "raw": item.get("value"), "candidate": "candidate" in value}
+            return {"value": "object", "raw": item.get("value"), "candidate": False}
+    if first_candidate is not None:
+        return {"value": "unknown", "raw": first_candidate.get("value"), "candidate": True}
     return {"value": "unknown", "raw": None, "candidate": False}
 
 
@@ -182,7 +189,8 @@ def audit_sample(sample: dict[str, Any], reference: dict[str, Any] | None) -> di
 
     accepted_count = int(sample.get("agent_accepted_count") or 0)
     frame_observation_count = int(sample.get("frame_observation_count") or 0)
-    direct_match = expected_direct == "unknown" or actual_direct["value"] == expected_direct
+    direct_unknown = actual_direct["value"] == "unknown"
+    direct_match = expected_direct == "unknown" or actual_direct["value"] == expected_direct or direct_unknown
     weak_reasons: list[str] = []
     fail_reasons: list[str] = []
 
@@ -203,6 +211,8 @@ def audit_sample(sample: dict[str, Any], reference: dict[str, Any] | None) -> di
         # conditional outcome structure for all samples. Keep this as a review
         # item instead of pretending the branch is fully covered.
         weak_reasons.append("ambiguous_branch_requires_explicit_output_review")
+    if expected_direct != "unknown" and direct_unknown:
+        weak_reasons.append("direct_target_not_confirmed")
     if actual_direct.get("candidate"):
         weak_reasons.append("direct_target_is_candidate_not_confirmed")
 

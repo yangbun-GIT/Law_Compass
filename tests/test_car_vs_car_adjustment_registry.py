@@ -40,3 +40,39 @@ def test_stealth_parking_registry_returns_80_90_or_100_condition_range():
 
     assert result["base_fault"]["other"] >= 80
     assert any("100" in item["other_range"] for item in result["conditional_outcomes"])
+
+
+def test_stealth_parking_registry_reflects_confirmed_speeding():
+    result = evaluate_adjustments(
+        "stealth_illegal_parked_vehicle_collision",
+        "car_vs_car",
+        {
+            "is_stealth_parked_vehicle_collision": True,
+            "stopped_vehicle_without_lights": True,
+            "reported_speed_kmh": 141,
+            "speed_limit_kmh": 100,
+        },
+        None,
+        "고속도로에서 등화 없이 정차한 차량을 추돌했고 제한속도를 초과했다.",
+    )
+
+    assert result["base_fault"] == {"my": 40, "other": 60}
+    assert result["fault_range"] == {"my": "20~40%", "other": "60~80%"}
+    assert any(item["factor_id"] == "speeding_over_limit" for item in result["applied_adjustments"])
+
+
+def test_stealth_parking_registry_reflects_normalized_speeding_flag():
+    result = evaluate_adjustments(
+        "stealth_illegal_parked_vehicle_collision",
+        "car_vs_car",
+        {
+            "is_stealth_parked_vehicle_collision": True,
+            "stopped_vehicle_without_lights": True,
+            "speeding_over_limit": True,
+        },
+        None,
+        "야간 도로에서 등화 없이 정차한 차량을 추돌했고 과속 정황이 확인됐다.",
+    )
+
+    assert result["base_fault"] == {"my": 40, "other": 60}
+    assert any(item["factor_id"] == "speeding_over_limit" for item in result["applied_adjustments"])

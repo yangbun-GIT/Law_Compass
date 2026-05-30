@@ -161,6 +161,8 @@ def match_knia_charts(
             limit=limit,
         )
         structured_items, structured_rejected = reject_mismatched_knia_items(structured_items, party)
+        structured_items, scenario_rejected = _filter_scenario_compatible_matches(structured_items, scenario_type)
+        structured_rejected.extend(scenario_rejected)
         if not structured_items and not chart_direct and party != "unknown":
             fallback_rows = list_knia_fault_charts_by_party(party, limit=limit)
             structured_items, fallback_rejected = reject_mismatched_knia_items(
@@ -168,6 +170,8 @@ def match_knia_charts(
                 party,
             )
             structured_rejected.extend(fallback_rejected)
+            structured_items, fallback_scenario_rejected = _filter_scenario_compatible_matches(structured_items, scenario_type)
+            structured_rejected.extend(fallback_scenario_rejected)
     except Exception as exc:
         structured_lookup_error = _safe_error(exc)
     if structured_items:
@@ -232,6 +236,9 @@ def match_knia_charts(
         items, party_rejected = reject_mismatched_knia_items(items, party)
         excluded_items.extend(party_rejected)
         rejected_mismatch_count = len(party_rejected)
+        items, scenario_rejected = _filter_scenario_compatible_matches(items, scenario_type)
+        excluded_items.extend(scenario_rejected)
+        rejected_mismatch_count += len(scenario_rejected)
         if not items and not chart_direct:
             fallback_used = True
             fallback_query = normalize_query(" ".join([party, scenario_type or "", " ".join(PARTY_FALLBACK_TERMS.get(party, ())), " ".join(expansion_terms[:6])]))
@@ -241,6 +248,9 @@ def match_knia_charts(
             items, fallback_rejected = reject_mismatched_knia_items(fallback_items, party)
             excluded_items.extend(fallback_rejected)
             rejected_mismatch_count += len(fallback_rejected)
+            items, fallback_scenario_rejected = _filter_scenario_compatible_matches(items, scenario_type)
+            excluded_items.extend(fallback_scenario_rejected)
+            rejected_mismatch_count += len(fallback_scenario_rejected)
     except Exception as exc:
         items = []
         fallback_lookup_error = _safe_error(exc)
@@ -682,6 +692,8 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
         "intersection_collision": {"car_vs_car"},
         "lane_change_collision": {"car_vs_car"},
         "rear_end_collision": {"car_vs_car"},
+        "centerline_obstacle_collision": {"car_vs_car"},
+        "parking_or_stopped_vehicle_accident": {"car_vs_car"},
         "stealth_illegal_parked_vehicle_collision": {"car_vs_car"},
     }.get(scenario_type or "")
     if expected_parties and party not in expected_parties:
@@ -690,7 +702,11 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
     has_signal_terms = any(w in joined_text for w in ["신호위반", "적색", "빨간불", "교차로 신호", "녹색신호"])
     has_lane_terms = any(w in joined_text for w in ["진로 변경", "진로변경", "차로를 변경", "차선변경", "끼어들", "방향지시"])
     if scenario_type == "motorcycle_collision":
-        return party != "car_vs_motorcycle" and not any(token in joined_text for token in ("오토바이", "이륜", "motorcycle"))
+        return not (
+            party == "car_vs_motorcycle"
+            or chart_no.startswith("차77")
+            or any(token in joined_text for token in ("오토바이", "이륜", "원동기", "motorcycle"))
+        )
     if scenario_type == "intersection_signal_violation":
         # Vehicle-vs-vehicle signal violation standards should stay in the 차12 family.
         # Do not let pedestrian/bicycle signal charts win only because they contain
@@ -700,10 +716,46 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
         return not chart_no.startswith(tuple(f"차{i}" for i in range(1, 22)))
     if scenario_type == "lane_change_collision":
         return not (chart_no.startswith("차43") or has_lane_terms)
+    if scenario_type == "centerline_obstacle_collision":
+        centerline_terms = any(
+            token in joined_text
+            for token in (
+                "중앙선",
+                "황색 실선",
+                "대향",
+                "마주",
+                "도로 장애물",
+                "장애물 회피",
+                "불법 주정차",
+                "centerline",
+                "oncoming",
+                "road obstruction",
+            )
+        )
+        if chart_no.startswith(("차41", "차42", "차43", "차12", "차16")):
+            return True
+        return not centerline_terms
     if scenario_type == "rear_end_collision":
         return _rear_end_primary_exclusion_reason(row, joined_text) is not None
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
-        return chart_no.startswith(("자", "거", "보")) or any(token in joined_text for token in ("자전거", "bicycle", "cyclist", "보행자"))
+        stealth_terms = any(
+            token in joined_text
+            for token in (
+                "스텔스",
+                "무등화",
+                "미등",
+                "등화 없이",
+                "등화 부재",
+                "unlit",
+                "without lights",
+                "stopped vehicle without lights",
+            )
+        )
+        if chart_no.startswith(("자", "거", "보", "차12", "차16", "차43")):
+            return True
+        if has_lane_terms or has_signal_terms:
+            return True
+        return not stealth_terms
     return False
 
 
@@ -823,7 +875,7 @@ def _is_centerline_primary_mismatch(tags: list[str], row: dict[str, Any]) -> boo
         return True
     if any(token in chart_text for token in ("무등화", "스텔스", "후미추돌", "후방추돌", "횡단보도", "앞차 정차", "보행자")):
         return True
-    return "차41" in chart_text or "차42" in chart_text
+    return "차41" in chart_text or "차42" in chart_text or "차43" in chart_text
 
 
 def _scenario_chart_score_adjustment(row: dict[str, Any], tags: list[str], joined_text: str) -> float:

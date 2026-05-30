@@ -216,3 +216,63 @@ def test_matching_held_video_observation_still_asks_when_context_can_change_acci
     assert pending["status"] == "user_supported_by_held_video_needs_context_confirmation"
     assert pending["needs_confirmation"] is True
     assert result["contract"]["requires_confirmation"][0]["field"] == "collision_partner_type"
+
+
+def test_primary_collision_target_candidate_is_bridged_to_direct_target_question():
+    result = arbitrate_facts(
+        user_facts={"accident_party_type": "car_vs_car", "collision_partner_type": "vehicle"},
+        video_contract={
+            "fact_patch": {},
+            "uncertain_observations": [
+                {
+                    "field": "primary_collision_target",
+                    "value": "vehicle_candidate",
+                    "confidence": 0.74,
+                    "source": "vision_model:yolo",
+                    "frame_refs": ["frame_4.jpg", "frame_5.jpg"],
+                    "reason": "primary_collision_target_candidate_requires_direct_contact_evidence",
+                }
+            ],
+        },
+    )
+
+    assert result["facts"]["collision_partner_type"] == "vehicle"
+    assert "primary_collision_target" not in result["facts"]
+    pending = result["contract"]["pending_video_confirmations"][0]
+    assert pending["status"] == "user_supported_by_held_video_needs_context_confirmation"
+    assert pending["field"] == "primary_collision_target"
+    assert pending["source_field"] == "primary_collision_target"
+    assert pending["question_field"] == "direct_collision_partner_type"
+    assert pending["recommended_fact_field"] == "direct_collision_partner_type"
+    assert pending["recommended_fact_value"] == "vehicle"
+    assert pending["normalized_video_value"] == "vehicle"
+    assert pending["normalized_user_value"] == "vehicle"
+    assert pending["matched_user_field"] == "collision_partner_type"
+    assert result["contract"]["confirmation_fields"] == ["direct_collision_partner_type", "primary_collision_target"]
+
+
+def test_primary_collision_target_candidate_conflicts_with_cross_field_user_target():
+    result = arbitrate_facts(
+        user_facts={"accident_party_type": "car_vs_car", "collision_partner_type": "vehicle"},
+        video_contract={
+            "fact_patch": {},
+            "uncertain_observations": [
+                {
+                    "field": "primary_collision_target",
+                    "value": "pedestrian_candidate",
+                    "confidence": 0.74,
+                    "source": "vision_model:yolo",
+                    "frame_refs": ["frame_2.jpg", "frame_3.jpg"],
+                    "reason": "primary_collision_target_candidate_requires_direct_contact_evidence",
+                }
+            ],
+        },
+    )
+
+    assert result["facts"]["collision_partner_type"] == "vehicle"
+    pending = result["contract"]["pending_video_confirmations"][0]
+    assert pending["status"] == "user_video_conflict_video_held"
+    assert pending["question_field"] == "direct_collision_partner_type"
+    assert pending["normalized_video_value"] == "pedestrian"
+    assert pending["normalized_user_value"] == "vehicle"
+    assert pending["matched_user_field"] == "collision_partner_type"

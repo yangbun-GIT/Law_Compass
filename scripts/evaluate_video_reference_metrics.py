@@ -23,6 +23,7 @@ TARGET_FIELDS = [
     "primary_collision_target",
     "accident_party_type",
 ]
+PROMOTED_FIELD_FLAGS = ("applied", "confirmed", "in_fact_patch")
 PARTY_BY_DIRECT_TARGET = {
     "vehicle": {"car_vs_car", "vehicle", "차대차"},
     "pedestrian": {"car_vs_person", "vehicle_vs_pedestrian", "pedestrian", "차대사람", "차대보행자"},
@@ -98,12 +99,36 @@ def reference_id_for_sample(sample: dict[str, Any]) -> str:
     return str(sample.get("name") or "")
 
 
-def value_from_field_metrics(sample: dict[str, Any], field_names: list[str]) -> Any:
-    field_set = set(field_names)
-    for item in sample.get("field_metrics") or []:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("field") or "") in field_set and item.get("value") is not None:
+def field_metrics(sample: dict[str, Any]) -> list[dict[str, Any]]:
+    return [item for item in sample.get("field_metrics") or [] if isinstance(item, dict)]
+
+
+def is_promoted_metric(item: dict[str, Any]) -> bool:
+    return any(bool(item.get(flag)) for flag in PROMOTED_FIELD_FLAGS)
+
+
+def is_candidate_value(value: Any) -> bool:
+    return str(value or "").strip().lower().endswith("_candidate")
+
+
+def value_from_field_metrics(
+    sample: dict[str, Any],
+    field_names: list[str],
+    *,
+    promoted_only: bool = False,
+    include_candidates: bool = True,
+) -> Any:
+    metrics = field_metrics(sample)
+    for field_name in field_names:
+        for item in metrics:
+            if str(item.get("field") or "") != field_name:
+                continue
+            if promoted_only and not is_promoted_metric(item):
+                continue
+            if item.get("value") is None:
+                continue
+            if not include_candidates and is_candidate_value(item.get("value")):
+                continue
             return item.get("value")
     return None
 
@@ -122,12 +147,18 @@ def nested_values(payload: Any, key: str) -> list[Any]:
 
 
 def actual_direct_target(sample: dict[str, Any]) -> str:
-    value = value_from_field_metrics(sample, ["direct_collision_partner_type", "collision_partner_type", "primary_collision_target"])
-    if value is None:
+    value = value_from_field_metrics(
+        sample,
+        ["direct_collision_partner_type", "collision_partner_type", "primary_collision_target"],
+        promoted_only=True,
+        include_candidates=False,
+    )
+    if value is None and not field_metrics(sample):
         for key in ("direct_collision_partner_type", "collision_partner_type", "primary_collision_target"):
             values = nested_values(sample, key)
-            if values:
-                value = values[0]
+            non_candidate_values = [item for item in values if not is_candidate_value(item)]
+            if non_candidate_values:
+                value = non_candidate_values[0]
                 break
     normalized = normalize(value)
     if normalized in {"vehicle", "car", "차량", "차"} or "vehicle" in normalized:
@@ -144,8 +175,8 @@ def actual_direct_target(sample: dict[str, Any]) -> str:
 
 
 def actual_party_type(sample: dict[str, Any]) -> str:
-    value = value_from_field_metrics(sample, ["accident_party_type"])
-    if value is None:
+    value = value_from_field_metrics(sample, ["accident_party_type"], promoted_only=True, include_candidates=False)
+    if value is None and not field_metrics(sample):
         values = nested_values(sample, "accident_party_type")
         value = values[0] if values else None
     return normalize(value)
@@ -157,6 +188,40 @@ def evidence_blob(sample: dict[str, Any]) -> str:
     legal_points = expert.get("legal_points") if isinstance(expert.get("legal_points"), list) else []
     legal_limits = expert.get("legal_limits") if isinstance(expert.get("legal_limits"), list) else []
     return text_blob({"basis": basis, "legal_points": legal_points, "legal_limits": legal_limits})
+
+
+def promoted_result_blob(sample: dict[str, Any]) -> str:
+    promoted_fields = [
+        {
+            "field": item.get("field"),
+            "value": item.get("value"),
+        }
+        for item in field_metrics(sample)
+        if is_promoted_metric(item) and not is_candidate_value(item.get("value"))
+    ]
+    return text_blob({
+        "field_metrics": promoted_fields,
+        "expert_guidance": sample.get("expert_guidance"),
+        "conditional_outcome_card": sample.get("conditional_outcome_card"),
+        "missing_info_priority": sample.get("missing_info_priority"),
+    })
+
+
+def observation_context_blob(sample: dict[str, Any]) -> str:
+    observable_fields = [
+        {
+            "field": item.get("field"),
+            "value": item.get("value"),
+        }
+        for item in field_metrics(sample)
+        if not is_candidate_value(item.get("value"))
+    ]
+    return text_blob({
+        "field_metrics": observable_fields,
+        "evidence": evidence_blob(sample),
+        "conditional_outcome_card": sample.get("conditional_outcome_card"),
+        "missing_info_priority": sample.get("missing_info_priority"),
+    })
 
 
 def conditional_blob(sample: dict[str, Any]) -> str:
@@ -231,13 +296,13 @@ def score_sample(sample: dict[str, Any], reference: dict[str, Any] | None) -> di
     party_scored = bool(expected_party_values)
     party_passed = party_scored and (actual_party in {normalize(item) for item in expected_party_values} or actual_direct == expected_direct)
 
-    blob = text_blob(sample)
+    blob = promoted_result_blob(sample)
     basis_blob = evidence_blob(sample)
     forbidden = [str(item) for item in expectations.get("must_not_promote") or []]
     pollution_hits = forbidden_hit(blob, forbidden)
     evidence_pollution_hits = forbidden_hit(basis_blob, forbidden)
     expected_context = [str(item) for item in expectations.get("expected_context") or []]
-    matched_context, missing_context = context_hit(basis_blob, expected_context)
+    matched_context, missing_context = context_hit(observation_context_blob(sample), expected_context)
 
     frame_count = int(sample.get("frame_observation_count") or 0)
     ambiguous_branches = expectations.get("ambiguous_branches") if isinstance(expectations.get("ambiguous_branches"), list) else []

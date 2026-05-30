@@ -113,6 +113,78 @@ OpenAI+YOLO ON 상태에서 영상 사고대상 추출 오염을 줄이는 ReAct
 - 이유: 판단 로직보다 출력 정책에 가깝지만 사용자 신뢰에 큰 영향을 준다.
 - 상태: 완료. Gateway 결과 조립에서 조건별 결과 카드를 신호 미확인에만 묶지 않고 사고 대상, 중앙선 침범 사유, 정차/후방추돌 사유까지 확장했다. `missing_info`, 영상 보류 관찰값, `fact_arbitration` 확인 필요 필드가 결론을 갈라놓는 경우 사용자 화면에 가능한 판단 방향과 먼저 확보할 자료를 표시한다. 우회전/직진 같은 진행 방향 단어만으로 신호 분기가 과잉 생성되지 않도록 감지 조건도 좁혔다. Gateway `report-composer` 테스트 38개를 통과했다.
 
+### P1-4. 중앙선·장애물 회피 대향 충돌 fact 승격 복구
+
+- 목표: 중앙선 또는 도로 중앙 침범, 도로 장애물·주정차 차량 회피, 대향 차량 직접 충돌이 영상에서 확인되는 사고가 `일반 차대차 50:50` fallback으로 접히지 않게 한다.
+- 새 기준선: `car_accident_1.mp4`는 사고 구조 확인용 reference로 사용하되, 파일명이나 특정 설명문에 맞춘 하드코딩은 금지한다. 이 영상에서 확인된 문제는 `centerline_crossed`, `centerline_crossing_reason`, `road_obstacle_or_parked_vehicle`, `opposing_vehicle_present`, `ego_stopped_or_slowed`, `opponent_failed_to_slow`, `collision_point_visible` 같은 범용 fact 축으로 일반화한다.
+- 작업 순서:
+  1. OpenAI+YOLO ON 상태로 관리자 흐름과 E2E 스크립트를 모두 실행해 raw observation, video input contract, fact arbitration, easy report 중 어느 단계에서 `centerline_obstacle_collision`이 약해지는지 찾는다.
+  2. 영상 관찰값과 사용자 입력이 같은 방향으로 지지하는 경우 strong supporting fact 또는 accepted fact로 Agent 판단에 전달한다.
+  3. 영상만으로 불명확한 축은 확정하지 않고 confirmation candidate로 남기되, 사고유형은 `general_vehicle_collision`보다 구체적인 중앙선/장애물 회피 대향 충돌 후보로 유지한다.
+  4. 과실비율 Agent는 정차/감속, 상대 미정지, 장애물 회피 사유가 확인되면 단순 50:50 대신 조건부 참고 범위를 낸다.
+  5. KNIA/법률 근거는 중앙선·대향차·장애물 회피 축을 우선하고, 직접 사고대상이 아닌 후방추돌·보행자·자전거 근거를 제외한다.
+- ReAct 적용: 필수, 최대 3회.
+- 이유: 영상에서 객관적으로 보이는 핵심 사고 구조가 Agent 판단에 연결되지 않으면 이후 근거 검색과 표시 품질을 보강해도 결과가 50:50 fallback에 머문다.
+- 검증: 사고 1 영상 단독 E2E, 사고 1 입력+영상 E2E, 사고 2 조건부 신호 사고 회귀, Agent 단위 테스트를 모두 확인한다. 원본 영상과 큰 로그는 Git에 포함하지 않는다.
+- 상태: 1차 완료, 후속 보강 필요.
+- 2026-05-31 진행 결과:
+  - Worker OpenAI 프레임 분석에 `road_context_observation_retry`를 추가했다. 충돌 또는 접촉 근거가 있는데 중앙선, 도로 장애물, 대향 차량, 2차 충돌 같은 시나리오 맥락이 부족한 경우에만 제한 재분석을 실행한다.
+  - 특정 영상 파일명이나 테스트 문장에 맞춘 보정은 넣지 않았다. 재분석 조건은 contact evidence와 missing scenario context 조합으로만 판단한다.
+  - Agent video input contract에서 `road_obstruction` confidence 기준을 0.80으로 낮춰 다중 프레임 기반 도로 장애물 후보가 과도하게 탈락하지 않도록 했다.
+  - 사고 1 영상 단독 E2E에서 `centerline_crossed`, `opposing_vehicle_present`, `primary_collision_target`, `collision_point_visible`, `pedestrian_visible=false`가 fact patch로 전달되고, 일반 차대차 단독 분기가 아니라 `centerline` 분기가 선택되는 것을 확인했다.
+  - 남은 한계: 영상 단독에서 `road_obstruction`과 `centerline_cross_reason`은 OpenAI 출력 변동이 있어 항상 accepted fact로 승격되지는 않는다. 따라서 과실비율은 아직 넓은 조건부 범위로 남을 수 있다. 바로 과실비율/KNIA 싱크로 넘어가기 전에 P1-4b~P1-4d에서 사고 유형 범위를 확장해 검증하고, 오염 guard와 Agent 입력 계약 연결을 먼저 안정화한다.
+  - 검증: `PYTHONPATH=apps/worker py -3.13 -m pytest apps\worker\tests\test_frame_analysis_contract.py` 38개 통과, `PYTHONPATH=apps/agent py -3.13 -m pytest apps\agent\tests\test_video_input_contract.py` 32개 통과.
+
+### P1-4b. 영상 fact 범위 확장 검증
+
+- 목표: P1-4 1차 보강이 사고 1에만 맞춰진 것이 아니라 여러 사고 유형에서도 유효한지 확인한다.
+- 확인 범위:
+  - 사고 1~5 전체 OpenAI+YOLO ON 재측정
+  - AI-Hub 또는 로컬 reference 대표 유형 추가
+  - 중앙선, 교차로 신호, 후방추돌, 횡단보도 환경, 무등화 정차, 자전거/이륜차 유발, 보행자 오염 케이스
+- 원칙: reference 라벨과 사고 설명은 사후 평가에만 사용하고 Worker/OpenAI/YOLO 추론 입력에는 넣지 않는다.
+- ReAct 적용: 필수, 최대 3회.
+- 상태: 완료, P1-4c 보강 필요.
+- 2026-05-31 진행 결과:
+  - 실제 사고 1~5 재측정: `logs/video_accuracy/p1_2b_actual_1_5_openai_yolo_on_20260531/aggregate.json`
+  - 실제 사고 1~5 reference metrics: `logs/video_accuracy/p1_2b_actual_1_5_reference_metrics_20260531.json`
+  - 실제 사고 1~5 observation audit: `logs/video_accuracy/p1_2b_actual_1_5_observation_audit_20260531.json`, `.md`
+  - AI-Hub 대표 4종 재측정: `logs/video_accuracy/p1_2b_aihub_representative_openai_yolo_on_20260531/aggregate.json`
+  - AI-Hub 대표 4종 target eval: `logs/video_accuracy/p1_2b_aihub_representative_target_eval_20260531.json`
+  - 실제 사고 1~5는 pipeline 5/5 통과, frame observation 70개, accepted 19개, uncertain 42개, supporting 9개, applied 16개로 관찰값 0개 문제는 없었다.
+  - 실제 사고 1~5 reference metrics는 `needs_attention`이다. 직접 충돌 대상 정확도 0.6, 사고 대분류 정확도 0.6, context pollution rate 1.0, evidence mismatch rate 0.8, conditional branch coverage 0.8이다.
+  - observation audit 기준으로는 promoted pollution 0건이다. 다만 pass 0, weak 4, fail 1이며 candidate 직접대상 4건과 expected context missing 2건이 남았다.
+  - 사고 2는 차대차 교차로 사고인데 `pedestrian_candidate`가 직접대상 mismatch로 평가되어 fail 처리됐다. 후보가 확정 사실로 승격되지는 않았지만, 후보값이 직접대상 평가와 표시 흐름을 오염시킬 여지가 있다.
+  - AI-Hub 대표 4종은 observation target hit rate 1.0, direct target pollution rate 0.0, agent direct target pollution rate 0.0으로 통과했다. 단 agent target hit rate는 0.0이며, 후보값을 확정 fact로 바로 승격하지 않는 안전 정책이 유지된 결과다.
+- 결론:
+  - P1-4b는 “범위 확장 검증 완료, 실제 사고 기준 후속 보강 필요” 상태다.
+  - 다음 P1-4c에서는 candidate와 confirmed fact를 더 강하게 분리하고, 사고 2 같은 보행자 후보 오염, 사고 1의 parked vehicle/secondary rear context 누락, 사고 5의 bicycle direct collision 후보 오염을 우선 보강한다.
+
+### P1-4c. 누락/오염 유형별 guard 보강
+
+- 목표: 확장 검증에서 발견된 실패를 특정 테스트 영상 전용 분기가 아니라 범용 guard로 보강한다.
+- 우선 guard:
+  - 사람 또는 횡단보도 등장과 직접 보행자 사고를 분리한다.
+  - 신호등 등장과 신호위반 확정을 분리한다.
+  - 직접 충돌 차량과 주변 차량 후보를 분리한다.
+  - 중앙선 침범 주체, 침범 사유, 도로 장애물 여부가 불명확하면 confirmation candidate로 남긴다.
+  - 자전거/이륜차/정차 차량이 직접 충돌 대상인지 비접촉 유발 객체인지 분리한다.
+- ReAct 적용: 필수, 최대 3회.
+- 상태: 완료. 후보 관찰값과 확정 fact를 분리하고, 보행자/자전거/이륜차/객체 후보가 직접 접촉 bundle 없이 확정 사고대상으로 승격되지 않게 했다.
+
+### P1-4d. 영상 fact의 Agent 입력 계약 연결 확인
+
+- 목표: 영상 관찰값이 raw observation에만 머물지 않고 Agent 판단에 필요한 위치까지 전달되는지 확인한다.
+- 확인 단계:
+  - raw observation
+  - accepted/supporting fact
+  - fact_patch
+  - fact_arbitration
+  - easy report
+- 완료 기준: 영상 fact가 맞게 추출된 사고에서는 사고 대분류와 직접 충돌 대상이 유지되어야 하며, 그 다음에 과실비율/KNIA 근거 싱크 점검으로 넘어간다.
+- ReAct 적용: 필수, 최대 2회.
+- 상태: 완료. 직접 사고대상 후보값을 확정 fact로 올리지 않고 `direct_collision_partner_type` 확인 질문과 리포트 카드로 연결했다.
+
 ### P2-1. 외부 참고 케이스 manifest
 
 - 목표: 한문철TV 등 공개 참고 사례를 테스트 reference 또는 calibration 자료로만 관리한다.
@@ -281,3 +353,36 @@ P2-2f가 완료되었으므로 다음 단계는 P2-3 근거 검색/표시 적합
 - 처리: YOLO 기본 분석 프레임 수를 전처리 최대치와 맞춰 30장으로 늘리고, YOLO가 감지한 자전거/이륜차 bbox를 `small_target_crop_hints`로 보존해 OpenAI target retry crop에 우선 전달한다.
 - 경계: YOLO bbox는 사고 판단이나 과실비율 근거가 아니라 작은 대상 확대 입력이다. `direct_collision_partner_type` 확정은 계속 Agent fact arbitration과 다중 프레임/접촉 근거가 필요하다.
 - 상태: 완료. Worker 계약 테스트에 작은 대상 crop hint와 YOLO bbox crop 우선순위 회귀 테스트를 추가했다.
+## 2026-05-31 P1-4c/P1-2c 완료 기록
+
+후보 관찰값 오염을 줄이기 위해 candidate와 confirmed fact의 경계를 재정리했다. 이 작업은 특정 사고 1~5에 결과를 맞추는 보정이 아니라, 앞으로 들어오는 영상에서도 객체 존재와 직접 사고대상을 분리하기 위한 범용 guard다.
+
+- `primary_collision_target`, `collision_partner_type`, `direct_collision_partner_type`의 `*_candidate` 값은 확정 fact와 평가상 직접 사고대상에서 제외한다.
+- 보행자/자전거/이륜차/객체 후보는 직접 접촉 bundle이 없으면 차량 직접 충돌 관찰값과 경쟁하지 않는다.
+- 차량 target 후보와 충돌 지점이 같이 잡힌 경우 배경 보행자와 보행자 신호는 확인 후보로 낮추며, 차대사람 사고 근거로 바로 쓰지 않는다.
+- reference metrics와 observation audit은 후보/보류 관찰값과 확정·적용·fact_patch 값을 분리해서 채점한다.
+
+검증은 Agent video input contract 34건, Worker frame analysis contract 38건, reference metrics unit 2건을 통과했다. 기존 P1-2b 실제 사고 1~5 aggregate 재평가에서는 context pollution 0.0, zero observation 0.0, evidence mismatch 0.0, observation audit fail 0건을 확인했다. 다만 direct target accuracy는 0.2로 낮아, 후보값을 사용자 확인/Agent 판단 입력으로 연결하는 P1-4d/P1-2d가 다음 단계다.
+
+## 2026-05-31 P1-4d/P1-2d 완료 기록
+
+P1-4d/P1-2d는 영상 후보값을 Agent 판단 입력 계약의 확인 흐름으로 연결하는 단계로 완료했다. 핵심 원칙은 “후보는 확정하지 않되, 사용자가 확인할 수 있는 질문과 리포트 근거로는 잃지 않는다”이다.
+
+- Agent `fact_arbitration`은 `primary_collision_target=vehicle_candidate` 같은 후보값을 정규화하고 `direct_collision_partner_type` 확인 질문으로 브리지한다.
+- 사용자 입력의 사고 대분류 또는 충돌 상대와 영상 후보가 같은 방향이면 보강 확인 항목으로 남기고, 다르면 입력-영상 충돌 검토 항목으로 남긴다.
+- Gateway `report-composer`는 브리지된 `question_field`를 사용해 관리자/사용자 결과 카드와 missing info 질문에 raw 후보 key 대신 “실제 충돌 상대”를 표시한다.
+- 후보값은 계속 `pending_video_confirmations`와 `requires_confirmation`에 남으며, 확정 facts 또는 `fact_patch`로 직접 승격하지 않는다.
+- 검증은 Agent fact arbitration/video input contract 테스트, Gateway report composer 테스트, Gateway build, Python compile을 통과했다. broader orchestrator 회귀 확인에서 기존 분류/과실 범위 테스트 2건이 실패했지만, 이번 후보-확인질문 연결 경로와는 별도 이슈로 분리한다.
+
+다음은 P2-3/P1-3 성격의 과실비율·KNIA 근거 싱크 점검이다. 후보 확인 답변이 들어온 뒤 사고 대분류, 직접 충돌 대상, 근거 검색이 같은 축으로 좁혀지는지 확인해야 한다.
+
+### P1-3. 과실비율/KNIA 근거 싱크 점검
+
+- 상태: 완료.
+- 신호대기 중 정차 후방추돌은 `stopped_due_to_signal`, `stopped_at_red_light`, `lawful_stop_reason`이 있어도 `intersection_signal_violation`로 오염되지 않고 `rear_end_collision`로 유지한다.
+- 교차로 회전 차량과 직진 차량의 차대차 충돌은 상대 신호가 불명확해도 `general_collision`이나 차선변경 fallback으로 밀리지 않고 `intersection_collision` 축을 유지한다.
+- 무등화/스텔스 정차차량 사고는 제한속도 초과 fact가 함께 확인되면 단순 스텔스 정차차량 기본값으로 덮지 않고 과속 조건을 반영한 40:60 참고 범위를 사용한다. `speeding_over_limit=true`처럼 정규화된 boolean fact도 같은 과속 근거로 처리한다.
+- KNIA 후보 필터 회귀 테스트는 structured lookup, fallback, hybrid lookup 경계를 분리해 사고 scenario와 맞지 않는 후보가 제거되는지 계속 확인한다. 중앙선·장애물 회피 사고에는 차선변경/후방추돌 기준을, 무등화 정차차량 사고에는 보행자/자전거/신호/차선변경 기준을 primary로 쓰지 않는다.
+- 검증은 Python 회귀 102건을 통과했다. 별도 synthetic 일반화 샘플 6종에서도 신호대기 후방추돌, 적색 진입 교차로, 무등화 정차차량 과속/비과속, 중앙선 장애물 회피, 횡단보도 주변 차대차 교차로 사고가 서로 다른 근거축으로 오염되지 않는지 확인했다.
+
+다음은 실제 관리자/사용자 시연 경로 점검이다. 현재 Agent payload가 표시 계층에서도 같은 사고축, 과실비율, KNIA 근거로 보이는지 확인한다.

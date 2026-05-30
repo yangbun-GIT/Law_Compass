@@ -124,8 +124,13 @@ def demote_context_dependent_facts(
     vehicle_collision_context = (
         fact_patch.get("collision_partner_type") == "vehicle"
         or fact_patch.get("direct_collision_partner_type") == "vehicle"
+        or (
+            fact_patch.get("collision_point_visible") is True
+            and has_vehicle_target_observation_context(accepted, uncertain)
+        )
     )
-    if vehicle_collision_context:
+    pedestrian_contact_context = has_confirmed_non_vehicle_contact("pedestrian", fact_patch, accepted, uncertain)
+    if vehicle_collision_context and not pedestrian_contact_context:
         if fact_patch.get("pedestrian_visible") is True:
             move_accepted_to_uncertain(
                 "pedestrian_visible",
@@ -390,6 +395,8 @@ def has_competing_non_vehicle_target(
         if str(item.get("field") or "") not in TARGET_FACT_FIELDS:
             continue
         other_target = target_value(item.get("value"))
+        if is_candidate_target_value(item.get("value")):
+            continue
         if other_target in NON_VEHICLE_TARGETS and other_target != target and frame_ref_count(item) >= 2:
             return True
     return False
@@ -404,6 +411,8 @@ def has_non_vehicle_target_support(
     frame_refs: set[str] = set()
     for item in [*accepted, *uncertain]:
         if str(item.get("field") or "") not in TARGET_FACT_FIELDS:
+            continue
+        if is_candidate_target_value(item.get("value")):
             continue
         if target_value(item.get("value")) != target:
             continue
@@ -468,9 +477,38 @@ def has_single_source_contact_bundle(
     return False
 
 
+def has_vehicle_target_observation_context(
+    accepted: list[dict[str, Any]],
+    uncertain: list[dict[str, Any]],
+) -> bool:
+    for item in [*accepted, *uncertain]:
+        if str(item.get("field") or "") not in TARGET_FACT_FIELDS:
+            continue
+        if target_value(item.get("value")) == "vehicle" and frame_ref_count(item) >= 2:
+            return True
+    return False
+
+
+def has_confirmed_non_vehicle_contact(
+    target: str,
+    fact_patch: dict[str, Any],
+    accepted: list[dict[str, Any]],
+    uncertain: list[dict[str, Any]],
+) -> bool:
+    if fact_patch.get("direct_collision_partner_type") == target:
+        return True
+    if fact_patch.get("collision_partner_type") == target:
+        return True
+    return has_single_source_contact_bundle(target, accepted, uncertain)
+
+
+def is_candidate_target_value(value: Any) -> bool:
+    return str(value or "").strip().lower().endswith("_candidate")
+
+
 def target_value(value: Any) -> str:
     text = str(value or "").strip().lower()
-    if text.endswith("_candidate"):
+    if is_candidate_target_value(text):
         text = text[: -len("_candidate")]
     if text in {"vehicle", "car", "truck", "bus", "van", "motor_vehicle", "other_vehicle"}:
         return "vehicle"

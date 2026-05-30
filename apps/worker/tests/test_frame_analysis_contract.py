@@ -533,6 +533,84 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertIn(("primary_collision_target", "bicycle_candidate"), targets)
         self.assertEqual([item["label"] for item in result["analysis_attempts"]], ["primary", "target_observation_retry"])
 
+    def test_visible_contact_without_scenario_context_runs_road_context_retry(self):
+        calls = []
+
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            calls.append(payload)
+            if len(calls) == 1:
+                return {
+                    "id": "resp_primary",
+                    "status": "completed",
+                    "output_text": (
+                        '{"observations":['
+                        '{"field":"primary_collision_target","value":"vehicle_candidate","confidence":0.9,'
+                        '"frame_refs":["frame_003.jpg","frame_004.jpg"],"reason":"vehicle contact candidate visible"},'
+                        '{"field":"collision_point_visible","value":true,"confidence":0.94,'
+                        '"frame_refs":["frame_003.jpg","frame_004.jpg"],"reason":"front impact area visible"}]}'
+                    ),
+                }
+            return {
+                "id": "resp_road_retry",
+                "status": "completed",
+                "output_text": (
+                    '{"observations":['
+                    '{"field":"centerline_crossed","value":true,"confidence":0.91,'
+                    '"frame_refs":["frame_002.jpg","frame_003.jpg"],"reason":"vehicle straddles the road centerline before impact"},'
+                    '{"field":"road_obstruction","value":true,"confidence":0.89,'
+                    '"frame_refs":["frame_001.jpg","frame_002.jpg"],"reason":"lane-blocking parked vehicle or object is visible"},'
+                    '{"field":"opposing_vehicle_present","value":true,"confidence":0.92,'
+                    '"frame_refs":["frame_003.jpg","frame_004.jpg"],"reason":"oncoming vehicle is visible in the opposing lane"}]}'
+                ),
+            }
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_VISION_MODEL = "gpt-4.1-mini"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MODEL = "gpt-4.1"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_AMBIGUOUS_TARGET_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROPS = False
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = 6
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 7):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "accident_candidate" if index in {3, 4} else "time_sequence",
+                    "event_phase": "event_candidate" if index in {3, 4} else "pre_event_context",
+                })
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        self.assertEqual(len(calls), 2)
+        self.assertIn("road-context extraction", json.dumps(calls[1], ensure_ascii=False))
+        self.assertIn("centerline or road-center encroachment", json.dumps(calls[1], ensure_ascii=False))
+        self.assertEqual([item["label"] for item in result["analysis_attempts"]], ["primary", "road_context_observation_retry"])
+        facts = {(item["field"], item["value"]) for item in result["observations"]}
+        self.assertIn(("centerline_crossed", True), facts)
+        self.assertIn(("road_obstruction", True), facts)
+        self.assertIn(("opposing_vehicle_present", True), facts)
+
+    def test_road_context_retry_skips_when_strong_scenario_context_already_exists(self):
+        observations = [
+            {"field": "collision_point_visible", "value": True, "confidence": 0.95},
+            {"field": "primary_collision_target", "value": "vehicle_candidate", "confidence": 0.9},
+            {"field": "intersection", "value": True, "confidence": 0.9},
+            {"field": "signal_transition", "value": "yellow_to_red", "confidence": 0.88},
+        ]
+        frames = [{"path": f"frame_{index:03d}.jpg"} for index in range(1, 7)]
+
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = 6
+
+        self.assertFalse(frame_analysis._should_retry_missing_road_context_observation(observations, frames))
+
     def test_gpt5_payload_uses_cost_controls_without_temperature(self):
         captured = {}
 
@@ -751,14 +829,16 @@ class FrameAnalysisContractTest(unittest.TestCase):
                 frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
             result = frame_analysis.analyze_frames_with_openai(frames, {})
 
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(calls), 3)
         retry_prompt = calls[1]["input"][0]["content"][0]["text"]
         self.assertIn("bounded retry", retry_prompt)
+        road_retry_prompt = calls[2]["input"][0]["content"][0]["text"]
+        self.assertIn("road-context extraction", road_retry_prompt)
         self.assertTrue(result["error_retry_used"])
         self.assertEqual(result["error_retry_error"], "")
         self.assertEqual(result["response_id"], "resp_retry_after_timeout")
         self.assertEqual(result["observations"][0]["field"], "collision_partner_type")
-        self.assertEqual([item["label"] for item in result["analysis_attempts"]], ["primary", "error_retry"])
+        self.assertEqual([item["label"] for item in result["analysis_attempts"]], ["primary", "error_retry", "road_context_observation_retry"])
         self.assertEqual(result["analysis_attempts"][0]["response_status"], "error")
 
     def test_transient_openai_timeout_retry_can_fall_back_to_limited_visual_observation(self):

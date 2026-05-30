@@ -109,6 +109,10 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "intersection_signal_violation"
         accident_party_type = "car_vs_car"
         tags.update(["intersection", "signal_violation", "right_of_way"])
+    elif _is_intersection_vehicle_turning_conflict(facts, accident_type, haystack):
+        scenario_type = "intersection_collision"
+        accident_party_type = "car_vs_car"
+        tags.update(["intersection", "right_of_way", "turning_conflict"])
     elif accident_type == "right_turn_front_stop":
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
@@ -129,6 +133,10 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
             tags.add("bicycle")
         if facts.get("rear_vehicle_collision"):
             tags.add("rear_end")
+    elif _is_lawful_signal_stop_rear_end_context(facts, haystack):
+        scenario_type = "rear_end_collision"
+        accident_party_type = "car_vs_car"
+        tags.update(["rear_end", "safe_distance", "stopped_vehicle", "lawful_stop_reason", "stopped_at_red_light"])
     elif accident_type in {"intersection_collision", "intersection_signal_violation"}:
         scenario_type = "intersection_signal_violation"
         accident_party_type = "car_vs_car"
@@ -137,10 +145,6 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance"])
-    elif _is_lawful_signal_stop_rear_end_context(facts, haystack):
-        scenario_type = "rear_end_collision"
-        accident_party_type = "car_vs_car"
-        tags.update(["rear_end", "safe_distance", "stopped_vehicle", "lawful_stop_reason", "stopped_at_red_light"])
     elif (
             collision_partner_type == "vehicle"
             and facts.get("front_vehicle_stopped")
@@ -426,6 +430,30 @@ def _is_intersection_signal_turning_conflict(facts: dict[str, Any], accident_typ
     return signal_context and (declared_intersection or (left_turn and straight_opponent))
 
 
+def _is_intersection_vehicle_turning_conflict(facts: dict[str, Any], accident_type: str, haystack: str) -> bool:
+    if facts.get("stopped_due_to_signal") and _has_rear_end_tokens(haystack):
+        return False
+    if not facts.get("intersection") and "교차로" not in haystack:
+        return False
+    partner = str(
+        facts.get("direct_collision_partner_type")
+        or facts.get("collision_partner_type")
+        or facts.get("primary_collision_target")
+        or ""
+    ).lower()
+    if partner and partner not in {"vehicle", "car", "truck", "bus", "van", "vehicle_candidate"}:
+        return False
+    turning_text = " ".join(str(facts.get(field) or "") for field in ("turning", "ego_turn_direction", "accident_type"))
+    opponent_text = str(facts.get("opponent_behavior") or "")
+    left_or_right_turn = (
+        any(token in turning_text.lower() for token in ("left_turn", "right_turn", "left", "right"))
+        or any(token in haystack for token in ("좌회전", "우회전"))
+    )
+    straight_opponent = "직진" in opponent_text or "직진" in haystack or "straight" in opponent_text.lower()
+    declared_intersection = accident_type in {"intersection_collision", "intersection_signal_violation"} or "교차로" in haystack
+    return bool(declared_intersection and left_or_right_turn and straight_opponent)
+
+
 def _is_lawful_signal_stop_rear_end_context(facts: dict[str, Any], haystack: str) -> bool:
     lawful_stop = facts.get("stopped_due_to_signal") or facts.get("stopped_at_red_light") or any(
         token in haystack for token in ("신호대기", "신호 대기", "빨간불에 정차", "적색신호 대기", "정지선에서 대기")
@@ -500,6 +528,8 @@ def _coerce_scenario_to_party(scenario_type: str, party_type: str, facts: dict[s
     if party_type == "car_vs_car":
         if facts.get("is_stealth_parked_vehicle_collision"):
             return "stealth_illegal_parked_vehicle_collision"
+        if _is_lawful_signal_stop_rear_end_context(facts, haystack):
+            return "rear_end_collision"
         if any(w in haystack for w in ["차선변경", "진로변경", "끼어들", "방향지시등", "깜빡이"]):
             return "lane_change_collision"
         if any(w in haystack for w in ["교차로", "신호위반", "적색", "빨간불", "좌회전", "직진"]):

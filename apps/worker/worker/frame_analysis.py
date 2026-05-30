@@ -51,6 +51,56 @@ if OPENAI_FRAME_ANALYSIS_DETAIL not in {"low", "high", "auto"}:
 OPENAI_FRAME_ANALYSIS_REASONING_EFFORT = os.getenv("OPENAI_FRAME_ANALYSIS_REASONING_EFFORT", "minimal").strip().lower()
 FRAME_ANALYSIS_FIXTURE_MODE = os.getenv("FRAME_ANALYSIS_FIXTURE_MODE", "").strip().lower()
 
+ROAD_CONTEXT_RETRY_FIELDS = {
+    "centerline_crossed",
+    "centerline_cross_reason",
+    "road_obstruction",
+    "illegal_parking_obstruction",
+    "opposing_vehicle_present",
+    "opposing_vehicle_did_not_stop",
+    "secondary_collision",
+}
+SCENARIO_CONTEXT_FIELDS = ROAD_CONTEXT_RETRY_FIELDS | {
+    "rear_vehicle_collision",
+    "turn_signal",
+    "user_signal",
+    "opponent_signal",
+    "signal_transition",
+    "intersection",
+    "ego_turn_direction",
+    "stopped_vehicle_without_lights",
+    "highway_or_expressway",
+    "non_contact_trigger",
+    "trigger_actor_type",
+    "trigger_actor_behavior",
+}
+SCENARIO_CONTEXT_RETRY_SKIP_THRESHOLDS = {
+    "centerline_crossed": 0.86,
+    "road_obstruction": 0.84,
+    "illegal_parking_obstruction": 0.84,
+    "opposing_vehicle_present": 0.82,
+    "opposing_vehicle_did_not_stop": 0.88,
+    "secondary_collision": 0.84,
+    "front_vehicle_stopped": 0.84,
+    "rear_vehicle_collision": 0.84,
+    "signal_transition": 0.82,
+    "intersection": 0.82,
+    "ego_turn_direction": 0.78,
+    "highway_or_expressway": 0.82,
+    "stopped_vehicle_without_lights": 0.88,
+    "non_contact_trigger": 0.82,
+    "trigger_actor_type": 0.78,
+    "trigger_actor_behavior": 0.78,
+}
+CONTACT_EVIDENCE_FIELDS = {
+    "collision_point_visible",
+    "collision_point_location",
+    "primary_collision_target",
+    "collision_partner_type",
+    "direct_collision_partner_type",
+    "accident_event_candidate",
+}
+
 
 def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dict[str, Any]) -> dict[str, Any]:
     if not ENABLE_OPENAI_FRAME_ANALYSIS:
@@ -138,6 +188,31 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                         event_summary = target_retry_summary
             except Exception as exc:
                 retry_error = f"{retry_error}; target_observation_retry_error={exc}" if retry_error else f"target_observation_retry_error={exc}"
+        if _should_retry_missing_road_context_observation(observations, selected_frames):
+            try:
+                road_context_retry_frames = _target_retry_frames_with_crops(selected_frames, event_summary)
+                road_context_retry_payload = _openai_frame_analysis_payload(
+                    road_context_retry_frames,
+                    context,
+                    fallback=True,
+                    prior_event_summary=event_summary,
+                    retry_focus="road_context_identification",
+                    model=OPENAI_FRAME_ANALYSIS_RETRY_MODEL,
+                )
+                road_context_retry_attempt = _run_openai_analysis_attempt(
+                    "road_context_observation_retry",
+                    road_context_retry_payload,
+                    road_context_retry_frames,
+                )
+                attempts.append(road_context_retry_attempt["summary"])
+                road_context_retry_observations = road_context_retry_attempt["observations"]
+                if road_context_retry_observations:
+                    observations = _merge_observations(observations, road_context_retry_observations)
+                    road_context_retry_summary = road_context_retry_attempt["event_summary"]
+                    if road_context_retry_summary:
+                        event_summary = road_context_retry_summary
+            except Exception as exc:
+                retry_error = f"{retry_error}; road_context_observation_retry_error={exc}" if retry_error else f"road_context_observation_retry_error={exc}"
         result = {
             "version": FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": True,
@@ -214,6 +289,26 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                     if target_retry_observations:
                         observations = _merge_observations(observations, target_retry_observations)
                         event_summary = target_retry_attempt["event_summary"] or event_summary
+                if _should_retry_missing_road_context_observation(observations, selected_frames):
+                    road_context_retry_frames = _target_retry_frames_with_crops(selected_frames, event_summary)
+                    road_context_retry_payload = _openai_frame_analysis_payload(
+                        road_context_retry_frames,
+                        context,
+                        fallback=True,
+                        prior_event_summary=event_summary,
+                        retry_focus="road_context_identification",
+                        model=OPENAI_FRAME_ANALYSIS_RETRY_MODEL,
+                    )
+                    road_context_retry_attempt = _run_openai_analysis_attempt(
+                        "road_context_observation_retry",
+                        road_context_retry_payload,
+                        road_context_retry_frames,
+                    )
+                    attempts.append(road_context_retry_attempt["summary"])
+                    road_context_retry_observations = road_context_retry_attempt["observations"]
+                    if road_context_retry_observations:
+                        observations = _merge_observations(observations, road_context_retry_observations)
+                        event_summary = road_context_retry_attempt["event_summary"] or event_summary
                 if not observations:
                     observations = _fallback_limited_visual_observations(selected_frames, event_summary)
                 result = {
@@ -384,10 +479,21 @@ def _openai_frame_analysis_prompt(
                 "Do not keep pedestrian as the target merely because a human silhouette is visible; use pedestrian only for a person on foot. "
                 "Only emit collision_partner_type or direct_collision_partner_type when physical contact is visible. "
             )
+        elif retry_focus == "road_context_identification":
+            target_retry_text = (
+                "This retry exists because the prior pass found a contact or impact window but did not return enough road-context facts to classify the accident scenario. "
+                "Review the pre-impact, impact, and immediate post-impact frames for visible centerline or road-center encroachment, lane-blocking parked vehicles, roadside obstacles, oncoming vehicles, oncoming vehicle stop/slow response, and secondary collision. "
+                "Emit centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, opposing_vehicle_present, opposing_vehicle_did_not_stop, or secondary_collision only when the images support them. "
+                "Do not infer legal fault or copy user text. Do not invent stopped or did_not_stop when motion cannot be judged from the frame sequence. "
+            )
         retry_reason_text = (
             "This is a bounded retry because the prior pass returned zero usable observations. "
-            if retry_focus not in {"target_identification", "vulnerable_target_verification"}
-            else "This is a bounded retry for collision-target candidate extraction. "
+            if retry_focus not in {"target_identification", "vulnerable_target_verification", "road_context_identification"}
+            else (
+                "This is a bounded retry for road-context extraction. "
+                if retry_focus == "road_context_identification"
+                else "This is a bounded retry for collision-target candidate extraction. "
+            )
         )
         retry_intro = (
             retry_reason_text +
@@ -506,6 +612,52 @@ def _should_retry_missing_target_observation(observations: list[dict[str, Any]],
     # A low-confidence vehicle-only candidate often means the model saw traffic
     # but did not identify the actual contact object. Retry with focused crops.
     return max_confidence < 0.82
+
+
+def _should_retry_missing_road_context_observation(observations: list[dict[str, Any]], selected_frames: list[dict[str, Any]]) -> bool:
+    if not OPENAI_FRAME_ANALYSIS_TARGET_RETRY or len(selected_frames) < OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES:
+        return False
+    normalized = [item for item in observations if isinstance(item, dict)]
+    if any(_is_meaningful_scenario_observation(item) for item in normalized):
+        return False
+    if not any(_is_contact_evidence_observation(item) for item in normalized):
+        return False
+    target_values = {
+        _normalized_target_value(item.get("value"))
+        for item in normalized
+        if str(item.get("field") or "") in {"primary_collision_target", "collision_partner_type", "direct_collision_partner_type"}
+    }
+    if target_values and not target_values <= {"vehicle", "unknown"}:
+        return False
+    return True
+
+
+def _is_meaningful_scenario_observation(item: dict[str, Any]) -> bool:
+    field = str(item.get("field") or "")
+    if field not in SCENARIO_CONTEXT_FIELDS:
+        return False
+    confidence = as_float(item.get("confidence"), 0.0)
+    if confidence < SCENARIO_CONTEXT_RETRY_SKIP_THRESHOLDS.get(field, 0.82):
+        return False
+    value = item.get("value")
+    if isinstance(value, bool):
+        return value
+    text = str(value or "").strip().lower()
+    return bool(text and text not in {"unknown", "none", "null", "false", "0"})
+
+
+def _is_contact_evidence_observation(item: dict[str, Any]) -> bool:
+    field = str(item.get("field") or "")
+    if field not in CONTACT_EVIDENCE_FIELDS:
+        return False
+    if field == "accident_event_candidate":
+        return bool(item.get("value")) and as_float(item.get("confidence"), 0.0) >= 0.8
+    if field == "collision_point_visible":
+        return bool(item.get("value"))
+    if field in {"collision_point_location", "primary_collision_target", "collision_partner_type", "direct_collision_partner_type"}:
+        value = str(item.get("value") or "").strip().lower()
+        return bool(value and value not in {"unknown", "none", "null"})
+    return False
 
 
 def _target_retry_focus(observations: list[dict[str, Any]], selected_frames: list[dict[str, Any]] | None = None) -> str:

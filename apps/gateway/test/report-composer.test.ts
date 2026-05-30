@@ -855,6 +855,61 @@ describe("report composer", () => {
     expect(JSON.stringify(card)).not.toContain("frame_refs");
   });
 
+  it("routes primary target candidates to direct collision target questions", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      video_input_contract: {
+        version: "agent-video-input-contract-v1",
+        technical_metadata: { representative_frame_count: 8 },
+        uncertain_observations: [
+          {
+            field: "primary_collision_target",
+            value: "vehicle_candidate",
+            confidence: 0.74,
+            frame_refs: ["frame_003.jpg", "frame_004.jpg"],
+          },
+        ],
+        observation_quality_summary: {
+          accepted_count: 0,
+          uncertain_count: 1,
+          ignored_count: 0,
+          uncertain_reasons: { confidence_below_field_threshold: 1 },
+        },
+      },
+      fact_arbitration: {
+        pending_video_confirmations: [
+          {
+            field: "primary_collision_target",
+            question_field: "direct_collision_partner_type",
+            recommended_fact_field: "direct_collision_partner_type",
+            recommended_fact_value: "vehicle",
+            normalized_video_value: "vehicle",
+            normalized_user_value: "vehicle",
+            matched_user_field: "collision_partner_type",
+            user_value: "vehicle",
+            video_value: "vehicle_candidate",
+            winner: "user",
+            status: "user_supported_by_held_video_needs_context_confirmation",
+            needs_confirmation: true,
+            video_confidence: 0.74,
+            frame_refs: ["frame_003.jpg", "frame_004.jpg"],
+          },
+        ],
+      },
+    });
+
+    const card = enriched.video_fact_explanation_card!;
+    expect(card.review_items[0].label).toBe("실제 충돌 상대");
+    expect(card.review_items[0].source_label).toBe("주 충돌 대상");
+    expect(card.review_items[0].input_label).toBe("차량");
+    expect(card.review_items[0].video_label).toBe("차량");
+    const fields = (enriched as any).missing_info.questions.map((item: any) => item.field);
+    expect(fields[0]).toBe("direct_collision_partner_type");
+    expect(fields).not.toContain("primary_collision_target");
+    const question = (enriched as any).missing_info.questions[0];
+    expect(question.question).toContain("실제로 접촉한 상대");
+    expect(question.options).toContain("차량");
+  });
+
   it("keeps direction-only video observations as supporting display items", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "direction-support" }), {
       video_input_contract: {

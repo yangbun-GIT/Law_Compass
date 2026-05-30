@@ -60,6 +60,42 @@ USER_PRIMARY_FIELDS = {
 EMPTY_VALUES = {None, "", "unknown", "모름", "None", "null"}
 CONFLICT_OVERRIDE_CONFIDENCE = 0.92
 CONFLICT_OVERRIDE_MIN_FRAME_REFS = 2
+DIRECT_TARGET_FIELDS = {
+    "collision_partner_type",
+    "direct_collision_partner_type",
+    "primary_collision_target",
+}
+TARGET_VALUE_ALIASES = {
+    "vehicle": "vehicle",
+    "car": "vehicle",
+    "truck": "vehicle",
+    "bus": "vehicle",
+    "person": "pedestrian",
+    "human": "pedestrian",
+    "pedestrian": "pedestrian",
+    "bicycle": "bicycle",
+    "bike": "bicycle",
+    "cyclist": "bicycle",
+    "motorcycle": "motorcycle",
+    "motorbike": "motorcycle",
+    "two_wheeler": "motorcycle",
+    "object": "object",
+    "obstacle": "object",
+    "facility": "object",
+}
+ACCIDENT_PARTY_TARGET_HINTS = {
+    "car_vs_car": "vehicle",
+    "vehicle_vs_vehicle": "vehicle",
+    "car_vs_person": "pedestrian",
+    "pedestrian_crosswalk_accident": "pedestrian",
+    "pedestrian_accident": "pedestrian",
+    "car_vs_bicycle": "bicycle",
+    "bicycle_collision": "bicycle",
+    "car_vs_motorcycle": "motorcycle",
+    "motorcycle_collision": "motorcycle",
+    "car_vs_object": "object",
+    "object_collision": "object",
+}
 
 
 def arbitrate_facts(
@@ -159,7 +195,7 @@ def arbitrate_facts(
         "conflicts": conflicts,
         "pending_video_confirmations": pending_video_confirmations,
         "requires_confirmation": requires_confirmation,
-        "confirmation_fields": sorted({str(item.get("field")) for item in requires_confirmation if item.get("field")}),
+        "confirmation_fields": sorted(_confirmation_field_names(requires_confirmation)),
     }
     return {"facts": facts, "contract": arbitration_contract}
 
@@ -266,7 +302,7 @@ def _conflict_reason(field: str, winner: str, authority: str) -> str:
 
 def _pending_video_confirmations(user: dict[str, Any], uncertain_observations: list[Any]) -> list[dict[str, Any]]:
     pending: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
     for raw in uncertain_observations:
         if not isinstance(raw, dict):
             continue
@@ -277,9 +313,15 @@ def _pending_video_confirmations(user: dict[str, Any], uncertain_observations: l
         if _is_empty(video_value):
             continue
         authority = _authority(field)
+        bridge = _target_confirmation_bridge(field, video_value, user)
         user_value = user.get(field)
+        if _is_empty(user_value) and bridge.get("matched_user_field"):
+            user_value = bridge.get("matched_user_value")
         has_user_value = not _is_empty(user_value)
-        if has_user_value and _equivalent(field, user_value, video_value):
+        comparison_field = str(bridge.get("question_field") or field)
+        user_compare_value = bridge.get("normalized_user_value", user_value)
+        video_compare_value = bridge.get("normalized_video_value", video_value)
+        if has_user_value and _equivalent(comparison_field, user_compare_value, video_compare_value):
             if _matching_held_video_still_needs_confirmation(field, raw):
                 status = "user_supported_by_held_video_needs_context_confirmation"
                 needs_confirmation = True
@@ -300,7 +342,7 @@ def _pending_video_confirmations(user: dict[str, Any], uncertain_observations: l
             reason = "video observation did not pass the fact quality gate, but it can help fill a missing accident fact."
             winner = "none"
 
-        dedupe_key = (field, status)
+        dedupe_key = (str(bridge.get("question_field") or field), status, str(video_compare_value))
         if dedupe_key in seen:
             continue
         seen.add(dedupe_key)
@@ -315,6 +357,7 @@ def _pending_video_confirmations(user: dict[str, Any], uncertain_observations: l
             "video_confidence": raw.get("confidence"),
             "video_source": raw.get("source"),
         }
+        item.update(bridge)
         if has_user_value:
             item["user_value"] = user_value
         if raw.get("quality_gate"):
@@ -332,6 +375,68 @@ def _pending_video_confirmations(user: dict[str, Any], uncertain_observations: l
             -_as_confidence(item.get("video_confidence")),
         ),
     )
+
+
+def _confirmation_field_names(items: list[dict[str, Any]]) -> set[str]:
+    fields: set[str] = set()
+    for item in items:
+        field = str(item.get("field") or "")
+        question_field = str(item.get("question_field") or item.get("recommended_fact_field") or "")
+        if field:
+            fields.add(field)
+        if question_field:
+            fields.add(question_field)
+    return fields
+
+
+def _target_confirmation_bridge(field: str, video_value: Any, user: dict[str, Any]) -> dict[str, Any]:
+    target = _canonical_target_value(video_value)
+    if field not in DIRECT_TARGET_FIELDS or not target:
+        return {}
+    bridge: dict[str, Any] = {
+        "source_field": field,
+        "normalized_video_value": target,
+        "candidate_target_type": target,
+        "candidate_role": "direct_collision_target_candidate"
+        if str(video_value).strip().lower().endswith("_candidate")
+        else "direct_collision_target_observation",
+    }
+    if field == "primary_collision_target":
+        bridge["question_field"] = "direct_collision_partner_type"
+        bridge["recommended_fact_field"] = "direct_collision_partner_type"
+        bridge["recommended_fact_value"] = target
+    matched = _related_user_target(user, exclude_field=field)
+    if matched:
+        matched_field, matched_value, matched_target = matched
+        bridge["matched_user_field"] = matched_field
+        bridge["matched_user_value"] = matched_value
+        bridge["normalized_user_value"] = matched_target
+    return bridge
+
+
+def _related_user_target(user: dict[str, Any], *, exclude_field: str = "") -> tuple[str, Any, str] | None:
+    for field in ("direct_collision_partner_type", "collision_partner_type", "primary_collision_target"):
+        if field == exclude_field:
+            continue
+        value = user.get(field)
+        target = _canonical_target_value(value)
+        if target:
+            return field, value, target
+    for field in ("accident_party_type", "knia_major_party_type", "major_party_type"):
+        value = user.get(field)
+        target = ACCIDENT_PARTY_TARGET_HINTS.get(str(value or "").strip().lower())
+        if target:
+            return field, value, target
+    return None
+
+
+def _canonical_target_value(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    if text.endswith("_candidate"):
+        text = text[: -len("_candidate")]
+    return TARGET_VALUE_ALIASES.get(text, "")
 
 
 def _matching_held_video_still_needs_confirmation(field: str, observation: dict[str, Any]) -> bool:
@@ -365,6 +470,10 @@ def _equivalent(field: str, left: Any, right: Any) -> bool:
 
 
 def _canonical_fact_value(field: str, value: Any) -> Any:
+    if field in DIRECT_TARGET_FIELDS:
+        target = _canonical_target_value(value)
+        if target:
+            return target
     if field == "opponent_behavior":
         text = str(value).strip().lower()
         if text in {"rear_collision", "rear_vehicle_collision", "rear_end", "rear_end_collision", "rear_impact"}:
