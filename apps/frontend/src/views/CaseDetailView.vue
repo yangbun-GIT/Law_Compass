@@ -153,6 +153,12 @@
       </div>
 
       <section v-if="guidedStep === 'analyzing'" class="guided-progress-card ornate-frame">
+        <AnalysisLoadingSpinner
+          :percent="progressPercent"
+          :label="progressStageLabel"
+          :message="progressMessage"
+        />
+
         <div class="progress-header">
           <div>
             <p class="eyebrow">분석 진행 중</p>
@@ -203,6 +209,12 @@
 
       <section v-if="guidedStep === 'result'" class="guided-result-card">
         <div v-if="resultStreaming && !report" class="guided-progress-card ornate-frame">
+          <AnalysisLoadingSpinner
+            :percent="progressPercent"
+            :label="progressStageLabel"
+            :message="progressMessage"
+          />
+
           <div class="progress-header">
             <div>
               <p class="eyebrow">결과 정리 중</p>
@@ -315,6 +327,7 @@ import CaseInputStep from "../components/case/CaseInputStep.vue";
 import CaseSummaryCard from "../components/case/CaseSummaryCard.vue";
 import CaseUploadStep from "../components/case/CaseUploadStep.vue";
 import CaseWorkspaceHeader from "../components/case/CaseWorkspaceHeader.vue";
+import AnalysisLoadingSpinner from "../components/case/AnalysisLoadingSpinner.vue";
 import EasyReportView from "../components/easy/EasyReportView.vue";
 import { useCaseWorkspace } from "../composables/useCaseWorkspace";
 
