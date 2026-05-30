@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from worker.frame_observations import expand_two_wheeler_subtype_uncertainty
+
 
 def _int_env(name: str, default: int) -> int:
     try:
@@ -26,7 +28,7 @@ ENABLE_YOLO_FRAME_ANALYSIS = os.getenv("ENABLE_YOLO_FRAME_ANALYSIS", "0") == "1"
 YOLO_MODEL_PATH = os.getenv("YOLO_MODEL_PATH", "").strip()
 YOLO_DEVICE = os.getenv("YOLO_DEVICE", "cpu").strip() or "cpu"
 YOLO_CONFIDENCE = max(0.01, min(0.95, _float_env("YOLO_CONFIDENCE", 0.25)))
-YOLO_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(60, _int_env("YOLO_FRAME_ANALYSIS_MAX_FRAMES", 30)))
+YOLO_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(60, _int_env("YOLO_FRAME_ANALYSIS_MAX_FRAMES", 36)))
 YOLO_MAX_DETECTIONS = max(0, min(5000, _int_env("YOLO_MAX_DETECTIONS", 1000)))
 YOLO_MAX_FRAME_REFS = max(1, min(60, _int_env("YOLO_MAX_FRAME_REFS", 24)))
 
@@ -175,7 +177,7 @@ def _build_yolo_payload(
         temporal_sequence_summary,
         YOLO_MAX_FRAME_REFS,
     )
-    observations = [*object_observations, *sequence_observations]
+    observations = expand_two_wheeler_subtype_uncertainty([*object_observations, *sequence_observations])
     ignored_class_counts = Counter(str(item.get("label") or "") for item in ignored_detections)
     target_counts = _target_type_counts(class_counts)
     return {

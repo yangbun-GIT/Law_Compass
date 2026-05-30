@@ -410,7 +410,7 @@ def scenario_search_terms(
     if party == "car_vs_person" and facts.get("intersection") and scenario_type != "rear_end_collision":
         _extend_unique(terms, ("교차로 보행자", "횡단보도", "보행자 신호", "보행자 보호의무"))
     if facts.get("crosswalk_nearby"):
-        if facts.get("pedestrian_visible") is True or str(party or "") == "car_vs_person":
+        if str(party or "") == "car_vs_person" or _pedestrian_collision_target_confirmed(facts):
             _extend_unique(terms, ("횡단보도", "보행자 보호의무"))
         else:
             _extend_unique(terms, ("횡단보도 앞 정차", "교차로 횡단보도 차대차", "crosswalk vehicle collision"))
@@ -694,6 +694,14 @@ def _dedupe(values: list[str]) -> list[str]:
 
 def _compact_text(value: str | None) -> str:
     return " ".join(str(value or "").lower().split())
+
+
+def _pedestrian_collision_target_confirmed(facts: dict[str, Any]) -> bool:
+    for field in ("direct_collision_partner_type", "collision_partner_type", "primary_collision_target"):
+        value = str(facts.get(field) or "").strip().lower().replace("-", "_")
+        if value == "pedestrian":
+            return True
+    return False
 
 
 def _filter_stealth_parked_vehicle_bicycle_pollution(values: list[str]) -> list[str]:

@@ -230,16 +230,28 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
                 {"available_frame_count": 3, "selected_frame_count": 3, "frame_selection_strategy": "test"},
             )
 
-        motorcycle_fields = {item["field"]: item for item in motorcycle_payload["observations"]}
-        bicycle_fields = {item["field"]: item for item in bicycle_payload["observations"]}
+        motorcycle_fields = {item["field"]: item for item in motorcycle_payload["observations"] if item["field"] != "primary_collision_target"}
+        bicycle_fields = {item["field"]: item for item in bicycle_payload["observations"] if item["field"] != "primary_collision_target"}
+        motorcycle_targets = [
+            item for item in motorcycle_payload["observations"]
+            if item["field"] == "primary_collision_target"
+        ]
+        bicycle_targets = [
+            item for item in bicycle_payload["observations"]
+            if item["field"] == "primary_collision_target"
+        ]
+        motorcycle_values = {item["value"] for item in motorcycle_targets}
+        bicycle_values = {item["value"] for item in bicycle_targets}
         self.assertEqual(motorcycle_payload["temporal_sequence_summary"][0]["dominant_target_type"], "motorcycle")
         self.assertNotIn("direct_collision_partner_type", motorcycle_fields)
-        self.assertEqual(motorcycle_fields["primary_collision_target"]["value"], "motorcycle_candidate")
-        self.assertLess(motorcycle_fields["primary_collision_target"]["confidence"], 0.79)
+        self.assertIn("motorcycle_candidate", motorcycle_values)
+        self.assertIn("bicycle_candidate", motorcycle_values)
+        self.assertTrue(all(item["confidence"] < 0.79 for item in motorcycle_targets))
         self.assertEqual(bicycle_payload["temporal_sequence_summary"][0]["dominant_target_type"], "bicycle")
         self.assertNotIn("direct_collision_partner_type", bicycle_fields)
-        self.assertEqual(bicycle_fields["primary_collision_target"]["value"], "bicycle_candidate")
-        self.assertLess(bicycle_fields["primary_collision_target"]["confidence"], 0.79)
+        self.assertIn("bicycle_candidate", bicycle_values)
+        self.assertIn("motorcycle_candidate", bicycle_values)
+        self.assertTrue(all(item["confidence"] < 0.79 for item in bicycle_targets))
         self.assertGreaterEqual(motorcycle_payload["summary"]["small_target_crop_hint_count"], 1)
         self.assertGreaterEqual(bicycle_payload["summary"]["small_target_crop_hint_count"], 1)
 

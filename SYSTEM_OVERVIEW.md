@@ -1,12 +1,28 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-30 영상 사고대상 오염 방지 ReAct 측정 통과
+
+영상 처리 Worker에서 OpenAI 프레임 분석과 YOLO 보조 관찰을 함께 사용하는 실제 경로를 기준으로 사고대상 추출 오염을 줄이는 ReAct 보강을 진행했다. 이 단계의 목표는 과실 판단을 확정하는 것이 아니라, 영상에서 보이는 직접 사고대상 후보를 잘못된 확정 사실로 승격하지 않도록 만드는 것이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 프레임 추출 | scene-change가 약한 짧은 영상에서도 사고 후보 구간을 놓치지 않도록 시간 기반 dense fallback을 추가했다. `VIDEO_EVENT_WINDOW_DENSE_RADIUS_SEC`, `VIDEO_EVENT_WINDOW_DENSE_STEP_SEC`로 후보 구간 주변 프레임 밀도를 조정한다. |
+| 분석 입력 | 정확도 검증 프로파일은 OpenAI 24장, Worker 전처리 36장, YOLO 36장을 사용한다. 검증 시 `OPENAI_FRAME_ANALYSIS_RETRY_MODEL=gpt-4.1`, `OPENAI_FRAME_ANALYSIS_MAX_FRAMES=24`, `VIDEO_PREPROCESS_MAX_FRAMES=36`, `YOLO_FRAME_ANALYSIS_MAX_FRAMES=36`을 사용했다. |
+| 작은 대상 보강 | YOLO의 자전거·이륜차 bbox를 OpenAI target retry crop에 우선 전달하고, 자전거/이륜차 구분이 불확실하면 양쪽을 candidate로 유지한다. |
+| 보행자 오염 방지 | 화면에 보행자가 보이는 사실은 `pedestrian_candidate` 확인 후보로 남기되, 단순 배경 보행자와 직접 충돌 대상을 분리한다. 비차량 candidate가 있으면 OpenAI의 단일 `vehicle` 확정값을 `vehicle_candidate`로 낮춰 직접 오염을 막는다. Agent 분류와 KNIA 검색에서도 `pedestrian_visible`만으로 차대사람 party나 보행자 보호의무 검색어를 올리지 않는다. |
+| 판단 경계 | `*_candidate` 관찰값은 Agent 확정 fact가 아니다. 후보는 확인 질문과 근거 선택 보조에 쓰고, 직접 사고대상 확정은 다중 프레임·고신뢰 근거와 사용자 보완 입력을 함께 본다. |
+| 검증 결과 | AI-Hub 597 원천 영상 소량 검증 14건에서 관찰 레이어 사고대상 hit 14/14, 직접 대상 오염 0/14, Agent fact_patch 직접 오염 0/14를 통과했다. 최종 로그는 `logs/video_accuracy/react_full_target_eval_context_guard_yolo11s_20260530_085953.json`이며 Git에 포함하지 않는다. |
+| 남은 한계 | `agent_target_hit_rate`는 0.0이다. 이는 후보값을 확정 fact로 바로 승격하지 않는 현재 안전 정책 때문이다. 다음 단계는 후보를 UI 보완 질문, 근거 검색, 사용자 확인 흐름에 더 잘 연결하는 것이다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. Worker 환경변수 기본 프로파일과 영상 관찰값 병합 정책이 바뀌었으므로 `.env.example`, `compose.yaml`, 운영 문서도 함께 갱신했다.
+
 ## 2026-05-30 이륜차/자전거 작은 대상 recall 보강
 
 영상 처리 Worker에서 작은 사고 대상이 프레임 선택과 OpenAI 재분석 입력에서 누락되는 문제를 줄이도록 YOLO 보조 관찰 계약을 보강했다. 이 변경은 YOLO를 사고 판단 모델로 승격하지 않고, 작은 대상 후보를 더 잘 보이게 만드는 입력 품질 개선이다.
 
 | 범위 | 내용 |
 | --- | --- |
-| YOLO 프레임 범위 | 기본 YOLO 분석 프레임 수를 현재 전처리 최대 프레임 정책과 맞춰 18장에서 30장으로 늘렸다. 필요하면 `YOLO_FRAME_ANALYSIS_MAX_FRAMES`로 낮출 수 있다. |
+| YOLO 프레임 범위 | 기본 YOLO 분석 프레임 수를 현재 정확도 검증 프로파일에 맞춰 36장으로 늘렸다. 필요하면 `YOLO_FRAME_ANALYSIS_MAX_FRAMES`로 낮출 수 있다. |
 | 작은 대상 crop hint | YOLO가 자전거 또는 이륜차 bbox를 감지하면 `small_target_crop_hints`를 생성하고, 해당 프레임의 `vision_target_crop_regions`로 전달한다. |
 | OpenAI 재분석 연결 | target 재시도 crop 생성 시 YOLO bbox 기반 crop을 일반 도로 crop보다 먼저 넣어 작은 대상이 확대된 상태로 OpenAI target retry에 전달되도록 했다. |
 | 판단 경계 | `primary_collision_target`은 여전히 candidate로 유지한다. YOLO bbox나 객체 존재만으로 `direct_collision_partner_type` 또는 과실 판단을 확정하지 않는다. |

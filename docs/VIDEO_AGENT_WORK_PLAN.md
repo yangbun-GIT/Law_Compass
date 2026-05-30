@@ -1,5 +1,18 @@
 # 영상·입력 사실 추출 및 Agent 판단 보강 작업 계획
 
+## 2026-05-30 ReAct 반복 결과
+
+OpenAI+YOLO ON 상태에서 영상 사고대상 추출 오염을 줄이는 ReAct 반복을 진행했다. 이번 반복의 목표는 테스트 케이스에 맞춘 결론 생성이 아니라, future 영상에서도 객체 존재와 직접 사고대상을 분리하는 일반 guard를 강화하는 것이다.
+
+| 항목 | 결과 |
+| --- | --- |
+| 단건 재측정 | 이전 실패 케이스 `bb_1_160812_pedestrian_260_21879`가 `pedestrian_candidate`를 잡고 직접 `vehicle` 오염 없이 통과했다. |
+| 전체 재측정 | AI-Hub 597 원천 영상 14건 기준 `observation_target_hit_rate=1.0`, `direct_target_pollution_rate=0.0`, `agent_direct_target_pollution_rate=0.0`을 통과했다. |
+| 적용한 보강 | dense frame fallback, vulnerable target verification retry, YOLO small-target crop hint, crop source frame spread, two-wheeler subtype ambiguity 후보화, 비차량 후보 존재 시 OpenAI `vehicle` 확정값 후보화, `pedestrian_visible` 확인 후보 생성, `pedestrian_visible` 단독 차대사람 분류/보행자 근거 검색 방지. |
+| 안전 경계 | `*_candidate`는 확정 사실이 아니다. 후보는 사용자 확인과 근거 선택 보조로만 사용하며, Agent fact_patch 직접 승격은 계속 보수적으로 유지한다. |
+| 로그 | `logs/video_accuracy/react_pedestrian_failure_eval_guard_20260530_083031.json`, `logs/video_accuracy/react_full_target_eval_context_guard_yolo11s_20260530_085953.json` |
+| 다음 단계 | 후보 관찰값을 사용자 보완 질문과 근거 검색 랭킹에 더 잘 연결한다. 특히 `agent_target_hit_rate=0.0`은 의도된 보수 정책이지만, UI에서는 사용자가 후보를 빠르게 확정할 수 있어야 한다. |
+
 이 문서는 사용자 영상과 입력에서 오염되지 않은 사고 사실을 추출하고 Agent 판단 계약으로 연결하기 위한 임시 실행 계획이다. 작업 중 단계가 흔들리지 않도록 모든 관련 개발은 이 문서를 먼저 확인한 뒤 진행한다.
 
 이 문서는 영구 인수인계 문서가 아니다. 아래 단계가 모두 완료되고 `SYSTEM_OVERVIEW.md`에 최종 상태가 반영되면 이 문서는 삭제한다.

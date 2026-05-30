@@ -9,6 +9,7 @@ from worker.video_preprocess import (
     temporal_scan_windows,
     _event_frame_metadata,
     _event_phase,
+    _dense_event_offsets,
     _frame_role,
     _selection_reason,
 )
@@ -47,6 +48,23 @@ class VideoPreprocessContractTest(unittest.TestCase):
         self.assertAlmostEqual(times[-1], 119.9, places=1)
         self.assertTrue(any(abs(value - 72.4) <= 0.5 for value in times))
         self.assertGreaterEqual(sum(1 for value in times if abs(value - 72.4) <= 4), 6)
+
+    def test_event_signal_adds_dense_frames_around_accident_window(self):
+        times = event_focused_frame_times(8.0, [4.0], max_frames=30)
+
+        self.assertLessEqual(len(times), 30)
+        self.assertEqual(times[0], 0.0)
+        self.assertLessEqual(abs(times[-1] - 7.9), 0.15)
+        self.assertGreaterEqual(sum(1 for value in times if abs(value - 4.0) <= 1.5), 12)
+        self.assertLessEqual(min(abs(value - 3.7) for value in times), 0.05)
+        self.assertLessEqual(min(abs(value - 4.3) for value in times), 0.05)
+
+    def test_dense_event_offsets_are_bounded_and_include_center(self):
+        offsets = _dense_event_offsets(0.5, 0.2)
+
+        self.assertEqual(offsets[0], -0.5)
+        self.assertEqual(offsets[-1], 0.5)
+        self.assertIn(0.0, offsets)
 
     def test_frame_selection_summary_counts_accident_candidates(self):
         summary = summarize_frame_selection([

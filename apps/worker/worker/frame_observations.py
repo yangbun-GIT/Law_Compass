@@ -19,7 +19,7 @@ def normalize_openai_observations(
         if not field:
             continue
         value = item.get("value", "unknown")
-        alias = post_impact_target_alias(field)
+        alias = target_visibility_alias(field, value)
         if alias:
             field = "primary_collision_target"
             value = f"{alias}_candidate"
@@ -29,7 +29,7 @@ def normalize_openai_observations(
         confidence = normalize_observation_confidence(field, value, item.get("confidence"), frame_refs)
         reason = str(item.get("reason") or item.get("evidence") or "")
         if alias:
-            reason = f"{reason}; post_impact_non_vehicle_target_candidate" if reason else "post_impact_non_vehicle_target_candidate"
+            reason = f"{reason}; non_vehicle_target_visibility_candidate" if reason else "non_vehicle_target_visibility_candidate"
         observations.append({
             "field": field,
             "value": value,
@@ -40,7 +40,7 @@ def normalize_openai_observations(
             "reason": reason,
             "observation_quality": observation_quality(field, confidence, frame_refs),
         })
-    return soften_target_contradictions(observations)
+    return expand_two_wheeler_subtype_uncertainty(soften_target_contradictions(observations))
 
 
 def post_impact_target_alias(field: str) -> str:
@@ -52,6 +52,29 @@ def post_impact_target_alias(field: str) -> str:
     if normalized in {"pedestrian_visible_post_impact", "person_visible_post_impact"}:
         return "pedestrian"
     return ""
+
+
+def target_visibility_alias(field: str, value: Any) -> str:
+    post_impact_alias = post_impact_target_alias(field)
+    if post_impact_alias:
+        return post_impact_alias
+    if not _truthy_observation_value(value):
+        return ""
+    normalized = field.strip().lower().replace("-", "_")
+    # Do not map pedestrian_visible here. People and crosswalks are common road
+    # context and must not become accident targets without stricter wording.
+    if normalized in {"motorcycle_visible", "motorbike_visible", "scooter_visible", "moped_visible", "two_wheeler_visible", "two_wheeled_vehicle_visible"}:
+        return "motorcycle"
+    if normalized in {"bicycle_visible", "bike_visible", "cyclist_visible"}:
+        return "bicycle"
+    return ""
+
+
+def _truthy_observation_value(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    return text in {"true", "yes", "visible", "present", "detected", "1"}
 
 
 def soften_target_contradictions(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -95,6 +118,63 @@ def soften_target_contradictions(observations: list[dict[str, Any]]) -> list[dic
                 continue
         softened.append(item)
     return softened
+
+
+def expand_two_wheeler_subtype_uncertainty(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Represent bicycle/motorcycle ambiguity as candidates, not a false certainty.
+
+    Dark, compressed dashcam frames often show wheels and a rider but do not
+    reliably separate a pedal bicycle from a scooter or motorcycle. Keeping the
+    opposite subtype as a low-confidence primary candidate is safer than letting
+    a single uncertain subtype erase the other path.
+    """
+    present = {
+        (str(item.get("field") or ""), _target_value(item))
+        for item in observations
+        if isinstance(item, dict)
+    }
+    expanded = list(observations)
+    for item in observations:
+        if not isinstance(item, dict):
+            continue
+        field = str(item.get("field") or "")
+        target = _target_value(item)
+        if field not in {"primary_collision_target", "collision_partner_type", "direct_collision_partner_type"}:
+            continue
+        if target not in {"bicycle", "motorcycle"}:
+            continue
+        confidence = as_float(item.get("confidence"), 0.0)
+        reason = str(item.get("reason") or "").lower()
+        raw_value = str(item.get("value") or "").strip().lower().replace("-", "_")
+        candidate_value = raw_value.endswith("_candidate")
+        subtype_uncertain = any(token in reason for token in ("subtype", "two-wheeled", "two_wheeled", "unclear", "not fully resolved"))
+        if not candidate_value and confidence > 0.72 and not subtype_uncertain:
+            continue
+        alternate = "motorcycle" if target == "bicycle" else "bicycle"
+        if ("primary_collision_target", alternate) in present:
+            continue
+        expanded.append(_alternate_two_wheeler_candidate(item, alternate))
+        present.add(("primary_collision_target", alternate))
+    return expanded
+
+
+def _alternate_two_wheeler_candidate(item: dict[str, Any], alternate: str) -> dict[str, Any]:
+    confidence = min(as_float(item.get("confidence"), 0.0), 0.68)
+    frame_refs = item.get("frame_refs") or []
+    text = str(item.get("reason") or "")
+    next_reason = (
+        f"{text}; two_wheeler_subtype_uncertain_{alternate}_candidate"
+        if text
+        else f"two_wheeler_subtype_uncertain_{alternate}_candidate"
+    )
+    return {
+        **item,
+        "field": "primary_collision_target",
+        "value": f"{alternate}_candidate",
+        "confidence": confidence,
+        "reason": next_reason,
+        "observation_quality": observation_quality("primary_collision_target", confidence, frame_refs),
+    }
 
 
 def _cap_observation_confidence(item: dict[str, Any], cap: float, reason: str) -> dict[str, Any]:

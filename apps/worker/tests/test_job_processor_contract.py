@@ -171,6 +171,85 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
         self.assertEqual(by_source["frame_analysis:openai"]["field"], "direct_collision_partner_type")
         self.assertEqual(by_source["vision_model:yolo_sequence"]["field"], "direct_collision_partner_type")
 
+    def test_frame_observation_merge_demotes_openai_vehicle_direct_when_small_target_candidate_exists(self):
+        result = _merge_frame_observations(
+            {
+                "observations": [
+                    {
+                        "field": "collision_partner_type",
+                        "value": "vehicle",
+                        "confidence": 0.95,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_008.jpg", "frame_009.jpg", "frame_010.jpg"],
+                    },
+                    {
+                        "field": "primary_collision_target",
+                        "value": "vehicle",
+                        "confidence": 0.95,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_008.jpg", "frame_009.jpg", "frame_010.jpg"],
+                    },
+                ]
+            },
+            {
+                "observations": [
+                    {
+                        "field": "primary_collision_target",
+                        "value": "motorcycle_candidate",
+                        "confidence": 0.45,
+                        "source": "vision_model:yolo",
+                        "frame_refs": ["frame_010.jpg"],
+                    }
+                ]
+            },
+        )
+
+        vehicle_targets = [
+            item for item in result
+            if item["field"] == "primary_collision_target" and item["value"] == "vehicle_candidate"
+        ]
+        self.assertEqual(len(vehicle_targets), 1)
+        self.assertFalse([item for item in result if item["field"] == "collision_partner_type"])
+        self.assertTrue(all(item["confidence"] <= 0.69 for item in vehicle_targets))
+        self.assertTrue(all("vehicle_direct_demoted" in item["reason"] for item in vehicle_targets))
+
+    def test_frame_observation_merge_treats_visible_pedestrian_as_target_candidate_before_vehicle_direct(self):
+        result = _merge_frame_observations(
+            {
+                "observations": [
+                    {
+                        "field": "primary_collision_target",
+                        "value": "vehicle",
+                        "confidence": 1.0,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_010.jpg", "frame_011.jpg", "frame_012.jpg"],
+                    },
+                    {
+                        "field": "collision_partner_type",
+                        "value": "vehicle",
+                        "confidence": 1.0,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_010.jpg", "frame_011.jpg", "frame_012.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": True,
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_024.jpg", "frame_025.jpg", "frame_026.jpg"],
+                    },
+                ]
+            }
+        )
+
+        values = {
+            item["value"] for item in result
+            if item["field"] == "primary_collision_target"
+        }
+        self.assertIn("vehicle_candidate", values)
+        self.assertIn("pedestrian_candidate", values)
+        self.assertFalse([item for item in result if item["field"] == "collision_partner_type"])
+
     def test_analysis_result_values_keep_result_contract_fields(self):
         response = {
             "evidence": [{"chunk_id": "chunk-1"}, {"title": "no chunk"}],

@@ -10,6 +10,7 @@ from urllib import error, request
 
 DEFAULT_BASE_URL = "http://localhost"
 DEFAULT_TIMEOUT_SEC = 180
+FRAME_OBSERVATION_SUMMARY_LIMIT = 80
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -186,7 +187,7 @@ def frame_analysis_summary(upload: dict, require_observations: bool, agent_video
         "zero_observation_retry_error": frame_analysis.get("zero_observation_retry_error"),
         "analysis_attempts": frame_analysis.get("analysis_attempts") if isinstance(frame_analysis.get("analysis_attempts"), list) else [],
         "summary": frame_analysis.get("summary"),
-        "observations": _observation_summary_items(observations or agent_observations, 8),
+        "observations": _observation_summary_items(observations or agent_observations, FRAME_OBSERVATION_SUMMARY_LIMIT),
         "metadata_source": "upload_metadata_merged_observations" if merged_observations else ("upload_metadata" if frame_analysis else "agent_debug_contract"),
         "has_error": bool(error_text),
     }

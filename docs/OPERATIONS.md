@@ -10,13 +10,16 @@
   - `ENABLE_OPENAI_FRAME_ANALYSIS` (영상 프레임 GPT 분석 사용 시 `1`)
   - `OPENAI_VISION_MODEL` (기본 `gpt-4.1-mini`)
   - `OPENAI_TIMEOUT_SEC` (영상 프레임 실제 분석 권장 `45`; 너무 낮으면 긴 프레임 묶음에서 read timeout 가능)
-  - `OPENAI_FRAME_ANALYSIS_MAX_FRAMES` (코드 기본 `18`, 코드 상한 `18`; `.env`에 값이 있으면 해당 값이 우선)
+  - `OPENAI_FRAME_ANALYSIS_MAX_FRAMES` (코드 기본 `24`, 코드 상한 `36`; 정확도 검증 프로파일은 `24`)
+  - `OPENAI_FRAME_ANALYSIS_RETRY_MODEL` (기본 `gpt-4.1`; target 재검증에 사용)
   - `OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS` (기본 `2200`, 코드 상한 `3000`)
   - `OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY` (기본 `1`; 프레임은 충분하지만 관찰값이 0개일 때 1회 재시도)
   - `OPENAI_FRAME_ANALYSIS_ERROR_RETRY` (기본 `1`; timeout 같은 일시 오류에서 1회 재시도)
   - `OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES` (기본 `6`; 재시도 최소 프레임 수)
   - `VIDEO_EVENT_WINDOW_CLUSTER_GAP_SEC` (기본 `3.0`; scene-change 이벤트를 같은 사고 후보 구간으로 묶는 최대 간격)
   - `VIDEO_EVENT_WINDOW_MAX_CANDIDATES` (기본 `6`; Worker가 프레임에 표시할 사고 후보 구간 수 상한)
+  - `VIDEO_EVENT_WINDOW_DENSE_RADIUS_SEC` (기본 `1.5`; scene-change가 약한 영상에서 사고 후보 중심 주변을 촘촘히 뽑는 반경)
+  - `VIDEO_EVENT_WINDOW_DENSE_STEP_SEC` (기본 `0.2`; dense fallback 프레임 간격)
   - `OPENAI_FRAME_ANALYSIS_DETAIL` (기본 `high`)
   - `OPENAI_FRAME_ANALYSIS_REASONING_EFFORT` (기본 `minimal`, GPT-5 계열 전용)
   - `LAW_API_OC`, `LAW_API_TARGETS`
@@ -133,11 +136,13 @@ python -m compileall worker tests
 현재 기본 비용 정책:
 - 모델: `gpt-4.1-mini`
 - 이미지 상세도: `high`
-- 최대 분석 프레임: `18`장, 코드 상한 `18`장
+- 최대 분석 프레임: 코드 기본 `24`장, 정확도 검증 프로파일 `24`장, 코드 상한 `36`장
 - 최대 출력 토큰: `2200`, 코드 상한 `3000`
 - 저장 정책: Responses API 요청에 `store=false`를 전달
 
-OpenAI 공식 문서 기준으로 `gpt-4.1-mini`는 이미지 입력을 지원하는 저비용 비추론 모델입니다. 이 프로젝트의 프레임 분석은 사고 법률 판단이 아니라 관찰 가능한 물리 사실을 JSON으로 짧게 추출하는 작업이므로, reasoning 토큰이 필요한 GPT-5 계열보다 비추론 모델을 기본으로 둡니다. 다만 교차로 신호·충돌 대상·상대 차량 진행 방향처럼 작은 화면 단서가 중요한 사고 영상 검증에서는 `detail=high`와 18장 프레임을 기본 검증값으로 사용합니다. 비용 제한이 더 중요할 때만 `OPENAI_FRAME_ANALYSIS_DETAIL=low` 또는 프레임 수 축소를 일시 적용합니다.
+OpenAI 공식 문서 기준으로 `gpt-4.1-mini`는 이미지 입력을 지원하는 저비용 비추론 모델입니다. 이 프로젝트의 프레임 분석은 사고 법률 판단이 아니라 관찰 가능한 물리 사실을 JSON으로 짧게 추출하는 작업이므로, reasoning 토큰이 필요한 GPT-5 계열보다 비추론 모델을 기본으로 둡니다. 다만 교차로 신호·충돌 대상·상대 차량 진행 방향처럼 작은 화면 단서가 중요한 사고 영상 검증에서는 `detail=high`, OpenAI 24장, Worker 전처리 36장, YOLO 36장을 정확도 검증 프로파일로 사용합니다. 비용 제한이 더 중요할 때만 `OPENAI_FRAME_ANALYSIS_DETAIL=low` 또는 프레임 수 축소를 일시 적용합니다.
+
+2026-05-30 ReAct 검증에서는 `ENABLE_OPENAI_FRAME_ANALYSIS=1`, `ENABLE_YOLO_FRAME_ANALYSIS=1`, `OPENAI_FRAME_ANALYSIS_RETRY_MODEL=gpt-4.1`, `OPENAI_FRAME_ANALYSIS_MAX_FRAMES=24`, `VIDEO_PREPROCESS_MAX_FRAMES=36`, `YOLO_FRAME_ANALYSIS_MAX_FRAMES=36` 조건에서 AI-Hub 597 원천 영상 소량 14건을 통과했습니다. 목표 지표는 관찰 레이어 사고대상 hit 14/14, 직접 대상 오염 0/14, Agent fact_patch 직접 오염 0/14입니다. 최종 산출물은 `logs/video_accuracy/react_full_target_eval_context_guard_yolo11s_20260530_085953.json`입니다. 이 평가는 후보 관찰값의 안전성을 확인한 것이며, `*_candidate`를 확정 과실 판단 fact로 바로 승격했다는 의미는 아닙니다.
 
 2026-05-22 로컬 검증에서는 같은 영상/프레임 조건에서 `gpt-5-nano`는 관찰값을 반환하지 않았고, `gpt-5-mini`는 출력 토큰 한도에서 중단되었습니다. `gpt-4.1-mini`는 관찰값 생성 및 Agent 영상 사실 반영 E2E를 통과했으므로 현재 기본값으로 유지합니다.
 

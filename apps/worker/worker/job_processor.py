@@ -236,6 +236,15 @@ def _merge_frame_observations(*analysis_payloads: dict[str, Any]) -> list[dict[s
 
 
 def _sanitize_merged_frame_observations(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    observations = _augment_pedestrian_visibility_target_candidates(observations)
+    non_vehicle_candidate_targets = {
+        _canonical_target(item.get("value"))
+        for item in observations
+        if str(item.get("field") or "") == "primary_collision_target"
+        and str(item.get("value") or "").strip().lower().replace("-", "_").endswith("_candidate")
+        and _canonical_target(item.get("value")) in NON_VEHICLE_TARGETS
+        and _as_float(item.get("confidence")) >= 0.3
+    }
     yolo_sequence_direct_targets = {
         _canonical_target(item.get("value"))
         for item in observations
@@ -250,6 +259,15 @@ def _sanitize_merged_frame_observations(observations: list[dict[str, Any]]) -> l
         field = str(item.get("field") or "")
         source = str(item.get("source") or "").strip().lower()
         target = _canonical_target(item.get("value"))
+        raw_value = str(item.get("value") or "").strip().lower().replace("-", "_")
+        if (
+            source.startswith("frame_analysis")
+            and target == "vehicle"
+            and non_vehicle_candidate_targets
+            and (field in DIRECT_TARGET_FIELDS or (field == "primary_collision_target" and not raw_value.endswith("_candidate")))
+        ):
+            sanitized.append(_demote_to_target_candidate(item, target, "openai_vehicle_direct_demoted_due_non_vehicle_target_candidate"))
+            continue
         if source.startswith("frame_analysis") and target in NON_VEHICLE_TARGETS and target not in yolo_sequence_direct_targets:
             if field in DIRECT_TARGET_FIELDS:
                 sanitized.append(_demote_to_target_candidate(item, target, "openai_direct_non_vehicle_requires_yolo_sequence_support"))
@@ -259,6 +277,38 @@ def _sanitize_merged_frame_observations(observations: list[dict[str, Any]]) -> l
                 continue
         sanitized.append(item)
     return _dedupe_observations(sanitized)
+
+
+def _augment_pedestrian_visibility_target_candidates(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    has_pedestrian_target_candidate = any(
+        str(item.get("field") or "") == "primary_collision_target"
+        and _canonical_target(item.get("value")) == "pedestrian"
+        for item in observations
+    )
+    if has_pedestrian_target_candidate:
+        return observations
+    augmented = list(observations)
+    for item in observations:
+        if str(item.get("field") or "") != "pedestrian_visible" or item.get("value") is not True:
+            continue
+        if _as_float(item.get("confidence")) < 0.85 or _frame_ref_count(item) < 3:
+            continue
+        augmented.append(_pedestrian_visibility_target_candidate(item))
+        break
+    return augmented
+
+
+def _pedestrian_visibility_target_candidate(item: dict[str, Any]) -> dict[str, Any]:
+    reason = str(item.get("reason") or "")
+    reason_code = "pedestrian_visible_requires_collision_target_verification"
+    next_reason = f"{reason}; {reason_code}" if reason else reason_code
+    return {
+        **item,
+        "field": "primary_collision_target",
+        "value": "pedestrian_candidate",
+        "confidence": round(min(_as_float(item.get("confidence")), 0.68), 4),
+        "reason": next_reason,
+    }
 
 
 def _demote_to_target_candidate(item: dict[str, Any], target: str, reason_code: str) -> dict[str, Any]:

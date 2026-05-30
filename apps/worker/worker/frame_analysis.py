@@ -34,7 +34,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
 OPENAI_FRAME_ANALYSIS_RETRY_MODEL = os.getenv("OPENAI_FRAME_ANALYSIS_RETRY_MODEL", OPENAI_VISION_MODEL).strip() or OPENAI_VISION_MODEL
 OPENAI_TIMEOUT_SEC = float(os.getenv("OPENAI_TIMEOUT_SEC", "45"))
-OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(36, _int_env("OPENAI_FRAME_ANALYSIS_MAX_FRAMES", 18)))
+OPENAI_FRAME_ANALYSIS_MAX_FRAMES = max(1, min(36, _int_env("OPENAI_FRAME_ANALYSIS_MAX_FRAMES", 24)))
 OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS = max(600, min(3000, _int_env("OPENAI_FRAME_ANALYSIS_MAX_OUTPUT_TOKENS", 2200)))
 OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY = os.getenv("OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY", "1") == "1"
 OPENAI_FRAME_ANALYSIS_TARGET_RETRY = os.getenv("OPENAI_FRAME_ANALYSIS_TARGET_RETRY", "1") == "1"
@@ -119,12 +119,13 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
         if _should_retry_missing_target_observation(observations, selected_frames):
             try:
                 target_retry_frames = _target_retry_frames_with_crops(selected_frames, event_summary)
+                target_retry_focus = _target_retry_focus(observations, selected_frames)
                 target_retry_payload = _openai_frame_analysis_payload(
                     target_retry_frames,
                     context,
                     fallback=True,
                     prior_event_summary=event_summary,
-                    retry_focus="target_identification",
+                    retry_focus=target_retry_focus,
                     model=OPENAI_FRAME_ANALYSIS_RETRY_MODEL,
                 )
                 target_retry_attempt = _run_openai_analysis_attempt("target_observation_retry", target_retry_payload, target_retry_frames)
@@ -198,12 +199,13 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                 attempts.append(retry_attempt["summary"])
                 if _should_retry_missing_target_observation(observations, selected_frames):
                     target_retry_frames = _target_retry_frames_with_crops(selected_frames, event_summary)
+                    target_retry_focus = _target_retry_focus(observations, selected_frames)
                     target_retry_payload = _openai_frame_analysis_payload(
                         target_retry_frames,
                         context,
                         fallback=True,
                         prior_event_summary=event_summary,
-                        retry_focus="target_identification",
+                        retry_focus=target_retry_focus,
                         model=OPENAI_FRAME_ANALYSIS_RETRY_MODEL,
                     )
                     target_retry_attempt = _run_openai_analysis_attempt("target_observation_retry", target_retry_payload, target_retry_frames)
@@ -373,9 +375,18 @@ def _openai_frame_analysis_prompt(
                 "If a target class is visible near the impact window but contact is not certain, emit primary_collision_target as pedestrian_candidate, bicycle_candidate, motorcycle_candidate, vehicle_candidate, or object_candidate with conservative confidence and frame_refs. "
                 "Only emit collision_partner_type or direct_collision_partner_type when physical contact is visible. "
             )
+        elif retry_focus == "vulnerable_target_verification":
+            target_retry_text = (
+                "This retry exists because the prior pass contained a pedestrian, bicycle, or motorcycle target candidate that can be confused in compressed dashcam frames. "
+                "Review the impact window, immediate aftermath, and target crops specifically to distinguish a person on foot from a cyclist on a pedal bicycle and from a motorcycle/scooter rider. "
+                "Look for wheels, handlebars, rider posture, lane position, and the object that physically contacts the ego/user vehicle. "
+                "If a target class is visible near the contact window but physical contact is not certain, emit primary_collision_target as pedestrian_candidate, bicycle_candidate, motorcycle_candidate, vehicle_candidate, or object_candidate with conservative confidence and frame_refs. "
+                "Do not keep pedestrian as the target merely because a human silhouette is visible; use pedestrian only for a person on foot. "
+                "Only emit collision_partner_type or direct_collision_partner_type when physical contact is visible. "
+            )
         retry_reason_text = (
             "This is a bounded retry because the prior pass returned zero usable observations. "
-            if retry_focus != "target_identification"
+            if retry_focus not in {"target_identification", "vulnerable_target_verification"}
             else "This is a bounded retry for collision-target candidate extraction. "
         )
         retry_intro = (
@@ -475,15 +486,53 @@ def _should_retry_missing_target_observation(observations: list[dict[str, Any]],
         for item in target_observations
         if str(item.get("field") or "") in {"collision_partner_type", "direct_collision_partner_type"}
     ]
+    normalized_targets = {_normalized_target_value(item.get("value")) for item in target_observations}
+    if normalized_targets & {"pedestrian", "bicycle", "motorcycle"}:
+        # Vulnerable-road-user contacts are the most expensive target mistakes:
+        # a visible pedestrian can actually be a cyclist, and a cyclist can be
+        # misread as a pedestrian in compressed dashcam frames. Keep the first
+        # result, but run one bounded target retry before the Agent sees it.
+        return True
+    if normalized_targets <= {"vehicle", "unknown"} and _selected_frame_vulnerable_crop_targets(selected_frames):
+        # YOLO may see a small vulnerable-road-user bbox while the first OpenAI
+        # pass labels the contact as a generic vehicle. Retry once with YOLO
+        # crops before accepting the vehicle-only description.
+        return True
     if direct_target_observations:
         return False
-    normalized_targets = {_normalized_target_value(item.get("value")) for item in target_observations}
     if normalized_targets - {"vehicle", "unknown"}:
         return False
     max_confidence = max(as_float(item.get("confidence"), 0.0) for item in target_observations)
     # A low-confidence vehicle-only candidate often means the model saw traffic
     # but did not identify the actual contact object. Retry with focused crops.
     return max_confidence < 0.82
+
+
+def _target_retry_focus(observations: list[dict[str, Any]], selected_frames: list[dict[str, Any]] | None = None) -> str:
+    targets = {
+        _normalized_target_value(item.get("value"))
+        for item in observations
+        if isinstance(item, dict) and str(item.get("field") or "") in {
+            "primary_collision_target",
+            "collision_partner_type",
+            "direct_collision_partner_type",
+        }
+    }
+    if targets & {"pedestrian", "bicycle", "motorcycle"} or _selected_frame_vulnerable_crop_targets(selected_frames or []):
+        return "vulnerable_target_verification"
+    return "target_identification"
+
+
+def _selected_frame_vulnerable_crop_targets(selected_frames: list[dict[str, Any]]) -> set[str]:
+    targets: set[str] = set()
+    for frame in selected_frames:
+        for hint in frame.get("vision_target_crop_regions") or []:
+            if not isinstance(hint, dict):
+                continue
+            target = _normalized_target_value(hint.get("target_type"))
+            if target in {"pedestrian", "bicycle", "motorcycle"}:
+                targets.add(target)
+    return targets
 
 
 def _normalized_target_value(value: Any) -> str:
@@ -585,6 +634,7 @@ def _target_retry_crop_frames(base_frames: list[dict[str, Any]]) -> list[dict[st
         frame for frame in base_frames
         if frame.get("event_phase") == "event_candidate" or frame.get("role") in {"accident_candidate", "target_retry_crop"}
     ] or base_frames
+    event_frames = _spread_crop_source_frames(event_frames, default_crop_count=len(default_crop_specs))
     crop_frames: list[dict[str, Any]] = []
     for frame in event_frames:
         source_path = Path(str(frame.get("path") or ""))
@@ -631,6 +681,29 @@ def _target_retry_crop_frames(base_frames: list[dict[str, Any]]) -> list[dict[st
         except Exception:
             continue
     return crop_frames
+
+
+def _spread_crop_source_frames(frames: list[dict[str, Any]], *, default_crop_count: int) -> list[dict[str, Any]]:
+    """Keep crop retries spread through the event window instead of front-loading.
+
+    Small targets such as bicycles and motorcycles often enter the impact window
+    late or from the side. If we spend all crop budget on the first candidate
+    frames, the retry sees a zoomed early road context but not the actual target.
+    """
+    if not frames:
+        return []
+    if default_crop_count <= 0 or len(frames) <= 1:
+        return frames
+    frame_budget = max(1, OPENAI_FRAME_ANALYSIS_TARGET_RETRY_MAX_CROPS // default_crop_count)
+    if len(frames) <= frame_budget:
+        return frames
+    if frame_budget == 1:
+        return [frames[len(frames) // 2]]
+    indexes = sorted({
+        round(index * (len(frames) - 1) / (frame_budget - 1))
+        for index in range(frame_budget)
+    })
+    return [frames[index] for index in indexes]
 
 
 def _target_retry_crop_specs_for_frame(

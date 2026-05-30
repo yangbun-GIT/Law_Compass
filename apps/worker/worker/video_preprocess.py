@@ -13,7 +13,9 @@ SCENE_DETECTION_TIMEOUT_SEC = float(os.getenv("VIDEO_SCENE_DETECTION_TIMEOUT_SEC
 SCENE_DETECTION_MAX_EVENTS = int(os.getenv("VIDEO_SCENE_DETECTION_MAX_EVENTS", "24"))
 EVENT_WINDOW_CLUSTER_GAP_SEC = float(os.getenv("VIDEO_EVENT_WINDOW_CLUSTER_GAP_SEC", "3.0"))
 EVENT_WINDOW_MAX_CANDIDATES = max(1, int(os.getenv("VIDEO_EVENT_WINDOW_MAX_CANDIDATES", "6")))
-VIDEO_PREPROCESS_MAX_FRAMES = max(6, min(60, int(os.getenv("VIDEO_PREPROCESS_MAX_FRAMES", "30"))))
+VIDEO_PREPROCESS_MAX_FRAMES = max(6, min(60, int(os.getenv("VIDEO_PREPROCESS_MAX_FRAMES", "36"))))
+VIDEO_EVENT_WINDOW_DENSE_RADIUS_SEC = max(0.0, min(3.0, float(os.getenv("VIDEO_EVENT_WINDOW_DENSE_RADIUS_SEC", "1.5"))))
+VIDEO_EVENT_WINDOW_DENSE_STEP_SEC = max(0.05, min(1.0, float(os.getenv("VIDEO_EVENT_WINDOW_DENSE_STEP_SEC", "0.2"))))
 try:
     VIDEO_FRAME_SCALE_WIDTH = max(640, min(1920, int(os.getenv("VIDEO_FRAME_SCALE_WIDTH", "1280"))))
 except (TypeError, ValueError):
@@ -56,6 +58,9 @@ def frame_times_for_duration(duration_sec: float | None, max_frames: int = VIDEO
     event_times = sorted(set(round(float(time), 2) for time in (event_times or []) if 0 <= float(time) <= duration))
     if event_times:
         return event_focused_frame_times(duration, event_times, max_frames=max_frames)
+    fallback_centers = [item["center_time_sec"] for item in temporal_scan_windows(duration)]
+    if fallback_centers:
+        return event_focused_frame_times(duration, fallback_centers, max_frames=max_frames)
     if duration <= 5:
         interval = 0.35
     elif duration <= 10:
@@ -84,11 +89,15 @@ def frame_times_for_duration(duration_sec: float | None, max_frames: int = VIDEO
 def event_focused_frame_times(duration_sec: float, event_times: list[float], max_frames: int = VIDEO_PREPROCESS_MAX_FRAMES) -> list[float]:
     duration = max(0.5, float(duration_sec))
     candidates = {0.0, max(0.0, duration - 0.1)}
+    if duration > 0.5:
+        candidates.add(_bounded_frame_time(duration, 0.2))
     candidate_centers = [item["center_time_sec"] for item in event_window_candidates(duration, event_times)]
     focused_times = candidate_centers or event_times[:SCENE_DETECTION_MAX_EVENTS]
     for event_time in focused_times:
         for offset in (-4.0, -2.0, -1.0, -0.35, 0.0, 0.35, 1.0, 2.0, 4.0):
-            candidates.add(max(0.0, min(duration, event_time + offset)))
+            candidates.add(_bounded_frame_time(duration, event_time + offset))
+        for offset in _dense_event_offsets(VIDEO_EVENT_WINDOW_DENSE_RADIUS_SEC, VIDEO_EVENT_WINDOW_DENSE_STEP_SEC):
+            candidates.add(_bounded_frame_time(duration, event_time + offset))
     for pct in (0.1, 0.5, 0.9):
         candidates.add(max(0.0, min(duration, duration * pct)))
     times = sorted(round(value, 2) for value in candidates if 0 <= value <= duration)
@@ -109,6 +118,27 @@ def event_focused_frame_times(duration_sec: float, event_times: list[float], max
             break
         selected.remove(removable[-1])
     return selected
+
+
+def _bounded_frame_time(duration_sec: float, value: float) -> float:
+    duration = max(0.5, float(duration_sec))
+    upper = max(0.0, duration - 0.1)
+    return max(0.0, min(upper, float(value)))
+
+
+def _dense_event_offsets(radius_sec: float, step_sec: float) -> list[float]:
+    radius = max(0.0, float(radius_sec))
+    step = max(0.05, float(step_sec))
+    if radius == 0:
+        return [0.0]
+    offsets: list[float] = []
+    cursor = -radius
+    while cursor <= radius + 1e-9:
+        offsets.append(round(cursor, 2))
+        cursor += step
+    if 0.0 not in offsets:
+        offsets.append(0.0)
+    return sorted(set(offsets))
 
 
 def event_window_candidates(duration_sec: float | None, event_times: list[float] | None) -> list[dict[str, Any]]:

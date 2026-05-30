@@ -332,6 +332,36 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertIn("frame_26.jpg", refs)
         self.assertIn("frame_20.jpg", refs)
 
+    def test_target_retry_crops_spread_across_event_window(self):
+        try:
+            from PIL import Image
+        except Exception:
+            self.skipTest("Pillow is not available")
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROPS = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY_ENHANCE = False
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY_MAX_CROPS = 12
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 11):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                Image.new("RGB", (640, 360), "black").save(frame_path)
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "accident_candidate",
+                    "event_phase": "event_candidate",
+                })
+
+            crop_frames = frame_analysis._target_retry_crop_frames(frames)
+
+        self.assertEqual(len(crop_frames), 12)
+        parents = {frame["parent_frame_ref"] for frame in crop_frames}
+        self.assertEqual(len(parents), 3)
+        self.assertIn("frame_001.jpg", parents)
+        self.assertIn("frame_010.jpg", parents)
+        self.assertTrue(any(frame["crop_region"] == "road_right" for frame in crop_frames))
+
     def test_ambiguous_vehicle_only_target_runs_target_retry(self):
         calls = []
 
@@ -389,6 +419,119 @@ class FrameAnalysisContractTest(unittest.TestCase):
         targets = [(item["field"], item["value"]) for item in result["observations"]]
         self.assertIn(("primary_collision_target", "vehicle_candidate"), targets)
         self.assertIn(("primary_collision_target", "bicycle_candidate"), targets)
+
+    def test_vulnerable_direct_target_runs_verification_retry(self):
+        calls = []
+
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            calls.append(payload)
+            if len(calls) == 1:
+                return {
+                    "id": "resp_primary",
+                    "status": "completed",
+                    "output_text": (
+                        '{"observations":['
+                        '{"field":"direct_collision_partner_type","value":"pedestrian","confidence":0.95,'
+                        '"frame_refs":["frame_003.jpg","frame_004.jpg","frame_005.jpg"],"reason":"person-like target visible"}]}'
+                    ),
+                }
+            return {
+                "id": "resp_target_retry",
+                "status": "completed",
+                "output_text": (
+                    '{"observations":['
+                    '{"field":"primary_collision_target","value":"bicycle_candidate","confidence":0.9,'
+                    '"frame_refs":["frame_003.jpg","frame_004.jpg","frame_005.jpg"],"reason":"retry confirms cyclist/bicycle target"}]}'
+                ),
+            }
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_VISION_MODEL = "gpt-4.1-mini"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MODEL = "gpt-4.1"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_AMBIGUOUS_TARGET_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROPS = False
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = 6
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 7):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "accident_candidate" if index in {3, 4, 5} else "time_sequence",
+                    "event_phase": "event_candidate" if index in {3, 4, 5} else None,
+                })
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[1]["model"], "gpt-4.1")
+        self.assertIn("person on foot from a cyclist", json.dumps(calls[1], ensure_ascii=False))
+        targets = [(item["field"], item["value"]) for item in result["observations"]]
+        self.assertIn(("direct_collision_partner_type", "pedestrian"), targets)
+        self.assertIn(("primary_collision_target", "bicycle_candidate"), targets)
+        self.assertEqual([item["label"] for item in result["analysis_attempts"]], ["primary", "target_observation_retry"])
+
+    def test_vulnerable_primary_candidate_runs_verification_retry(self):
+        calls = []
+
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            calls.append(payload)
+            if len(calls) == 1:
+                return {
+                    "id": "resp_primary",
+                    "status": "completed",
+                    "output_text": (
+                        '{"observations":['
+                        '{"field":"primary_collision_target","value":"pedestrian_candidate","confidence":0.69,'
+                        '"frame_refs":["frame_003.jpg","frame_004.jpg","frame_005.jpg"],"reason":"person-like silhouette near contact window"}]}'
+                    ),
+                }
+            return {
+                "id": "resp_target_retry",
+                "status": "completed",
+                "output_text": (
+                    '{"observations":['
+                    '{"field":"primary_collision_target","value":"bicycle_candidate","confidence":0.92,'
+                    '"frame_refs":["frame_003.jpg","frame_004.jpg","frame_005.jpg"],"reason":"wheels and rider posture confirm bicycle target"}]}'
+                ),
+            }
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_VISION_MODEL = "gpt-4.1-mini"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MODEL = "gpt-4.1"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_AMBIGUOUS_TARGET_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY_CROPS = False
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = 6
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 7):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({
+                    "path": str(frame_path),
+                    "time_sec": index,
+                    "role": "accident_candidate" if index in {3, 4, 5} else "time_sequence",
+                    "event_phase": "event_candidate" if index in {3, 4, 5} else None,
+                })
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        self.assertEqual(len(calls), 2)
+        self.assertIn("person on foot from a cyclist", json.dumps(calls[1], ensure_ascii=False))
+        targets = [(item["field"], item["value"]) for item in result["observations"]]
+        self.assertIn(("primary_collision_target", "pedestrian_candidate"), targets)
+        self.assertIn(("primary_collision_target", "bicycle_candidate"), targets)
+        self.assertEqual([item["label"] for item in result["analysis_attempts"]], ["primary", "target_observation_retry"])
 
     def test_gpt5_payload_uses_cost_controls_without_temperature(self):
         captured = {}
@@ -804,10 +947,163 @@ class FrameAnalysisContractTest(unittest.TestCase):
 
         self.assertFalse([item for item in observations if item["field"] == "collision_partner_type"])
         targets = [item for item in observations if item["field"] == "primary_collision_target"]
-        self.assertEqual([item["value"] for item in targets], ["vehicle_candidate", "motorcycle_candidate"])
+        self.assertEqual(
+            {item["value"] for item in targets},
+            {"vehicle_candidate", "motorcycle_candidate", "bicycle_candidate"},
+        )
         self.assertLess(targets[0]["confidence"], 0.75)
         self.assertIn("ego_vehicle_partner_ambiguity", targets[0]["reason"])
-        self.assertIn("post_impact_non_vehicle_target_candidate", targets[1]["reason"])
+        self.assertTrue(any("non_vehicle_target_visibility_candidate" in item["reason"] for item in targets))
+
+    def test_openai_normalizer_maps_small_target_visible_fields_to_candidates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 5):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+
+            observations = frame_analysis._normalize_openai_observations(
+                [
+                    {
+                        "field": "motorcycle_visible",
+                        "value": True,
+                        "confidence": 0.8,
+                        "frame_refs": ["frame_001.jpg", "frame_002.jpg", "frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "bicycle_visible",
+                        "value": "visible",
+                        "confidence": 0.78,
+                        "frame_refs": ["frame_002.jpg", "frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": True,
+                        "confidence": 0.9,
+                        "frame_refs": ["frame_001.jpg", "frame_002.jpg", "frame_003.jpg"],
+                    },
+                ],
+                frames,
+            )
+
+        target_values = [
+            item["value"]
+            for item in observations
+            if item["field"] == "primary_collision_target"
+        ]
+        by_field = {item["field"]: item for item in observations if item["field"] != "primary_collision_target"}
+        self.assertIn("motorcycle_candidate", target_values)
+        self.assertIn("bicycle_candidate", target_values)
+        self.assertEqual(by_field["pedestrian_visible"]["value"], True)
+
+    def test_openai_normalizer_does_not_map_negative_small_target_visible_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frame_path = Path(tmp) / "frame_001.jpg"
+            frame_path.write_bytes(b"exists")
+            selected_frames = [{"path": str(frame_path), "time_sec": 0.5, "role": "time_sequence"}]
+
+            observations = frame_analysis._normalize_openai_observations(
+                [
+                    {
+                        "field": "motorcycle_visible",
+                        "value": False,
+                        "confidence": 0.9,
+                        "frame_refs": ["frame_001.jpg"],
+                    }
+                ],
+                selected_frames,
+            )
+
+        self.assertEqual(observations[0]["field"], "motorcycle_visible")
+        self.assertEqual(observations[0]["value"], False)
+
+    def test_openai_normalizer_keeps_alternate_two_wheeler_candidate_when_subtype_is_uncertain(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 4):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+
+            observations = frame_analysis._normalize_openai_observations(
+                [
+                    {
+                        "field": "primary_collision_target",
+                        "value": "motorcycle_candidate",
+                        "confidence": 0.7,
+                        "frame_refs": ["frame_001.jpg", "frame_002.jpg", "frame_003.jpg"],
+                        "reason": "two-wheeled target visible but subtype is not fully resolved",
+                    }
+                ],
+                frames,
+            )
+
+        targets = [
+            item for item in observations
+            if item["field"] == "primary_collision_target"
+        ]
+        values = {item["value"] for item in targets}
+        self.assertIn("motorcycle_candidate", values)
+        self.assertIn("bicycle_candidate", values)
+        alternate = [item for item in targets if item["value"] == "bicycle_candidate"][0]
+        self.assertLessEqual(alternate["confidence"], 0.68)
+        self.assertIn("two_wheeler_subtype_uncertain", alternate["reason"])
+
+    def test_openai_normalizer_keeps_alternate_two_wheeler_candidate_for_candidate_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 4):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+
+            observations = frame_analysis._normalize_openai_observations(
+                [
+                    {
+                        "field": "primary_collision_target",
+                        "value": "motorcycle_candidate",
+                        "confidence": 0.86,
+                        "frame_refs": ["frame_001.jpg", "frame_002.jpg", "frame_003.jpg"],
+                        "reason": "motorcycle candidate near impact window",
+                    }
+                ],
+                frames,
+            )
+
+        values = {
+            item["value"] for item in observations
+            if item["field"] == "primary_collision_target"
+        }
+        self.assertIn("motorcycle_candidate", values)
+        self.assertIn("bicycle_candidate", values)
+
+    def test_high_confidence_vehicle_target_retries_when_yolo_small_target_crop_exists(self):
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY = True
+        frame_analysis.OPENAI_FRAME_ANALYSIS_AMBIGUOUS_TARGET_RETRY = True
+        frames = [
+            {
+                "path": f"frame_{index:03d}.jpg",
+                "vision_target_crop_regions": [
+                    {
+                        "target_type": "motorcycle",
+                        "bbox_ratio": {"left": 0.4, "top": 0.3, "right": 0.6, "bottom": 0.8},
+                    }
+                ] if index == 4 else [],
+            }
+            for index in range(1, 7)
+        ]
+        observations = [
+            {
+                "field": "collision_partner_type",
+                "value": "vehicle",
+                "confidence": 0.95,
+                "frame_refs": ["frame_003.jpg", "frame_004.jpg", "frame_005.jpg"],
+            }
+        ]
+
+        self.assertTrue(frame_analysis._should_retry_missing_target_observation(observations, frames))
+        self.assertEqual(frame_analysis._target_retry_focus(observations, frames), "vulnerable_target_verification")
 
     def test_openai_normalizer_softens_single_frame_non_vehicle_target(self):
         with tempfile.TemporaryDirectory() as tmp:

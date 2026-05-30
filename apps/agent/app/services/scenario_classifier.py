@@ -63,12 +63,12 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
     pedestrian_context = (
             not vehicle_collision_declared
             and (
-                    collision_partner_type == "pedestrian"
+                    _pedestrian_collision_target_confirmed(facts)
+                    or collision_partner_type == "pedestrian"
                     or accident_party_type == "car_vs_person"
                     or accident_type == "pedestrian_crosswalk_accident"
                     or facts.get("victim_is_child")
                     or facts.get("pedestrian")
-                    or facts.get("pedestrian_visible")
                     or any(w in haystack for w in ["보행자를", "사람을", "사람과", "무단횡단"])
             )
     )
@@ -544,3 +544,16 @@ def _person_scenario_from_context(accident_type: str, facts: dict[str, Any], hay
     if any(w in haystack for w in ["도로 가장자리", "차도 가장자리", "갓길"]):
         return "pedestrian_on_road_edge_accident"
     return None
+
+
+def _pedestrian_collision_target_confirmed(facts: dict[str, Any]) -> bool:
+    target_fields = (
+        "direct_collision_partner_type",
+        "collision_partner_type",
+        "primary_collision_target",
+    )
+    for field in target_fields:
+        value = str(facts.get(field) or "").strip().lower().replace("-", "_")
+        if value == "pedestrian":
+            return True
+    return False

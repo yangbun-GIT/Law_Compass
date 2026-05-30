@@ -137,7 +137,7 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         return "car_vs_car"
     if partner_type in {"object", "fixed_object", "road_object", "obstacle"}:
         return "car_vs_object"
-    if facts.get("pedestrian") or facts.get("pedestrian_visible") or facts.get("victim_is_child"):
+    if facts.get("pedestrian") or _pedestrian_collision_target_confirmed(facts) or facts.get("victim_is_child"):
         return "car_vs_person"
     if facts.get("accident_type") in {"pedestrian", "pedestrian_crosswalk_accident", "school_zone_child_accident"}:
         return "car_vs_person"
@@ -174,6 +174,14 @@ def _vehicle_role_a(party: str) -> str | None:
         "car_vs_object": "차량",
         "single_vehicle": "사고 차량",
     }.get(party)
+
+
+def _pedestrian_collision_target_confirmed(facts: dict[str, Any]) -> bool:
+    for field in ("direct_collision_partner_type", "collision_partner_type", "primary_collision_target"):
+        value = str(facts.get(field) or "").strip().lower().replace("-", "_")
+        if value == "pedestrian":
+            return True
+    return False
 
 def _vehicle_role_b(party: str) -> str | None:
     return {

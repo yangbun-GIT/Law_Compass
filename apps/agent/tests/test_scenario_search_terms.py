@@ -332,6 +332,20 @@ def test_visible_pedestrian_does_not_override_vehicle_collision_partner():
     assert scenario["scenario_type"] == "intersection_signal_violation"
 
 
+def test_visible_pedestrian_alone_does_not_infer_car_vs_person():
+    party = infer_party_type_from_text(
+        "intersection vehicle collision, crosswalk and pedestrian visible nearby",
+        {
+            "crosswalk_nearby": True,
+            "intersection": True,
+            "pedestrian_visible": True,
+            "primary_collision_target": "vehicle_candidate",
+        },
+    )
+
+    assert party == "car_vs_car"
+
+
 def test_crosswalk_vehicle_context_does_not_add_pedestrian_protection_terms():
     terms = scenario_search_terms(
         scenario_type="intersection_signal_violation",
@@ -340,6 +354,23 @@ def test_crosswalk_vehicle_context_does_not_add_pedestrian_protection_terms():
             "collision_partner_type": "vehicle",
             "crosswalk_nearby": True,
             "pedestrian_visible": False,
+        },
+        selected_keywords=[],
+        accident_party_type="car_vs_car",
+    )
+
+    assert "보행자 보호의무" not in terms
+    assert "crosswalk vehicle collision" in terms
+
+
+def test_crosswalk_pedestrian_visible_context_uses_vehicle_terms_until_target_confirmed():
+    terms = scenario_search_terms(
+        scenario_type="intersection_signal_violation",
+        scenario_tags=["intersection"],
+        facts={
+            "crosswalk_nearby": True,
+            "pedestrian_visible": True,
+            "primary_collision_target": "vehicle_candidate",
         },
         selected_keywords=[],
         accident_party_type="car_vs_car",
