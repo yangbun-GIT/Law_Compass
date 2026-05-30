@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P4-3 Specialist Agent Prompt/Persona Version
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P4-3 단계를 완료했다. 이번 변경은 LLM을 쓰는 Specialist Agent와 deterministic Agent를 구분하고, prompt/persona guardrail version을 trace와 quality packet에서 확인할 수 있게 만든 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Prompt registry | `apps/agent/app/services/specialist_prompt_registry.py`를 추가했다. 10개 표준 Specialist role별 실행 종류(`deterministic`, `llm_guarded`, `presentation_only`), prompt version, guardrail version, 출력 section, handoff 대상, 금지 규칙을 안전 metadata로 고정한다. |
+| LLM guardrail | `apps/agent/app/services/llm_client.py`의 JSON 생성 system prompt에 공통 guardrail을 추가했다. 최종 판결/확정 과실/유죄·무죄 확정, 근거 없는 법률·판례 생성, 입력에 없는 사실 생성, 영상 candidate의 확정 fact 승격을 금지한다. |
+| 결과 연결 | `orchestration_output.py`에서 `specialist_agent_results` 이후 `specialist_prompt_registry`를 붙이고, `model_info.specialist_prompt_registry_version`을 기록한다. |
+| Trace/quality | `agent_execution_trace.py`와 `agent_quality_packet.py`가 prompt registry coverage, guardrail ids, safe metadata 여부를 추적한다. prompt 원문, secret, API key, token 값은 기록하지 않는다. |
+| Schema | `AnalysisOutput`에 `specialist_prompt_registry`를 additive 필드로 추가했다. 기존 public route, DB schema, Redis key, storage path, 외부 API 종류는 변경하지 않았다. |
+| 검증 | Agent 컨테이너에서 `python -m pytest tests/test_specialist_prompt_registry.py tests/test_specialist_agent_runners.py tests/test_specialist_role_definitions.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_llm_policy.py tests/test_agent_task_packets.py tests/test_agent_goal_aggregator.py`를 실행해 prompt registry와 기존 Agent 결과 회귀를 확인했다. |
+
+P4-3은 persona 문장 고도화 자체보다 “어떤 Agent가 어떤 guardrail 아래에서 판단할 수 있는지”를 관측 가능하게 만든 단계다. 다음 P4-4에서는 Specialist Agent 결과 사이의 충돌을 분류하고 조건부 결과 또는 추가 질문으로 넘기는 합의 정책을 추가한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P4-2 Specialist Agent 실행 Adapter
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P4-2 단계를 완료했다. 이번 변경은 기존 analyst 실행 흐름을 대규모로 재배선하지 않고, 현재 분석 결과를 10개 Specialist Agent의 `SpecialistAgentResult` 계약으로 감싸 trace와 quality packet에서 확인 가능하게 만든 작업이다.

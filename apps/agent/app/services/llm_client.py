@@ -10,6 +10,15 @@ import httpx
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 OPENAI_TIMEOUT_SEC = float(os.getenv("OPENAI_TIMEOUT_SEC", "18"))
+ANALYST_PROMPT_GUARDRAIL_VERSION = "analyst-prompt-guardrails-v1"
+COMMON_ANALYST_SYSTEM_GUARDRAIL = (
+    "반드시 JSON 객체만 출력한다. "
+    "최종 판결, 최종 과실 확정, 보험금 지급 확정, 유죄·무죄 확정처럼 표현하지 않는다. "
+    "입력이나 근거에 없는 사고 사실, 법률, 판례, KNIA 기준을 만들지 않는다. "
+    "영상 후보 관찰값은 fact arbitration 또는 사용자 확인 전 확정 사실로 승격하지 않는다. "
+    "근거 부족, 조건부 결과, 불확실성, 다른 Agent로 넘겨야 하는 판단을 명시한다. "
+    f"prompt_guardrail_version={ANALYST_PROMPT_GUARDRAIL_VERSION}."
+)
 
 
 def _safe_json_loads(raw: str) -> dict[str, Any] | None:
@@ -39,7 +48,7 @@ def _generate_json(system_prompt: str, user_payload: dict[str, Any], max_tokens:
         "max_tokens": max_tokens,
         "response_format": {"type": "json_object"},
         "messages": [
-            {"role": "system", "content": system_prompt + " 반드시 JSON 객체만 출력한다. 법률 확정 판단 표현은 금지한다."},
+            {"role": "system", "content": f"{system_prompt}\n\n{COMMON_ANALYST_SYSTEM_GUARDRAIL}"},
             {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
         ],
     }

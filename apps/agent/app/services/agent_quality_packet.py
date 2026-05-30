@@ -12,6 +12,7 @@ REQUIRED_PACKETS = (
     "agent_goal_result",
     "agent_replan",
     "specialist_agent_results",
+    "specialist_prompt_registry",
     "evidence_audit",
     "claim_evidence",
     "judgment_contract",
@@ -34,6 +35,7 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
     goal = _dict(goal_result.get("goal"))
     replan = _dict(output.get("agent_replan"))
     specialist_results = _dict(output.get("specialist_agent_results"))
+    prompt_registry = _dict(output.get("specialist_prompt_registry"))
     llm_policy = _dict(_dict(output.get("model_info")).get("llm_policy"))
     packets = _packet_presence(output)
     missing_packets = [name for name, present in packets.items() if not present]
@@ -58,6 +60,7 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
             "replan_reason_count": len(replan.get("replan_reasons") or []),
             "replan_proposed_task_count": len(replan.get("proposed_tasks") or []),
             "specialist_result_count": _safe_int(specialist_results.get("result_count")),
+            "specialist_prompt_coverage_complete": prompt_registry.get("coverage_complete") is True,
             "finality": judgment.get("finality"),
             "decision_ready": judgment.get("decision_ready"),
             "evidence_coverage_level": claim_evidence.get("coverage_level")
@@ -87,6 +90,7 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
             "goal_result_safe_metadata_only": _dict(_dict(output.get("agent_trace")).get("goal_result")).get("safe_metadata_only") is True,
             "replan_safe_metadata_only": _dict(_dict(output.get("agent_trace")).get("replan")).get("safe_metadata_only") is True,
             "specialist_results_safe_metadata_only": _dict(_dict(output.get("agent_trace")).get("specialist_agent_results")).get("safe_metadata_only") is True,
+            "prompt_registry_safe_metadata_only": _dict(_dict(output.get("agent_trace")).get("specialist_prompt_registry")).get("safe_metadata_only") is True,
             "llm_has_final_authority": False,
             "deterministic_judgment_required": True,
             "raw_user_text_in_packet": False,
@@ -106,6 +110,7 @@ def _packet_presence(output: dict[str, Any]) -> dict[str, bool]:
         "agent_goal_result": bool(output.get("agent_goal_result")),
         "agent_replan": bool(output.get("agent_replan")),
         "specialist_agent_results": bool(output.get("specialist_agent_results")),
+        "specialist_prompt_registry": bool(output.get("specialist_prompt_registry")),
         "evidence_audit": bool(output.get("evidence_audit")),
         "claim_evidence": bool(output.get("claim_evidence")),
         "judgment_contract": bool(output.get("agent_judgment")),

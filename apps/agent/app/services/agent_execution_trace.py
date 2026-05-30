@@ -23,6 +23,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
     goal_result = output.get("agent_goal_result") or {}
     replan = output.get("agent_replan") or {}
     specialist_results = output.get("specialist_agent_results") or {}
+    prompt_registry = output.get("specialist_prompt_registry") or {}
 
     steps = [
         _step(
@@ -92,6 +93,17 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
             },
         ),
         _step(
+            "specialist_prompt_registry",
+            "guard",
+            "completed" if prompt_registry.get("coverage_complete") else "needs_review",
+            {
+                "guardrail_version": prompt_registry.get("guardrail_version"),
+                "role_count": prompt_registry.get("role_count", 0),
+                "coverage_complete": prompt_registry.get("coverage_complete"),
+                "safe_metadata_only": prompt_registry.get("safe_metadata_only") is True,
+            },
+        ),
+        _step(
             "claim_validation",
             "verify",
             "needs_review" if claim_evidence.get("unsupported_claim_count") else "completed",
@@ -145,6 +157,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
         "goal_result": _goal_result_summary(goal_result),
         "replan": _replan_summary(replan),
         "specialist_agent_results": _specialist_results_summary(specialist_results),
+        "specialist_prompt_registry": _prompt_registry_summary(prompt_registry),
         "step_count": len(steps),
         "steps": steps,
     }
@@ -247,4 +260,14 @@ def _specialist_results_summary(specialist_results: dict[str, Any]) -> dict[str,
         "needs_review_count": len([value for value in finalities if value == "needs_review"]),
         "decision_ready_count": len([value for value in finalities if value == "decision_ready"]),
         "safe_metadata_only": specialist_results.get("safe_metadata_only") is True,
+    }
+
+
+def _prompt_registry_summary(prompt_registry: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "version": prompt_registry.get("version"),
+        "guardrail_version": prompt_registry.get("guardrail_version"),
+        "role_count": prompt_registry.get("role_count", 0),
+        "coverage_complete": prompt_registry.get("coverage_complete") is True,
+        "safe_metadata_only": prompt_registry.get("safe_metadata_only") is True,
     }

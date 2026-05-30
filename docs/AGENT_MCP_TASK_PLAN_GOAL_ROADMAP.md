@@ -769,6 +769,15 @@ P4-2 완료 기록:
 - persona별 prompt snapshot 또는 version id가 trace/quality packet에서 확인 가능한지 확인한다.
 - 같은 사고 입력에서 persona 고도화 전후 결과가 더 전문적으로 보이더라도 근거 없는 확정이 늘지 않았는지 확인한다.
 
+P4-3 완료 기록:
+
+- `apps/agent/app/services/specialist_prompt_registry.py`를 추가해 10개 표준 Specialist role의 실행 종류, prompt version, guardrail version, 출력 section, handoff 대상, 금지 규칙을 안전 metadata로 고정했다.
+- `apps/agent/app/services/llm_client.py`의 공통 JSON 생성 system prompt에 LLM guardrail version을 붙이고, 최종 판결/확정 과실/유죄·무죄 확정, 근거 없는 법률·판례 생성, 입력에 없는 사실 생성, 영상 candidate의 확정 fact 승격을 금지했다.
+- `orchestration_output.py`는 `specialist_agent_results` 이후 `specialist_prompt_registry`를 연결하고 `model_info.specialist_prompt_registry_version`을 기록한다.
+- `agent_execution_trace.py`와 `agent_quality_packet.py`가 prompt registry coverage, guardrail ids, safe metadata 여부를 추적한다. prompt 원문, secret, API key, token 값은 기록하지 않는다.
+- `AnalysisOutput`에 `specialist_prompt_registry`를 additive 필드로 추가했다. 기존 public route, DB schema, Redis key, storage path, 외부 API 종류는 변경하지 않았다.
+- 검증은 `tests/test_specialist_prompt_registry.py`, 기존 Specialist runner/role/contract/orchestrator/LLM policy/task/goal 회귀 테스트로 수행한다.
+
 #### P4-4. Agent 합의/충돌 처리
 
 - Agent 결과 간 충돌 유형을 정의한다.
@@ -1130,7 +1139,7 @@ P4-2 완료 기록:
 | P1 | 완료 | Agent 실행 packet, Specialist Agent/persona, MCP Tool 계약을 additive schema와 단위 테스트로 고정 |
 | P2 | 준비 완료 | Task-Plan-Goal 런타임 연결 |
 | P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
-| P4 | 진행 중 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter 완료. 다음은 P4-3 persona/prompt 버전 관리 |
+| P4 | 진행 중 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter, P4-3 persona/prompt version registry 완료. 다음은 P4-4 Agent 합의/충돌 처리 |
 | P5 | 대기 | 영상 사실 추출 고도화 |
 | P6 | 대기 | 근거 검색/판단 계약 고도화 |
 | P7 | 대기 | Gateway/Frontend 표시 계약 |
@@ -1142,6 +1151,6 @@ P4-2 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P4-3. Persona/prompt 버전 관리**부터 진행한다.
+다음 개발은 **P4-4. Agent 합의/충돌 처리**부터 진행한다.
 
-P4-3을 시작할 때는 LLM을 쓰는 Agent와 deterministic Agent를 구분하고, prompt/persona version과 금지 판단 규칙이 trace 또는 quality packet에서 확인되도록 한다. prompt 문장 고도화가 근거 없는 확정, 영상 후보 fact 승격, 보험/형사/법률 책임 침범으로 이어지면 해당 변경은 완료로 보지 않는다.
+P4-4를 시작할 때는 Specialist Agent 결과 간 충돌 유형을 먼저 정의하고, 확정 영상 fact, 사용자 명시 입력, KNIA/법령/판례 근거, LLM 요약, fallback의 우선순위가 trace 또는 quality packet에서 확인되도록 한다. 충돌이 해결되지 않으면 50:50 fallback으로 바로 도망가지 않고 조건부 결과 또는 추가 질문으로 넘긴다.
