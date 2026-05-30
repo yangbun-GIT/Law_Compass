@@ -260,6 +260,8 @@ class MCPToolSpec(BaseModel):
     output_schema: dict[str, Any]
     required_scopes: list[ToolScope] = Field(default_factory=list)
     timeout_ms: int = Field(default=5000, gt=0)
+    safe_for_public_trace: bool = True
+    side_effect: Literal["none", "read", "write"] = "read"
     failure_packet_schema: str = "MCPToolErrorPacket"
     trace_destination: Literal["mcp_tool_calls", "agent_trace", "both"] = "both"
     standard_mcp_ready: bool = False
@@ -279,6 +281,7 @@ P1_INTERNAL_TOOL_SPECS: dict[str, MCPToolSpec] = {
         input_schema={"type": "object", "properties": {"path": {"type": "string"}}},
         output_schema={"type": "object", "properties": {"status": {"type": "string"}}},
         required_scopes=["knia.read", "cache.write"],
+        side_effect="write",
     ),
     "get_knia_myaccident_pages_tool": MCPToolSpec(
         name="get_knia_myaccident_pages_tool",
@@ -321,6 +324,7 @@ P1_INTERNAL_TOOL_SPECS: dict[str, MCPToolSpec] = {
         input_schema={"type": "object", "properties": {"key": {"type": "string"}}},
         output_schema={"type": "object", "properties": {"status": {"type": "string"}}},
         required_scopes=["cache.write"],
+        side_effect="write",
     ),
 }
 

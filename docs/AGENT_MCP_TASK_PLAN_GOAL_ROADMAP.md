@@ -560,6 +560,19 @@ P2-4 제한 사항:
 
 - bootstrapping 후 모든 tool에 schema와 scope가 있는지 테스트한다.
 
+P3-1 Tool registry schema화 결과 (2026-05-31):
+
+| 구분 | 구현 파일 | 내용 |
+| --- | --- | --- |
+| Tool spec 확장 | `apps/agent/app/services/agent_contracts.py` | `MCPToolSpec`에 `safe_for_public_trace`, `side_effect` metadata를 추가했다. |
+| Registry schema화 | `apps/agent/app/mcp/tool_registry.py` | `_REGISTRY`와 `_TOOL_SPECS`를 함께 관리하고, spec이 없는 tool 등록을 거부한다. |
+| Metadata 조회 | `apps/agent/app/mcp/tool_registry.py` | `get_tool_spec`, `list_tool_specs`, `list_tool_metadata`, `validate_registry_specs`를 추가했다. |
+| 검증 | `apps/agent/tests/test_mcp_tool_registry.py`, `apps/agent/tests/test_agent_contracts.py` | Docker Agent 컨테이너에서 `python -m pytest tests/test_mcp_tool_registry.py tests/test_agent_contracts.py`를 실행했고 8건이 모두 통과했다. |
+
+P3-1 제한 사항:
+
+- 아직 executor 단계에서 payload validation, scope validation, timeout 강제는 하지 않는다. 이 작업은 P3-2에서 진행한다.
+
 #### P3-2. Tool executor 권한/검증 추가
 
 - tool 실행 전 payload validation을 수행한다.

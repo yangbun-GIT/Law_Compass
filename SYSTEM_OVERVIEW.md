@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P3-1 Tool Registry Schema화
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P3-1 단계를 완료했다. 이번 변경은 내부 MCP-like tool registry가 함수 이름만 보유하던 구조에서 `MCPToolSpec` 기반 schema, scope, timeout, trace 안전성, side effect metadata를 함께 보유하도록 정리한 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Tool spec 확장 | `apps/agent/app/services/agent_contracts.py`의 `MCPToolSpec`에 `safe_for_public_trace`, `side_effect`를 추가했다. `import_knia_json_tool`, `invalidate_cache_tool`은 write side effect로 표시했다. |
+| Registry schema화 | `apps/agent/app/mcp/tool_registry.py`가 `_REGISTRY`와 `_TOOL_SPECS`를 함께 관리한다. `register_tool`은 spec이 없으면 등록을 거부하고, 기존 P1 internal spec을 fallback으로 사용한다. |
+| Metadata 조회 | `get_tool_spec`, `list_tool_specs`, `list_tool_metadata`, `validate_registry_specs`를 추가해 P3-2 권한/검증 단계에서 사용할 수 있게 했다. |
+| 검증 | Agent 컨테이너에서 `docker compose exec -T agent python -m pytest tests/test_mcp_tool_registry.py tests/test_agent_contracts.py`를 실행했고 8건이 통과했다. |
+
+P3-1은 registry metadata를 고정하지만, 아직 tool 실행 전 payload validation, scope validation, timeout 처리를 강제하지 않는다. 다음 구조 보강 단계는 P3-2 `Tool executor 권한/검증 추가`다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P2-4 제한적 재계획
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P2-4 단계를 완료했다. 이번 변경은 evidence 부족, KNIA mismatch, 영상/사용자 fact 충돌처럼 허용된 사유에서만 다음 iteration 후보 task를 제안하고, 반복 한도를 넘으면 reference-only로 종료하도록 하는 안전 metadata 계층이다.
