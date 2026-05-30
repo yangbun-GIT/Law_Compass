@@ -1,13 +1,17 @@
 <template>
   <article class="card easy-card">
-    <h2>지금 해야 할 일 3가지</h2>
+    <h2 class="action-steps-title">지금 해야 할 일 3가지</h2>
     <ol class="action-steps">
       <li v-for="item in actions" :key="item.order">
-        <strong>{{ text(item.title) }}</strong>
-        <p>{{ text(item.description) }}</p>
-        <span v-if="text(item.importance)" :class="importanceClass(item.importance)">
-          {{ text(item.importance) }}
-        </span>
+        <div class="action-step-content">
+          <div class="action-step-header">
+            <strong class="action-step-title">{{ text(item.title) }}</strong>
+            <span v-if="text(item.importance)" :class="importanceClass(item.importance)">
+              {{ text(item.importance) }}
+            </span>
+          </div>
+          <p class="action-step-description">{{ text(item.description) }}</p>
+        </div>
       </li>
     </ol>
   </article>

@@ -227,39 +227,66 @@ textarea { resize: vertical; min-height: 96px; }
     font-size: 1.08rem;
     box-shadow: 0 8px 18px rgba(201, 169, 98, 0.22);
 }
-.action-steps strong {
+.action-step-content {
+    min-width: 0;
+    width: 100%;
+    display: grid;
+    gap: 10px;
+}
+.action-step-header {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+}
+.action-steps strong,
+.action-step-title {
     display: block;
-    margin: 0 0 8px;
+    min-width: 0;
+    margin: 0;
     color: var(--text-main);
     font-size: clamp(1.08rem, 1.8vw, 1.28rem);
     line-height: 1.35;
     font-weight: 900;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
-.action-steps p {
-    margin: 0 0 12px;
+.action-steps p,
+.action-step-description {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
     color: var(--text-sub);
     font-size: 1rem;
-    line-height: 1.62;
+    line-height: 1.7;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
 .action-steps .importance-badge,
 .importance-badge {
     display: inline-flex;
+    flex: 0 0 auto;
     width: fit-content;
     align-items: center;
     justify-content: center;
     min-height: 30px;
     padding: 5px 11px;
     border-radius: 999px;
-    background: var(--success-soft);
+    background: rgba(167, 193, 122, 0.16);
     border: 1px solid rgba(127, 231, 200, 0.38);
     color: #9FF4DA;
     font-size: 0.92rem;
     font-weight: 900;
     line-height: 1.2;
+    white-space: nowrap;
 }
 .action-steps .importance-badge.is-critical,
 .importance-badge.is-critical {
-    background: var(--warning-soft);
+    background: rgba(215, 181, 109, 0.16);
     border-color: rgba(215, 181, 109, 0.48);
     color: #F1D99A;
 }
