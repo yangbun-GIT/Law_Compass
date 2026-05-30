@@ -496,6 +496,21 @@ P2-2 제한 사항:
 
 - 후방추돌, 교차로 신호 불명확, 중앙선 장애물 회피, 보행자 배경 오염, 자전거 비접촉 유발 fixture에서 goal 병합이 오염 없이 동작하는지 확인한다.
 
+P2-3 goal 결과 병합 정책 구현 결과 (2026-05-31):
+
+| 구분 | 구현 파일 | 내용 |
+| --- | --- | --- |
+| Goal aggregator | `apps/agent/app/services/agent_goal_aggregator.py` | `agent_task_packets`, `agent_judgment`, `fact_arbitration`, KNIA primary match를 병합해 `agent_goal_result`를 생성한다. |
+| 사고축 불일치 차단 | `apps/agent/app/services/agent_goal_aggregator.py` | 법률/KNIA 근거축과 사고 대분류가 다르면 `law_fault_axis_mismatch` conflict packet을 남기고 `blocked_for_consistency`로 확정 판단을 막는다. |
+| 영상/입력 충돌 보류 | `apps/agent/app/services/agent_goal_aggregator.py` | 영상 observation이 사용자 입력과 충돌하거나 보류된 경우 `video_user_fact_conflict`를 남기고 `reference_only`로 제한한다. |
+| Trace/Quality 연결 | `apps/agent/app/services/orchestration_output.py`, `agent_execution_trace.py`, `agent_quality_packet.py` | `agent_goal_result`를 output, trace summary, quality required packet, guardrail check에 연결했다. |
+| Schema/검증 | `apps/agent/app/schemas.py`, `apps/agent/tests/test_agent_goal_aggregator.py`, `apps/agent/tests/test_orchestrator.py` | Docker Agent 컨테이너에서 `python -m pytest tests/test_agent_goal_aggregator.py tests/test_agent_task_packets.py tests/test_planner.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_video_input_contract.py`를 실행했고 65건이 모두 통과했다. |
+
+P2-3 제한 사항:
+
+- `agent_goal_result`는 최종 병합/보류 metadata이며 public 화면의 문구를 직접 바꾸지 않는다.
+- evidence 부족이나 mismatch를 발견해도 새 task를 자동 생성하지 않는다. 이 작업은 P2-4에서 제한된 replan으로 다룬다.
+
 #### P2-4. 제한적 재계획 도입
 
 - evidence 부족, KNIA mismatch, 영상 candidate 불확실, 사용자 입력 충돌 상황에서만 replan을 허용한다.

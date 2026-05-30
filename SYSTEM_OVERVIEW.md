@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P2-3 Goal 결과 병합 정책
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P2-3 단계를 완료했다. 이번 변경은 stage별 task packet을 최종 사용자 결과로 바로 확정하지 않고, `agent_goal_result` 병합 계층에서 사고축, 영상 fact, 근거 충족도, 과실비율 상태를 한 번 더 검증하는 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Goal aggregator | `apps/agent/app/services/agent_goal_aggregator.py`를 추가해 `AgentGoalResult` 기반의 최종 goal 병합 결과를 만든다. |
+| 사고축 불일치 차단 | `accident_party_type`과 KNIA primary 기준의 party type이 다르거나 KNIA basis mismatch가 있으면 `blocked_for_consistency` conflict packet을 남기고 확정 판단을 막는다. |
+| 영상/입력 충돌 보류 | `fact_arbitration`에 conflict, held video field, pending confirmation이 있으면 `video_user_fact_conflict`로 표시하고 `reference_only` finality로 제한한다. |
+| Specialist stage 충돌 | 과실비율 task가 숫자를 냈더라도 evidence/KNIA task가 준비되지 않았으면 stage conflict packet을 남긴다. |
+| Trace/Quality 연결 | `agent_trace.goal_result`와 `agent_quality_packet` required packet에 `agent_goal_result`를 추가했다. `AnalysisOutput` schema에도 같은 필드를 추가했다. |
+| 검증 | Agent 컨테이너에서 `docker compose exec -T agent python -m pytest tests/test_agent_goal_aggregator.py tests/test_agent_task_packets.py tests/test_planner.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_video_input_contract.py`를 실행했고 65건이 통과했다. |
+
+P2-3은 최종 goal 병합 결과를 metadata로 제공하지만, evidence 부족이나 mismatch 상황에서 자동으로 추가 task를 생성하지는 않는다. 다음 구조 보강 단계는 P2-4 `제한적 재계획 도입`이다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P2-2 Stage별 Task Packet 연결
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P2-2 단계를 완료했다. 이번 변경은 P2-1에서 생성한 `agent_plan`의 각 task가 실제 stage 실행 결과와 연결될 수 있도록 runtime packet을 만들고, trace와 quality packet에서 같은 상태를 확인할 수 있게 한 작업이다.

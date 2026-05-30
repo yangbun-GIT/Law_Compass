@@ -20,6 +20,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
     claim_evidence = output.get("claim_evidence") or {}
     agent_plan = output.get("agent_plan") or {}
     task_packets = output.get("agent_task_packets") or {}
+    goal_result = output.get("agent_goal_result") or {}
 
     steps = [
         _step(
@@ -129,6 +130,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
         "trace_policy": "safe_metadata_only_no_raw_user_text",
         "task_plan": _task_plan_summary(agent_plan),
         "task_packets": _task_packet_summary(task_packets),
+        "goal_result": _goal_result_summary(goal_result),
         "step_count": len(steps),
         "steps": steps,
     }
@@ -190,5 +192,19 @@ def _task_packet_summary(task_packets: dict[str, Any]) -> dict[str, Any]:
         "version": task_packets.get("version"),
         "task_count": task_packets.get("task_count", 0),
         "status_counts": dict(task_packets.get("status_counts") or {}),
+        "safe_metadata_only": True,
+    }
+
+
+def _goal_result_summary(goal_result: dict[str, Any]) -> dict[str, Any]:
+    goal = goal_result.get("goal") if isinstance(goal_result.get("goal"), dict) else {}
+    conflicts = goal_result.get("conflict_packets") if isinstance(goal_result.get("conflict_packets"), list) else []
+    return {
+        "version": goal_result.get("version"),
+        "status": goal.get("status"),
+        "finality": goal.get("finality"),
+        "confidence": goal.get("confidence"),
+        "conflict_count": len(conflicts),
+        "blocking_conflict_count": len([item for item in conflicts if isinstance(item, dict) and item.get("severity") == "block"]),
         "safe_metadata_only": True,
     }

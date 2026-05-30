@@ -74,6 +74,7 @@ class AnalysisOutput(BaseModel):
     agent_judgment: dict[str, Any] = Field(default_factory=dict)
     agent_plan: dict[str, Any] = Field(default_factory=dict)
     agent_task_packets: dict[str, Any] = Field(default_factory=dict)
+    agent_goal_result: dict[str, Any] = Field(default_factory=dict)
     agent_trace: dict[str, Any] = Field(default_factory=dict)
     agent_quality_packet: dict[str, Any] = Field(default_factory=dict)
     expert_guidance_sections: dict[str, Any] = Field(default_factory=dict)

@@ -10,6 +10,10 @@ from app.services.agent_execution_trace import (
     VERSION as AGENT_TRACE_VERSION,
     build_agent_execution_trace,
 )
+from app.services.agent_goal_aggregator import (
+    VERSION as AGENT_GOAL_RESULT_VERSION,
+    attach_agent_goal_result,
+)
 from app.services.agent_task_packets import (
     VERSION as AGENT_TASK_PACKETS_VERSION,
     attach_agent_task_packets,
@@ -95,6 +99,8 @@ def enrich_analysis_output(
     output["model_info"]["evidence_source_status_version"] = EVIDENCE_SOURCE_STATUS_VERSION
     attach_agent_task_packets(output)
     output["model_info"]["agent_task_packets_version"] = AGENT_TASK_PACKETS_VERSION
+    attach_agent_goal_result(output)
+    output["model_info"]["agent_goal_result_version"] = AGENT_GOAL_RESULT_VERSION
     output["agent_trace"] = build_agent_execution_trace(output)
     output["model_info"]["agent_trace_version"] = AGENT_TRACE_VERSION
     output["agent_quality_packet"] = build_agent_quality_packet(output)
