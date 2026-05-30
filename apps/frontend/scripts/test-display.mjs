@@ -59,6 +59,7 @@ const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
 const kniaFaultRatioBar = readFileSync("src/components/knia/KniaFaultRatioBar.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
 const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
+const styles = readFileSync("src/styles.css", "utf8");
 const sanitizerContracts = [
   "sanitizeUserVisibleText",
   "cleanUserFacingCopy",
@@ -75,6 +76,21 @@ if (missingSanitizerContracts.length) {
   console.error("display sanitizer contract failed", missingSanitizerContracts);
   process.exit(1);
 }
+
+const brandLinkContracts = [
+  '<RouterLink class="brand brand-link" to="/"',
+  'aria-label="LawCompass 메인 화면으로 이동"',
+  "LawCompass",
+  "교통사고 AI 분석 도우미",
+  ".brand-link:focus-visible",
+];
+const brandLinkSource = [appView, styles].join("\n");
+const missingBrandLinkContracts = brandLinkContracts.filter((token) => !brandLinkSource.includes(token));
+if (missingBrandLinkContracts.length) {
+  console.error("app brand must navigate to the main route with accessible focus styling", missingBrandLinkContracts);
+  process.exit(1);
+}
+
 const publicUserFiles = [dashboardView, caseDetailView, easyReportView, caseWorkspaceGuidanceData].join("\n");
 const forbiddenPublicPhrases = [
   "직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.",
@@ -114,7 +130,6 @@ if (accidentPartyTypeActionCard.includes("먼저 해 주세요") || accidentPart
   console.error("accident party card must not duplicate action checklist shown in the three-action card");
   process.exit(1);
 }
-const styles = readFileSync("src/styles.css", "utf8");
 const expertSource = [
   elderlyActionCard,
   expertGuidanceCard,

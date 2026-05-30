@@ -72,6 +72,46 @@ a { color: var(--accent); text-decoration: none; }
 .topbar { padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .topbar h1 { margin: 0; font-size: 28px; letter-spacing: 0.4px; }
 .muted { margin: 2px 0 0; color: var(--text-sub); font-size: 13px; }
+.brand-link,
+.app-brand {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    min-height: 48px;
+    justify-content: center;
+    padding: 4px 8px;
+    color: inherit;
+    text-decoration: none;
+    border-radius: 16px;
+    cursor: pointer;
+    transition:
+            transform 160ms ease,
+            opacity 160ms ease,
+            background 160ms ease,
+            box-shadow 160ms ease;
+}
+.brand-link:hover,
+.app-brand:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+    background: rgba(232, 223, 212, 0.06);
+}
+.brand-link:focus-visible,
+.app-brand:focus-visible {
+    outline: 3px solid rgba(201, 169, 98, 0.72);
+    outline-offset: 4px;
+    box-shadow: 0 0 0 6px rgba(201, 169, 98, 0.14);
+}
+.brand-link h1,
+.app-brand-title {
+    margin: 0;
+}
+.brand-link p,
+.app-brand-subtitle {
+    margin: 0;
+}
 .topbar nav { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; align-items: center; flex: 1; }
 .topbar nav a { padding: 8px 12px; border-radius: 999px; border: 1px solid transparent; }
 .topbar nav a.router-link-active { border-color: rgba(201, 169, 98, 0.45); background: rgba(201, 169, 98, 0.12); }

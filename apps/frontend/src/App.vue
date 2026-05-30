@@ -6,10 +6,10 @@
 
   <div class="app-shell">
     <header class="glass topbar">
-      <div>
+      <RouterLink class="brand brand-link" to="/" aria-label="LawCompass 메인 화면으로 이동">
         <h1>LawCompass</h1>
         <p class="muted">교통사고 AI 분석 도우미</p>
-      </div>
+      </RouterLink>
       <nav>
         <RouterLink to="/">대시보드</RouterLink>
         <RouterLink to="/knia/ranking">KNIA 검색순위</RouterLink>
