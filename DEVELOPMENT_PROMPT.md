@@ -13,7 +13,8 @@
 3. 요청이 어느 서비스에 속하는지 판단한다.
 4. 필요한 파일만 좁게 읽고 기존 코드 흐름에 맞춰 변경한다.
 5. 변경 후 영향 범위에 맞는 검증을 수행하고 결과를 요약한다.
-6. 작업이 끝나면 변경 사항을 점검한 뒤 GitHub에 커밋하고 푸시한다. 단, 사용자가 명시적으로 보류를 요청했거나, 변경 사항이 없거나, 민감정보/불필요한 생성물이 포함되어 있으면 커밋하지 않고 이유를 보고한다.
+6. 작업별로 목적 부합성 점검을 수행한다. 구현이 원래 목표와 맞는지, 잘못된 책임 경계나 임시 예외가 들어갔는지, 특정 테스트 케이스에만 맞춰진 로직이 생겼는지, 사용자 요청 범위를 벗어난 변경이 없는지 확인한다.
+7. 작업이 끝나면 변경 사항을 점검한 뒤 GitHub에 커밋하고 푸시한다. 단, 사용자가 명시적으로 보류를 요청했거나, 변경 사항이 없거나, 민감정보/불필요한 생성물이 포함되어 있으면 커밋하지 않고 이유를 보고한다.
 
 ## System Prompt
 
@@ -131,6 +132,13 @@
     <guideline name="as_is_before_to_be">
       기획(To-Be)과 현재 구현(As-Is)이 다른 경우 현재 동작하는 구현을 우선합니다.
       예를 들어 업로드는 현재 로컬 스토리지 기준으로 구현하고, S3 전환은 사용자가 요청한 경우에만 별도 설계로 다룹니다.
+    </guideline>
+
+    <guideline name="non_regression_guard">
+      구조 개선, Agent 고도화, 역할 분리, 리팩터링은 현재 정상 동작 중인 사용자 흐름과 결과 품질을 보존하는 범위에서 진행하십시오.
+      public API/DTO, 저장 경로, DB/Redis 계약, 관리자/사용자 결과 payload, 기존 회귀 샘플의 판단 품질을 의도 없이 깨거나 낮추지 마십시오.
+      기존 동작이나 결과가 악화된 경우 새 기능 개발로 넘어가지 말고, 같은 단계의 보정 작업으로 먼저 기록하고 해결하십시오.
+      대규모 구조 변경은 가능한 한 additive contract, adapter, compatibility layer를 우선 사용하고, 기존 caller를 한 번에 교체하지 마십시오.
     </guideline>
 
     <guideline name="resource_safety">
@@ -518,3 +526,14 @@ git merge main
 둘 중 하나라도 꺼져 있거나 실행 실패하면 해당 작업은 “실제 영상 처리 완료”가 아니라 “계약/fixture/부분 경로 검증”으로만 보고한다. 완료 보고 전에는 새 업로드 결과의 DB metadata 또는 진단 payload에서 `openai_frame_analysis.enabled=true`, `yolo_frame_analysis.enabled=true`, YOLO `summary.class_counts` 또는 `observations`, merged `metadata.observations`가 존재하는지 확인한다.
 
 YOLO는 사고 판단 모델이 아니라 객체 후보 관찰 모델이다. YOLO의 `person`, `vehicle`, `traffic light` 감지는 바로 사고유형이나 과실 판단으로 승격하지 않고 OpenAI 프레임 관찰, 사용자 입력, KNIA/법령 근거와 함께 Agent fact arbitration에서 확정/보류/충돌/참고 상태로 나눈다.
+
+## 2026-05-31 Agent/MCP/Task-Plan-Goal 구조 보강 기준
+
+Agent architecture, MCP/tool execution, Task-Plan-Goal flow, specialist personas, evidence routing, video observations, judgment contracts를 변경하는 작업은 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`를 먼저 확인한 뒤 진행한다.
+
+- 현재 구현은 표준 MCP 서버/클라이언트가 아니라 Agent 내부 MCP-like tool registry/executor와 통제된 Agent pipeline이다. 표준 MCP 도입 여부는 roadmap의 P10 기준에 따라 판단한다.
+- Task-Plan-Goal 구조 보강은 roadmap의 P0부터 순서대로 진행한다. 작업 중 선행되어야 하는 작업이 발견되면 해당 roadmap의 가장 알맞은 단계에 먼저 추가하고 나서 구현을 계속한다.
+- 특정 사고 영상, 특정 fixture, 특정 문장에만 맞춘 예외 규칙을 만들지 않는다. 영상/입력/근거/과실 판단의 변경은 미래의 새로운 사고 입력에도 일반화되어야 한다.
+- 각 roadmap 단계 또는 하위 작업을 마친 뒤에는 반드시 목적 부합성 자기점검을 수행한다. 점검 기준은 원래 단계 목표, 서비스 책임 경계, Agent/MCP/Task-Plan-Goal 계약, 근거 검증 원칙, 오염 방지 원칙, 사용자 요청 범위다.
+- 자기점검에서 목적과 맞지 않는 구현, 책임 침범, 특정 케이스에만 맞춘 로직, 검증 부족, 잘못된 출력 계약이 발견되면 완료로 보고하지 말고 같은 단계의 수정 작업으로 되돌린다.
+- 완료 보고는 roadmap 단계의 검증 항목을 실제로 수행한 뒤에만 한다. 실행하지 못한 검증이나 남은 위험은 다음 단계로 기록한다.

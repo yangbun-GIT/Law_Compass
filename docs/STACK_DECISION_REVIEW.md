@@ -221,6 +221,8 @@ Firebase ML Kit이라는 명칭은 현재 기준으로 재검토가 필요하다
 
 이는 내부 tool registry/executor 구조이며, 외부 표준 MCP 서버/클라이언트 전체 구현은 아니다.
 
+2026-05-31 P0-1 기준으로, 문서에서 "MCP"라고 부르는 현재 구현은 Agent 내부 MCP-like tool registry를 의미한다. 표준 MCP Host/Client/Server 도입은 외부 도구 서버, cross-host 재사용, protocol 호환, 실행 격리, 권한 모델이 현재 내부 registry보다 명확한 이득을 줄 때 별도 단계에서 판단한다.
+
 ### 판단
 
 현재 MVP 단계에서는 내부 tool registry 구조로 충분하다. 표준 MCP를 본격 도입하려면 tool schema, 권한, 실행 격리, 외부 connector 보안 모델까지 함께 설계해야 하므로 현재 규모에서는 부담이 크다.

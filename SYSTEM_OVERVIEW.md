@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P0 기준선 확정
+
+Agent/MCP/Task-Plan-Goal 구조 보강 로드맵의 P0 단계를 완료했다. 이번 변경은 코드 동작을 바꾸지 않고, 앞으로 구조 수정과 Agent 고도화를 진행할 때 기존 사용자 흐름과 결과 품질을 깨지 않도록 기준선과 작업 문서 연결을 고정한 것이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 비회귀 원칙 | `DEVELOPMENT_PROMPT.md`와 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`에 구조 개선, Agent 고도화, 리팩터링이 public API/DTO, 저장 경로, DB/Redis 계약, 관리자/사용자 결과 payload, 기존 회귀 샘플의 판단 품질을 의도 없이 악화시키면 완료로 보지 않는다는 원칙을 추가했다. |
+| P0-3 회귀 기준선 | `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`에 Agent/Worker/Gateway/Frontend 검증 명령, 사고 영상 1~5, synthetic fixture, AI-Hub label reference, 공개 reference manifest, logs의 용도를 분리해 기록했다. 원본 영상과 라벨은 검증/평가용이며 추론 입력이나 코드 규칙으로 직접 주입하지 않는다. |
+| P0-4 문서 연결 | `AGENTS.md`, `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`가 서로 같은 작업 순서를 가리키도록 정리했다. Agent/MCP/Task-Plan-Goal 관련 작업은 이 로드맵을 선행 확인해야 한다. |
+| 검증 | `python scripts/verify_reference_hardening_fixture.py`, `python scripts/validate_reference_case_manifest.py --manifest tests\fixtures\video_accuracy\reference_case_manifest.example.json`, `python scripts\validate_video_accuracy_manifest.py --manifest config\video_accuracy_samples.example.json --allow-missing-files`를 실행해 P0 기준선 fixture와 manifest shape를 확인했다. |
+
+이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키, 실행 중인 서비스 코드를 변경하지 않는다. 다음 단계는 P1-1 Agent 실행 packet 계약 정의이며, 기존 `agent_trace`, `agent_quality_packet`, `judgment_contract`, `video_input_contract`와 호환되는 additive 계약부터 설계해야 한다.
+
 ## 2026-05-31 P1-3 과실비율/KNIA 근거 싱크 보강
 
 P1-3 단계에서 영상/입력 fact가 Agent까지 연결된 뒤 사고축, 과실비율, KNIA 근거가 서로 다른 방향으로 벌어지는 문제를 보강했다. 이번 변경은 특정 사고 영상에 맞춘 결과 보정이 아니라, 신호·정차·후방추돌·무등화 정차차량·과속처럼 과실 방향을 바꾸는 공통 판단축의 우선순위를 정리하는 작업이다.
@@ -1874,6 +1887,7 @@ Agent 레이어의 P0 골격을 보강하여 “입력 부족”, “근거 부�
 | `docs/OPERATIONS.md` | 운영 절차, 외부 API 점검, E2E 스모크 테스트 안내 |
 | `docs/api/openapi.yaml` | 공개 API 명세 |
 | `docs/STACK_DECISION_REVIEW.md` | 초기 기술 스택 계획안과 현재 적용 스택을 비교하고 향후 도입 판단 기준을 기록한 기술 의사결정 참고 문서 |
+| `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` | Agent/MCP/Task-Plan-Goal 구조 보강을 P0~P12 단계로 관리하는 작업 기준 문서 |
 | `docs/PROJECT_BASELINE_2026-05-21.md` | 2026-05-21 기준 인수 직전 구현 상태를 고정 기록한 베이스라인 스냅샷. 이후 개발 변화 비교의 기준 |
 | `docs/PROJECT_EVOLUTION_2026-05-24.md` | 2026-05-21 베이스라인 대비 2026-05-24 현재 프로젝트 변화, 완료된 보강, 남은 과제를 정리한 변화 기록 |
 
@@ -2030,6 +2044,27 @@ Gateway 주요 로직:
 | `apps/agent/app/services/chat/*` | AI 사고 상담 의도 분류, 응답 생성, 초안 케이스 생성 |
 | `apps/agent/app/mcp/*` | 내부 tool registry/executor 및 KNIA/RAG/cache 도구 |
 
+Agent/MCP 용어 기준 (2026-05-31 P0-1):
+
+| 항목 | 현재 프로젝트 기준 |
+| --- | --- |
+| MCP | 표준 MCP 서버/클라이언트 구현이 아니라 Agent 내부 MCP-like tool registry/executor를 의미한다. 표준 MCP 도입은 외부 tool server, protocol 호환, 격리, 권한 모델이 실제로 필요할 때 검토한다. |
+| Task-Plan-Goal | 현재는 목표 구조다. `planner.py`와 trace/quality packet을 실제 실행 단위와 연결해 각 task의 goal, 상태, 관찰값, 결과를 남기는 방향으로 보강한다. |
+| Specialist Agent | 현재는 analyst/persona/analyzer 모듈 중심이다. 목표 상태에서는 법률, KNIA, 과실비율, 형사, 보험, 증거감사, 영상관찰 역할이 독립 결과 계약과 handoff 규칙을 가진다. |
+| Observation | 영상, 도구, 검색, 입력 정규화에서 나온 값은 확정 사실, 후보, 확인 필요, 참고, 실패를 구분한다. 후보 값을 최종 판단에 바로 섞지 않는다. |
+
+Agent 구현 inventory snapshot (2026-05-31 P0-2):
+
+| 영역 | 현재 구현 | 보강 기준 |
+| --- | --- | --- |
+| Agent 본선 | `apps/agent/app/services/orchestrator.py`의 고정 stage pipeline이다. `build_case_context` -> `collect_evidence_stage` -> `run_analysis_stage` -> `run_reflection_requery_stage` -> `build_judgment_contract` -> `enrich_analysis_output` 순서로 진행된다. | P2에서 이 흐름을 깨지 않고 plan/task/goal packet을 trace에 연결한다. |
+| Planner | `apps/agent/app/services/planner.py`에 `build_task_plan()`이 있으나 production 분석 흐름에서는 호출되지 않는다. | P2-1에서 입력 모드별 plan 생성과 실패 observation을 연결한다. |
+| Gateway 연결 | `apps/gateway/src/routes/analysis.ts`는 text 분석을 Agent에 직접 호출하고, video 분석은 `video_analyze` job을 Redis stream에 넣는다. `apps/gateway/src/routes/uploads.ts`와 `apps/gateway/src/services/uploadService.ts`는 upload complete 후 `video_preprocess` job을 enqueue한다. | Gateway는 orchestration 주체가 아니라 요청/저장/큐 연결 경계로 유지한다. |
+| Worker 영상 처리 | `apps/worker/worker/job_processor.py`가 `video_preprocess`에서 ffprobe/frame extraction/YOLO/OpenAI observation merge를 수행하고, `video_analyze`에서 Agent `/internal/v1/analyze/video`를 호출한다. | Worker는 영상 관찰 후보 생성까지만 담당하고 최종 사고/과실 판단은 Agent 계약으로 넘긴다. |
+| 내부 MCP | `apps/agent/app/mcp/tool_registry.py`와 `tool_executor.py`가 있고 8개 tool이 등록된다. production에서 확인된 executor 사용은 KNIA media search route 중심이다. | P3에서 본선 도구 호출을 schema/권한/실패 packet이 있는 내부 MCP-like 계층으로 정리한다. |
+| Specialist/persona | `apps/agent/app/services/specialists.py`와 `apps/agent/app/personas/*`는 추천/metadata 성격이 강하다. 실제 결과 생성은 `services/analysts/*`, `services/knia/knia_adjustment_agent.py`, `party_agents/*`가 담당한다. | P1/P4에서 Specialist Agent 결과 계약과 persona/role profile을 실제 analyst output에 연결한다. |
+| Trace/quality | `apps/agent/app/services/orchestration_output.py`가 `agent_trace`와 `agent_quality_packet`을 부착한다. 현재는 task runtime trace가 아니라 stage 요약 metadata다. | P2/P8에서 task run, tool call, specialist result, evidence decision을 같은 trace id로 연결한다. |
+
 Agent 내부 API:
 
 | 경로 | 책임 |
@@ -2118,6 +2153,7 @@ Agent 주요 DTO:
 | `DEVELOPMENT_PROMPT.md` | Development guidance document | 개발 전 참조하는 LawCompass 전담 Principal Software Architect 역할, 작업 순서, 검증, 보안, 문서 동기화 기준을 정의한다 | 저장소 내 명시 없음 |
 | `SYSTEM_OVERVIEW.md` | Project handoff/spec document | 프로젝트 구조와 현재 구현 상태를 추적하는 기준 문서다 | 저장소 내 명시 없음 |
 | `docs/STACK_DECISION_REVIEW.md` | Stack decision review document | 초기 스택 계획안과 현재 적용 스택을 비교하고 S3, Capacitor, 영상 분석, MCP, OpenAI API 전환 판단 기준을 기록한다 | 저장소 내 명시 없음 |
+| `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` | Agent/MCP restructuring roadmap | 표준 MCP, 내부 tool registry, Task-Plan-Goal, specialist Agent, 영상 fact, 근거 검증을 원래 목표 구조로 끌어올리기 위한 단계별 작업 기준을 기록한다 | 저장소 내 명시 없음 |
 | `docs/PROJECT_BASELINE_2026-05-21.md` | Baseline snapshot document | 2026-05-21 인수 시점 구현 상태, 미완성 영역, 이후 변화 비교 질문을 기록한다 | 저장소 내 명시 없음 |
 
 #### 주요 함수 및 입출력
