@@ -5,7 +5,7 @@
 ## 0. 생성 정보
 
 - Root: `C:\Users\shy\IdeaProjects\Law_Compass`
-- Generated at: `2026-05-30T11:13:29`
+- Generated at: `2026-05-30T12:44:29`
 - Included files: `507`
 - Max file size: `1,000,000` bytes
 - Max chars per file: `80,000` chars
@@ -1509,7 +1509,7 @@ Resolved-conflict checks with `batch_aggregate_conflict_resolved.json`:
 
 ### File: `apps/agent/app/services/report_composer.py`
 
-- size: `7,451` bytes
+- size: `8,078` bytes
 
 ```python
 ﻿from __future__ import annotations
@@ -1548,10 +1548,13 @@ def compose_analysis_output(
 ) -> dict[str, Any]:
     final_report_usage = evaluate_llm_usage(section="final_report", evidence=evidence, facts=normalized_input.get("structured_facts") or {})
     final = generate_final_report(normalized_input=normalized_input, scenario=scenario, evidence=evidence, legal_analysis=legal_analysis, fault_ratio=fault_ratio, legal_liability=legal_liability, insurance_guide=insurance_guide, action_plan=action_plan) if final_report_usage["allowed"] else None
+    accident_title = final.get("accident_title") if isinstance(final, dict) else None
     summary = final.get("accident_summary") if isinstance(final, dict) else None
     if final_report_usage["allowed"] and not summary:
         final_report_usage = mark_llm_output_unavailable(final_report_usage, stage="final_report")
     final_report_usage = {**final_report_usage, "used": bool(summary)}
+    if not accident_title:
+        accident_title = _fallback_title(normalized_input)
     if not summary:
         summary = _fallback_summary(normalized_input, scenario, legal_analysis)
     uncertainty_level = evidence_audit.get("uncertainty_level", "medium")
@@ -1562,6 +1565,7 @@ def compose_analysis_output(
     technical = {
         "analysis_mode": analysis_mode,
         "display_mode": analysis_mode,
+        "accident_title": accident_title,
         "accident_summary": summary,
         "scenario_type": scenario["scenario_type"],
         "accident_party_type": scenario.get("accident_party_type", "unknown"),
@@ -1631,8 +1635,20 @@ def compose_analysis_output(
 
 def _fallback_summary(normalized_input: dict[str, Any], scenario: dict[str, Any], legal_analysis: dict[str, Any]) -> str:
     text = (normalized_input.get("user_visible_summary_text") or normalized_input.get("description_text") or "입력하신 사고").strip()[:180]
-    issue = legal_analysis.get("legal_issue_summary") or "교통법규 근거를 바탕으로 과실, 신고 필요 여부, 보험 대응을 검토했습니다."
-    return f"{text} 상황은 {scenario_label(scenario.get('scenario_type'))}로 보이며, {issue}"
+    label = scenario_label(scenario.get("scenario_type"))
+    if text.endswith(("입니다.", "했습니다.", "발생했습니다.", "사고입니다.")):
+        return text
+    return f"{text} 상황은 {label}로 보입니다."
+
+
+def _fallback_title(normalized_input: dict[str, Any]) -> str:
+    text = (normalized_input.get("user_visible_summary_text") or normalized_input.get("description_text") or "입력한 사고 상황").strip()
+    text = text.lstrip(" ,，.")
+    marker = " 사고"
+    if marker in text:
+        return text[: text.find(marker) + len(marker)].strip()
+    first_sentence = text.split(".")[0].strip()
+    return first_sentence[:80] or "입력한 사고 상황"
 
 ```
 
@@ -1802,7 +1818,7 @@ export function hasAny(text: string, terms: string[]) {
 
 ### File: `apps/gateway/src/lib/report-composer.ts`
 
-- size: `128,796` bytes
+- size: `130,302` bytes
 
 ```typescript
 import {
@@ -3507,15 +3523,8 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
         .slice(0, 4);
 
     return {
-        situation_summary: cleanText(
-            report.current_situation_summary ||
-            report.situation_summary ||
-            report.one_line_summary ||
-            report.summary ||
-            result.accident_summary ||
-            "",
-            "입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다.",
-        ),
+        situation_title: composeSimpleSituationTitle(report, result),
+        situation_summary: composeSimpleSituationSummary(report, result),
         fault_ratio: {
             my: faultRatio.my ?? faultRatio.my_percent ?? faultRatio.my_fault ?? userFault.my ?? null,
             other: faultRatio.other ?? faultRatio.other_percent ?? faultRatio.opponent_fault ?? userFault.other ?? null,
@@ -3538,6 +3547,101 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
         },
         video_summary: videoSummary,
     };
+}
+
+function composeSimpleSituationTitle(report: AnyRecord = {}, result: AnyRecord = {}): string {
+    const candidates = [
+        report.simple_report?.situation_title,
+        report.situation_title,
+        report.accident_title,
+        report.one_line_summary,
+        report.summary,
+        result.accident_title,
+        result.accident_summary,
+        result.description_text,
+        report.structured_facts?.description_text,
+    ];
+    for (const candidate of candidates) {
+        const title = cleanSituationTitle(candidate);
+        if (title) return title;
+    }
+    return "입력한 사고 상황";
+}
+
+function composeSimpleSituationSummary(report: AnyRecord = {}, result: AnyRecord = {}): string {
+    const candidates = [
+        report.simple_report?.situation_summary,
+        report.current_situation_summary,
+        report.situation_summary,
+        report.one_line_summary,
+        report.summary,
+        result.accident_summary,
+        result.description_text,
+        report.structured_facts?.description_text,
+    ];
+    for (const candidate of candidates) {
+        const summary = cleanSituationSummary(candidate);
+        if (summary) return summary;
+    }
+    return "입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다.";
+}
+
+function cleanSituationTitle(value: any): string {
+    let text = rawSituationText(value);
+    if (!text) return "";
+    text = text.replace(/^[\s,，.]+/, "").trim();
+    const mixed = text.match(/^(.+?\s*사고)\s*상황은\s*[^,.。]*로 보이며(?:,|\s|$)/);
+    if (mixed?.[1]) return mixed[1].trim();
+    const sentence = text.split(/[.!?。]\s*/)[0]?.trim() || text;
+    const situation = sentence.match(/^(.+?\s*사고)(?:\s|$)/);
+    if (situation?.[1]) return situation[1].trim();
+    const legalStart = sentence.search(/(?:교통법규|적용 가능 법규|보험 대응|신고 필요 여부|검색된 교통법규|검토했습니다)/);
+    if (legalStart > 0) text = sentence.slice(0, legalStart).trim();
+    text = text.replace(/\s*상황은\s*[^,.。]*로 보이며.*$/, "").trim();
+    if (text.length > 80) text = `${text.slice(0, 80).trim()}...`;
+    return text;
+}
+
+function cleanSituationSummary(value: any): string {
+    let text = rawSituationText(value);
+    if (!text) return "";
+    text = text.replace(/^[\s,，.]+/, "").trim();
+
+    const legalTails = [
+        "입력된 사고 사실과 검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
+        "입력한 사고 사실과 검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
+        "검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
+        "교통법규 근거를 바탕으로 과실, 신고 필요 여부, 보험 대응을 검토했습니다.",
+    ];
+    for (const tail of legalTails) text = text.replace(tail, "").trim();
+
+    const mixed = text.match(/^(.+?\s*사고)\s*상황은\s*[^,.。]*로 보이며(?:,|\s|$)/);
+    if (mixed?.[1]) return `${mixed[1].trim()} 상황입니다.`;
+
+    const legalStart = text.search(/(?:교통법규|적용 가능 법규|보험 대응|신고 필요 여부|검색된 교통법규)/);
+    if (legalStart > 0) text = text.slice(0, legalStart);
+
+    text = text
+        .replace(/\s*,\s*$/, "")
+        .replace(/\s*이며\s*$/, "입니다.")
+        .trim();
+
+    if (!text) return "";
+    if (!/[.!?。]$/.test(text)) text = `${text}.`;
+    return text;
+}
+
+function rawSituationText(value: any): string {
+    if (value === null || value === undefined) return "";
+    const raw = String(value).replace(/\u0000/g, "").trim();
+    if (!raw || raw === "unknown" || raw === "null") return "";
+    if ((raw.startsWith("{") && raw.endsWith("}")) || (raw.startsWith("[") && raw.endsWith("]"))) return "";
+    return raw
+        .replace(/(?:^|,\s*)=\d+(?:\s*,\s*=\d+)+(?:\.)?/g, " ")
+        .replace(/(?:^|[\s,])=\d+(?=$|[\s,.;])/g, " ")
+        .replace(/\s+\./g, ".")
+        .replace(/\s+/g, " ")
+        .trim();
 }
 
 function collectSimpleKniaCandidates(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord[] {
@@ -3573,63 +3677,9 @@ function collectSimpleKniaCandidates(report: AnyRecord = {}, result: AnyRecord =
     const byKey = new Map<string, AnyRecord>();
     for (const candidate of rawCandidates
         .map(normalizeSimpleKniaCandidate)
-        .filter((candidate): candidate is AnyRecord => Boolean(candidate))
-        .filter((candidate) => isSimpleKniaCandidateAllowedForParty(candidate, requestedParty))) {
-        const key = (candidate.chart_no || candidate.subchart_no)
-            ? [candidate.chart_no, candidate.subchart_no].filter(Boolean).join("|").toLowerCase()
-            : [candidate.button_url, candidate.source_url, candidate.title].filter(Boolean).join("|").toLowerCase();
-        if (!key) continue;
-        const existing = byKey.get(key);
-        if (!existing) {
-            byKey.set(key, candidate);
-            output.push(candidate);
-            continue;
-        }
-        for (const field of ["source_url", "button_url", "video_url", "button_label", "base_fault", "final_fault", "fault_range", "menu_path", "match_reason", "summary", "missing_source_notice"]) {
-            if (!existing[field] || (Array.isArray(existing[field]) && !existing[field].length)) {
-                existing[field] = candidate[field];
-            }
-        }
-    }
-    return output;
-}
+        .filter((candidate): candidate is AnyRecord => Boolean(candidat
 
-function normalizeSimpleKniaCandidate(candidate: any): AnyRecord | null {
-    if (!isPlainObject(candidate)) return null;
-    const chartNo = cleanText(candidate.chart_no ?? candidate.chartNo, "");
-    const subchartNo = cleanText(candidate.subchart_no ?? candidate.subchartNo, "");
-    const title = cleanText(candidate.chart_title ?? candidate.title ?? candidate.article_title, "");
-    const sourceUrl = safeKniaUrl(candidate.button_url || candidate.source_url || candidate.source_detail_url || candidate.source_page_url || candidate.video_url);
-    const hasCandidate = candidate.has_knia_candidate === true || Boolean(chartNo || subchartNo || title || sourceUrl);
-    if (!hasCandidate) return null;
-
-    const videoUrl = safeKniaUrl(candidate.video_url);
-    const buttonUrl = safeKniaUrl(candidate.button_url || candidate.source_url || candidate.source_detail_url || candidate.source_page_url || candidate.video_url);
-    const baseFault = candidate.base_fault ?? candidate.knia_reference_fault?.base_fault ?? null;
-    const finalFault = candidate.final_fault ?? candidate.adjusted_fault ?? candidate.knia_reference_fault?.final_fault ?? null;
-    const faultRange = candidate.fault_range ?? candidate.range ?? candidate.knia_reference_fault?.fault_range ?? null;
-
-    return {
-        chart_no: chartNo,
-        subchart_no: subchartNo,
-        title,
-        major_party_type: cleanText(candidate.major_party_type ?? candidate.accident_party_type, ""),
-        accident_party_type: cleanText(candidate.accident_party_type ?? candidate.major_party_type, ""),
-        summary: cleanText(candidate.summary ?? candidate.description ?? candidate.accident_situation, ""),
-        menu_path: asArray(candidate.menu_path).map((item) => cleanText(item, "")).filter(Boolean),
-        source_url: sourceUrl,
-        button_url: buttonUrl,
-        video_url: videoUrl,
-        button_label: videoUrl ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기",
-        source_url_is_fallback: candidate.source_url_is_fallback === true,
-        match_reason: cleanText(candidate.match_reason || candidate.why_matched, ""),
-        reference_only: candidate.reference_only === true || candidate.presentation_status === "reference_only",
-        base_fault: baseFault,
-        final_fault: finalFault,
-        fault_range: faultRange,
-        source_notice: cleanText(candidate.notice, "영상 파일은 LawComp
-
-... [TRUNCATED: 25,287 chars omitted] ...
+... [TRUNCATED: 28,645 chars omitted] ...
 
 ```
 
@@ -3739,13 +3789,38 @@ describe("KNIA link card composition", () => {
 
 ### File: `apps/gateway/test/report-composer.test.ts`
 
-- size: `69,964` bytes
+- size: `71,271` bytes
 
 ```typescript
 import { describe, expect, it } from "vitest";
 import { composeEasyFallback, composeReanalysisChangeCard, enrichEasyReport, sanitizeEasyReport } from "../src/lib/report-composer.js";
 
 describe("report composer", () => {
+  it("keeps user-friendly situation summaries focused on accident facts", () => {
+    const enriched: any = enrichEasyReport(
+      {
+        simple_report: {
+          situation_summary:
+            "야간 중 음주운전 트럭의 교량 아래 스텔스 주차로 인한 사고 상황은 교통사고로 보이며, 입력된 사고 사실과 검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
+        },
+      },
+      {
+        analysis_mode: "user_friendly",
+        accident_summary:
+          "야간 중 음주운전 트럭의 교량 아래 스텔스 주차로 인한 사고 상황은 교통사고로 보이며, 입력된 사고 사실과 검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
+      },
+    );
+
+    expect(enriched.simple_report.situation_title).toBe(
+      "야간 중 음주운전 트럭의 교량 아래 스텔스 주차로 인한 사고",
+    );
+    expect(enriched.simple_report.situation_summary).toBe(
+      "야간 중 음주운전 트럭의 교량 아래 스텔스 주차로 인한 사고 상황입니다.",
+    );
+    expect(enriched.simple_report.situation_summary).not.toContain("교통법규");
+    expect(enriched.simple_report.situation_summary).not.toContain("적용 가능 법규");
+  });
+
   it("keeps detailed report fields and adds compact display metadata in user-friendly mode", () => {
     const enriched: any = enrichEasyReport(
       sanitizeEasyReport({
@@ -29953,7 +30028,7 @@ def vectorize_text(text: str) -> tuple[str, str]:
 
 ### File: `apps/agent/app/services/llm_client.py`
 
-- size: `8,282` bytes
+- size: `8,647` bytes
 
 ```python
 from __future__ import annotations
@@ -30056,8 +30131,14 @@ def generate_action_plan(*, text: str, scenario_type: str, facts: dict[str, Any]
 
 def generate_final_report(**payload: Any) -> dict[str, Any] | None:
     return _generate_json(
-        "너는 AI 교통사고 법률 분석 리포트 편집자다. 변호사 관점의 판례 기반 예상, 형사/민사 대응, 보험 처리 예상이 구분되게 종합하되 실제 변호사 자문이나 판결 확정처럼 표현하지 않는다.",
-        {**payload, "required_keys": ["accident_summary"]},
+        (
+            "너는 교통사고 분석 결과를 사용자가 이해하기 쉬운 짧은 JSON으로 정리한다. "
+            "accident_title은 '사고 상황을 간단히 정리했어요' 같은 안내 문구가 아니라 "
+            "사고 자체를 명사형 제목으로 쓴다. 예: '야간 중 음주운전 트럭의 교량 아래 스텔스 주차로 인한 사고'. "
+            "accident_summary는 1~2문장으로 사고 경위와 핵심 확인 요소만 설명한다. "
+            "법률 판단 확정, 과실비율 확정, 변호사 자문처럼 표현하지 않는다."
+        ),
+        {**payload, "required_keys": ["accident_title", "accident_summary"]},
         max_tokens=900,
     )
 
@@ -53587,7 +53668,7 @@ console.log(JSON.stringify({ test_chat: "passed", required_files: required.lengt
 
 ### File: `apps/frontend/scripts/test-display.mjs`
 
-- size: `18,571` bytes
+- size: `19,381` bytes
 
 ```javascript
 ﻿const forbidden = ["chunk_id", "score", "model_info", "cache_key", "rag_top_k", "ai_profile", "llm_enabled", "orchestrator", "scenario_classifier", "claim_id", "evidence_refs", "required_evidence_family", "rear_end_collision", "REAR_END_SAFE_DISTANCE", "ROAD_ACCIDENT_REPORTING_DUTY", "???", '"injury":', '"stopped":', '"weather":'];
@@ -53828,14 +53909,39 @@ const requiredKniaUiTokens = [
   "knia-tabs",
   "factor-table",
   "fault-bar",
+  "fault-bar-wrap",
   "fault-segment",
+  "fault-ratio-readout",
   "factor-mobile-meta",
   "factor-state",
   "factor-row.selected",
+  "font-variant-numeric: tabular-nums",
+  "transition:",
 ];
-const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaChartView.includes(token));
+const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaChartView.includes(token) && !styles.includes(token));
 if (missingKniaUiTokens.length) {
   console.error("KNIA chart mobile UI contract missing", missingKniaUiTokens);
+  process.exit(1);
+}
+
+const stableRatioContracts = [
+  ".fault-ratio-value",
+  ".ratio-percent",
+  ".knia-percent",
+  ".easy-ratio-row span",
+  ".user-adjustment-row",
+  "min-width: 4.5ch",
+  "font-feature-settings: \"tnum\"",
+];
+const missingStableRatioContracts = stableRatioContracts.filter((token) => !styles.includes(token));
+if (missingStableRatioContracts.length) {
+  console.error("fault ratio layout stability contract failed", missingStableRatioContracts);
+  process.exit(1);
+}
+
+const unstableKniaTransitions = [kniaChartView, styles].join("\n").match(/transition:\s*all\b/g);
+if (unstableKniaTransitions?.length) {
+  console.error("KNIA/fault ratio UI must not use transition: all");
   process.exit(1);
 }
 
@@ -54180,20 +54286,19 @@ const combinedGaps = computed(() => {
 
 ### File: `apps/frontend/src/components/case/AnalysisLoadingSpinner.vue`
 
-- size: `3,056` bytes
+- size: `3,304` bytes
 
 ```vue
 <template>
   <div class="analysis-loading-spinner" role="status" aria-live="polite">
     <div
-      class="spinner-orb"
-      :style="{ '--progress': `${safePercent * 3.6}deg` }"
-      aria-hidden="true"
+        class="spinner-orb"
+        :style="{ '--progress': `${safePercent * 3.6}deg` }"
+        aria-hidden="true"
     >
       <div class="spinner-core">
         <strong>{{ safePercent }}%</strong>
         <span>{{ label }}</span>
-        <small>{{ message }}</small>
       </div>
     </div>
   </div>
@@ -54203,16 +54308,16 @@ const combinedGaps = computed(() => {
 import { computed } from "vue";
 
 const props = withDefaults(
-  defineProps<{
-    percent?: number;
-    label?: string;
-    message?: string;
-  }>(),
-  {
-    percent: 0,
-    label: "분석 중",
-    message: "사고 정보를 정리하고 있습니다.",
-  },
+    defineProps<{
+      percent?: number;
+      label?: string;
+      message?: string;
+    }>(),
+    {
+      percent: 0,
+      label: "분석 중",
+      message: "사고 정보를 정리하고 있습니다.",
+    },
 );
 
 const safePercent = computed(() => {
@@ -54226,44 +54331,50 @@ const safePercent = computed(() => {
 .analysis-loading-spinner {
   display: grid;
   place-items: center;
-  min-height: 280px;
-  padding: 28px 16px;
+  min-height: 178px;
+  padding: 18px 12px;
+  overflow: visible;
 }
 
 .spinner-orb {
   --progress: 0deg;
   position: relative;
-  width: min(260px, 72vw);
+  width: clamp(116px, 24vw, 146px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 50% 50%, rgba(28, 23, 20, 0.96) 0 45%, transparent 46%),
-    conic-gradient(from 220deg, #c9a962 0deg, #d4b872 var(--progress), rgba(232, 223, 212, 0.10) var(--progress) 360deg);
+      radial-gradient(circle at 50% 50%, rgba(28, 23, 20, 0.96) 0 49%, transparent 50%),
+      conic-gradient(
+          from 220deg,
+          #c9a962 0deg,
+          #d4b872 var(--progress),
+          rgba(232, 223, 212, 0.10) var(--progress) 360deg
+      );
   box-shadow:
-    0 24px 70px rgba(0, 0, 0, 0.42),
-    inset 0 0 26px rgba(201, 169, 98, 0.16);
+      0 10px 24px rgba(0, 0, 0, 0.28),
+      inset 0 0 10px rgba(201, 169, 98, 0.10);
 }
 
 .spinner-orb::before {
   content: "";
   position: absolute;
-  inset: 13px;
+  inset: 11px;
   border-radius: 50%;
-  border: 10px solid rgba(232, 223, 212, 0.08);
+  border: 2px solid rgba(232, 223, 212, 0.08);
   border-top-color: rgba(201, 169, 98, 0.92);
-  border-right-color: rgba(139, 38, 53, 0.86);
+  border-right-color: rgba(139, 38, 53, 0.82);
   animation: analysis-spin 1.35s linear infinite;
 }
 
 .spinner-orb::after {
   content: "";
   position: absolute;
-  inset: 42px;
+  inset: 25px;
   border-radius: 50%;
   background: linear-gradient(145deg, rgba(37, 30, 25, 0.98), rgba(28, 23, 20, 0.98));
-  border: 1px solid rgba(201, 169, 98, 0.22);
+  border: 1px solid rgba(201, 169, 98, 0.20);
   box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.06);
 }
 
@@ -54273,28 +54384,30 @@ const safePercent = computed(() => {
   display: grid;
   gap: 5px;
   place-items: center;
+  max-width: 78%;
   text-align: center;
 }
 
 .spinner-core strong {
   color: var(--text-main);
-  font-size: clamp(2.4rem, 8vw, 4.2rem);
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
   font-weight: 950;
   line-height: 1;
-  letter-spacing: -0.04em;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.52);
+  letter-spacing: -0.03em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.46);
 }
 
 .spinner-core span {
   color: var(--accent-strong);
+  font-size: 0.78rem;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .spinner-core small {
-  max-width: 160px;
-  color: var(--text-sub);
-  line-height: 1.35;
+  display: none;
 }
 
 @keyframes analysis-spin {
@@ -54311,11 +54424,29 @@ const safePercent = computed(() => {
 
 @media (max-width: 520px) {
   .analysis-loading-spinner {
-    min-height: 230px;
+    min-height: 154px;
+    padding: 14px 8px;
   }
 
   .spinner-orb {
-    width: min(220px, 74vw);
+    width: clamp(108px, 36vw, 132px);
+  }
+
+  .spinner-orb::before {
+    inset: 10px;
+    border-width: 1.5px;
+  }
+
+  .spinner-orb::after {
+    inset: 23px;
+  }
+
+  .spinner-core strong {
+    font-size: clamp(1.45rem, 6vw, 1.95rem);
+  }
+
+  .spinner-core span {
+    font-size: 0.72rem;
   }
 }
 </style>
@@ -55572,7 +55703,7 @@ const sourceLabel = computed(() =>
 
 ### File: `apps/frontend/src/components/easy/EasyReportView.vue`
 
-- size: `24,265` bytes
+- size: `31,423` bytes
 
 ```vue
 <template>
@@ -55580,8 +55711,8 @@ const sourceLabel = computed(() =>
     <section v-if="isUserFriendlyMode" class="user-report">
       <section class="card easy-card simple-section corner-flourish">
         <p class="eyebrow">현재 상황정리</p>
-        <h2>사고 상황을 간단히 정리했어요</h2>
-        <p class="big-text">{{ simpleSituationSummary }}</p>
+        <h2>{{ simpleSituationTitle }}</h2>
+        <p v-if="simpleSituationDetail" class="big-text">{{ simpleSituationDetail }}</p>
       </section>
 
       <section class="card easy-card simple-section corner-flourish">
@@ -55590,11 +55721,11 @@ const sourceLabel = computed(() =>
         <div class="easy-ratio-row">
           <div>
             <p>내 과실</p>
-            <span>{{ simpleFaultRatio.my ?? simpleFaultRatio.my_percent ?? simpleFaultRatio.my_fault ?? "확인 필요" }}</span>
+            <span>{{ percentText(simpleFaultRatio.my ?? simpleFaultRatio.my_percent ?? simpleFaultRatio.my_fault) }}</span>
           </div>
           <div>
             <p>상대 과실</p>
-            <span class="accent">{{ simpleFaultRatio.other ?? simpleFaultRatio.other_percent ?? simpleFaultRatio.opponent_fault ?? "확인 필요" }}</span>
+            <span class="accent">{{ percentText(simpleFaultRatio.other ?? simpleFaultRatio.other_percent ?? simpleFaultRatio.opponent_fault) }}</span>
           </div>
         </div>
         <p class="easy-summary">
@@ -55646,7 +55777,40 @@ const sourceLabel = computed(() =>
           </p>
           <p class="kv">{{ text(simpleKniaEvidence.source_notice || "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.") }}</p>
         </div>
-        <div v-else class="easy-summary">
+        <div v-if="userAdjustmentRows.length" class="user-adjustment-panel">
+          <div class="user-adjustment-head">
+            <div>
+              <p class="eyebrow">KNIA 가감기준</p>
+              <h3>해당되는 조건을 직접 조정해 보세요</h3>
+            </div>
+            <span class="chip selected">{{ selectedAdjustmentCount }}개 적용</span>
+          </div>
+          <div v-if="manualFaultText" class="user-adjustment-result">
+            <span>조정 후 참고 과실</span>
+            <strong>{{ manualFaultText }}</strong>
+          </div>
+          <label
+            v-for="item in userAdjustmentRows"
+            :key="item.key"
+            class="user-adjustment-row"
+            :class="{ 'is-selected': isAdjustmentSelected(item) }"
+          >
+            <input
+              type="checkbox"
+              :checked="isAdjustmentSelected(item)"
+              @change="toggleUserAdjustment(item)"
+            />
+            <span class="user-adjustment-main">
+              <strong>{{ text(item.label) }}</strong>
+              <small>{{ text(item.reason || item.source_label || "사용자 확인에 따라 적용 여부가 달라지는 KNIA 가감기준입니다.") }}</small>
+            </span>
+            <span v-if="adjustmentEffectText(item)" class="user-adjustment-effect">{{ adjustmentEffectText(item) }}</span>
+            <span class="selection-status" :class="{ 'is-on': isAdjustmentSelected(item) }">
+              {{ isAdjustmentSelected(item) ? "적용" : "미적용" }}
+            </span>
+          </label>
+        </div>
+        <div v-if="!simpleKniaEvidence" class="easy-summary">
           <p>현재 사고와 가까운 KNIA 기준을 확인하고 있습니다.</p>
           <p>입력 사실이 부족하면 사고유형, 충돌 위치, 정차 여부를 보완해 주세요.</p>
         </div>
@@ -55842,6 +56006,7 @@ import { formatKniaBody, removeTechnicalFields, sanitizeDisplayText } from "../.
 const props = defineProps<{ report: any; analysisMode?: string; followupSubmitting?: boolean; followupError?: string }>();
 const emit = defineEmits<{ submitFollowup: [answers: Record<string, string>] }>();
 const showAllBasis = ref(false);
+const userAdjustmentOverrides = ref<Record<string, boolean>>({});
 
 const safeReport = computed<any>(() => removeTechnicalFields(props.report || {}));
 const displayMode = computed(() => {
@@ -55911,6 +56076,14 @@ function textOrFallback(...values: any[]) {
   }
   return "";
 }
+const simpleSituationTitle = computed(() => textOrFallback(
+  safeReport.value?.simple_report?.situation_title,
+  safeReport.value?.situation_title,
+  safeReport.value?.accident_title,
+  extractSituationTitle(safeReport.value?.simple_report?.situation_summary),
+  extractSituationTitle(safeReport.value?.summary),
+  "입력한 사고 상황"
+));
 const simpleSituationSummary = computed(() => textOrFallback(
   safeReport.value?.simple_report?.situation_summary,
   safeReport.value?.current_situation_summary,
@@ -55919,6 +56092,12 @@ const simpleSituationSummary = computed(() => textOrFallback(
   safeReport.value?.summary,
   "입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다."
 ));
+const simpleSituationDetail = computed(() => {
+  const detail = sanitizeDisplayText(simpleSituationSummary.value);
+  const title = sanitizeDisplayText(simpleSituationTitle.value);
+  if (!detail || detail === title || detail === `${title} 상황입니다.`) return "";
+  return detail;
+});
 const simpleFaultRatio = computed<any>(() => {
   const simple = safeReport.value?.simple_report?.fault_ratio;
   if (simple && typeof simple === "object") return simple;
@@ -55940,6 +56119,46 @@ const simpleFaultRatio = computed<any>(() => {
     reference_only: source.reference_only === true,
   };
 });
+const userAdjustmentRows = computed(() => {
+  const card = safeReport.value?.knia_fault_adjustment_card || {};
+  const groups = [
+    ...(Array.isArray(card.applied_adjustments) ? card.applied_adjustments.map((item: any) => ({ ...item, initialSelected: true })) : []),
+    ...(Array.isArray(card.unknown_adjustments) ? card.unknown_adjustments.map((item: any) => ({ ...item, initialSelected: false })) : []),
+    ...(Array.isArray(safeReport.value?.knia_unknown_adjustment_card?.items) ? safeReport.value.knia_unknown_adjustment_card.items.map((item: any) => ({ ...item, initialSelected: false })) : []),
+    ...(Array.isArray(safeReport.value?.knia_not_applied_adjustment_card?.items) ? safeReport.value.knia_not_applied_adjustment_card.items.map((item: any) => ({ ...item, initialSelected: false })) : []),
+  ];
+  const seen = new Set<string>();
+  return groups
+    .map((item: any) => {
+      const label = sanitizeDisplayText(item.label || item.title || item.reason || "");
+      const key = sanitizeDisplayText(item.factor_id || item.id || label);
+      return { ...item, key, label, initialSelected: item.initialSelected === true };
+    })
+    .filter((item: any) => item.key && item.label && !isAmbiguousAdjustmentLabel(item.label))
+    .filter((item: any) => {
+      const normalized = item.key.toLowerCase();
+      if (seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    })
+    .slice(0, 8);
+});
+const selectedAdjustmentCount = computed(() => userAdjustmentRows.value.filter(isAdjustmentSelected).length);
+const manualFault = computed(() => {
+  const base = safeReport.value?.knia_fault_adjustment_card?.base_fault || simpleKniaEvidence.value?.base_fault;
+  const pair = normalizeFaultPair(base);
+  if (!pair) return null;
+  let a = pair.A;
+  let b = pair.B;
+  for (const item of userAdjustmentRows.value) {
+    if (!isAdjustmentSelected(item)) continue;
+    const effect = adjustmentEffect(item);
+    a += effect.A;
+    b += effect.B;
+  }
+  return { A: clampPercent(a), B: clampPercent(b) };
+});
+const manualFaultText = computed(() => manualFault.value ? `A ${manualFault.value.A}% / B ${manualFault.value.B}%` : "");
 const simpleKniaEvidence = computed<any>(() => {
   const candidates = [
     safeReport.value?.related_knia_video_card,
@@ -55971,6 +56190,75 @@ const simpleVideoSummary = computed(() => textOrFallback(
 function text(value: unknown) { return sanitizeDisplayText(value); }
 function kniaParagraphs(value: unknown) { return formatKniaBody(value); }
 
+function extractSituationTitle(value: unknown) {
+  let raw = sanitizeDisplayText(value);
+  if (!raw) return "";
+  raw = raw.replace(/^[\s,，.]+/, "").trim();
+  const mixed = raw.match(/^(.+?\s*사고)\s*상황은\s*[^,.。]*로 보이며(?:,|\s|$)/);
+  if (mixed?.[1]) return mixed[1].trim();
+  const sentence = raw.split(/[.!?。]\s*/)[0]?.trim() || raw;
+  const title = sentence.match(/^(.+?\s*사고)(?:\s|$)/);
+  return sanitizeDisplayText(title?.[1] || sentence);
+}
+
+function percentText(value: unknown) {
+  if (value === null || value === undefined || value === "") return "확인 필요";
+  const textValue = sanitizeDisplayText(value);
+  if (!textValue) return "확인 필요";
+  if (/%|확인|필요|~/.test(textValue)) return textValue;
+  const numeric = Number(textValue);
+  if (Number.isFinite(numeric)) return `${numeric}%`;
+  return textValue;
+}
+
+function isAmbiguousAdjustmentLabel(label: string) {
+  return /현저한 과실|중대한 과실|12대 중과실|형사 위험|중과실/.test(label);
+}
+
+function isAdjustmentSelected(item: any) {
+  if (!item?.key) return false;
+  const override = userAdjustmentOverrides.value[item.key];
+  return override === undefined ? item.initialSelected === true : override === true;
+}
+
+function toggleUserAdjustment(item: any) {
+  if (!item?.key) return;
+  userAdjustmentOverrides.value = {
+    ...userAdjustmentOverrides.value,
+    [item.key]: !isAdjustmentSelected(item),
+  };
+}
+
+function adjustmentEffect(item: any) {
+  const source = item?.applied_effect || item?.effect || item?.delta || {};
+  const a = source?.A ?? source?.a ?? source?.my ?? item?.delta_A ?? item?.delta_a ?? item?.delta_my ?? 0;
+  const b = source?.B ?? source?.b ?? source?.other ?? item?.delta_B ?? item?.delta_b ?? item?.delta_other ?? 0;
+  return { A: Number(a) || 0, B: Number(b) || 0 };
+}
+
+function adjustmentEffectText(item: any) {
+  const effect = adjustmentEffect(item);
+  const parts = [];
+  if (effect.A) parts.push(`A ${effect.A > 0 ? "+" : ""}${effect.A}%p`);
+  if (effect.B) parts.push(`B ${effect.B > 0 ? "+" : ""}${effect.B}%p`);
+  return parts.join(" / ");
+}
+
+function normalizeFaultPair(value: any): { A: number; B: number } | null {
+  if (!value) return null;
+  if (typeof value === "object") {
+    const a = value.A ?? value.a ?? value.my ?? value.user ?? value.driver;
+    const b = value.B ?? value.b ?? value.other ?? value.opponent ?? value.counterparty;
+    if (a !== undefined && b !== undefined) return { A: clampPercent(Number(a)), B: clampPercent(Number(b)) };
+  }
+  return null;
+}
+
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function safeKniaButtonUrl(card: any) {
   const raw = String(card?.button_url || card?.video_url || card?.source_url || card?.source_detail_url || card?.source_page_url || "").trim();
   if (!raw || /\s/.test(raw)) return "";
@@ -55984,14 +56272,14 @@ function safeKniaButtonUrl(card: any) {
 
 function faultText(value: any): string {
   if (!value) return "";
-  if (typeof value === "string" || typeof value === "number") return text(value);
+  if (typeof value === "string" || typeof value === "number") return percentText(value);
   if (typeof value !== "object") return "";
   const my = value.my ?? value.A ?? value.user ?? value.ego ?? value.driver;
   const other = value.other ?? value.B ?? value.opponent ?? value.counterparty;
-  if (my !== undefined && other !== undefined) return `${my}:${other}`;
+  if (my !== undefined && other !== undefined) return `A ${percentText(my)} / B ${percentText(other)}`;
   const min = value.min ?? value.minimum;
   const max = value.max ?? value.maximum;
-  if (min !== undefined && max !== undefined) return `${min}~${max}`;
+  if (min !== undefined && max !== undefined) return `${percentText(min)}~${percentText(max)}`;
   return text(value.label || value.summary || "");
 }
 
@@ -57124,7 +57412,7 @@ function text(value: unknown) {
 
 ### File: `apps/frontend/src/components/knia/KniaJsonSearchBox.vue`
 
-- size: `2,768` bytes
+- size: `2,806` bytes
 
 ```vue
 <script setup lang="ts">
@@ -57203,10 +57491,11 @@ const run = async () => {
   white-space: pre-line;
 }
 .empty-note {
-  color: #cbd5e1;
+  color: var(--text-sub);
   padding: 14px;
   border-radius: 14px;
-  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border: 1px dashed rgba(201, 169, 98, 0.28);
+  background: rgba(28, 23, 20, 0.34);
 }
 </style>
 
@@ -57466,7 +57755,7 @@ button[disabled] { opacity: 0.48; cursor: not-allowed; }
 
 ### File: `apps/frontend/src/components/knia/KniaVideoLinkCard.vue`
 
-- size: `5,157` bytes
+- size: `5,372` bytes
 
 ```vue
 <script setup lang="ts">
@@ -57530,11 +57819,17 @@ function faultText(value: any): string {
   if (typeof value !== "object") return "";
   const my = value.my ?? value.A ?? value.user ?? value.ego ?? value.driver;
   const other = value.other ?? value.B ?? value.opponent ?? value.counterparty;
-  if (my !== undefined && other !== undefined) return `${my}:${other}`;
+  if (my !== undefined && other !== undefined) return `A ${formatPercent(my)} / B ${formatPercent(other)}`;
   const min = value.min ?? value.minimum;
   const max = value.max ?? value.maximum;
-  if (min !== undefined && max !== undefined) return `${min}~${max}`;
+  if (min !== undefined && max !== undefined) return `${formatPercent(min)}~${formatPercent(max)}`;
   return String(value.label || value.summary || "");
+}
+
+function formatPercent(value: any): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  return `${Math.round(n)}%`;
 }
 </script>
 
@@ -61166,7 +61461,7 @@ export const useSessionStore = defineStore("session", {
 
 ### File: `apps/frontend/src/styles.css`
 
-- size: `54,371` bytes
+- size: `61,586` bytes
 
 ```css
 ﻿:root {
@@ -62463,6 +62758,126 @@ code {
     font-weight: 800;
 }
 
+.user-adjustment-panel {
+    display: grid;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(28, 23, 20, 0.36);
+    border: 1px solid rgba(201, 169, 98, 0.24);
+}
+
+.user-adjustment-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.user-adjustment-head h3 {
+    margin: 2px 0 0;
+    font-size: clamp(1rem, 2vw, 1.18rem);
+}
+
+.user-adjustment-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(201, 169, 98, 0.12);
+    border: 1px solid rgba(201, 169, 98, 0.28);
+    color: var(--text-sub);
+}
+
+.user-adjustment-result strong {
+    color: var(--accent-strong);
+    font-size: 1.05rem;
+}
+
+.user-adjustment-row {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 13px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(201, 169, 98, 0.20);
+    background: rgba(232, 223, 212, 0.06);
+    cursor: pointer;
+}
+
+.user-adjustment-row.is-selected {
+    border-color: rgba(201, 169, 98, 0.58);
+    background: linear-gradient(145deg, rgba(201, 169, 98, 0.16), rgba(61, 51, 43, 0.74));
+}
+
+.user-adjustment-row input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+}
+
+.user-adjustment-main {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.user-adjustment-main strong {
+    color: var(--text-main);
+    font-weight: 900;
+    line-height: 1.35;
+    word-break: keep-all;
+}
+
+.user-adjustment-main small {
+    color: var(--text-sub);
+    line-height: 1.45;
+    word-break: keep-all;
+}
+
+.user-adjustment-effect,
+.selection-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(201, 169, 98, 0.26);
+    background: rgba(28, 23, 20, 0.42);
+    color: var(--text-sub);
+    font-size: 0.84rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.selection-status.is-on {
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    border-color: rgba(201, 169, 98, 0.74);
+    color: var(--accent-foreground);
+}
+
+@media (max-width: 640px) {
+    .user-adjustment-head,
+    .user-adjustment-result {
+        display: grid;
+    }
+
+    .user-adjustment-row {
+        grid-template-columns: 24px minmax(0, 1fr);
+    }
+
+    .user-adjustment-effect,
+    .selection-status {
+        grid-column: 2;
+        width: fit-content;
+    }
+}
+
 .mobile-demo-two-col {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -63289,6 +63704,231 @@ select:focus {
     .result-page .comparison-row,
     .easy-report.expert .comparison-row {
         grid-template-columns: 1fr;
+    }
+}
+
+/* KNIA and fault-ratio UI stability */
+.knia-card,
+.knia-link-card,
+.knia-page-card,
+.knia-json-evidence-card,
+.knia-media-card,
+.knia-chart-card,
+.knia-adjustment-card,
+.related-knia-standard-card,
+.fault-ratio-card,
+.easy-ratio-row > div,
+.user-adjustment-panel,
+.user-adjustment-row {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.knia-card *,
+.knia-link-card *,
+.knia-page-card *,
+.knia-json-evidence-card *,
+.knia-media-card *,
+.knia-chart-card *,
+.knia-adjustment-card *,
+.fault-ratio-card *,
+.easy-ratio-row *,
+.user-adjustment-panel * {
+    box-sizing: border-box;
+}
+
+.knia-card,
+.knia-link-card,
+.knia-page-card,
+.knia-json-evidence-card,
+.knia-media-card,
+.knia-chart-card,
+.knia-adjustment-card {
+    border-radius: var(--panel-radius);
+    border-color: rgba(201, 169, 98, 0.32);
+    background:
+            linear-gradient(145deg, rgba(61, 51, 43, 0.88), rgba(37, 30, 25, 0.94));
+}
+
+.knia-card h2,
+.knia-card h3,
+.knia-card h4,
+.knia-link-card h2,
+.knia-json-evidence-card h3,
+.knia-media-card h3,
+.knia-chart-card h3 {
+    min-width: 0;
+    color: var(--text-main);
+    line-height: 1.35;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.knia-description,
+.knia-law-text,
+.knia-standard-body,
+.knia-paragraphs,
+.knia-paragraphs p,
+.knia-card p,
+.knia-link-card p,
+.knia-json-evidence-card p,
+.knia-media-card p,
+.knia-chart-card p,
+.source-label {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    line-height: 1.58;
+}
+
+.knia-card .chips,
+.knia-link-card .chips,
+.knia-adjustment-card .chips {
+    min-width: 0;
+    align-items: center;
+}
+
+.knia-card .chip,
+.knia-link-card .chip,
+.knia-adjustment-card .chip {
+    max-width: 100%;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.easy-ratio-row > div {
+    display: grid;
+    gap: 8px;
+    align-content: center;
+    min-height: 148px;
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(61, 51, 43, 0.76), rgba(37, 30, 25, 0.90));
+    border: 1px solid rgba(201, 169, 98, 0.28);
+}
+
+.fault-ratio-value,
+.ratio-percent,
+.knia-percent,
+.easy-ratio-row span,
+.fault-bar span,
+.fault-segment span,
+.fault-a span,
+.fault-b span,
+.fault-ratio-readout span,
+.user-adjustment-result strong,
+.user-adjustment-effect,
+.count-col strong,
+.percent-col strong {
+    min-width: 4.5ch;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    line-height: 1;
+}
+
+.easy-ratio-row span {
+    justify-self: center;
+    color: var(--paper);
+}
+
+.easy-ratio-row .accent {
+    color: var(--accent-strong);
+}
+
+.fault-ratio-option,
+.ratio-choice-button,
+.user-adjustment-row,
+.factor-row,
+.factor-toggle,
+.knia-tabs button,
+.tab-button {
+    box-sizing: border-box;
+    border-width: 1px;
+    transition:
+            background-color 0.18s ease,
+            border-color 0.18s ease,
+            color 0.18s ease,
+            box-shadow 0.18s ease,
+            transform 0.18s ease;
+}
+
+.fault-ratio-option.is-selected,
+.ratio-choice-button.is-selected,
+.user-adjustment-row.is-selected,
+.factor-row.selected,
+.factor-row.is-selected,
+.factor-toggle.is-selected,
+.tab-button.active {
+    border-width: 1px;
+}
+
+.knia-chart-page .fault-bar {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.knia-chart-page .fault-segment,
+.knia-chart-page .fault-a,
+.knia-chart-page .fault-b {
+    min-width: 0;
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
+.knia-chart-page .fault-segment.is-zero,
+.knia-chart-page .fault-a.is-zero,
+.knia-chart-page .fault-b.is-zero {
+    flex-basis: 0% !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.knia-chart-page .factor-table,
+.knia-chart-page .factor-row,
+.knia-chart-page .glass-box,
+.knia-chart-page .reference-card {
+    min-width: 0;
+}
+
+.knia-chart-page .factor-label,
+.knia-chart-page .factor-description,
+.knia-chart-page .reference-card p,
+.knia-ranking-row .ranking-title,
+.knia-ranking-row .source-category {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+    .easy-ratio-row {
+        grid-template-columns: 1fr;
+    }
+
+    .easy-ratio-row > div {
+        min-height: 118px;
+        padding: 18px;
+    }
+
+    .knia-link-card .btn-row,
+    .knia-card .btn-row,
+    .knia-media-card a,
+    .knia-json-evidence-card a {
+        width: 100%;
+    }
+
+    .knia-link-card .btn,
+    .knia-card .btn,
+    .knia-media-card a,
+    .knia-json-evidence-card a {
+        justify-content: center;
+        min-height: 44px;
+        text-align: center;
     }
 }
 
@@ -65196,7 +65836,7 @@ onMounted(load);
 
 ### File: `apps/frontend/src/views/KniaChartView.vue`
 
-- size: `26,205` bytes
+- size: `27,236` bytes
 
 ```vue
 ﻿<template>
@@ -65536,32 +66176,39 @@ const FaultBar = defineComponent({
 
     return () => {
       const normalized = normalizeFaultPair(props.a, props.b);
-      return h(
-        "div",
-        {
-          class: ["fault-bar", { "is-unknown": normalized.isUnknown }],
-          role: "img",
-          "aria-label": normalized.isUnknown ? "기준 과실 수집 필요" : `A ${normalized.a}%, B ${normalized.b}%`,
-        },
-        [
-          h(
-            "div",
-            {
-              class: ["fault-segment", "fault-a", { "is-zero": normalized.a <= 0, "is-full": normalized.a >= 100 }],
-              style: { width: `${normalized.a}%` },
-            },
-            [h("span", {}, `A ${normalized.a}%`)]
-          ),
-          h(
-            "div",
-            {
-              class: ["fault-segment", "fault-b", { "is-zero": normalized.b <= 0, "is-full": normalized.b >= 100 }],
-              style: { width: `${normalized.b}%` },
-            },
-            [h("span", {}, `B ${normalized.b}%`)]
-          ),
-        ]
-      );
+      return h("div", { class: "fault-bar-wrap" }, [
+        h(
+          "div",
+          {
+            class: ["fault-bar", { "is-unknown": normalized.isUnknown }],
+            role: "img",
+            "aria-label": normalized.isUnknown ? "기준 과실 수집 필요" : `A ${normalized.a}%, B ${normalized.b}%`,
+          },
+          [
+            h(
+              "div",
+              {
+                class: ["fault-segment", "fault-a", { "is-zero": normalized.a <= 0, "is-full": normalized.a >= 100 }],
+                style: { flexBasis: `${normalized.a}%` },
+              },
+              normalized.a > 0 ? [h("span", {}, `A ${normalized.a}%`)] : []
+            ),
+            h(
+              "div",
+              {
+                class: ["fault-segment", "fault-b", { "is-zero": normalized.b <= 0, "is-full": normalized.b >= 100 }],
+                style: { flexBasis: `${normalized.b}%` },
+              },
+              normalized.b > 0 ? [h("span", {}, `B ${normalized.b}%`)] : []
+            ),
+          ]
+        ),
+        h(
+          "div",
+          { class: "fault-ratio-readout", "aria-hidden": "true" },
+          [h("span", {}, `A ${normalized.a}%`), h("span", {}, `B ${normalized.b}%`)]
+        ),
+      ]);
     };
   }
 });
@@ -65584,7 +66231,7 @@ onMounted(load);
 .detail-needed { background: rgba(251, 191, 36, 0.13); color: #fde68a; }
 .tab-card { display: grid; gap: 18px; overflow: hidden; }
 .knia-tabs { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px; border-radius: 18px; background: rgba(28, 23, 20, 0.58); border: 1px solid rgba(201, 169, 98, 0.28); box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.06); }
-.tab-button { min-height: 44px; border: 1px solid rgba(201, 169, 98, 0.28); background: rgba(232, 223, 212, 0.08); color: var(--text-sub); border-radius: 999px; padding: 11px 16px; font-weight: 900; font-size: 0.96rem; cursor: pointer; transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease; }
+.tab-button { box-sizing: border-box; min-height: 44px; border: 1px solid rgba(201, 169, 98, 0.28); background: rgba(232, 223, 212, 0.08); color: var(--text-sub); border-radius: 999px; padding: 11px 16px; font-weight: 900; font-size: 0.96rem; cursor: pointer; transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease; }
 .tab-button:hover { transform: translateY(-1px); border-color: rgba(201, 169, 98, 0.48); color: var(--text-main); }
 .tab-button.active { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); border-color: rgba(201, 169, 98, 0.78); color: var(--accent-foreground); box-shadow: 0 10px 24px rgba(201, 169, 98, 0.20); }
 .tab-panel { display: grid; gap: 16px; }
@@ -65592,20 +66239,23 @@ onMounted(load);
 .glass-box, .reference-card { border: 1px solid rgba(201, 169, 98, 0.28); background: linear-gradient(145deg, rgba(61, 51, 43, 0.84), rgba(37, 30, 25, 0.92)); border-radius: 18px; padding: 18px; box-shadow: 0 18px 42px rgba(0,0,0,0.22); }
 .glass-box.emphasis { border-color: rgba(201, 169, 98, 0.48); background: linear-gradient(145deg, rgba(201, 169, 98, 0.15), rgba(37, 30, 25, 0.92)); }
 .plain-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+.fault-bar-wrap { display: grid; gap: 10px; min-width: 0; }
 .fault-bar { display: flex; width: 100%; height: 48px; overflow: hidden; border-radius: 999px; border: 1px solid rgba(201, 169, 98, 0.34); background: rgba(28, 23, 20, 0.56); box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.08); }
-.fault-segment { display: grid; place-items: center; min-width: 42px; height: 100%; font-weight: 950; font-size: 0.95rem; line-height: 1; white-space: nowrap; transition: width 0.22s ease, opacity 0.18s ease; }
-.fault-segment span { display: inline-flex; align-items: center; min-width: 0; padding: 0 8px; }
+.fault-segment { display: grid; place-items: center; min-width: 0; flex-grow: 0; flex-shrink: 0; height: 100%; overflow: hidden; font-weight: 950; font-size: 0.95rem; line-height: 1; white-space: nowrap; transition: flex-basis 0.2s ease, opacity 0.18s ease; }
+.fault-segment span { display: inline-flex; align-items: center; justify-content: center; min-width: 5ch; padding: 0 8px; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 .fault-a { background: linear-gradient(135deg, #8B2635, #B84B55); color: #FFF2F2; }
 .fault-b { background: linear-gradient(135deg, var(--accent-dark), var(--accent-strong)); color: var(--accent-foreground); }
-.fault-segment.is-zero { min-width: 0; width: 0 !important; padding: 0; opacity: 0; overflow: hidden; }
+.fault-segment.is-zero { min-width: 0; flex-basis: 0% !important; width: 0 !important; padding: 0; opacity: 0; overflow: hidden; }
 .fault-segment.is-zero span { display: none; }
-.fault-segment.is-full { min-width: 100%; }
+.fault-segment.is-full { flex-basis: 100% !important; }
+.fault-ratio-readout { display: flex; justify-content: space-between; gap: 10px; color: var(--text-sub); font-weight: 850; }
+.fault-ratio-readout span { min-width: 5ch; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 .fault-caption { margin: 10px 0 0; color: var(--text-sub); font-weight: 800; line-height: 1.5; }
 .factor-box { display: grid; gap: 14px; }
 .factor-table { display: grid; gap: 10px; width: 100%; overflow: hidden; }
 .factor-head, .factor-row { display: grid; grid-template-columns: 56px minmax(220px, 1fr) 74px 74px 112px; gap: 10px; align-items: center; }
 .factor-head { color: var(--text-faint); font-size: 0.84rem; font-weight: 950; padding: 0 12px; }
-.factor-row { padding: 14px 12px; border-radius: 16px; background: rgba(37, 30, 25, 0.72); border: 1px solid rgba(201, 169, 98, 0.20); cursor: pointer; transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease; }
+.factor-row { box-sizing: border-box; min-width: 0; padding: 14px 12px; border-radius: 16px; background: rgba(37, 30, 25, 0.72); border: 1px solid rgba(201, 169, 98, 0.20); cursor: pointer; transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease; }
 .factor-row:hover { transform: translateY(-1px); border-color: rgba(201, 169, 98, 0.42); background: rgba(61, 51, 43, 0.86); }
 .factor-row.selected { border-color: rgba(201, 169, 98, 0.64); background: linear-gradient(145deg, rgba(201, 169, 98, 0.18), rgba(61, 51, 43, 0.90)); box-shadow: 0 12px 28px rgba(201, 169, 98, 0.12); }
 .factor-check { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
@@ -65614,7 +66264,7 @@ onMounted(load);
 .factor-label { color: var(--text-main); font-size: 0.98rem; font-weight: 900; line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; }
 .factor-description { color: var(--text-sub); font-size: 0.9rem; line-height: 1.45; }
 .factor-mobile-meta { display: none; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
-.delta { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; width: fit-content; min-width: 48px; padding: 5px 10px; border-radius: 999px; font-weight: 950; font-size: 0.92rem; border: 1px solid rgba(232, 223, 212, 0.12); }
+.delta { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; width: fit-content; min-width: 5ch; padding: 5px 10px; border-radius: 999px; font-weight: 950; font-size: 0.92rem; border: 1px solid rgba(232, 223, 212, 0.12); font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 .delta.plus { color: #FFD3C9; background: rgba(139, 38, 53, 0.28); border-color: rgba(213, 137, 137, 0.32); }
 .delta.minus { color: #BDEEDB; background: rgba(127, 231, 200, 0.12); border-color: rgba(127, 231, 200, 0.28); }
 .factor-source, .mini-badge, .factor-state { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 30px; padding: 5px 10px; border-radius: 999px; background: rgba(232, 223, 212, 0.08); border: 1px solid rgba(201, 169, 98, 0.24); color: var(--text-sub); font-size: 0.84rem; font-weight: 900; }
@@ -65625,7 +66275,7 @@ onMounted(load);
 .law-card { border-color: rgba(96, 165, 250, 0.24); }
 .case-card { border-color: rgba(251, 191, 36, 0.24); }
 .decision { color: #fde68a; }
-.empty-note { color: #cbd5e1; padding: 16px; border-radius: 16px; border: 1px dashed rgba(255,255,255,0.16); }
+.empty-note { color: var(--text-sub); padding: 16px; border-radius: 16px; border: 1px dashed rgba(201, 169, 98, 0.28); background: rgba(28, 23, 20, 0.34); }
 .compact-note { margin: 0; padding: 12px; }
 .spacer { margin-top: 16px; }
 .source-card { display: grid; gap: 12px; }
@@ -75415,262 +76065,9 @@ if __name__ == "__main__":
           {
             "text": "차61-2 이륜차 보도(인도) 주행 대 자동차의 도로가 아닌 장소로 우회전",
             "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차61-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차61-3 후행이륜차 우측직진 대 선행정차 우측 문열림 사고",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차61-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "",
-            "href": "https://www.knia.or.kr/file-manager/105815",
-            "is_same_site": false,
-            "is_asset": false
-          }
-        ],
-        "images": [
-          {
-            "alt": "과실비율 분쟁해결 과실비율 정보포털",
-            "src": "https://accident.knia.or.kr/images/common/logo_test.jpg"
-          },
-          {
-            "alt": "카카오톡",
-            "src": "https://accident.knia.or.kr/images/common/kakao-chatbot-113x113.png"
-          },
-          {
-            "alt": "홈으로",
-            "src": "https://accident.knia.or.kr/images/common/home.jpg"
-          },
-          {
-            "alt": "메뉴열기",
-            "src": "https://accident.knia.or.kr/images/common/menu.jpg"
-          },
-          {
-            "alt": "홈으로",
-            "src": "https://accident.knia.or.kr/images/common/sub_home.png"
-          },
-          {
-            "alt": "차대차",
-            "src": "https://accident.knia.or.kr/images/main/banner_carvscar.png"
-          },
-          {
-            "alt": "차대사람",
-            "src": "https://accident.knia.or.kr/images/main/banner_carvsman_off.png"
-          },
-          {
-            "alt": "차대자전거",
-            "src": "https://accident.knia.or.kr/images/main/banner_carvsbicycle_off.png"
-          },
-          {
-            "alt": "차대차",
-            "src": "https://accident.knia.or.kr/images/main/banner_carvscar_m.png"
-          },
-          {
-            "alt": "차대사람",
-            "src": "https://accident.knia.or.kr/images/main/banner_carvsman_m_off.png"
-          },
-          {
-            "alt": "차대자전거",
-            "src": "https://accident.knia.or.kr/images/main/banner_carvsbicyble_m_off.png"
-          },
-          {
-            "alt": "과실비율 인정기준 PDF 다운로드(개인 참고용 활용(책자 발간 및 배포용으로 이용 불가))",
-            "src": "https://accident.knia.or.kr/images/common/pdf_download.jpg"
-          }
-        ]
-      },
-      "snapshots": [
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "",
-            "href": null,
-            "selector": "html:nth-of-type(1) > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input.screen:nth-of-type(1)"
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "",
-            "href": null,
-            "selector": "html:nth-of-type(1) > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input.screen:nth-of-type(2)"
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "",
-            "href": null,
-            "selector": "html:nth-of-type(1) > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input.screen:nth-of-type(3)"
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "",
-            "href": "https://accident.knia.or.kr/myaccident3",
-            "selector": "html:nth-of-type(1) > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > ul:nth-of-type(2) > li:nth-of-type(2) > a:nth-of-type(1)"
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "",
-            "href": "https://accident.knia.or.kr/myaccident5",
-            "selector": "html:nth-of-type(1) > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > ul:nth-of-type(2) > li:nth-of-type(3) > a:nth-of-type(1)"
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "검 색",
-            "href": null,
-            "selector": "html:nth-of-type(1) > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > button.search_myaccident:nth-of-type(1)"
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "교차로(+자로, T자로 등) 사고",
-            "href": null,
-            "selector": "#\\32 "
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "교차로(+자로, T자로 등) 사고",
-            "href": null,
-            "selector": "div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div.sub_contents.tab_01:nth-of-type(3) > div.category_list:nth-of-type(1) > ul.depth:nth-of-type(1) > li:nth-of-type(1) > a:nth-of-type(1)"
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "마주보는 방향 진행차량 상호 간의 사고",
-            "href": null,
-            "selector": "#\\32 "
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "마주보는 방향 진행차량 상호 간의 사고",
-            "href": null,
-            "selector": "div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div.sub_contents.tab_01:nth-of-type(3) > div.category_list:nth-of-type(1) > ul.depth:nth-of-type(1) > li:nth-of-type(2) > a:nth-of-type(1)"
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "같은 방향 진행차량 상호 간의 사고",
-            "href": null,
-            "selector": "#\\32 "
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "같은 방향 진행차량 상호 간의 사고",
-            "href": null,
-            "selector": "div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div.sub_contents.tab_01:nth-of-type(3) > div.category_list:nth-of-type(1) > ul.depth:nth-of-type(1) > li:nth-of-type(3) > a:nth-of-type(1)"
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "기타 유형의 사고(주차장,회전교차로 등)",
-            "href": null,
-            "selector": "#\\32 "
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "기타 유형의 사고(주차장,회전교차로 등)",
-            "href": null,
-            "selector": "div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div.sub_contents.tab_01:nth-of-type(3) > div.category_list:nth-of-type(1) > ul.depth:nth-of-type(1) > li:nth-of-type(4) > a:nth-of-type(1)"
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "자동차 대 이륜차 특수유형",
-            "href": null,
-            "selector": "#\\32 "
-          },
-          "error": "'Locator' object is not callable"
-        },
-        {
-          "label": "click_error",
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "captured_at": "2026-05-13T20:49:07",
-          "trigger": {
-            "text": "자동차 대 이륜차 특수유형",
-            "href": null,
-            "selector": "div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(2) > div.sub_contents.tab_01:nth-of-type(3) > div.category_list:nth-of-type(1) > ul.depth:nth-of-type(1) > li:nth-of-type(5) > a:nth-of-type(1)"
-          },
-          "error": "'Locator' object is not callable"
-        }
-      ],
-      "clicked_pages": [],
-      "network_payloads": [
-        {
-          "url": "https://accident.knia.or.kr/myaccident1",
-          "status": 200,
-          "resource_type": "document",
-          "content_type": "text/html; charset=UTF-8",
-          "captured_at": "2026-05-13T20:49:01",
-          "text": "\r\n\r\n\r\n\r\n\r\n<title>자동차사고 과실비율 분쟁심의위원회</title> \r\n<meta name=\"description\" content=\"자동차사고 과실비율 이해도 제고 및 원활한 분쟁 해소를 위해 국내 유일의 자동차사고 과실비율 적용기준과 분쟁해결 방법에 대한 올바른 정보 제공\">\r\n<meta name=\"keywords\" content=\"자동차사고 과실비율 검색, 과실비율 인정기준, FAQ 정보제공, 분쟁해결 절차 및 기구 안내, 심의진행 조회, 자료실\">\r\n<meta name=\"viewport\" content=\"user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, width=device-width\">\r\n<link rel=\"shortcut icon\" href=\"/images/ico/icon_favicon.png\">\r\n<link rel=\"icon\" type=\"image/png\" sizes=\"180x180\" href=\"/images/ico/icon.png\">\r\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/images/ico/icon.png\">\r\n\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/common.css\" />\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/common_m.css\" />\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/main.css\" />\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/main_m.css\" />\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/sub.css\" />\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/sub_m.css\" />\r\n<!-- <script src=\"/js/jquery-1.12.4.js\"></script>\r\n<script src=\"/js/jquery-1.12.4.min.js\"></script> -->\r\n<script src=\"/js/jquery-3.2.1.js\"></script>\r\n<script src=\"/js/jquery-3.2.1.min.js\"></script>\r\n<script src=\"/js/script.js\"></script>\r\n<script src=\"/js/jquery-latest.js\"></script>\r\n<script src=\"/js/jquery.ulslide.js\"></script>\r\n<script src=\"/js/jquery.simplemodal-1.4.4.js\"></script>\r\n<script src=\"/js/jquery.bpopup.min.js\"></script>\r\n<script async src=\"https://www.googletagmanager.com/gtag/js?id=UA-140737707-9\"></script>\r\n<script>\r\n  window.dataLayer = window.dataLayer || [];\r\n  function gtag(){dataLayer.push(arguments);}\r\n  gtag('js', new Date());\r\n  gtag('config', 'UA-140737707-9');\r\n\r\n\t$(function() {\r\n// \t\t$('#main_bn').ulslide({\r\n// \t\t\tstatusbar : true,\r\n// \t\t\twidth : 325,\r\n// \t\t\theight : 170,\r\n// \t\t\taffect : 'slide',\r\n// \t\t\taxis : 'x',\r\n// \t\t\tnavigator : '#main_bn_bt a',\r\n// \t\t\tduration : 400,\r\n// \t\t\tautoslide : 3000\r\n// \t\t});\r\n\t});\r\n</script>\r\n<!--[if lt IE 9]>\r\n  <script src=\"http://html5shiv.googlecode.com/svn/trunk/html5.js\"></script>\r\n<![endif]-->\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/common.css\" />\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/common_m.css\" />\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/main.css\" />\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/main_m.css\" />\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/sub.css\" />\r\n<link rel=\"stylesheet\" type=\"text/css\" href=\"/css/sub_m.css\" />\r\n<!-- <script src=\"/js/jquery-1.12.4.js\"></script>\r\n<script src=\"/js/jquery-1.12.4.min.js\"></script> -->\r\n<script src=\"/js/jquery-3.2.1.js\"></script>\r\n<script src=\"/js/jquery-3.2.1.min.js\"></script>\r\n<script src=\"/js/script.js\"></script>\r\n<script src=\"/js/jquery-latest.js\"></script>\r\n<script src=\"/js/jquery.ulslide.js\"></script>\r\n<script src=\"/js/jquery.simplemodal-1.4.4.js\"></script>\r\n<script src=\"/js/jquery.bpopup.min.js\"></script>\r\n<script>\r\n\t$(function() {\r\n\t\t$('#main_bn').ulslide({\r\n\t\t\tstatusbar : true,\r\n\t\t\twidth : 325,\r\n\t\t\theight : 170,\r\n\t\t\taffect : 'slide',\r\n\t\t\taxis : 'x',\r\n\t\t\tnavigator : '#main_bn_bt a',\r\n\t\t\tduration : 400,\r\n\t\t\tautoslide : 3000\r\n\t\t});\r\n\t});\r\n</script>\r\n<!--[if lt IE 9]>\r\n  <script src=\"http://html5shiv.googlecode.com/svn/trunk/html5.js\"></script>\r\n<![endif]-->\r\n<script src=\"../js/vmenuModule.js\"></script>\r\n\r\n\r\n<body>\r\n<!-- 전체 -->\r\n<div id=\"all\">\r\n\r\n\t\r\n<!-- <div style=\"width:100%; height:60px; color: #FFF; background: #287df3; text-align:center; font-size: 3em; line-height: 60px;\">SoftManager 형상관리 반영 테스트입니다.</div> -->\r\n\r\n<!-- 상단탑 전체 --> \r\n\t<div id=\"head\">\r\n\t\t\r\n\t\t<!-- 화면확대 및 축소버튼 --> \r\n \t\t<input type=\"button\" class=\"screen\" onclick=\"zoomIn();\" value=\"확대보기 +\"/>\r\n\t\t<input type=\"button\" class=\"screen\" onclick=\"zoomOut();\" value=\"축소보기 -\"/>\r\n \t\t<input type=\"button\" class=\"screen\" onclick=\"tmap();\" value=\"사고대응\"/>\r\n\t\t<!-- 화면확대 및 축소버튼 -->\r\n\t\t\r\n\t\t<!-- 방문자 카운터 -->\r\n\t\t<div id=\"counter\"></div>\r\n\t\t<!-- 방문자 카운터 -->\r\n\t\r\n\t</div>\r\n\t<!-- 상단탑 전체 -->\r\n\t\r\n\t<!-- 로고 및 메뉴 -->\r\n\t<div id=\"topmenu\">\r\n\t\t\r\n\t\t<!-- 로고 -->\r\n\t\t<div id=\"logo\"><a href=\"/\"><img src=\"/images/common/logo_test.jpg\" alt=\"과실비율 분쟁해결 과실비율 정보포털\" id=\"logoimg\" /></a></div>\r\n\t\t<!-- 로고 -->\r\n\t\t\r\n\t\t<!-- 상단 내비게이션 -->\r\n\t\t<ul>\r\n\t\t\t<li><a href=\"/about\" id=\"main01\">과실비율의 이해</a></li>\r\n\t\t\t<li><a href=\"/index\" id=\"main02\">과실비율 인정기준</a></li>\r\n\t\t\t<li><a href=\"/greeting\" id=\"main03\">과실비율 분쟁심의위원회</a></li>\r\n\t\t\t<li><a href=\"/pr\" id=\"main04\">자료실</a></li>\r\n\t\t\t<li><a href=\"/qna\" id=\"main05\">과실비율 법률상담</a></li>\r\n\t\t</ul>\r\n\t\t<!-- 상단 내비게이션 -->\r\n\t\t\r\n\t\t<!-- 홈버튼 & 메뉴 펼쳐보기 버튼 -->\r\n        \r\n\t\t<div id=\"topbutton\" style=\"max-width:152px;\">\r\n            <a href=\"http://pf.kakao.com/_euLTs\" target=\"_self\"><img src=\"/images/common/kakao-chatbot-113x113.png\" alt=\"카카오톡\" style=\"max-width:46px;\"/></a>\r\n\t\t\t<a href=\"/\" target=\"_self\"><img src=\"/images/common/home.jpg\" alt=\"홈으로\" /></a>\r\n\t\t\t<img src=\"/images/common/menu.jpg\" style=\"cursor:pointer;\" alt=\"메뉴열기\" id=\"closemenu\" />\r\n\t\t</div>\r\n\t\t<!-- 홈버튼 & 메뉴 펼쳐보기 버튼 -->\r\n\t\r\n\t</div>\r\n\t<!-- 로고 및 메뉴 -->\r\n\t\r\n\t<!-- 펼쳐지는 서브메뉴 -->\r\n\t<div id=\"submenu\" style=\"display:none;\">\r\n\t\r\n\t\t<div id=\"submenu_frm\">\r\n\t\t\r\n\t\t\t<!-- 상단 내비게이션 -->\r\n\t\t\t<ul>\r\n\t\t\t\t<li id=\"sub01\">\r\n\t\t\t\t\t<p>과실비율의 이해</p>\r\n\t\t\t\t\t<a href=\"/about\" class=\"subtxt01\">과실비율이란?</a><br>\r\n\t\t\t\t\t<a href=\"/process\" class=\"subtxt01\">과실상계 절차와 근거</a><br>\r\n\t\t\t\t\t<a href=\"/story\" class=\"subtxt01\">과실분쟁해결 이야기</a><br>\r\n\t\t\t\t\t<a href=\"/faq\" class=\"subtxt01\">과실비율 FAQ</a><br>\r\n\t\t\t\t\t<a href=\"/define\" class=\"subtxt01\">과실비율 용어해설</a><br>\r\n\t\t\t\t</li>\r\n\t\t\t\t<li id=\"sub02\">\r\n\t\t\t\t\t<p>과실비율 인정기준</p>\r\n\t\t\t\t\t<a href=\"/index\" class=\"subtxt02\">과실비율 인정기준이란?</a><br>\r\n\t\t\t\t\t<a href=\"/myaccident1\" class=\"subtxt02\">나의 과실비율 알아보기</a><br>\r\n\t\t\t\t\t<a href=\"/ranking\" class=\"subtxt02\">과실비율 검색순위</a><br>\r\n\t\t\t\t\t<a href=\"/special\" class=\"subtxt02\">비정형 과실비율</a><br>\r\n\t\t\t\t\t<a href=\"/proposal\" class=\"subtxt02\">기준 개정 건의함</a><br>\r\n\t\t\t\t</li>\r\n\t\t\t\t<li id=\"sub03\">\r\n\t\t\t\t\t<p>과실비율 분쟁심의위원회</p>\r\n\t\t\t\t\t<a href=\"/greeting\" class=\"subtxt03\">심의위원장 인사말</a><br>\r\n\t\t\t\t\t<a href=\"/introduction\" class=\"subtxt03\">심의위원회 소개</a><br>\r\n\t\t\t\t\t<a href=\"/system\" class=\"subtxt03\">심의제도 소개</a><br>\r\n\t\t\t\t\t<a href=\"/executive\" class=\"subtxt03\">심의위원 및 심의사례</a><br>\r\n\t\t\t\t</li>\r\n\t\t\t\t<li id=\"sub04\">\r\n\t\t\t\t\t<p>자료실</p>\r\n\t\t\t\t\t<a href=\"/pr\" class=\"subtxt04\">홍보자료</a><br>\r\n\t\t\t\t\t<a href=\"/standard\" class=\"subtxt04\">기준정보</a><br>\r\n\t\t\t\t\t<a href=\"/research\" class=\"subtxt04\">연구자료</a><br>\r\n\t\t\t\t\t<a href=\"/press\" class=\"subtxt04\">설명자료</a><br>\r\n\t\t\t\t</li>\r\n\t\t\t\t<li id=\"sub05\">\r\n\t\t\t\t\t<p>과실비율상담</p>\r\n\t\t\t\t\t<a href=\"/qna\" class=\"subtxt05\">인터넷 상담</a><br>\r\n\t\t\t\t\t<a href=\"/qnaCase\" class=\"subtxt05\">과실분쟁 상담사례</a><br>\r\n\t\t\t\t</li>\r\n\t\t\t</ul>\r\n\t\t\t<!-- 상단 내비게이션 -->\r\n\t\t\r\n\t\t</div>\r\n\t\r\n\t</div>\r\n<style>\r\n\r\n</style>\r\n<script type=\"text/javascript\">\r\n$(document).ready(function() {\r\n \t$.ajax({\r\n\t\ttype : 'POST',\r\n\t\turl : '/selectVisitorCount',\r\n\t\tdata : {\r\n\t\t},\r\n\t\tsuccess : function(result) {\r\n\t\t\t$(\"#counter\").append(\"홈페이지에 <strong>\"+result.visitorCount+\"번째로</strong> 방문하셨습니다.\");\r\n\t\t}\r\n\t})\r\n});\r\n\r\nfunction tmap(){\r\n\twindow.open(\"/tmap\",\"\",\"width=500px,height=780px, toolbars=no\");\r\n}\r\n</script>\r\n\r\n\t<!-- 서브컨텐츠 전체 -->\r\n\t<div id=\"sub\">\r\n\t\r\n\t\t<!-- 히스토리 / 경로 전체틀 -->\r\n\t\t<div id=\"history_frm\">\r\n\t\t\r\n\t\t\t<!-- 히스토리 / 경로 -->\r\n\t\t\t<div id=\"history\">\r\n\t\t\t\r\n\t\t\t\t<div id=\"history_hm\"><a href=\"/\" target=\"_self\"><img src=\"../images/common/sub_home.png\" style=\"width:23%; margin:18px 0 0 0;\" alt=\"홈으로\" /></a></div>\r\n\t\t\t\t<div class=\"history_txt\"><strong>과실비율 인정기준</strong></div>\r\n\t\t\t\t<div id=\"hist
+        
 
-... [TRUNCATED: 761,494 chars omitted] ...
+... [TRUNCATED: 780,052 chars omitted] ...
 
 ```
 

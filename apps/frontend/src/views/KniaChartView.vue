@@ -335,30 +335,77 @@ const FaultBar = defineComponent({
 
     return () => {
       const normalized = normalizeFaultPair(props.a, props.b);
-      return h("div", { class: "fault-bar-wrap" }, [
+      const aTiny = normalized.a > 0 && normalized.a < 14;
+      const bTiny = normalized.b > 0 && normalized.b < 14;
+      const splitLeft = normalized.a <= 0
+        ? "38px"
+        : normalized.a >= 100
+          ? "calc(100% - 38px)"
+          : `clamp(38px, ${normalized.a}%, calc(100% - 38px))`;
+
+      return h("div", { class: "fault-bar-wrap fault-ratio-visual" }, [
         h(
           "div",
-          {
-            class: ["fault-bar", { "is-unknown": normalized.isUnknown }],
-            role: "img",
-            "aria-label": normalized.isUnknown ? "기준 과실 수집 필요" : `A ${normalized.a}%, B ${normalized.b}%`,
-          },
+          { class: "fault-party-labels", "aria-hidden": "true" },
+          [
+            h("span", { class: "fault-party-label fault-party-a" }, "왼쪽 A"),
+            h("span", { class: "fault-party-label fault-party-b" }, "오른쪽 B"),
+          ]
+        ),
+        h(
+          "div",
+          { class: "fault-track-shell" },
           [
             h(
               "div",
               {
-                class: ["fault-segment", "fault-a", { "is-zero": normalized.a <= 0, "is-full": normalized.a >= 100 }],
-                style: { flexBasis: `${normalized.a}%` },
+                class: ["fault-bar", { "is-unknown": normalized.isUnknown }],
+                role: "img",
+                "aria-label": normalized.isUnknown ? "기준 과실 수집 필요" : `A ${normalized.a}%, B ${normalized.b}%`,
               },
-              normalized.a > 0 ? [h("span", {}, `A ${normalized.a}%`)] : []
+              [
+                h(
+                  "div",
+                  {
+                    class: [
+                      "fault-segment",
+                      "fault-a",
+                      {
+                        "is-zero": normalized.a <= 0,
+                        "is-full": normalized.a >= 100,
+                        "is-tiny": aTiny,
+                      },
+                    ],
+                    style: { flexBasis: `${normalized.a}%` },
+                  },
+                  normalized.a > 0 ? [h("span", { class: "fault-percent" }, `A ${normalized.a}%`)] : []
+                ),
+                h(
+                  "div",
+                  {
+                    class: [
+                      "fault-segment",
+                      "fault-b",
+                      {
+                        "is-zero": normalized.b <= 0,
+                        "is-full": normalized.b >= 100,
+                        "is-tiny": bTiny,
+                      },
+                    ],
+                    style: { flexBasis: `${normalized.b}%` },
+                  },
+                  normalized.b > 0 ? [h("span", { class: "fault-percent" }, `B ${normalized.b}%`)] : []
+                ),
+              ]
             ),
             h(
               "div",
               {
-                class: ["fault-segment", "fault-b", { "is-zero": normalized.b <= 0, "is-full": normalized.b >= 100 }],
-                style: { flexBasis: `${normalized.b}%` },
+                class: "fault-split-marker",
+                style: { left: splitLeft },
+                "aria-hidden": "true",
               },
-              normalized.b > 0 ? [h("span", {}, `B ${normalized.b}%`)] : []
+              [h("span", {}, `${normalized.a}:${normalized.b}`)]
             ),
           ]
         ),
@@ -399,15 +446,25 @@ onMounted(load);
 .glass-box.emphasis { border-color: rgba(201, 169, 98, 0.48); background: linear-gradient(145deg, rgba(201, 169, 98, 0.15), rgba(37, 30, 25, 0.92)); }
 .plain-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
 .fault-bar-wrap { display: grid; gap: 10px; min-width: 0; }
-.fault-bar { display: flex; width: 100%; height: 48px; overflow: hidden; border-radius: 999px; border: 1px solid rgba(201, 169, 98, 0.34); background: rgba(28, 23, 20, 0.56); box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.08); }
-.fault-segment { display: grid; place-items: center; min-width: 0; flex-grow: 0; flex-shrink: 0; height: 100%; overflow: hidden; font-weight: 950; font-size: 0.95rem; line-height: 1; white-space: nowrap; transition: flex-basis 0.2s ease, opacity 0.18s ease; }
-.fault-segment span { display: inline-flex; align-items: center; justify-content: center; min-width: 5ch; padding: 0 8px; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.fault-party-labels,
+.fault-ratio-readout { display: flex; justify-content: space-between; gap: 10px; }
+.fault-party-label { display: inline-flex; align-items: center; min-height: 26px; padding: 4px 9px; border-radius: 999px; border: 1px solid rgba(201, 169, 98, 0.28); background: rgba(28, 23, 20, 0.44); color: var(--text-sub); font-size: 0.82rem; font-weight: 900; }
+.fault-party-a { color: #ffe4e7; border-color: rgba(213, 137, 137, 0.34); }
+.fault-party-b { color: var(--accent-strong); }
+.fault-track-shell { position: relative; min-width: 0; padding: 10px 0; }
+.fault-bar { display: flex; width: 100%; height: 58px; overflow: hidden; border-radius: 16px; border: 1px solid rgba(201, 169, 98, 0.38); background: rgba(28, 23, 20, 0.62); box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.08), 0 14px 28px rgba(0,0,0,0.22); clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 14px 100%, 0 50%); }
+.fault-segment { position: relative; display: grid; place-items: center; min-width: 0; flex-grow: 0; flex-shrink: 0; height: 100%; overflow: hidden; font-weight: 950; font-size: 0.95rem; line-height: 1; white-space: nowrap; transition: flex-basis 0.2s ease, opacity 0.18s ease; }
+.fault-segment::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.18), transparent 45%, rgba(0,0,0,0.14)); }
+.fault-percent { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; min-width: 5ch; padding: 0 8px; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; text-shadow: 0 1px 10px rgba(0,0,0,0.32); }
 .fault-a { background: linear-gradient(135deg, #8B2635, #B84B55); color: #FFF2F2; }
 .fault-b { background: linear-gradient(135deg, var(--accent-dark), var(--accent-strong)); color: var(--accent-foreground); }
 .fault-segment.is-zero { min-width: 0; flex-basis: 0% !important; width: 0 !important; padding: 0; opacity: 0; overflow: hidden; }
 .fault-segment.is-zero span { display: none; }
 .fault-segment.is-full { flex-basis: 100% !important; }
-.fault-ratio-readout { display: flex; justify-content: space-between; gap: 10px; color: var(--text-sub); font-weight: 850; }
+.fault-segment.is-tiny .fault-percent { display: none; }
+.fault-split-marker { position: absolute; top: 50%; z-index: 2; transform: translate(-50%, -50%); display: grid; place-items: center; min-width: 52px; height: 34px; padding: 0 9px; clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%); border: 1px solid rgba(255,255,255,0.18); background: linear-gradient(135deg, #251E19, #C9A962 52%, #251E19); color: #1C1714; box-shadow: 0 10px 22px rgba(0,0,0,0.34); font-size: 0.82rem; font-weight: 950; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.fault-split-marker span { position: relative; z-index: 1; min-width: 4.8ch; text-align: center; }
+.fault-ratio-readout { color: var(--text-sub); font-weight: 850; }
 .fault-ratio-readout span { min-width: 5ch; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 .fault-caption { margin: 10px 0 0; color: var(--text-sub); font-weight: 800; line-height: 1.5; }
 .factor-box { display: grid; gap: 14px; }
@@ -453,8 +510,10 @@ onMounted(load);
 @media (max-width: 640px) {
   .knia-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
   .tab-button { flex: 0 0 auto; scroll-snap-align: start; min-height: 46px; padding: 12px 15px; font-size: 0.95rem; white-space: nowrap; }
-  .fault-bar { height: 44px; }
-  .fault-segment { font-size: 0.9rem; min-width: 38px; }
+  .fault-bar { height: 50px; border-radius: 14px; clip-path: polygon(11px 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 11px 100%, 0 50%); }
+  .fault-segment { font-size: 0.86rem; min-width: 0; }
+  .fault-split-marker { min-width: 46px; height: 30px; font-size: 0.76rem; }
+  .fault-party-label { font-size: 0.76rem; }
 }
 @media (max-width: 480px) {
   .factor-row { padding: 15px 14px; border-radius: 15px; }
