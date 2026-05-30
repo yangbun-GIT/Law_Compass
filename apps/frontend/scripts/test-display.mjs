@@ -524,6 +524,25 @@ if (caseCreateView.includes("<select v-model=\"analysisMode\"")) {
   console.error("analysis mode dropdown must not appear on the first create screen");
   process.exit(1);
 }
+const instantVideoCaseContracts = [
+  "영상부터 바로 시작합니다",
+  "createImmediately",
+  "router.replace(`/cases/${data.case.id}/wizard?start=video`)",
+  "DEFAULT_TITLE",
+  "initialGuidedStepFromRoute",
+  "route.query.start",
+  "영상을 먼저 선택하거나 사고 설명을 입력해 주세요",
+];
+const instantVideoCaseSource = [caseCreateView, useCaseWorkspace].join("\n");
+const missingInstantVideoCaseContracts = instantVideoCaseContracts.filter((token) => !instantVideoCaseSource.includes(token));
+if (missingInstantVideoCaseContracts.length) {
+  console.error("new case flow must create immediately and start on video input", missingInstantVideoCaseContracts);
+  process.exit(1);
+}
+if (caseCreateView.includes("<input v-model=\"title\"") || caseCreateView.includes("<textarea v-model=\"description\"")) {
+  console.error("new case create screen must not ask for title or description before video input");
+  process.exit(1);
+}
 function blockFor(source, marker) {
   const start = source.indexOf(marker);
   if (start < 0) return "";

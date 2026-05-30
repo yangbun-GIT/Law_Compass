@@ -117,6 +117,12 @@ function partyDefaults(partyType: string) {
     return {};
 }
 
+function initialGuidedStepFromRoute(start: unknown): GuidedStep {
+    const value = String(start || "").trim().toLowerCase();
+    if (["video", "upload", "input"].includes(value)) return "input";
+    return "accident-type";
+}
+
 function firstUnansweredQuestionIndex(questions: any[], answers: Record<string, string>) {
     if (!questions.length) return 0;
     const index = questions.findIndex((question) => !answers[getGuidedQuestionId(question)]);
@@ -164,7 +170,7 @@ export function useCaseWorkspace(caseId: string) {
     const followupError = ref("");
     const reanalyzing = ref(false);
     const busy = ref<CaseWorkspaceBusyState>("");
-    const guidedStep = ref<GuidedStep>("accident-type");
+    const guidedStep = ref<GuidedStep>(initialGuidedStepFromRoute(route.query.start));
     const guidedAnswers = ref<Record<string, string>>({});
     const currentGuidedQuestionIndex = ref(0);
     let pollTimer: number | null = null;
@@ -181,6 +187,7 @@ export function useCaseWorkspace(caseId: string) {
             (facts.value as any).knia_major_party_type,
         ),
     );
+    const hasSelectedMajorCategory = computed(() => selectedMajorCategory.value !== "unknown");
     const guidedAccidentSubtypeOptions = computed(() => getGuidedAccidentSubtypeOptions(selectedMajorCategory.value));
     const remainingProgressSteps = computed(() =>
         progressSteps.value
@@ -267,7 +274,7 @@ export function useCaseWorkspace(caseId: string) {
     }
 
     function isAnalysisReady() {
-        return Boolean(selectedMajorCategory.value || descriptionText.value.trim() || activeUploadId.value || file.value);
+        return Boolean(hasSelectedMajorCategory.value || descriptionText.value.trim() || activeUploadId.value || file.value);
     }
 
     async function saveCaseInputs(options: { quiet?: boolean } = {}) {
@@ -673,8 +680,9 @@ export function useCaseWorkspace(caseId: string) {
     }
 
     async function continueFromInput() {
-        if (!selectedMajorCategory.value) {
-            showMessage("사고 대분류를 먼저 선택해 주세요.", false);
+        const hasVideoOrTextInput = Boolean(descriptionText.value.trim() || activeUploadId.value || file.value);
+        if (!hasSelectedMajorCategory.value && !hasVideoOrTextInput) {
+            showMessage("영상을 먼저 선택하거나 사고 설명을 입력해 주세요.", false);
             return;
         }
 
