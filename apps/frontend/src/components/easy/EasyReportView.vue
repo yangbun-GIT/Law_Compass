@@ -1,5 +1,5 @@
 <template>
-  <section class="easy-report" v-if="safeReport">
+  <section v-if="safeReport" class="easy-report" :class="displayMode">
     <section v-if="isUserFriendlyMode" class="user-report">
       <section class="card easy-card simple-section corner-flourish">
         <p class="eyebrow">현재 상황정리</p>

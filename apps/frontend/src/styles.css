@@ -193,46 +193,75 @@ textarea { resize: vertical; min-height: 96px; }
     margin-bottom: 16px;
 }
 .action-steps {
-    list-style: none;
     display: grid;
     gap: 16px;
-    padding: 0;
     margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: action-step;
 }
 .action-steps li {
+    counter-increment: action-step;
     position: relative;
-    padding: 20px 20px 18px 74px;
-    border-radius: 22px;
-    background: rgba(255, 255, 255, 0.09);
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+    padding: 22px 24px;
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(61, 51, 43, 0.94), rgba(37, 30, 25, 0.96));
+    border: 1px solid rgba(201, 169, 98, 0.30);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+    color: var(--text-main);
 }
 .action-steps li::before {
-    content: counter(list-item);
-    position: absolute;
-    left: 18px;
-    top: 18px;
-    width: 38px;
-    height: 38px;
-    display: grid;
+    content: counter(action-step);
+    width: 42px;
+    height: 42px;
+    display: inline-grid;
     place-items: center;
     border-radius: 14px;
-    background: linear-gradient(135deg, #51e1f2, #9dffcb);
-    color: #07111e;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color: var(--accent-foreground);
     font-weight: 900;
-    font-size: 1.2rem;
+    font-size: 1.08rem;
+    box-shadow: 0 8px 18px rgba(201, 169, 98, 0.22);
 }
 .action-steps strong {
     display: block;
-    font-size: 1.28rem;
-    margin-bottom: 6px;
+    margin: 0 0 8px;
+    color: var(--text-main);
+    font-size: clamp(1.08rem, 1.8vw, 1.28rem);
+    line-height: 1.35;
+    font-weight: 900;
 }
 .action-steps p {
-    margin: 0 0 8px;
-    line-height: 1.65;
+    margin: 0 0 12px;
+    color: var(--text-sub);
+    font-size: 1rem;
+    line-height: 1.62;
 }
-.action-steps span {
-    color: #9dffcb;
-    font-weight: 800;
+.action-steps .importance-badge,
+.importance-badge {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: var(--success-soft);
+    border: 1px solid rgba(127, 231, 200, 0.38);
+    color: #9FF4DA;
+    font-size: 0.92rem;
+    font-weight: 900;
+    line-height: 1.2;
+}
+.action-steps .importance-badge.is-critical,
+.importance-badge.is-critical {
+    background: var(--warning-soft);
+    border-color: rgba(215, 181, 109, 0.48);
+    color: #F1D99A;
 }
 .easy-ratio-row {
     display: grid;
@@ -265,8 +294,10 @@ textarea { resize: vertical; min-height: 96px; }
 .basis-card {
     border-radius: 22px;
     padding: 20px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(145deg, rgba(61, 51, 43, 0.92), rgba(37, 30, 25, 0.96));
+    border: 1px solid rgba(201, 169, 98, 0.26);
+    color: var(--text-main);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.20);
 }
 .basis-card h3 {
     font-size: 1.35rem;
@@ -380,7 +411,8 @@ textarea { resize: vertical; min-height: 96px; }
 }
 @media (max-width: 760px) {
     .easy-ratio-row { grid-template-columns: 1fr; }
-    .action-steps li { padding-left: 64px; }
+    .action-steps li { grid-template-columns: 44px minmax(0, 1fr); gap: 14px; padding: 18px 16px; }
+    .action-steps li::before { width: 38px; height: 38px; border-radius: 12px; }
     .reliability-head { flex-direction: column; }
 }
 
@@ -1957,5 +1989,107 @@ select:focus {
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;
         transition-duration: 0.01ms !important;
+    }
+}
+
+.result-page .expert-panel,
+.result-page .expert-basis,
+.result-page .expert-missing,
+.result-page .video-fact-card,
+.result-page .video-fact-stat,
+.result-page .video-fact-section,
+.result-page .video-fact-item,
+.result-page .basis-card,
+.result-page .inline-details,
+.easy-report.expert .expert-panel,
+.easy-report.expert .expert-basis,
+.easy-report.expert .expert-missing,
+.easy-report.expert .video-fact-card,
+.easy-report.expert .video-fact-stat,
+.easy-report.expert .video-fact-section,
+.easy-report.expert .video-fact-item,
+.easy-report.expert .basis-card,
+.easy-report.expert .inline-details {
+    background: linear-gradient(145deg, rgba(61, 51, 43, 0.92), rgba(37, 30, 25, 0.96));
+    border: 1px solid rgba(201, 169, 98, 0.26);
+    color: var(--text-main);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.20);
+}
+
+.result-page .basis-card,
+.easy-report.expert .basis-card {
+    display: grid;
+    gap: 12px;
+    padding: 18px;
+    border-radius: 18px;
+}
+
+.result-page .basis-card .eyebrow,
+.easy-report.expert .basis-card .eyebrow {
+    margin: 0;
+    color: var(--accent-strong);
+    font-size: 0.86rem;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+}
+
+.result-page .basis-card h3,
+.easy-report.expert .basis-card h3 {
+    margin: 0;
+    color: var(--text-main);
+    font-size: clamp(1.1rem, 2vw, 1.35rem);
+    line-height: 1.36;
+    font-weight: 900;
+}
+
+.result-page .legal-paragraphs,
+.easy-report.expert .legal-paragraphs {
+    display: grid;
+    gap: 8px;
+}
+
+.result-page .legal-paragraphs p,
+.easy-report.expert .legal-paragraphs p {
+    margin: 0;
+    color: var(--text-sub);
+    font-size: 1rem;
+    line-height: 1.68;
+}
+
+.result-page .inline-details,
+.easy-report.expert .inline-details {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(28, 23, 20, 0.38);
+}
+
+.result-page .inline-details summary,
+.easy-report.expert .inline-details summary {
+    cursor: pointer;
+    color: var(--accent-strong);
+    font-weight: 900;
+}
+
+.result-page .comparison-row,
+.easy-report.expert .comparison-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.result-page .comparison-row span,
+.easy-report.expert .comparison-row span {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(28, 23, 20, 0.44);
+    border: 1px solid rgba(201, 169, 98, 0.20);
+    color: var(--text-sub);
+    font-weight: 800;
+}
+
+@media (max-width: 640px) {
+    .result-page .comparison-row,
+    .easy-report.expert .comparison-row {
+        grid-template-columns: 1fr;
     }
 }

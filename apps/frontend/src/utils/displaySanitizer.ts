@@ -56,15 +56,22 @@ export function hasBadDebugText(value: unknown): boolean {
   const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
   return /\?\?+|chunk_id|score|model_info|cache_key|rag_top_k|ai_profile|llm_enabled|orchestrator|scenario_classifier|rear_end_collision|REAR_END_SAFE_DISTANCE|ROAD_ACCIDENT_REPORTING_DUTY|"injury"\s*:|"stopped"\s*:|"weather"\s*:/i.test(text);
 }
-export function sanitizeDisplayText(value: unknown): string {
-  if (value === null || value === undefined) return "";
+export function sanitizeDisplayText(value: unknown, fallback = ""): string {
+  if (value === null || value === undefined) return fallback;
   if (typeof value === "boolean") return value ? "예" : "아니오";
-  if (typeof value === "object") return "";
+  if (typeof value === "object") return fallback;
   let text = String(value).trim();
-  if (!text || text === "null" || text === "undefined") return "";
-  if (text === "[object Object]") return "";
-  if ((text.startsWith("{") && text.endsWith("}")) || (text.startsWith("[") && text.endsWith("]"))) return "";
+  if (!text || text === "null" || text === "undefined") return fallback;
+  if (text === "[object Object]") return fallback;
+  if ((text.startsWith("{") && text.endsWith("}")) || (text.startsWith("[") && text.endsWith("]"))) return fallback;
   text = mapInternalCodeToKorean(text);
+  const compact = text.replace(/\s+/g, " ").trim();
+  const brokenOnly =
+    /^(\?\s*)+$/.test(compact) ||
+    /^\d+\?$/.test(compact) ||
+    /^(,\s*)?=\d+(,\s*=\d+)*\.?$/.test(compact) ||
+    /^[\s,.;:·|-]*$/.test(compact);
+  if (brokenOnly) return fallback;
   const mappedLevel = { medium: "보통", high: "높음", low: "낮음" }[text.toLowerCase()];
   if (mappedLevel) return mappedLevel;
   text = text.replace(/^(?:=\s*\d+\s*[,.)]\s*)+/g, "");
@@ -81,7 +88,11 @@ export function sanitizeDisplayText(value: unknown): string {
   text = text.replace(/검수 필요 구조화 KNIA 참고 기준입니다\.?/g, "현재 사고와 가장 가까운 KNIA 참고 기준입니다. 실제 적용 전 추가 확인이 필요합니다.");
   text = text.replace(/상세 기준 수집 필요/g, "상세 기준이 부족해 같은 대분류의 참고 기준을 함께 보여드립니다.");
   for (const pattern of BAD_PATTERNS) text = text.replace(pattern, "");
-  return text.replace(/\s+/g, " ").trim() || "확인이 필요합니다";
+  text = text
+    .replace(/(^|\s),\s*=\d+(,\s*=\d+)*\.?/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return text || fallback || "확인이 필요합니다";
 }
 
 export function sanitizeUserVisibleText(value: unknown): string {
