@@ -17,6 +17,7 @@ def test_analyze_case_minimum_fields():
         "agent_plan",
         "agent_task_packets",
         "agent_goal_result",
+        "agent_replan",
         "agent_trace",
         "agent_quality_packet",
         "reflection_loop",
@@ -49,24 +50,30 @@ def test_analyze_case_minimum_fields():
     assert result["agent_goal_result"]["version"] == "agent-goal-result-v1"
     assert result["agent_trace"]["goal_result"]["version"] == "agent-goal-result-v1"
     assert result["agent_trace"]["goal_result"]["finality"] == result["agent_goal_result"]["goal"]["finality"]
+    assert result["agent_replan"]["version"] == "agent-replan-v1"
+    assert result["agent_trace"]["replan"]["version"] == "agent-replan-v1"
     assert result["agent_quality_packet"]["version"] == "agent-quality-packet-v1"
     assert result["agent_quality_packet"]["packet_contract"]["required_packets_present"] is True
     assert "agent_plan" in result["agent_quality_packet"]["packet_contract"]["present_packets"]
     assert "agent_task_packets" in result["agent_quality_packet"]["packet_contract"]["present_packets"]
     assert "agent_goal_result" in result["agent_quality_packet"]["packet_contract"]["present_packets"]
+    assert "agent_replan" in result["agent_quality_packet"]["packet_contract"]["present_packets"]
     assert result["agent_quality_packet"]["guardrail_checks"]["safe_metadata_only"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["task_plan_safe_metadata_only"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["task_packets_safe_metadata_only"] is True
     assert result["agent_quality_packet"]["guardrail_checks"]["goal_result_safe_metadata_only"] is True
+    assert result["agent_quality_packet"]["guardrail_checks"]["replan_safe_metadata_only"] is True
     assert result["agent_quality_packet"]["evidence_source_status"]["version"] == "evidence-source-status-v2"
     assert result["expert_guidance_sections"]["version"] == "expert-guidance-sections-v1"
     assert "expert_guidance_sections" in AnalysisOutput(**result).model_dump()
     assert "agent_plan" in AnalysisOutput(**result).model_dump()
     assert "agent_task_packets" in AnalysisOutput(**result).model_dump()
     assert "agent_goal_result" in AnalysisOutput(**result).model_dump()
+    assert "agent_replan" in AnalysisOutput(**result).model_dump()
     assert result["model_info"]["agent_plan_version"] == "agent-plan-v1"
     assert result["model_info"]["agent_task_packets_version"] == "agent-task-packets-v1"
     assert result["model_info"]["agent_goal_result_version"] == "agent-goal-result-v1"
+    assert result["model_info"]["agent_replan_version"] == "agent-replan-v1"
     assert result["model_info"]["agent_quality_packet_version"] == "agent-quality-packet-v1"
     assert result["model_info"]["evidence_source_status"]["version"] == "evidence-source-status-v2"
     assert result["reflection_loop"]["version"] == "agent-reflection-loop-v1"
@@ -87,6 +94,7 @@ def test_analyze_case_minimum_fields():
     assert "신호대기 중 후방 차량 추돌" not in str(result["agent_plan"])
     assert "신호대기 중 후방 차량 추돌" not in str(result["agent_task_packets"])
     assert "신호대기 중 후방 차량 추돌" not in str(result["agent_goal_result"])
+    assert "신호대기 중 후방 차량 추돌" not in str(result["agent_replan"])
     AnalysisOutput(**result)
 
 

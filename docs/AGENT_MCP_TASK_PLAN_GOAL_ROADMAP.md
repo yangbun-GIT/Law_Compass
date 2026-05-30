@@ -523,6 +523,21 @@ P2-3 제한 사항:
 - 무한 루프가 없는지 테스트한다.
 - replan이 과실비율을 임의로 확정하지 않는지 확인한다.
 
+P2-4 제한적 재계획 도입 결과 (2026-05-31):
+
+| 구분 | 구현 파일 | 내용 |
+| --- | --- | --- |
+| Bounded replan | `apps/agent/app/services/agent_replan.py` | `agent_judgment`, `agent_goal_result`, `fact_arbitration`, `reflection_loop`를 읽어 허용된 blocker만 replan 후보로 변환한다. |
+| 허용 reason | `apps/agent/app/services/agent_replan.py` | evidence 부족, KNIA basis 부족/불일치, 영상 fact 보류/충돌, 필수 입력 부족만 허용한다. 그 외 unsupported claim 등은 자동 재계획하지 않는다. |
+| 반복 제한 | `apps/agent/app/services/agent_replan.py` | `MAX_REPLAN_ITERATIONS=1`로 제한한다. 이미 1회 requery가 사용되면 `exhausted_reference_only`로 종료한다. |
+| Trace/Quality 연결 | `apps/agent/app/services/orchestration_output.py`, `agent_execution_trace.py`, `agent_quality_packet.py` | `agent_replan`을 output, `agent_plan.replan_summary`, trace summary, quality required packet과 guardrail check에 연결했다. |
+| 검증 | `apps/agent/tests/test_agent_replan.py`, `apps/agent/tests/test_orchestrator.py` | Docker Agent 컨테이너에서 `python -m pytest tests/test_agent_replan.py tests/test_agent_goal_aggregator.py tests/test_agent_task_packets.py tests/test_planner.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_video_input_contract.py`를 실행했고 68건이 모두 통과했다. |
+
+P2-4 제한 사항:
+
+- 현재 단계는 다음 iteration 후보를 안전 metadata로 제안한다. 실제 비동기 task 실행이나 MCP tool 재호출 orchestration은 P3 이후 tool layer와 연결해 확장한다.
+- replan은 기존 분석 결과를 자동으로 뒤집지 않는다. 근거가 부족하면 계속 reference-only 또는 추가 확인 필요 상태를 유지한다.
+
 ### P3. 내부 MCP 계층 강화
 
 목적: 현재 tool registry를 실제 MCP-like 실행 계층으로 정리하고, 표준 MCP 도입 전에도 도구 경계를 신뢰할 수 있게 만든다.

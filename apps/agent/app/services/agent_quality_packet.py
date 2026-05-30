@@ -10,6 +10,7 @@ REQUIRED_PACKETS = (
     "agent_plan",
     "agent_task_packets",
     "agent_goal_result",
+    "agent_replan",
     "evidence_audit",
     "claim_evidence",
     "judgment_contract",
@@ -30,6 +31,7 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
     task_packets = _dict(output.get("agent_task_packets"))
     goal_result = _dict(output.get("agent_goal_result"))
     goal = _dict(goal_result.get("goal"))
+    replan = _dict(output.get("agent_replan"))
     llm_policy = _dict(_dict(output.get("model_info")).get("llm_policy"))
     packets = _packet_presence(output)
     missing_packets = [name for name, present in packets.items() if not present]
@@ -50,6 +52,9 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
             "goal_status": goal.get("status"),
             "goal_finality": goal.get("finality"),
             "goal_conflict_count": len(goal_result.get("conflict_packets") or []),
+            "replan_status": replan.get("status"),
+            "replan_reason_count": len(replan.get("replan_reasons") or []),
+            "replan_proposed_task_count": len(replan.get("proposed_tasks") or []),
             "finality": judgment.get("finality"),
             "decision_ready": judgment.get("decision_ready"),
             "evidence_coverage_level": claim_evidence.get("coverage_level")
@@ -77,6 +82,7 @@ def build_agent_quality_packet(output: dict[str, Any]) -> dict[str, Any]:
             "task_plan_safe_metadata_only": _dict(_dict(output.get("agent_trace")).get("task_plan")).get("safe_metadata_only") is True,
             "task_packets_safe_metadata_only": _dict(_dict(output.get("agent_trace")).get("task_packets")).get("safe_metadata_only") is True,
             "goal_result_safe_metadata_only": _dict(_dict(output.get("agent_trace")).get("goal_result")).get("safe_metadata_only") is True,
+            "replan_safe_metadata_only": _dict(_dict(output.get("agent_trace")).get("replan")).get("safe_metadata_only") is True,
             "llm_has_final_authority": False,
             "deterministic_judgment_required": True,
             "raw_user_text_in_packet": False,
@@ -94,6 +100,7 @@ def _packet_presence(output: dict[str, Any]) -> dict[str, bool]:
         "agent_plan": bool(output.get("agent_plan")),
         "agent_task_packets": bool(output.get("agent_task_packets")),
         "agent_goal_result": bool(output.get("agent_goal_result")),
+        "agent_replan": bool(output.get("agent_replan")),
         "evidence_audit": bool(output.get("evidence_audit")),
         "claim_evidence": bool(output.get("claim_evidence")),
         "judgment_contract": bool(output.get("agent_judgment")),

@@ -6,6 +6,10 @@ from app.services.agent_quality_packet import (
     VERSION as AGENT_QUALITY_PACKET_VERSION,
     build_agent_quality_packet,
 )
+from app.services.agent_replan import (
+    VERSION as AGENT_REPLAN_VERSION,
+    attach_agent_replan,
+)
 from app.services.agent_execution_trace import (
     VERSION as AGENT_TRACE_VERSION,
     build_agent_execution_trace,
@@ -101,6 +105,8 @@ def enrich_analysis_output(
     output["model_info"]["agent_task_packets_version"] = AGENT_TASK_PACKETS_VERSION
     attach_agent_goal_result(output)
     output["model_info"]["agent_goal_result_version"] = AGENT_GOAL_RESULT_VERSION
+    attach_agent_replan(output)
+    output["model_info"]["agent_replan_version"] = AGENT_REPLAN_VERSION
     output["agent_trace"] = build_agent_execution_trace(output)
     output["model_info"]["agent_trace_version"] = AGENT_TRACE_VERSION
     output["agent_quality_packet"] = build_agent_quality_packet(output)

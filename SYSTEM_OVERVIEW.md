@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P2-4 제한적 재계획
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P2-4 단계를 완료했다. 이번 변경은 evidence 부족, KNIA mismatch, 영상/사용자 fact 충돌처럼 허용된 사유에서만 다음 iteration 후보 task를 제안하고, 반복 한도를 넘으면 reference-only로 종료하도록 하는 안전 metadata 계층이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Bounded replan | `apps/agent/app/services/agent_replan.py`를 추가해 `required_evidence_not_ready`, `knia_basis_missing_or_incomplete`, `knia_basis_mismatch`, `video_fact_not_directly_applied`, `required_input_fields_missing` 등 허용된 reason만 replan 후보로 인정한다. |
+| 반복 제한 | `MAX_REPLAN_ITERATIONS=1`로 제한했다. 이미 reflection requery가 1회 사용된 상태면 `exhausted_reference_only`로 종료하고 과실비율을 임의로 재확정하지 않는다. |
+| Plan/Trace 연결 | `agent_plan.replan_summary`, `agent_trace.replan`, `agent_quality_packet` required packet과 guardrail check에 `agent_replan`을 연결했다. |
+| Schema 계약 | `AnalysisOutput` schema에 `agent_replan` 필드를 추가했다. public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키는 변경하지 않았다. |
+| 검증 | Agent 컨테이너에서 `docker compose exec -T agent python -m pytest tests/test_agent_replan.py tests/test_agent_goal_aggregator.py tests/test_agent_task_packets.py tests/test_planner.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_video_input_contract.py`를 실행했고 68건이 통과했다. |
+
+P2-4는 다음 iteration 후보를 제안하는 metadata 계층이며, 현재 요청 안에서 실제 추가 분석 loop를 무한 실행하지 않는다. 다음 구조 보강 단계는 P3-1 `Tool registry schema화`다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P2-3 Goal 결과 병합 정책
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P2-3 단계를 완료했다. 이번 변경은 stage별 task packet을 최종 사용자 결과로 바로 확정하지 않고, `agent_goal_result` 병합 계층에서 사고축, 영상 fact, 근거 충족도, 과실비율 상태를 한 번 더 검증하는 작업이다.

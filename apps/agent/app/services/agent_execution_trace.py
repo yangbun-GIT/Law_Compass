@@ -21,6 +21,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
     agent_plan = output.get("agent_plan") or {}
     task_packets = output.get("agent_task_packets") or {}
     goal_result = output.get("agent_goal_result") or {}
+    replan = output.get("agent_replan") or {}
 
     steps = [
         _step(
@@ -131,6 +132,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
         "task_plan": _task_plan_summary(agent_plan),
         "task_packets": _task_packet_summary(task_packets),
         "goal_result": _goal_result_summary(goal_result),
+        "replan": _replan_summary(replan),
         "step_count": len(steps),
         "steps": steps,
     }
@@ -206,5 +208,18 @@ def _goal_result_summary(goal_result: dict[str, Any]) -> dict[str, Any]:
         "confidence": goal.get("confidence"),
         "conflict_count": len(conflicts),
         "blocking_conflict_count": len([item for item in conflicts if isinstance(item, dict) and item.get("severity") == "block"]),
+        "safe_metadata_only": True,
+    }
+
+
+def _replan_summary(replan: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "version": replan.get("version"),
+        "status": replan.get("status"),
+        "replan_allowed": bool(replan.get("replan_allowed")),
+        "reason_count": len(replan.get("replan_reasons") or []),
+        "proposed_task_count": len(replan.get("proposed_tasks") or []),
+        "max_iterations": replan.get("max_iterations"),
+        "iterations_used": replan.get("iterations_used"),
         "safe_metadata_only": True,
     }
