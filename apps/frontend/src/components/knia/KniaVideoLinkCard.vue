@@ -59,11 +59,17 @@ function faultText(value: any): string {
   if (typeof value !== "object") return "";
   const my = value.my ?? value.A ?? value.user ?? value.ego ?? value.driver;
   const other = value.other ?? value.B ?? value.opponent ?? value.counterparty;
-  if (my !== undefined && other !== undefined) return `${my}:${other}`;
+  if (my !== undefined && other !== undefined) return `A ${formatPercent(my)} / B ${formatPercent(other)}`;
   const min = value.min ?? value.minimum;
   const max = value.max ?? value.maximum;
-  if (min !== undefined && max !== undefined) return `${min}~${max}`;
+  if (min !== undefined && max !== undefined) return `${formatPercent(min)}~${formatPercent(max)}`;
   return String(value.label || value.summary || "");
+}
+
+function formatPercent(value: any): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  return `${Math.round(n)}%`;
 }
 </script>
 

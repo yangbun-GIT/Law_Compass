@@ -236,14 +236,39 @@ const requiredKniaUiTokens = [
   "knia-tabs",
   "factor-table",
   "fault-bar",
+  "fault-bar-wrap",
   "fault-segment",
+  "fault-ratio-readout",
   "factor-mobile-meta",
   "factor-state",
   "factor-row.selected",
+  "font-variant-numeric: tabular-nums",
+  "transition:",
 ];
-const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaChartView.includes(token));
+const missingKniaUiTokens = requiredKniaUiTokens.filter((token) => !kniaChartView.includes(token) && !styles.includes(token));
 if (missingKniaUiTokens.length) {
   console.error("KNIA chart mobile UI contract missing", missingKniaUiTokens);
+  process.exit(1);
+}
+
+const stableRatioContracts = [
+  ".fault-ratio-value",
+  ".ratio-percent",
+  ".knia-percent",
+  ".easy-ratio-row span",
+  ".user-adjustment-row",
+  "min-width: 4.5ch",
+  "font-feature-settings: \"tnum\"",
+];
+const missingStableRatioContracts = stableRatioContracts.filter((token) => !styles.includes(token));
+if (missingStableRatioContracts.length) {
+  console.error("fault ratio layout stability contract failed", missingStableRatioContracts);
+  process.exit(1);
+}
+
+const unstableKniaTransitions = [kniaChartView, styles].join("\n").match(/transition:\s*all\b/g);
+if (unstableKniaTransitions?.length) {
+  console.error("KNIA/fault ratio UI must not use transition: all");
   process.exit(1);
 }
 

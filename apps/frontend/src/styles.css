@@ -2240,3 +2240,228 @@ select:focus {
         grid-template-columns: 1fr;
     }
 }
+
+/* KNIA and fault-ratio UI stability */
+.knia-card,
+.knia-link-card,
+.knia-page-card,
+.knia-json-evidence-card,
+.knia-media-card,
+.knia-chart-card,
+.knia-adjustment-card,
+.related-knia-standard-card,
+.fault-ratio-card,
+.easy-ratio-row > div,
+.user-adjustment-panel,
+.user-adjustment-row {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.knia-card *,
+.knia-link-card *,
+.knia-page-card *,
+.knia-json-evidence-card *,
+.knia-media-card *,
+.knia-chart-card *,
+.knia-adjustment-card *,
+.fault-ratio-card *,
+.easy-ratio-row *,
+.user-adjustment-panel * {
+    box-sizing: border-box;
+}
+
+.knia-card,
+.knia-link-card,
+.knia-page-card,
+.knia-json-evidence-card,
+.knia-media-card,
+.knia-chart-card,
+.knia-adjustment-card {
+    border-radius: var(--panel-radius);
+    border-color: rgba(201, 169, 98, 0.32);
+    background:
+            linear-gradient(145deg, rgba(61, 51, 43, 0.88), rgba(37, 30, 25, 0.94));
+}
+
+.knia-card h2,
+.knia-card h3,
+.knia-card h4,
+.knia-link-card h2,
+.knia-json-evidence-card h3,
+.knia-media-card h3,
+.knia-chart-card h3 {
+    min-width: 0;
+    color: var(--text-main);
+    line-height: 1.35;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.knia-description,
+.knia-law-text,
+.knia-standard-body,
+.knia-paragraphs,
+.knia-paragraphs p,
+.knia-card p,
+.knia-link-card p,
+.knia-json-evidence-card p,
+.knia-media-card p,
+.knia-chart-card p,
+.source-label {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    line-height: 1.58;
+}
+
+.knia-card .chips,
+.knia-link-card .chips,
+.knia-adjustment-card .chips {
+    min-width: 0;
+    align-items: center;
+}
+
+.knia-card .chip,
+.knia-link-card .chip,
+.knia-adjustment-card .chip {
+    max-width: 100%;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.easy-ratio-row > div {
+    display: grid;
+    gap: 8px;
+    align-content: center;
+    min-height: 148px;
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(61, 51, 43, 0.76), rgba(37, 30, 25, 0.90));
+    border: 1px solid rgba(201, 169, 98, 0.28);
+}
+
+.fault-ratio-value,
+.ratio-percent,
+.knia-percent,
+.easy-ratio-row span,
+.fault-bar span,
+.fault-segment span,
+.fault-a span,
+.fault-b span,
+.fault-ratio-readout span,
+.user-adjustment-result strong,
+.user-adjustment-effect,
+.count-col strong,
+.percent-col strong {
+    min-width: 4.5ch;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    line-height: 1;
+}
+
+.easy-ratio-row span {
+    justify-self: center;
+    color: var(--paper);
+}
+
+.easy-ratio-row .accent {
+    color: var(--accent-strong);
+}
+
+.fault-ratio-option,
+.ratio-choice-button,
+.user-adjustment-row,
+.factor-row,
+.factor-toggle,
+.knia-tabs button,
+.tab-button {
+    box-sizing: border-box;
+    border-width: 1px;
+    transition:
+            background-color 0.18s ease,
+            border-color 0.18s ease,
+            color 0.18s ease,
+            box-shadow 0.18s ease,
+            transform 0.18s ease;
+}
+
+.fault-ratio-option.is-selected,
+.ratio-choice-button.is-selected,
+.user-adjustment-row.is-selected,
+.factor-row.selected,
+.factor-row.is-selected,
+.factor-toggle.is-selected,
+.tab-button.active {
+    border-width: 1px;
+}
+
+.knia-chart-page .fault-bar {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.knia-chart-page .fault-segment,
+.knia-chart-page .fault-a,
+.knia-chart-page .fault-b {
+    min-width: 0;
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
+.knia-chart-page .fault-segment.is-zero,
+.knia-chart-page .fault-a.is-zero,
+.knia-chart-page .fault-b.is-zero {
+    flex-basis: 0% !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.knia-chart-page .factor-table,
+.knia-chart-page .factor-row,
+.knia-chart-page .glass-box,
+.knia-chart-page .reference-card {
+    min-width: 0;
+}
+
+.knia-chart-page .factor-label,
+.knia-chart-page .factor-description,
+.knia-chart-page .reference-card p,
+.knia-ranking-row .ranking-title,
+.knia-ranking-row .source-category {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+    .easy-ratio-row {
+        grid-template-columns: 1fr;
+    }
+
+    .easy-ratio-row > div {
+        min-height: 118px;
+        padding: 18px;
+    }
+
+    .knia-link-card .btn-row,
+    .knia-card .btn-row,
+    .knia-media-card a,
+    .knia-json-evidence-card a {
+        width: 100%;
+    }
+
+    .knia-link-card .btn,
+    .knia-card .btn,
+    .knia-media-card a,
+    .knia-json-evidence-card a {
+        justify-content: center;
+        min-height: 44px;
+        text-align: center;
+    }
+}
