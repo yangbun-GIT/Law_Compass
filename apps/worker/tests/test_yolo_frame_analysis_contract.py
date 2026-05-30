@@ -149,6 +149,7 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
 
         summaries = payload["event_candidate_summary"]
         self.assertEqual(summaries[0]["event_candidate_id"], "event_window_2")
+        self.assertEqual(summaries[0]["accident_window_quality"], "event_dense_candidate")
         self.assertEqual(payload["summary"]["top_event_candidate_id"], "event_window_2")
 
     def test_yolo_temporal_sequence_creates_confidence_limited_review_candidates(self):
@@ -377,6 +378,33 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(result[0]["vision_event_candidate_rank"], 2)
         self.assertEqual(result[1]["vision_event_candidate_rank"], 1)
         self.assertIn("yolo_ranked_event_candidate", result[1]["selection_reason"])
+
+    def test_object_presence_only_window_is_not_ranked_as_accident_candidate(self):
+        frames = [
+            {"path": "frame_001.jpg", "event_candidate_id": "event_window_1", "selection_reason": "event_window_context"},
+            {"path": "frame_002.jpg", "event_candidate_id": "event_window_2", "selection_reason": "event_window_context"},
+        ]
+        payload = {
+            "enabled": True,
+            "event_candidate_summary": [
+                {
+                    "event_candidate_id": "event_window_2",
+                    "score": 9.5,
+                    "accident_window_quality": "object_presence_only",
+                },
+                {
+                    "event_candidate_id": "event_window_1",
+                    "score": 5.0,
+                    "accident_window_quality": "event_only_candidate",
+                },
+            ],
+        }
+
+        result = yolo_frame_analysis.rank_frame_details_by_yolo(frames, payload)
+
+        self.assertEqual(result[0]["vision_event_candidate_rank"], 1)
+        self.assertNotIn("vision_event_candidate_rank", result[1])
+        self.assertIn("yolo_ranked_event_candidate", result[0]["selection_reason"])
 
     def test_yolo_frame_selection_keeps_event_candidate_context(self):
         yolo_frame_analysis.YOLO_FRAME_ANALYSIS_MAX_FRAMES = 5

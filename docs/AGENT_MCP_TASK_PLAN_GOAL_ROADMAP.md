@@ -824,6 +824,14 @@ P4-4 완료 기록:
 
 - 사고 전 보행자/횡단보도/자막이 직접 사고대상으로 승격되지 않는지 확인한다.
 
+P5-1 완료 기록:
+
+- `apps/worker/worker/yolo_frame_analysis.py`의 event candidate summary에 `accident_window_quality`, `event_target_detection_count`, `target_phase_counts`를 추가해 단순 객체 등장과 사고 후보 구간을 분리했다.
+- `object_presence_only` 후보는 OpenAI 프레임 선택을 위한 YOLO 1순위 사고 후보 ranking에서 제외한다.
+- event phase에 실제 mobile target이 잡힌 경우와 pre/event/post 문맥이 있는 경우에만 후보 점수가 올라가고, event phase 대상 감지가 없는 후보는 감점한다.
+- 이 변경은 YOLO/OpenAI/frame observation의 확정 fact 승격 정책을 바꾸지 않고, 프레임 선택 후보의 품질 metadata를 보강하는 additive 변경이다.
+- 검증은 Worker 컨테이너에서 `python -m unittest discover -s tests -p 'test_yolo_frame_analysis_contract.py'`, `test_video_preprocess_contract.py`, `test_frame_analysis_contract.py`, `test_job_processor_contract.py`로 수행했다. Worker 컨테이너에는 pytest가 없어 unittest discovery로 검증했다.
+
 #### P5-2. 직접 사고대상 추출 강화
 
 - `vehicle`, `pedestrian`, `bicycle`, `motorcycle`, `object`, `unknown`을 구분한다.
@@ -1150,7 +1158,7 @@ P4-4 완료 기록:
 | P2 | 준비 완료 | Task-Plan-Goal 런타임 연결 |
 | P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
 | P4 | 완료 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter, P4-3 persona/prompt version registry, P4-4 Agent consensus/conflict packet 완료 |
-| P5 | 진행 준비 | 다음은 P5-1 사고 기점 탐지 강화 |
+| P5 | 진행 중 | P5-1 사고 기점 탐지 강화 완료. 다음은 P5-2 직접 사고대상 추출 강화 |
 | P6 | 대기 | 근거 검색/판단 계약 고도화 |
 | P7 | 대기 | Gateway/Frontend 표시 계약 |
 | P8 | 대기 | 관측성/비용/운영 리스크 |
@@ -1161,6 +1169,6 @@ P4-4 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P5-1. 사고 기점 탐지 강화**부터 진행한다.
+다음 개발은 **P5-2. 직접 사고대상 추출 강화**부터 진행한다.
 
-P5-1을 시작할 때는 사고 전 등장 객체, 횡단보도, 자막, 블랙박스 UI가 직접 사고 대상으로 승격되지 않도록 사고 후보 구간을 먼저 잡는다. YOLO/OpenAI/frame observation은 확정 사고 사실이 아니라 후보 관찰값으로 시작하고, 충분한 근거가 있을 때만 Agent 입력 계약에서 반영 가능한 상태로 올린다.
+P5-2를 시작할 때는 `vehicle`, `pedestrian`, `bicycle`, `motorcycle`, `object`, `unknown`을 구분하고, 단순 화면 등장과 직접 충돌 대상을 분리한다. 차대차 영상에 보행자가 보이거나 횡단보도가 있어도 직접 사고대상이 아니면 차대사람 근거로 오염되지 않아야 한다.

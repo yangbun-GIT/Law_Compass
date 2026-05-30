@@ -409,7 +409,9 @@ def rank_frame_details_by_yolo(frame_details: list[dict[str, Any]], yolo_payload
         return frame_details
     summaries = [
         item for item in yolo_payload.get("event_candidate_summary") or []
-        if isinstance(item, dict) and item.get("event_candidate_id")
+        if isinstance(item, dict)
+        and item.get("event_candidate_id")
+        and item.get("accident_window_quality") != "object_presence_only"
     ]
     if not summaries:
         return frame_details
@@ -481,6 +483,7 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
             "target_detection_counts": Counter(),
             "max_target_confidences": defaultdict(float),
             "max_target_bbox_areas": defaultdict(float),
+            "target_phase_counts": defaultdict(Counter),
             "person_detection_count": 0,
             "traffic_light_detection_count": 0,
             "max_vehicle_confidence": 0.0,
@@ -493,6 +496,7 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
         if target_type:
             summary["mobile_target_detection_count"] += 1
             summary["target_detection_counts"][target_type] += 1
+            summary["target_phase_counts"][target_type][str(detection.get("event_phase") or frame_meta.get("event_phase") or "unknown")] += 1
             summary["max_target_confidences"][target_type] = max(
                 float(summary["max_target_confidences"][target_type]),
                 confidence,
@@ -515,7 +519,10 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
         frame_refs = sorted(item["frame_refs"])
         event_phase_counts = dict(item["event_phase_counts"])
         target_detection_counts = dict(item["target_detection_counts"])
+        target_phase_counts = {key: dict(value) for key, value in item["target_phase_counts"].items()}
         dominant_target_type = _dominant_target_type(target_detection_counts)
+        event_target_detection_count = _event_target_detection_count(target_phase_counts)
+        accident_window_quality = _accident_window_quality(event_phase_counts, event_target_detection_count)
         score = _candidate_score(
             vehicle_detection_count=int(item["vehicle_detection_count"]),
             mobile_target_detection_count=int(item["mobile_target_detection_count"]),
@@ -525,6 +532,8 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
             person_detection_count=int(item["person_detection_count"]),
             traffic_light_detection_count=int(item["traffic_light_detection_count"]),
             event_phase_counts=event_phase_counts,
+            event_target_detection_count=event_target_detection_count,
+            accident_window_quality=accident_window_quality,
         )
         normalized.append({
             "event_candidate_id": item["event_candidate_id"],
@@ -533,7 +542,10 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
             "vehicle_detection_count": item["vehicle_detection_count"],
             "mobile_target_detection_count": item["mobile_target_detection_count"],
             "target_detection_counts": target_detection_counts,
+            "target_phase_counts": target_phase_counts,
             "dominant_target_type": dominant_target_type,
+            "event_target_detection_count": event_target_detection_count,
+            "accident_window_quality": accident_window_quality,
             "person_detection_count": item["person_detection_count"],
             "traffic_light_detection_count": item["traffic_light_detection_count"],
             "max_vehicle_confidence": round(float(item["max_vehicle_confidence"]), 4),
@@ -541,11 +553,12 @@ def _event_candidate_summaries(detections: list[dict[str, Any]], selected_frames
             "max_target_confidences": {key: round(float(value), 4) for key, value in item["max_target_confidences"].items()},
             "max_target_bbox_areas": {key: round(float(value), 2) for key, value in item["max_target_bbox_areas"].items()},
             "event_phase_counts": event_phase_counts,
-            "interpretation": "YOLO-ranked accident-window candidate for frame selection only.",
+            "interpretation": _event_candidate_interpretation(accident_window_quality),
         })
     return sorted(
         normalized,
         key=lambda item: (
+            item["accident_window_quality"] == "object_presence_only",
             -float(item["score"]),
             -int(item["mobile_target_detection_count"]),
             str(item["event_candidate_id"]),
@@ -764,19 +777,55 @@ def _candidate_score(
     person_detection_count: int,
     traffic_light_detection_count: int,
     event_phase_counts: dict[str, int],
+    event_target_detection_count: int,
+    accident_window_quality: str,
 ) -> float:
     event_phase_boost = 1.0 if event_phase_counts.get("event_candidate") else 0.0
+    temporal_quality_boost = {
+        "sequence_supported_candidate": 2.0,
+        "event_dense_candidate": 1.4,
+        "event_only_candidate": 0.7,
+        "object_presence_only": -6.0,
+    }.get(accident_window_quality, 0.0)
     score = (
         mobile_target_detection_count * 3.0
         + vehicle_detection_count * 0.5
         + visible_frame_count * 1.5
         + max_target_confidence * 2.0
         + min(max_target_bbox_area / 20000.0, 2.0)
+        + event_target_detection_count * 1.25
         + traffic_light_detection_count * 0.35
         + person_detection_count * 0.15
         + event_phase_boost
+        + temporal_quality_boost
     )
     return round(score, 4)
+
+
+def _event_target_detection_count(target_phase_counts: dict[str, dict[str, int]]) -> int:
+    return sum(int((phases or {}).get("event_candidate") or 0) for phases in target_phase_counts.values())
+
+
+def _accident_window_quality(event_phase_counts: dict[str, int], event_target_detection_count: int) -> str:
+    has_pre = bool(event_phase_counts.get("pre_event_context"))
+    has_event = event_target_detection_count > 0
+    has_post = bool(event_phase_counts.get("post_event_context"))
+    if not has_event:
+        return "object_presence_only"
+    if has_pre and has_post:
+        return "sequence_supported_candidate"
+    if event_target_detection_count >= 2:
+        return "event_dense_candidate"
+    return "event_only_candidate"
+
+
+def _event_candidate_interpretation(accident_window_quality: str) -> str:
+    if accident_window_quality == "object_presence_only":
+        return (
+            "Objects were detected near an event window, but not inside the event phase. "
+            "Keep this as context only and do not rank it as the accident point."
+        )
+    return "YOLO-ranked accident-window candidate for frame selection only."
 
 
 def _bbox_area(xyxy: list[Any]) -> float:

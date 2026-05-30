@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P5-1 영상 사고 기점 탐지 강화
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P5-1 단계를 완료했다. 이번 변경은 YOLO 객체 감지가 단순히 “객체가 보인다”는 이유만으로 사고 발생 구간 1순위가 되지 않도록, event phase 안의 대상 감지와 전후 문맥을 분리하는 보강이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 사고 후보 품질 | `apps/worker/worker/yolo_frame_analysis.py`의 event candidate summary에 `accident_window_quality`, `event_target_detection_count`, `target_phase_counts`를 추가했다. |
+| 단순 등장 방지 | `object_presence_only` 후보는 OpenAI 프레임 선택을 위한 YOLO 1순위 사고 후보 ranking에서 제외한다. 사고 전 등장 객체, 가장자리 사람 오버레이, 맥락 객체가 사고 기점으로 승격되는 것을 줄이기 위한 변경이다. |
+| 점수 보정 | event phase에 실제 mobile target이 잡힌 경우와 pre/event/post 문맥이 있는 경우에만 후보 점수가 올라가고, event phase 대상 감지가 없는 후보는 감점한다. |
+| 비변경 범위 | YOLO 모델 종류, OpenAI 호출 정책, 저장소 경로, DB schema, Redis key, public API/DTO는 변경하지 않았다. |
+| 검증 | Worker 컨테이너에서 `python -m unittest discover -s tests -p 'test_yolo_frame_analysis_contract.py'`, `test_video_preprocess_contract.py`, `test_frame_analysis_contract.py`, `test_job_processor_contract.py`를 실행했다. Worker 컨테이너에는 pytest가 없어 unittest discovery로 검증했다. |
+
+P5-1은 영상에서 사고 후보 구간을 더 보수적으로 고르는 단계다. 다음 P5-2에서는 직접 사고대상 추출을 강화해 차대차 영상의 보행자 오염, 자전거/이륜차 후보 혼동, 단순 등장 객체의 직접 충돌 대상 승격을 더 줄인다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P4-4 Specialist Agent Consensus
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P4-4 단계를 완료했다. 이번 변경은 Specialist Agent 결과와 기존 goal/fact arbitration 충돌을 별도 합의 packet으로 분류해, 불확실한 사고에서 50:50 fallback으로 바로 떨어지지 않도록 조건부 결과 또는 추가 질문 정책을 노출하는 작업이다.
