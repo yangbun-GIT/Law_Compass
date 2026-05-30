@@ -34,10 +34,13 @@ def compose_analysis_output(
 ) -> dict[str, Any]:
     final_report_usage = evaluate_llm_usage(section="final_report", evidence=evidence, facts=normalized_input.get("structured_facts") or {})
     final = generate_final_report(normalized_input=normalized_input, scenario=scenario, evidence=evidence, legal_analysis=legal_analysis, fault_ratio=fault_ratio, legal_liability=legal_liability, insurance_guide=insurance_guide, action_plan=action_plan) if final_report_usage["allowed"] else None
+    accident_title = final.get("accident_title") if isinstance(final, dict) else None
     summary = final.get("accident_summary") if isinstance(final, dict) else None
     if final_report_usage["allowed"] and not summary:
         final_report_usage = mark_llm_output_unavailable(final_report_usage, stage="final_report")
     final_report_usage = {**final_report_usage, "used": bool(summary)}
+    if not accident_title:
+        accident_title = _fallback_title(normalized_input)
     if not summary:
         summary = _fallback_summary(normalized_input, scenario, legal_analysis)
     uncertainty_level = evidence_audit.get("uncertainty_level", "medium")
@@ -48,6 +51,7 @@ def compose_analysis_output(
     technical = {
         "analysis_mode": analysis_mode,
         "display_mode": analysis_mode,
+        "accident_title": accident_title,
         "accident_summary": summary,
         "scenario_type": scenario["scenario_type"],
         "accident_party_type": scenario.get("accident_party_type", "unknown"),
@@ -121,3 +125,13 @@ def _fallback_summary(normalized_input: dict[str, Any], scenario: dict[str, Any]
     if text.endswith(("입니다.", "했습니다.", "발생했습니다.", "사고입니다.")):
         return text
     return f"{text} 상황은 {label}로 보입니다."
+
+
+def _fallback_title(normalized_input: dict[str, Any]) -> str:
+    text = (normalized_input.get("user_visible_summary_text") or normalized_input.get("description_text") or "입력한 사고 상황").strip()
+    text = text.lstrip(" ,，.")
+    marker = " 사고"
+    if marker in text:
+        return text[: text.find(marker) + len(marker)].strip()
+    first_sentence = text.split(".")[0].strip()
+    return first_sentence[:80] or "입력한 사고 상황"

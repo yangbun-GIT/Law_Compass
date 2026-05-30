@@ -4,15 +4,22 @@ import { composeEasyFallback, composeReanalysisChangeCard, enrichEasyReport, san
 describe("report composer", () => {
   it("keeps user-friendly situation summaries focused on accident facts", () => {
     const enriched: any = enrichEasyReport(
-      sanitizeEasyReport({
+      {
         simple_report: {
           situation_summary:
             "야간 중 음주운전 트럭의 교량 아래 스텔스 주차로 인한 사고 상황은 교통사고로 보이며, 입력된 사고 사실과 검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
         },
-      }),
-      { analysis_mode: "user_friendly" },
+      },
+      {
+        analysis_mode: "user_friendly",
+        accident_summary:
+          "야간 중 음주운전 트럭의 교량 아래 스텔스 주차로 인한 사고 상황은 교통사고로 보이며, 입력된 사고 사실과 검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
+      },
     );
 
+    expect(enriched.simple_report.situation_title).toBe(
+      "야간 중 음주운전 트럭의 교량 아래 스텔스 주차로 인한 사고",
+    );
     expect(enriched.simple_report.situation_summary).toBe(
       "야간 중 음주운전 트럭의 교량 아래 스텔스 주차로 인한 사고 상황입니다.",
     );

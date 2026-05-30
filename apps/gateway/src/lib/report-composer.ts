@@ -1700,6 +1700,7 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
         .slice(0, 4);
 
     return {
+        situation_title: composeSimpleSituationTitle(report, result),
         situation_summary: composeSimpleSituationSummary(report, result),
         fault_ratio: {
             my: faultRatio.my ?? faultRatio.my_percent ?? faultRatio.my_fault ?? userFault.my ?? null,
@@ -1725,6 +1726,25 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
     };
 }
 
+function composeSimpleSituationTitle(report: AnyRecord = {}, result: AnyRecord = {}): string {
+    const candidates = [
+        report.simple_report?.situation_title,
+        report.situation_title,
+        report.accident_title,
+        report.one_line_summary,
+        report.summary,
+        result.accident_title,
+        result.accident_summary,
+        result.description_text,
+        report.structured_facts?.description_text,
+    ];
+    for (const candidate of candidates) {
+        const title = cleanSituationTitle(candidate);
+        if (title) return title;
+    }
+    return "입력한 사고 상황";
+}
+
 function composeSimpleSituationSummary(report: AnyRecord = {}, result: AnyRecord = {}): string {
     const candidates = [
         report.simple_report?.situation_summary,
@@ -1743,9 +1763,26 @@ function composeSimpleSituationSummary(report: AnyRecord = {}, result: AnyRecord
     return "입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다.";
 }
 
-function cleanSituationSummary(value: any): string {
-    let text = cleanText(value, "");
+function cleanSituationTitle(value: any): string {
+    let text = rawSituationText(value);
     if (!text) return "";
+    text = text.replace(/^[\s,，.]+/, "").trim();
+    const mixed = text.match(/^(.+?\s*사고)\s*상황은\s*[^,.。]*로 보이며(?:,|\s|$)/);
+    if (mixed?.[1]) return mixed[1].trim();
+    const sentence = text.split(/[.!?。]\s*/)[0]?.trim() || text;
+    const situation = sentence.match(/^(.+?\s*사고)(?:\s|$)/);
+    if (situation?.[1]) return situation[1].trim();
+    const legalStart = sentence.search(/(?:교통법규|적용 가능 법규|보험 대응|신고 필요 여부|검색된 교통법규|검토했습니다)/);
+    if (legalStart > 0) text = sentence.slice(0, legalStart).trim();
+    text = text.replace(/\s*상황은\s*[^,.。]*로 보이며.*$/, "").trim();
+    if (text.length > 80) text = `${text.slice(0, 80).trim()}...`;
+    return text;
+}
+
+function cleanSituationSummary(value: any): string {
+    let text = rawSituationText(value);
+    if (!text) return "";
+    text = text.replace(/^[\s,，.]+/, "").trim();
 
     const legalTails = [
         "입력된 사고 사실과 검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
@@ -1769,6 +1806,19 @@ function cleanSituationSummary(value: any): string {
     if (!text) return "";
     if (!/[.!?。]$/.test(text)) text = `${text}.`;
     return text;
+}
+
+function rawSituationText(value: any): string {
+    if (value === null || value === undefined) return "";
+    const raw = String(value).replace(/\u0000/g, "").trim();
+    if (!raw || raw === "unknown" || raw === "null") return "";
+    if ((raw.startsWith("{") && raw.endsWith("}")) || (raw.startsWith("[") && raw.endsWith("]"))) return "";
+    return raw
+        .replace(/(?:^|,\s*)=\d+(?:\s*,\s*=\d+)+(?:\.)?/g, " ")
+        .replace(/(?:^|[\s,])=\d+(?=$|[\s,.;])/g, " ")
+        .replace(/\s+\./g, ".")
+        .replace(/\s+/g, " ")
+        .trim();
 }
 
 function collectSimpleKniaCandidates(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord[] {

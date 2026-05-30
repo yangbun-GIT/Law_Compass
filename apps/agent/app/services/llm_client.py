@@ -98,8 +98,14 @@ def generate_action_plan(*, text: str, scenario_type: str, facts: dict[str, Any]
 
 def generate_final_report(**payload: Any) -> dict[str, Any] | None:
     return _generate_json(
-        "너는 AI 교통사고 법률 분석 리포트 편집자다. 변호사 관점의 판례 기반 예상, 형사/민사 대응, 보험 처리 예상이 구분되게 종합하되 실제 변호사 자문이나 판결 확정처럼 표현하지 않는다.",
-        {**payload, "required_keys": ["accident_summary"]},
+        (
+            "너는 교통사고 분석 결과를 사용자가 이해하기 쉬운 짧은 JSON으로 정리한다. "
+            "accident_title은 '사고 상황을 간단히 정리했어요' 같은 안내 문구가 아니라 "
+            "사고 자체를 명사형 제목으로 쓴다. 예: '야간 중 음주운전 트럭의 교량 아래 스텔스 주차로 인한 사고'. "
+            "accident_summary는 1~2문장으로 사고 경위와 핵심 확인 요소만 설명한다. "
+            "법률 판단 확정, 과실비율 확정, 변호사 자문처럼 표현하지 않는다."
+        ),
+        {**payload, "required_keys": ["accident_title", "accident_summary"]},
         max_tokens=900,
     )
 

@@ -1,4 +1,3 @@
-vue
 <template>
   <div class="analysis-loading-spinner" role="status" aria-live="polite">
     <div
@@ -9,7 +8,6 @@ vue
       <div class="spinner-core">
         <strong>{{ safePercent }}%</strong>
         <span>{{ label }}</span>
-        <small>{{ message }}</small>
       </div>
     </div>
   </div>
@@ -42,20 +40,21 @@ const safePercent = computed(() => {
 .analysis-loading-spinner {
   display: grid;
   place-items: center;
-  min-height: 160px;
-  padding: 8px 12px 16px;
+  min-height: 178px;
+  padding: 18px 12px;
+  overflow: visible;
 }
 
 .spinner-orb {
   --progress: 0deg;
   position: relative;
-  width: clamp(118px, 24vw, 150px);
+  width: clamp(116px, 24vw, 146px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background:
-      radial-gradient(circle at 50% 50%, rgba(28, 23, 20, 0.96) 0 47%, transparent 48%),
+      radial-gradient(circle at 50% 50%, rgba(28, 23, 20, 0.96) 0 49%, transparent 50%),
       conic-gradient(
           from 220deg,
           #c9a962 0deg,
@@ -63,16 +62,16 @@ const safePercent = computed(() => {
           rgba(232, 223, 212, 0.10) var(--progress) 360deg
       );
   box-shadow:
-      0 12px 28px rgba(0, 0, 0, 0.30),
-      inset 0 0 12px rgba(201, 169, 98, 0.12);
+      0 10px 24px rgba(0, 0, 0, 0.28),
+      inset 0 0 10px rgba(201, 169, 98, 0.10);
 }
 
 .spinner-orb::before {
   content: "";
   position: absolute;
-  inset: 10px;
+  inset: 11px;
   border-radius: 50%;
-  border: 3px solid rgba(232, 223, 212, 0.08);
+  border: 2px solid rgba(232, 223, 212, 0.08);
   border-top-color: rgba(201, 169, 98, 0.92);
   border-right-color: rgba(139, 38, 53, 0.82);
   animation: analysis-spin 1.35s linear infinite;
@@ -81,7 +80,7 @@ const safePercent = computed(() => {
 .spinner-orb::after {
   content: "";
   position: absolute;
-  inset: 27px;
+  inset: 25px;
   border-radius: 50%;
   background: linear-gradient(145deg, rgba(37, 30, 25, 0.98), rgba(28, 23, 20, 0.98));
   border: 1px solid rgba(201, 169, 98, 0.20);
@@ -92,15 +91,15 @@ const safePercent = computed(() => {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 4px;
+  gap: 5px;
   place-items: center;
-  max-width: 72%;
+  max-width: 78%;
   text-align: center;
 }
 
 .spinner-core strong {
   color: var(--text-main);
-  font-size: clamp(1.45rem, 4.2vw, 2.15rem);
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
   font-weight: 950;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -111,17 +110,13 @@ const safePercent = computed(() => {
   color: var(--accent-strong);
   font-size: 0.78rem;
   font-weight: 900;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   line-height: 1.2;
   white-space: nowrap;
 }
 
 .spinner-core small {
-  max-width: 108px;
-  color: var(--text-sub);
-  font-size: 0.68rem;
-  line-height: 1.3;
-  word-break: keep-all;
+  display: none;
 }
 
 @keyframes analysis-spin {
@@ -138,17 +133,17 @@ const safePercent = computed(() => {
 
 @media (max-width: 520px) {
   .analysis-loading-spinner {
-    min-height: 140px;
-    padding: 6px 8px 12px;
+    min-height: 154px;
+    padding: 14px 8px;
   }
 
   .spinner-orb {
-    width: clamp(106px, 38vw, 132px);
+    width: clamp(108px, 36vw, 132px);
   }
 
   .spinner-orb::before {
-    inset: 9px;
-    border-width: 3px;
+    inset: 10px;
+    border-width: 1.5px;
   }
 
   .spinner-orb::after {
@@ -156,16 +151,11 @@ const safePercent = computed(() => {
   }
 
   .spinner-core strong {
-    font-size: clamp(1.35rem, 6vw, 1.9rem);
+    font-size: clamp(1.45rem, 6vw, 1.95rem);
   }
 
   .spinner-core span {
-    font-size: 0.74rem;
-  }
-
-  .spinner-core small {
-    display: none;
+    font-size: 0.72rem;
   }
 }
 </style>
-

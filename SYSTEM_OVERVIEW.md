@@ -1,5 +1,13 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-30 일반사용자모드 사고 제목/KNIA 가감 표시 보강
+
+일반사용자모드 결과 payload에서 사고 제목과 사고 설명을 분리해 표시하도록 보강했다. Agent 최종 리포트는 `accident_title`을 생성할 수 있으며, Gateway `simple_report`는 `situation_title`과 `situation_summary`를 함께 내려준다. 기존 저장 결과처럼 상황 요약에 법규 검토 fallback 문장이 섞인 경우 Gateway가 응답 조립 시 사고 제목과 사용자용 요약을 분리한다.
+
+Frontend 일반사용자모드는 과실 숫자를 `%` 단위로 표시하고, KNIA 가감요소가 있는 경우 사용자 화면 안에서 적용/미적용을 토글해 조정 후 참고 과실을 즉시 확인할 수 있다. `현저한 과실`, `중대한 과실`처럼 별도 판단이 필요한 모호한 가감항목은 일반사용자 토글 목록에서 제외한다.
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. 결과 payload에 사용자 표시용 `accident_title`/`simple_report.situation_title`이 추가되는 additive 변경이다.
+
 ## 2026-05-30 영상 사고대상 오염 방지 ReAct 측정 통과
 
 영상 처리 Worker에서 OpenAI 프레임 분석과 YOLO 보조 관찰을 함께 사용하는 실제 경로를 기준으로 사고대상 추출 오염을 줄이는 ReAct 보강을 진행했다. 이 단계의 목표는 과실 판단을 확정하는 것이 아니라, 영상에서 보이는 직접 사고대상 후보를 잘못된 확정 사실로 승격하지 않도록 만드는 것이다.

@@ -1292,6 +1292,126 @@ code {
     font-weight: 800;
 }
 
+.user-adjustment-panel {
+    display: grid;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(28, 23, 20, 0.36);
+    border: 1px solid rgba(201, 169, 98, 0.24);
+}
+
+.user-adjustment-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.user-adjustment-head h3 {
+    margin: 2px 0 0;
+    font-size: clamp(1rem, 2vw, 1.18rem);
+}
+
+.user-adjustment-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(201, 169, 98, 0.12);
+    border: 1px solid rgba(201, 169, 98, 0.28);
+    color: var(--text-sub);
+}
+
+.user-adjustment-result strong {
+    color: var(--accent-strong);
+    font-size: 1.05rem;
+}
+
+.user-adjustment-row {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 13px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(201, 169, 98, 0.20);
+    background: rgba(232, 223, 212, 0.06);
+    cursor: pointer;
+}
+
+.user-adjustment-row.is-selected {
+    border-color: rgba(201, 169, 98, 0.58);
+    background: linear-gradient(145deg, rgba(201, 169, 98, 0.16), rgba(61, 51, 43, 0.74));
+}
+
+.user-adjustment-row input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+}
+
+.user-adjustment-main {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.user-adjustment-main strong {
+    color: var(--text-main);
+    font-weight: 900;
+    line-height: 1.35;
+    word-break: keep-all;
+}
+
+.user-adjustment-main small {
+    color: var(--text-sub);
+    line-height: 1.45;
+    word-break: keep-all;
+}
+
+.user-adjustment-effect,
+.selection-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(201, 169, 98, 0.26);
+    background: rgba(28, 23, 20, 0.42);
+    color: var(--text-sub);
+    font-size: 0.84rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.selection-status.is-on {
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    border-color: rgba(201, 169, 98, 0.74);
+    color: var(--accent-foreground);
+}
+
+@media (max-width: 640px) {
+    .user-adjustment-head,
+    .user-adjustment-result {
+        display: grid;
+    }
+
+    .user-adjustment-row {
+        grid-template-columns: 24px minmax(0, 1fr);
+    }
+
+    .user-adjustment-effect,
+    .selection-status {
+        grid-column: 2;
+        width: fit-content;
+    }
+}
+
 .mobile-demo-two-col {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

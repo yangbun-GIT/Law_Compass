@@ -3,8 +3,8 @@
     <section v-if="isUserFriendlyMode" class="user-report">
       <section class="card easy-card simple-section corner-flourish">
         <p class="eyebrow">현재 상황정리</p>
-        <h2>사고 상황을 간단히 정리했어요</h2>
-        <p class="big-text">{{ simpleSituationSummary }}</p>
+        <h2>{{ simpleSituationTitle }}</h2>
+        <p v-if="simpleSituationDetail" class="big-text">{{ simpleSituationDetail }}</p>
       </section>
 
       <section class="card easy-card simple-section corner-flourish">
@@ -13,11 +13,11 @@
         <div class="easy-ratio-row">
           <div>
             <p>내 과실</p>
-            <span>{{ simpleFaultRatio.my ?? simpleFaultRatio.my_percent ?? simpleFaultRatio.my_fault ?? "확인 필요" }}</span>
+            <span>{{ percentText(simpleFaultRatio.my ?? simpleFaultRatio.my_percent ?? simpleFaultRatio.my_fault) }}</span>
           </div>
           <div>
             <p>상대 과실</p>
-            <span class="accent">{{ simpleFaultRatio.other ?? simpleFaultRatio.other_percent ?? simpleFaultRatio.opponent_fault ?? "확인 필요" }}</span>
+            <span class="accent">{{ percentText(simpleFaultRatio.other ?? simpleFaultRatio.other_percent ?? simpleFaultRatio.opponent_fault) }}</span>
           </div>
         </div>
         <p class="easy-summary">
@@ -69,7 +69,40 @@
           </p>
           <p class="kv">{{ text(simpleKniaEvidence.source_notice || "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.") }}</p>
         </div>
-        <div v-else class="easy-summary">
+        <div v-if="userAdjustmentRows.length" class="user-adjustment-panel">
+          <div class="user-adjustment-head">
+            <div>
+              <p class="eyebrow">KNIA 가감기준</p>
+              <h3>해당되는 조건을 직접 조정해 보세요</h3>
+            </div>
+            <span class="chip selected">{{ selectedAdjustmentCount }}개 적용</span>
+          </div>
+          <div v-if="manualFaultText" class="user-adjustment-result">
+            <span>조정 후 참고 과실</span>
+            <strong>{{ manualFaultText }}</strong>
+          </div>
+          <label
+            v-for="item in userAdjustmentRows"
+            :key="item.key"
+            class="user-adjustment-row"
+            :class="{ 'is-selected': isAdjustmentSelected(item) }"
+          >
+            <input
+              type="checkbox"
+              :checked="isAdjustmentSelected(item)"
+              @change="toggleUserAdjustment(item)"
+            />
+            <span class="user-adjustment-main">
+              <strong>{{ text(item.label) }}</strong>
+              <small>{{ text(item.reason || item.source_label || "사용자 확인에 따라 적용 여부가 달라지는 KNIA 가감기준입니다.") }}</small>
+            </span>
+            <span v-if="adjustmentEffectText(item)" class="user-adjustment-effect">{{ adjustmentEffectText(item) }}</span>
+            <span class="selection-status" :class="{ 'is-on': isAdjustmentSelected(item) }">
+              {{ isAdjustmentSelected(item) ? "적용" : "미적용" }}
+            </span>
+          </label>
+        </div>
+        <div v-if="!simpleKniaEvidence" class="easy-summary">
           <p>현재 사고와 가까운 KNIA 기준을 확인하고 있습니다.</p>
           <p>입력 사실이 부족하면 사고유형, 충돌 위치, 정차 여부를 보완해 주세요.</p>
         </div>
@@ -265,6 +298,7 @@ import { formatKniaBody, removeTechnicalFields, sanitizeDisplayText } from "../.
 const props = defineProps<{ report: any; analysisMode?: string; followupSubmitting?: boolean; followupError?: string }>();
 const emit = defineEmits<{ submitFollowup: [answers: Record<string, string>] }>();
 const showAllBasis = ref(false);
+const userAdjustmentOverrides = ref<Record<string, boolean>>({});
 
 const safeReport = computed<any>(() => removeTechnicalFields(props.report || {}));
 const displayMode = computed(() => {
@@ -334,6 +368,14 @@ function textOrFallback(...values: any[]) {
   }
   return "";
 }
+const simpleSituationTitle = computed(() => textOrFallback(
+  safeReport.value?.simple_report?.situation_title,
+  safeReport.value?.situation_title,
+  safeReport.value?.accident_title,
+  extractSituationTitle(safeReport.value?.simple_report?.situation_summary),
+  extractSituationTitle(safeReport.value?.summary),
+  "입력한 사고 상황"
+));
 const simpleSituationSummary = computed(() => textOrFallback(
   safeReport.value?.simple_report?.situation_summary,
   safeReport.value?.current_situation_summary,
@@ -342,6 +384,12 @@ const simpleSituationSummary = computed(() => textOrFallback(
   safeReport.value?.summary,
   "입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다."
 ));
+const simpleSituationDetail = computed(() => {
+  const detail = sanitizeDisplayText(simpleSituationSummary.value);
+  const title = sanitizeDisplayText(simpleSituationTitle.value);
+  if (!detail || detail === title || detail === `${title} 상황입니다.`) return "";
+  return detail;
+});
 const simpleFaultRatio = computed<any>(() => {
   const simple = safeReport.value?.simple_report?.fault_ratio;
   if (simple && typeof simple === "object") return simple;
@@ -363,6 +411,46 @@ const simpleFaultRatio = computed<any>(() => {
     reference_only: source.reference_only === true,
   };
 });
+const userAdjustmentRows = computed(() => {
+  const card = safeReport.value?.knia_fault_adjustment_card || {};
+  const groups = [
+    ...(Array.isArray(card.applied_adjustments) ? card.applied_adjustments.map((item: any) => ({ ...item, initialSelected: true })) : []),
+    ...(Array.isArray(card.unknown_adjustments) ? card.unknown_adjustments.map((item: any) => ({ ...item, initialSelected: false })) : []),
+    ...(Array.isArray(safeReport.value?.knia_unknown_adjustment_card?.items) ? safeReport.value.knia_unknown_adjustment_card.items.map((item: any) => ({ ...item, initialSelected: false })) : []),
+    ...(Array.isArray(safeReport.value?.knia_not_applied_adjustment_card?.items) ? safeReport.value.knia_not_applied_adjustment_card.items.map((item: any) => ({ ...item, initialSelected: false })) : []),
+  ];
+  const seen = new Set<string>();
+  return groups
+    .map((item: any) => {
+      const label = sanitizeDisplayText(item.label || item.title || item.reason || "");
+      const key = sanitizeDisplayText(item.factor_id || item.id || label);
+      return { ...item, key, label, initialSelected: item.initialSelected === true };
+    })
+    .filter((item: any) => item.key && item.label && !isAmbiguousAdjustmentLabel(item.label))
+    .filter((item: any) => {
+      const normalized = item.key.toLowerCase();
+      if (seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    })
+    .slice(0, 8);
+});
+const selectedAdjustmentCount = computed(() => userAdjustmentRows.value.filter(isAdjustmentSelected).length);
+const manualFault = computed(() => {
+  const base = safeReport.value?.knia_fault_adjustment_card?.base_fault || simpleKniaEvidence.value?.base_fault;
+  const pair = normalizeFaultPair(base);
+  if (!pair) return null;
+  let a = pair.A;
+  let b = pair.B;
+  for (const item of userAdjustmentRows.value) {
+    if (!isAdjustmentSelected(item)) continue;
+    const effect = adjustmentEffect(item);
+    a += effect.A;
+    b += effect.B;
+  }
+  return { A: clampPercent(a), B: clampPercent(b) };
+});
+const manualFaultText = computed(() => manualFault.value ? `A ${manualFault.value.A}% / B ${manualFault.value.B}%` : "");
 const simpleKniaEvidence = computed<any>(() => {
   const candidates = [
     safeReport.value?.related_knia_video_card,
@@ -394,6 +482,75 @@ const simpleVideoSummary = computed(() => textOrFallback(
 function text(value: unknown) { return sanitizeDisplayText(value); }
 function kniaParagraphs(value: unknown) { return formatKniaBody(value); }
 
+function extractSituationTitle(value: unknown) {
+  let raw = sanitizeDisplayText(value);
+  if (!raw) return "";
+  raw = raw.replace(/^[\s,，.]+/, "").trim();
+  const mixed = raw.match(/^(.+?\s*사고)\s*상황은\s*[^,.。]*로 보이며(?:,|\s|$)/);
+  if (mixed?.[1]) return mixed[1].trim();
+  const sentence = raw.split(/[.!?。]\s*/)[0]?.trim() || raw;
+  const title = sentence.match(/^(.+?\s*사고)(?:\s|$)/);
+  return sanitizeDisplayText(title?.[1] || sentence);
+}
+
+function percentText(value: unknown) {
+  if (value === null || value === undefined || value === "") return "확인 필요";
+  const textValue = sanitizeDisplayText(value);
+  if (!textValue) return "확인 필요";
+  if (/%|확인|필요|~/.test(textValue)) return textValue;
+  const numeric = Number(textValue);
+  if (Number.isFinite(numeric)) return `${numeric}%`;
+  return textValue;
+}
+
+function isAmbiguousAdjustmentLabel(label: string) {
+  return /현저한 과실|중대한 과실|12대 중과실|형사 위험|중과실/.test(label);
+}
+
+function isAdjustmentSelected(item: any) {
+  if (!item?.key) return false;
+  const override = userAdjustmentOverrides.value[item.key];
+  return override === undefined ? item.initialSelected === true : override === true;
+}
+
+function toggleUserAdjustment(item: any) {
+  if (!item?.key) return;
+  userAdjustmentOverrides.value = {
+    ...userAdjustmentOverrides.value,
+    [item.key]: !isAdjustmentSelected(item),
+  };
+}
+
+function adjustmentEffect(item: any) {
+  const source = item?.applied_effect || item?.effect || item?.delta || {};
+  const a = source?.A ?? source?.a ?? source?.my ?? item?.delta_A ?? item?.delta_a ?? item?.delta_my ?? 0;
+  const b = source?.B ?? source?.b ?? source?.other ?? item?.delta_B ?? item?.delta_b ?? item?.delta_other ?? 0;
+  return { A: Number(a) || 0, B: Number(b) || 0 };
+}
+
+function adjustmentEffectText(item: any) {
+  const effect = adjustmentEffect(item);
+  const parts = [];
+  if (effect.A) parts.push(`A ${effect.A > 0 ? "+" : ""}${effect.A}%p`);
+  if (effect.B) parts.push(`B ${effect.B > 0 ? "+" : ""}${effect.B}%p`);
+  return parts.join(" / ");
+}
+
+function normalizeFaultPair(value: any): { A: number; B: number } | null {
+  if (!value) return null;
+  if (typeof value === "object") {
+    const a = value.A ?? value.a ?? value.my ?? value.user ?? value.driver;
+    const b = value.B ?? value.b ?? value.other ?? value.opponent ?? value.counterparty;
+    if (a !== undefined && b !== undefined) return { A: clampPercent(Number(a)), B: clampPercent(Number(b)) };
+  }
+  return null;
+}
+
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function safeKniaButtonUrl(card: any) {
   const raw = String(card?.button_url || card?.video_url || card?.source_url || card?.source_detail_url || card?.source_page_url || "").trim();
   if (!raw || /\s/.test(raw)) return "";
@@ -407,14 +564,14 @@ function safeKniaButtonUrl(card: any) {
 
 function faultText(value: any): string {
   if (!value) return "";
-  if (typeof value === "string" || typeof value === "number") return text(value);
+  if (typeof value === "string" || typeof value === "number") return percentText(value);
   if (typeof value !== "object") return "";
   const my = value.my ?? value.A ?? value.user ?? value.ego ?? value.driver;
   const other = value.other ?? value.B ?? value.opponent ?? value.counterparty;
-  if (my !== undefined && other !== undefined) return `${my}:${other}`;
+  if (my !== undefined && other !== undefined) return `A ${percentText(my)} / B ${percentText(other)}`;
   const min = value.min ?? value.minimum;
   const max = value.max ?? value.maximum;
-  if (min !== undefined && max !== undefined) return `${min}~${max}`;
+  if (min !== undefined && max !== undefined) return `${percentText(min)}~${percentText(max)}`;
   return text(value.label || value.summary || "");
 }
 
