@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-30 P0-2 영상+입력 Agent E2E 연결 보강
+
+관리자 Agent 테스트 페이지의 입력+영상 흐름에서 `video_preprocess -> video_analyze -> easy-report`가 끝까지 이어지는지 사고 1, 사고 2 샘플로 확인했다. 이 단계는 영상 처리 자체보다 영상 관찰값과 사용자 입력이 Agent 판단 계약에 정상 연결되는지 검증하는 P0 보강이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 중앙선 장애물 회피 사고 | 중앙선/도로장애물/대향 차량 충돌 입력이 `parking_or_stopped_vehicle_accident`로 접히지 않고 `centerline_obstacle_collision`으로 유지되도록 Agent 분류와 입력 정규화를 보강했다. |
+| 영상 사실 반영 | 사고 1 E2E에서 `centerline_crossed`, `opposing_vehicle_present`, `collision_point_visible`, `pedestrian_visible=false`가 Agent video input contract와 저장 결과에 반영되는지 확인했다. |
+| 조건부 신호 사고 | 사고 2 E2E에서 좌회전 황색-적색 전환, 상대 신호 미확인 조건별 결과, 차대차 대상 유지, 보행자 오염 방지가 동작하는지 확인했다. |
+| 검증 로그 | `logs/video_accuracy/p0_2_accident1_video_input_e2e_20260530.json`, `logs/video_accuracy/p0_2_accident2_video_input_e2e_20260530.json`에 결과를 남겼다. `logs/`는 Git에 포함하지 않는다. |
+| 남은 한계 | 사고 2 결과의 근거 카드에 보행자/후방추돌 계열 근거가 일부 섞이는 문제가 남아 있다. 다음 P1 단계에서 사고 대분류와 직접 충돌 대상 기준으로 근거 검색/표시 적합도를 보강해야 한다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. Agent의 사고유형 분류, 입력 정규화, 중앙선 장애물 회피 과실 문맥, 회귀 테스트만 보강했다.
+
 ## 2026-05-30 KNIA 검색순위 자전거 분류 fallback
 
 `/api/v1/knia/ranking`은 DB의 `accident_party_type` 또는 원본 ranking 탭 분류가 부정확할 수 있어 KNIA 기준번호 prefix를 함께 사용한다. `car_vs_bicycle` 검색은 `자*`, `거*` 기준과 `자전거`, `차대자전거`, `자전거도로`, `자전거 사고` 키워드를 포함해 ranking 테이블과 상세 기준 테이블을 모두 확인한다.

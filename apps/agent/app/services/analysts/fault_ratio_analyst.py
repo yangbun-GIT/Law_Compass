@@ -345,10 +345,12 @@ def _centerline_obstacle_context(facts: dict[str, Any], text: str = "") -> dict[
     if not (centerline and obstruction and oncoming):
         return None
     stopped_or_nearly_stopped = facts.get("stopped") is True or any(
-        token in haystack for token in ("멈췄", "멈춘", "정차", "정지", "거의 멈", "감속")
+        token in haystack
+        for token in ("멈췄", "멈춰", "멈춘", "정차", "정지", "거의 멈", "감속", "stopped", "nearly stopped", "slowed")
     )
     opposing_non_stop = facts.get("opposing_vehicle_did_not_stop") is True or any(
-        token in haystack for token in ("그대로", "달려", "못봤", "못 봤", "멈추지", "감속하지")
+        token in haystack
+        for token in ("그대로", "달려", "못봤", "못 봤", "못보", "보지 못", "멈추지", "감속하지", "did not stop", "without slowing")
     ) or facts.get("accident_type") == "centerline_obstacle_collision"
     return {
         "stopped_or_nearly_stopped": stopped_or_nearly_stopped,

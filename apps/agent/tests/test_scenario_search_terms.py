@@ -182,7 +182,7 @@ def test_centerline_obstruction_context_is_car_vs_car():
     )
 
     assert scenario["accident_party_type"] == "car_vs_car"
-    assert scenario["scenario_type"] == "parking_or_stopped_vehicle_accident"
+    assert scenario["scenario_type"] == "centerline_obstacle_collision"
     assert "road_obstruction" in scenario["scenario_tags"]
     assert "oncoming_vehicle" in scenario["scenario_tags"]
 
@@ -426,7 +426,7 @@ def test_broad_vehicle_accident_types_map_to_generalizable_scenarios():
     )
 
     assert centerline["accident_party_type"] == "car_vs_car"
-    assert centerline["scenario_type"] == "parking_or_stopped_vehicle_accident"
+    assert centerline["scenario_type"] == "centerline_obstacle_collision"
     assert "centerline" in centerline["scenario_tags"]
     assert right_turn["accident_party_type"] == "car_vs_car"
     assert right_turn["scenario_type"] == "rear_end_collision"

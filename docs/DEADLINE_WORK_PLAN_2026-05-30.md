@@ -24,9 +24,20 @@
 
 ### P0-2. 영상+입력 Agent E2E 확인
 
-- 상태: 대기
+- 상태: 완료
 - 목표: 관리자 페이지에서 영상+입력으로 `video_preprocess -> video_analyze -> easy-report`가 끝까지 이어지는지 확인한다.
 - 최소 샘플: 사고 1~3 중 1개 이상, 가능하면 사고 2 포함.
+- 완료 내용:
+  - 사고 1 입력+영상 E2E에서 중앙선 장애물 회피/대향 차량 충돌 구조가 `centerline_obstacle_collision`으로 유지되는지 확인했다.
+  - 사고 1 저장 결과에서 영상 관찰값 `centerline_crossed`, `opposing_vehicle_present`, `collision_point_visible`, `pedestrian_visible=false`가 Agent 입력 계약과 저장 결과에 반영되는지 확인했다.
+  - 사고 2 입력+영상 E2E에서 좌회전 황색-적색 전환, 상대 신호 미확인 조건부 결과, 차대차 사고 대상 유지, 보행자 오염 방지가 동작하는지 확인했다.
+  - 사고 2 기준 근거 카드에 보행자/후방추돌 계열 근거가 일부 섞이는 문제는 P1 근거 적합도 보강 대상으로 남긴다.
+- 검증:
+  - 완료: Agent 중앙선/영상 입력 계약 단위 테스트
+  - 완료: Agent regression scenario script
+  - 완료: Docker `agent`, `worker`, `gateway` rebuild
+  - 완료: 사고 1 `scripts/video_agent_e2e.py`
+  - 완료: 사고 2 `scripts/video_agent_e2e.py`
 
 ## P1: 결과 품질 보강
 

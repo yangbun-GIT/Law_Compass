@@ -114,7 +114,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance", "front_vehicle_stopped", "right_turn", "crosswalk"])
     elif accident_type == "centerline_obstacle_collision":
-        scenario_type = "parking_or_stopped_vehicle_accident"
+        scenario_type = "centerline_obstacle_collision"
         accident_party_type = "car_vs_car"
         tags.update(["centerline", "road_obstruction", "oncoming_vehicle"])
     elif accident_type == "stopped_vehicle_collision":
@@ -194,7 +194,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         accident_party_type = "car_vs_car"
         tags.update(["intersection", "signal_violation", "right_of_way"])
     elif facts.get("centerline_crossed") and (facts.get("road_obstruction") or facts.get("illegal_parking_obstruction") or any(w in haystack for w in ["중앙선", "황색 실선", "불법 주정차", "주차 차량", "장애물"])):
-        scenario_type = "parking_or_stopped_vehicle_accident"
+        scenario_type = "centerline_obstacle_collision"
         accident_party_type = "car_vs_car"
         tags.update(["centerline", "road_obstruction", "oncoming_vehicle"])
     elif facts.get("lane_change") or any(w in haystack for w in ["차선변경", "진로변경", "끼어들", "방향지시등", "깜빡이"]):

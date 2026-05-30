@@ -592,6 +592,74 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
     elif _contains_any(hay, ("우회전", "right turn", "right-turn")):
         _set_if_empty(enriched, "ego_turn_direction", "right")
 
+    centerline_text = _contains_any(
+        hay,
+        ("중앙선", "황색 실선", "황색실선", "센터라인", "centerline", "yellow line"),
+    )
+    centerline_obstruction_text = _contains_any(
+        hay,
+        (
+            "불법주정차",
+            "불법 주정차",
+            "주정차량",
+            "주차 차량",
+            "주차된",
+            "정차 차량",
+            "도로를 점유",
+            "도로 점유",
+            "막고 있어",
+            "막혀",
+            "장애물",
+            "가구",
+            "사물",
+            "적재물",
+            "obstacle",
+            "parked vehicle",
+        ),
+    )
+    oncoming_text = _contains_any(
+        hay,
+        (
+            "마주오",
+            "마주 오",
+            "대향",
+            "반대편",
+            "상대차",
+            "상대 차량",
+            "오던 차",
+            "오는 차",
+            "역방향",
+            "oncoming",
+            "opposite direction",
+        ),
+    )
+    if centerline_text and (centerline_obstruction_text or oncoming_text or enriched.get("centerline_crossed") is True):
+        _set_if_empty(enriched, "accident_party_type", "car_vs_car")
+        _set_if_empty(enriched, "knia_major_party_type", "car_vs_car")
+        _set_if_empty(enriched, "collision_partner_type", "vehicle")
+        _set_if_empty(enriched, "direct_collision_partner_type", "vehicle")
+        if _is_empty(enriched.get("accident_type")) or str(enriched.get("accident_type")) in {
+            "general_collision",
+            "general_vehicle_collision",
+            "parking_or_stopped_vehicle_accident",
+        }:
+            enriched["accident_type"] = "centerline_obstacle_collision"
+        enriched["centerline_crossed"] = True
+        if centerline_obstruction_text:
+            enriched["road_obstruction"] = True
+            if _contains_any(hay, ("불법주정차", "불법 주정차", "주정차량", "주차 차량", "주차된", "정차 차량", "parked vehicle")):
+                enriched["illegal_parking_obstruction"] = True
+                _set_if_empty(enriched, "centerline_cross_reason", "parked_vehicle_obstruction")
+            else:
+                _set_if_empty(enriched, "centerline_cross_reason", "road_obstruction")
+        if oncoming_text:
+            enriched["opposing_vehicle_present"] = True
+        if _contains_any(hay, ("멈췄", "멈췄는데", "멈춰", "멈춘", "거의 멈", "정차", "정지", "감속")):
+            enriched["stopped"] = True
+        if _contains_any(hay, ("못봤", "못 봤", "보지 못", "못보", "그대로", "달려", "멈추지", "감속하지")):
+            enriched["opposing_vehicle_did_not_stop"] = True
+            _set_if_empty(enriched, "opponent_behavior", "oncoming_vehicle_did_not_stop")
+
     left_turn = enriched.get("ego_turn_direction") == "left"
     straight_opponent = _contains_any(hay, ("직진", "straight"))
     signal_text = _contains_any(hay, ("신호", "황색", "노란불", "적색", "빨간불", "yellow", "red", "signal"))

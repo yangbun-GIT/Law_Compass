@@ -209,11 +209,85 @@ def test_centerline_obstacle_context_uses_textual_stop_and_oncoming_nonstop_cues
         analysis_mode="fault_ratio",
     )
 
-    assert result["scenario_type"] == "parking_or_stopped_vehicle_accident"
+    assert result["scenario_type"] == "centerline_obstacle_collision"
+    assert result["structured_facts"]["stopped"] is True
+    assert result["structured_facts"]["opposing_vehicle_present"] is True
+    assert result["structured_facts"]["opposing_vehicle_did_not_stop"] is True
     assert result["fault_ratio"]["my"] == 30
     assert result["fault_ratio"]["other"] == 70
     assert result["fault_ratio"]["fault_estimate_source"] == "contextual_complex_case"
     assert "상대 차량 회피 가능성" in result["fault_ratio"]["key_factors"]
+
+
+def test_centerline_obstacle_video_and_input_e2e_keeps_video_facts_and_scenario():
+    result = analyze_case(
+        "왕복 2차로 도로에서 불법 주정차 차량 때문에 중앙선을 물었고, 마주오던 상대 차량이 멈추지 않아 앞부분을 충돌했습니다.",
+        structured_facts={
+            "accident_party_type": "car_vs_car",
+            "accident_type": "centerline_obstacle_collision",
+            "centerline_crossed": True,
+            "road_obstruction": True,
+            "illegal_parking_obstruction": True,
+        },
+        selected_keywords=["중앙선", "대향 차량", "불법 주정차"],
+        video_metadata={
+            "metadata": {
+                "duration_sec": 8.4,
+                "representative_frames": [f"/frames/frame_{index:03d}.jpg" for index in range(1, 7)],
+                "observations": [
+                    {
+                        "field": "accident_event_candidate",
+                        "value": True,
+                        "confidence": 0.86,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "collision_point_visible",
+                        "value": True,
+                        "confidence": 0.95,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "collision_point_location",
+                        "value": "front_left",
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": False,
+                        "confidence": 0.95,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_002.jpg", "frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "primary_collision_target",
+                        "value": "vehicle_candidate",
+                        "confidence": 0.95,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                ],
+            }
+        },
+        analysis_mode="fault_ratio",
+    )
+
+    facts = result["structured_facts"]
+    assert result["scenario_type"] == "centerline_obstacle_collision"
+    assert facts["collision_partner_type"] == "vehicle"
+    assert facts["direct_collision_partner_type"] == "vehicle"
+    assert facts["opposing_vehicle_present"] is True
+    assert facts["opposing_vehicle_did_not_stop"] is True
+    assert facts["collision_point_visible"] is True
+    assert facts["collision_point_location"] == "front_left"
+    assert facts["pedestrian_visible"] is False
+    assert "primary_collision_target" in result["fact_arbitration"]["held_video_fields"]
+    assert result["fault_ratio"]["fault_estimate_source"] == "contextual_complex_case"
+    assert result["fault_ratio"]["my"] < result["fault_ratio"]["other"]
 
 
 def test_left_turn_yellow_to_red_unknown_opponent_signal_gets_conditional_outcomes_without_pedestrian_basis():
