@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P4-2 Specialist Agent 실행 Adapter
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P4-2 단계를 완료했다. 이번 변경은 기존 analyst 실행 흐름을 대규모로 재배선하지 않고, 현재 분석 결과를 10개 Specialist Agent의 `SpecialistAgentResult` 계약으로 감싸 trace와 quality packet에서 확인 가능하게 만든 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 실행 adapter | `apps/agent/app/services/specialist_agent_runners.py`를 추가했다. `run_specialist_agent()`는 role별 입력 source path를 받아 `SpecialistAgentResult`를 만들고, `attach_specialist_agent_results()`는 10개 표준 role 결과를 `specialist_agent_results` packet으로 붙인다. |
+| 결과 연결 | `apps/agent/app/services/orchestration_output.py`에서 goal/replan 이후, trace/quality packet 이전에 `specialist_agent_results`를 연결한다. 기존 `legal_analysis`, `fault_ratio`, `legal_liability`, `insurance_guide`, `evidence_audit`, `action_plan` payload는 그대로 유지된다. |
+| Trace/quality | `agent_execution_trace.py`와 `agent_quality_packet.py`가 specialist result count, role id, safe metadata 여부를 추적한다. raw user text, prompt, secret, token은 packet에 넣지 않는다. |
+| Schema | `AnalysisOutput`에 `specialist_agent_results`를 additive 필드로 추가했다. 기존 public route, DB schema, Redis key, storage path, 외부 API 종류는 변경하지 않았다. |
+| 검증 | Agent 컨테이너에서 `python -m pytest tests/test_specialist_agent_runners.py tests/test_specialist_role_definitions.py tests/test_specialist_role_inventory.py tests/test_agent_contracts.py tests/test_orchestrator.py tests/test_agent_task_packets.py tests/test_agent_goal_aggregator.py`를 실행해 adapter와 기존 결과 회귀를 확인했다. |
+
+P4-2는 기존 analyst 결과를 표준 Agent result로 관측 가능하게 만든 단계다. 다음 P4-3에서는 LLM/deterministic Agent prompt와 persona version을 trace에 남기는 기준을 고정한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P4-1 Specialist Agent 역할 정의
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P4-1 단계를 완료했다. 이번 변경은 P4-0에서 정리한 역할 inventory를 실제 Specialist Agent role profile 계약으로 연결하고, 기존 role id와 새 표준 role id가 동시에 동작하도록 호환 alias를 둔 작업이다.

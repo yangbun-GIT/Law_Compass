@@ -736,6 +736,14 @@ P4-1 완료 기록:
 - Agent별 단위 테스트를 만든다.
 - orchestrator는 stage sequencing과 result aggregation만 담당하는지 확인한다.
 
+P4-2 완료 기록:
+
+- `apps/agent/app/services/specialist_agent_runners.py`를 추가해 기존 분석 결과를 10개 Specialist Agent의 `SpecialistAgentResult` adapter 결과로 감싼다.
+- `attach_specialist_agent_results()`를 `orchestration_output.py`에 연결해 `agent_trace`와 `agent_quality_packet` 생성 전에 `specialist_agent_results` packet을 붙인다.
+- `agent_execution_trace.py`와 `agent_quality_packet.py`가 specialist result count, role id, safe metadata 여부를 추적한다.
+- `AnalysisOutput`에 `specialist_agent_results`를 additive 필드로 추가했다. 기존 `legal_analysis`, `fault_ratio`, `legal_liability`, `insurance_guide`, `action_plan`, `evidence_audit` payload는 변경하지 않았다.
+- 검증은 `tests/test_specialist_agent_runners.py`, 기존 Specialist role/contract/orchestrator/task/goal 회귀 테스트로 수행한다.
+
 #### P4-3. Persona/prompt 버전 관리
 
 - LLM을 쓰는 Agent와 deterministic Agent를 구분한다.
@@ -1122,7 +1130,7 @@ P4-1 완료 기록:
 | P1 | 완료 | Agent 실행 packet, Specialist Agent/persona, MCP Tool 계약을 additive schema와 단위 테스트로 고정 |
 | P2 | 준비 완료 | Task-Plan-Goal 런타임 연결 |
 | P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
-| P4 | 진행 중 | P4-0 role inventory와 boundary rule, P4-1 Specialist Agent 역할 profile/interface 기준 완료. 다음은 P4-2 Agent 실행 함수 분리 |
+| P4 | 진행 중 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter 완료. 다음은 P4-3 persona/prompt 버전 관리 |
 | P5 | 대기 | 영상 사실 추출 고도화 |
 | P6 | 대기 | 근거 검색/판단 계약 고도화 |
 | P7 | 대기 | Gateway/Frontend 표시 계약 |
@@ -1134,6 +1142,6 @@ P4-1 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P4-2. Agent 실행 함수 분리**부터 진행한다.
+다음 개발은 **P4-3. Persona/prompt 버전 관리**부터 진행한다.
 
-P4-2를 시작할 때는 현재 고정 stage pipeline과 사용자/관리자 결과 payload를 깨지 않고, 기존 analyst 함수를 Agent별 `run(input_packet) -> SpecialistAgentResult` adapter로 감싸는 방식부터 적용한다. orchestrator는 당장 대규모 재배선하지 않고 stage sequencing과 result aggregation 책임을 유지하며, 기존 과실/근거 결과 품질이 나빠지면 해당 변경은 완료로 보지 않는다.
+P4-3을 시작할 때는 LLM을 쓰는 Agent와 deterministic Agent를 구분하고, prompt/persona version과 금지 판단 규칙이 trace 또는 quality packet에서 확인되도록 한다. prompt 문장 고도화가 근거 없는 확정, 영상 후보 fact 승격, 보험/형사/법률 책임 침범으로 이어지면 해당 변경은 완료로 보지 않는다.

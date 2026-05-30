@@ -70,6 +70,7 @@ def test_analyze_case_minimum_fields():
     assert "agent_task_packets" in AnalysisOutput(**result).model_dump()
     assert "agent_goal_result" in AnalysisOutput(**result).model_dump()
     assert "agent_replan" in AnalysisOutput(**result).model_dump()
+    assert "specialist_agent_results" in AnalysisOutput(**result).model_dump()
     assert result["model_info"]["agent_plan_version"] == "agent-plan-v1"
     assert result["model_info"]["agent_task_packets_version"] == "agent-task-packets-v1"
     assert result["model_info"]["agent_goal_result_version"] == "agent-goal-result-v1"

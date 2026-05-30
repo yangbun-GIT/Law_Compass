@@ -22,6 +22,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
     task_packets = output.get("agent_task_packets") or {}
     goal_result = output.get("agent_goal_result") or {}
     replan = output.get("agent_replan") or {}
+    specialist_results = output.get("specialist_agent_results") or {}
 
     steps = [
         _step(
@@ -81,6 +82,16 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
             },
         ),
         _step(
+            "specialist_agent_results",
+            "solve",
+            "completed" if specialist_results.get("result_count") else "skipped",
+            {
+                "result_count": specialist_results.get("result_count", 0),
+                "role_ids": list(specialist_results.get("role_ids") or []),
+                "safe_metadata_only": specialist_results.get("safe_metadata_only") is True,
+            },
+        ),
+        _step(
             "claim_validation",
             "verify",
             "needs_review" if claim_evidence.get("unsupported_claim_count") else "completed",
@@ -133,6 +144,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
         "task_packets": _task_packet_summary(task_packets),
         "goal_result": _goal_result_summary(goal_result),
         "replan": _replan_summary(replan),
+        "specialist_agent_results": _specialist_results_summary(specialist_results),
         "step_count": len(steps),
         "steps": steps,
     }
@@ -222,4 +234,17 @@ def _replan_summary(replan: dict[str, Any]) -> dict[str, Any]:
         "max_iterations": replan.get("max_iterations"),
         "iterations_used": replan.get("iterations_used"),
         "safe_metadata_only": True,
+    }
+
+
+def _specialist_results_summary(specialist_results: dict[str, Any]) -> dict[str, Any]:
+    results = specialist_results.get("results") if isinstance(specialist_results.get("results"), list) else []
+    finalities = [item.get("finality") for item in results if isinstance(item, dict)]
+    return {
+        "version": specialist_results.get("version"),
+        "result_count": specialist_results.get("result_count", 0),
+        "role_ids": list(specialist_results.get("role_ids") or []),
+        "needs_review_count": len([value for value in finalities if value == "needs_review"]),
+        "decision_ready_count": len([value for value in finalities if value == "decision_ready"]),
+        "safe_metadata_only": specialist_results.get("safe_metadata_only") is True,
     }
