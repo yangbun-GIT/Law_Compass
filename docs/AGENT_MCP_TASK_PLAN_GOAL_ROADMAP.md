@@ -1194,3 +1194,10 @@ P5-2를 시작할 때는 `vehicle`, `pedestrian`, `bicycle`, `motorcycle`, `obje
 - AI-Hub 597 라벨 변환 결과는 `calibration_reference_only` 정책을 유지하며, 원천 라벨/공개 reference 설명을 Agent 판단 입력으로 직접 주입하지 않는 것을 테스트로 고정했다.
 - 검증은 `python -m pytest tests/test_reference_case_manifest_policy.py tests/test_validate_video_accuracy_manifest.py tests/test_evaluate_video_reference_metrics.py`와 reference manifest preflight로 완료했다.
 - 다음 개발은 P6-1 사고축 기반 evidence routing이다. 사고 대분류와 직접 사고대상을 먼저 고정하고, 보행자·횡단보도·자전거·신호·차선변경 같은 환경축 근거가 사고축과 맞지 않을 때 1차 근거로 섞이지 않도록 정리한다.
+
+### 2026-05-31 P5-2~P5-4 문서 정합성 재점검
+
+- 사용자 지적에 따라 P5-2 이후 완료 기록을 다시 점검했다. P5-2, P5-3, P5-4 구현과 `SYSTEM_OVERVIEW.md` 기록은 존재하지만, 이 문서의 오래된 상태표와 `바로 다음 작업` 문구가 P5-1 기준으로 남아 있어 혼동 가능성이 있었다.
+- 현재 유효한 상태는 `P5 완료`이다. 완료 범위는 P5-1 사고 기점 후보 품질, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 AI-Hub/공개 reference 평가 경계다.
+- 재검증은 `docker compose exec -T worker python -m unittest discover -s tests -p 'test_job_processor_contract.py'`, `docker compose exec -T agent python -m pytest tests/test_video_input_contract.py tests/test_fact_arbitration.py tests/test_party_router_direct_collision_priority.py`, `python -m pytest tests/test_reference_case_manifest_policy.py tests/test_validate_video_accuracy_manifest.py tests/test_evaluate_video_reference_metrics.py`로 완료했다.
+- 현재 유효한 바로 다음 작업은 **P6-1 사고축 기반 evidence routing**이다. 오래된 상태표의 P5-1 기준 다음 작업 문구보다 이 기록을 우선한다.

@@ -1,5 +1,15 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 P5-2~P5-4 문서 정합성 재점검
+
+사용자 지적에 따라 Agent/MCP/Task-Plan-Goal 로드맵 문서의 P5-2 이후 완료 기록을 다시 점검했다. 코드와 `SYSTEM_OVERVIEW.md`에는 P5-2, P5-3, P5-4 완료 내역이 존재하지만, `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`의 오래된 진행 상태 표와 “바로 다음 작업” 문구가 P5-1 기준으로 남아 있어 문서 참조 시 혼동 가능성이 있었다.
+
+이번 점검에서는 P5-2 직접 사고대상 추출 강화, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 강화를 다시 검증하고, 로드맵 하단에 현재 유효한 진행 상태를 명시했다. 이 변경은 코드 동작을 바꾸지 않는 문서 정합성 보강이다.
+
+검증은 `docker compose exec -T worker python -m unittest discover -s tests -p 'test_job_processor_contract.py'`, `docker compose exec -T agent python -m pytest tests/test_video_input_contract.py tests/test_fact_arbitration.py tests/test_party_router_direct_collision_priority.py`, `python -m pytest tests/test_reference_case_manifest_policy.py tests/test_validate_video_accuracy_manifest.py tests/test_evaluate_video_reference_metrics.py`로 완료했다.
+
+현재 유효한 다음 개발 단계는 P6-1 사고축 기반 evidence routing이다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P5-4 Reference 평가 경계 강화
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P5-4 단계를 완료했다. 이번 변경은 AI-Hub 라벨, 공개 영상 설명, 공개 reference 의견을 실제 사용자 사고 입력으로 섞지 않고, 영상 분석 정확도 검증용 reference로만 관리하도록 경계를 강화한 작업이다.
