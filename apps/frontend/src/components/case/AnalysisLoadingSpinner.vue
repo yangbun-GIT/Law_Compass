@@ -1,9 +1,10 @@
+vue
 <template>
   <div class="analysis-loading-spinner" role="status" aria-live="polite">
     <div
-      class="spinner-orb"
-      :style="{ '--progress': `${safePercent * 3.6}deg` }"
-      aria-hidden="true"
+        class="spinner-orb"
+        :style="{ '--progress': `${safePercent * 3.6}deg` }"
+        aria-hidden="true"
     >
       <div class="spinner-core">
         <strong>{{ safePercent }}%</strong>
@@ -18,16 +19,16 @@
 import { computed } from "vue";
 
 const props = withDefaults(
-  defineProps<{
-    percent?: number;
-    label?: string;
-    message?: string;
-  }>(),
-  {
-    percent: 0,
-    label: "분석 중",
-    message: "사고 정보를 정리하고 있습니다.",
-  },
+    defineProps<{
+      percent?: number;
+      label?: string;
+      message?: string;
+    }>(),
+    {
+      percent: 0,
+      label: "분석 중",
+      message: "사고 정보를 정리하고 있습니다.",
+    },
 );
 
 const safePercent = computed(() => {
@@ -41,44 +42,49 @@ const safePercent = computed(() => {
 .analysis-loading-spinner {
   display: grid;
   place-items: center;
-  min-height: 280px;
-  padding: 28px 16px;
+  min-height: 160px;
+  padding: 8px 12px 16px;
 }
 
 .spinner-orb {
   --progress: 0deg;
   position: relative;
-  width: min(260px, 72vw);
+  width: clamp(118px, 24vw, 150px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 50% 50%, rgba(28, 23, 20, 0.96) 0 45%, transparent 46%),
-    conic-gradient(from 220deg, #c9a962 0deg, #d4b872 var(--progress), rgba(232, 223, 212, 0.10) var(--progress) 360deg);
+      radial-gradient(circle at 50% 50%, rgba(28, 23, 20, 0.96) 0 47%, transparent 48%),
+      conic-gradient(
+          from 220deg,
+          #c9a962 0deg,
+          #d4b872 var(--progress),
+          rgba(232, 223, 212, 0.10) var(--progress) 360deg
+      );
   box-shadow:
-    0 24px 70px rgba(0, 0, 0, 0.42),
-    inset 0 0 26px rgba(201, 169, 98, 0.16);
+      0 12px 28px rgba(0, 0, 0, 0.30),
+      inset 0 0 12px rgba(201, 169, 98, 0.12);
 }
 
 .spinner-orb::before {
   content: "";
   position: absolute;
-  inset: 13px;
+  inset: 10px;
   border-radius: 50%;
-  border: 10px solid rgba(232, 223, 212, 0.08);
+  border: 3px solid rgba(232, 223, 212, 0.08);
   border-top-color: rgba(201, 169, 98, 0.92);
-  border-right-color: rgba(139, 38, 53, 0.86);
+  border-right-color: rgba(139, 38, 53, 0.82);
   animation: analysis-spin 1.35s linear infinite;
 }
 
 .spinner-orb::after {
   content: "";
   position: absolute;
-  inset: 42px;
+  inset: 27px;
   border-radius: 50%;
   background: linear-gradient(145deg, rgba(37, 30, 25, 0.98), rgba(28, 23, 20, 0.98));
-  border: 1px solid rgba(201, 169, 98, 0.22);
+  border: 1px solid rgba(201, 169, 98, 0.20);
   box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.06);
 }
 
@@ -86,30 +92,36 @@ const safePercent = computed(() => {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 5px;
+  gap: 4px;
   place-items: center;
+  max-width: 72%;
   text-align: center;
 }
 
 .spinner-core strong {
   color: var(--text-main);
-  font-size: clamp(2.4rem, 8vw, 4.2rem);
+  font-size: clamp(1.45rem, 4.2vw, 2.15rem);
   font-weight: 950;
   line-height: 1;
-  letter-spacing: -0.04em;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.52);
+  letter-spacing: -0.03em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.46);
 }
 
 .spinner-core span {
   color: var(--accent-strong);
+  font-size: 0.78rem;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .spinner-core small {
-  max-width: 160px;
+  max-width: 108px;
   color: var(--text-sub);
-  line-height: 1.35;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  word-break: keep-all;
 }
 
 @keyframes analysis-spin {
@@ -126,11 +138,34 @@ const safePercent = computed(() => {
 
 @media (max-width: 520px) {
   .analysis-loading-spinner {
-    min-height: 230px;
+    min-height: 140px;
+    padding: 6px 8px 12px;
   }
 
   .spinner-orb {
-    width: min(220px, 74vw);
+    width: clamp(106px, 38vw, 132px);
+  }
+
+  .spinner-orb::before {
+    inset: 9px;
+    border-width: 3px;
+  }
+
+  .spinner-orb::after {
+    inset: 23px;
+  }
+
+  .spinner-core strong {
+    font-size: clamp(1.35rem, 6vw, 1.9rem);
+  }
+
+  .spinner-core span {
+    font-size: 0.74rem;
+  }
+
+  .spinner-core small {
+    display: none;
   }
 }
 </style>
+

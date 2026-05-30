@@ -117,5 +117,7 @@ def compose_analysis_output(
 
 def _fallback_summary(normalized_input: dict[str, Any], scenario: dict[str, Any], legal_analysis: dict[str, Any]) -> str:
     text = (normalized_input.get("user_visible_summary_text") or normalized_input.get("description_text") or "입력하신 사고").strip()[:180]
-    issue = legal_analysis.get("legal_issue_summary") or "교통법규 근거를 바탕으로 과실, 신고 필요 여부, 보험 대응을 검토했습니다."
-    return f"{text} 상황은 {scenario_label(scenario.get('scenario_type'))}로 보이며, {issue}"
+    label = scenario_label(scenario.get("scenario_type"))
+    if text.endswith(("입니다.", "했습니다.", "발생했습니다.", "사고입니다.")):
+        return text
+    return f"{text} 상황은 {label}로 보입니다."

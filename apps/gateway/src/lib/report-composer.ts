@@ -1700,15 +1700,7 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
         .slice(0, 4);
 
     return {
-        situation_summary: cleanText(
-            report.current_situation_summary ||
-            report.situation_summary ||
-            report.one_line_summary ||
-            report.summary ||
-            result.accident_summary ||
-            "",
-            "입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다.",
-        ),
+        situation_summary: composeSimpleSituationSummary(report, result),
         fault_ratio: {
             my: faultRatio.my ?? faultRatio.my_percent ?? faultRatio.my_fault ?? userFault.my ?? null,
             other: faultRatio.other ?? faultRatio.other_percent ?? faultRatio.opponent_fault ?? userFault.other ?? null,
@@ -1731,6 +1723,52 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
         },
         video_summary: videoSummary,
     };
+}
+
+function composeSimpleSituationSummary(report: AnyRecord = {}, result: AnyRecord = {}): string {
+    const candidates = [
+        report.simple_report?.situation_summary,
+        report.current_situation_summary,
+        report.situation_summary,
+        report.one_line_summary,
+        report.summary,
+        result.accident_summary,
+        result.description_text,
+        report.structured_facts?.description_text,
+    ];
+    for (const candidate of candidates) {
+        const summary = cleanSituationSummary(candidate);
+        if (summary) return summary;
+    }
+    return "입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다.";
+}
+
+function cleanSituationSummary(value: any): string {
+    let text = cleanText(value, "");
+    if (!text) return "";
+
+    const legalTails = [
+        "입력된 사고 사실과 검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
+        "입력한 사고 사실과 검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
+        "검색된 교통법규 근거를 기준으로 적용 가능 법규를 검토했습니다.",
+        "교통법규 근거를 바탕으로 과실, 신고 필요 여부, 보험 대응을 검토했습니다.",
+    ];
+    for (const tail of legalTails) text = text.replace(tail, "").trim();
+
+    const mixed = text.match(/^(.+?\s*사고)\s*상황은\s*[^,.。]*로 보이며(?:,|\s|$)/);
+    if (mixed?.[1]) return `${mixed[1].trim()} 상황입니다.`;
+
+    const legalStart = text.search(/(?:교통법규|적용 가능 법규|보험 대응|신고 필요 여부|검색된 교통법규)/);
+    if (legalStart > 0) text = text.slice(0, legalStart);
+
+    text = text
+        .replace(/\s*,\s*$/, "")
+        .replace(/\s*이며\s*$/, "입니다.")
+        .trim();
+
+    if (!text) return "";
+    if (!/[.!?。]$/.test(text)) text = `${text}.`;
+    return text;
 }
 
 function collectSimpleKniaCandidates(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord[] {
