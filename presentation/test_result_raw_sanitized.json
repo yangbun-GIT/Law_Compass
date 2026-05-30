@@ -1,0 +1,162 @@
+{
+  "generated_at": "2026-05-30T00:00:00+09:00",
+  "repository": "Law_Compass",
+  "workspace": "C:\\Users\\shy\\IdeaProjects\\Law_Compass",
+  "source_files_reviewed": [
+    "AGENTS.md",
+    "DEVELOPMENT_PROMPT.md",
+    "SYSTEM_OVERVIEW.md",
+    "docs/GITHUB_COLLABORATION_WORKFLOW.md",
+    "README.md",
+    "compose.yaml",
+    "scripts/video_agent_e2e.py",
+    "apps/agent/scripts/run_sample_scenarios.py",
+    "apps/agent/scripts/test_agent_regression_scenarios.py"
+  ],
+  "environment_checks": {
+    "test_video": {
+      "path": "storage/test.mp4",
+      "exists": true,
+      "size_bytes": 5451338,
+      "last_write_local": "2026-05-28 18:43:56"
+    },
+    "docker_compose": {
+      "command": "docker compose --env-file .env ps",
+      "status": "blocked",
+      "safe_error": "Docker Desktop Linux engine pipe was not available. The Docker daemon was not running, so full container E2E could not be executed in this session."
+    },
+    "python": {
+      "version": "3.14.0"
+    }
+  },
+  "executed_checks": [
+    {
+      "name": "Agent sample scenarios",
+      "command": "cd apps/agent; PYTHONPATH=. python scripts/run_sample_scenarios.py",
+      "status": "completed",
+      "result_count": 4
+    },
+    {
+      "name": "Agent regression scenarios",
+      "command": "cd apps/agent; PYTHONPATH=. PYTHONIOENCODING=utf-8 python scripts/test_agent_regression_scenarios.py",
+      "status": "passed",
+      "result_count": 6
+    }
+  ],
+  "full_e2e_test_mp4": {
+    "script": "scripts/video_agent_e2e.py",
+    "status": "not_executed",
+    "reason": "Docker daemon was not running. The script requires the local stack at http://localhost with edge, frontend, gateway, agent, worker, postgres, and redis available.",
+    "repro_command": "docker compose --env-file .env up -d --build --force-recreate; python scripts/video_agent_e2e.py",
+    "expected_when_available": "Upload storage/test.mp4, wait for worker analysis, fetch easy report, and print top conclusion, fault ratio, KNIA cards, related videos, and action items."
+  },
+  "scenario_results": [
+    {
+      "source": "sample",
+      "id": "intersection_signal_violation",
+      "scenario_type": "intersection_signal_violation",
+      "fault_ratio": { "my": 0, "other": 100 },
+      "knia_chart": null,
+      "evidence_count": 4,
+      "presentation_status": "review_required",
+      "summary": "교차로 직진 중 상대 차량 신호위반 진입 충돌. KNIA 직접 매칭보다 신호 사실 확인이 핵심인 조건부 구조로 정리됨.",
+      "conditional_outcomes": [
+        "상대 신호위반 확인 시 내 0~20%, 상대 80~100%",
+        "상대 정상 신호 진행 시 내 60~90%, 상대 10~40%"
+      ]
+    },
+    {
+      "source": "sample",
+      "id": "lane_change_collision",
+      "scenario_type": "lane_change_collision",
+      "fault_ratio": { "my": 20, "other": 80 },
+      "base_fault": { "my": 30, "other": 70 },
+      "knia_chart": "차43-2",
+      "evidence_count": 5,
+      "applied_adjustments": ["방향지시등 미사용"],
+      "summary": "상대 차로변경 차량의 방향지시등 미사용이 반영되어 기본 30:70에서 사용자 측 20%, 상대 80%로 조정됨."
+    },
+    {
+      "source": "sample",
+      "id": "rear_end_collision",
+      "scenario_type": "rear_end_collision",
+      "fault_ratio": { "my": 0, "other": 100 },
+      "base_fault": { "A": 100, "B": 0 },
+      "user_role": "front_vehicle",
+      "knia_chart": "차41-1",
+      "evidence_count": 5,
+      "summary": "정차 또는 선행 차량 후미추돌 구조. 사용자 차량은 앞차 역할로 매핑되어 내 과실 0%, 상대 100%로 표시됨.",
+      "required_questions": ["브레이크등 정상 작동 여부"]
+    },
+    {
+      "source": "sample",
+      "id": "school_zone_child_accident",
+      "scenario_type": "pedestrian_accident",
+      "fault_ratio": { "my": 70, "other": 30 },
+      "knia_chart": "보21",
+      "evidence_count": 11,
+      "summary": "어린이보호구역에서 속도를 줄이지 못한 상태의 보행자 접촉 사고. 보행자 관련 KNIA와 법규 근거가 함께 수집됨."
+    },
+    {
+      "source": "regression",
+      "id": "rear_end_victim",
+      "scenario_type": "rear_end_collision",
+      "fault_ratio": { "my": 0, "other": 100 },
+      "role": "front_vehicle",
+      "knia_chart": "차41-1",
+      "judgment": "evidence_supported",
+      "evidence_coverage": "high"
+    },
+    {
+      "source": "regression",
+      "id": "video_rear_end_overrides_conflicting_user_fact",
+      "scenario_type": "rear_end_collision",
+      "fault_ratio": { "my": 0, "other": 100 },
+      "role": "front_vehicle",
+      "knia_chart": "차41-1",
+      "judgment": "needs_review",
+      "evidence_coverage": "high"
+    },
+    {
+      "source": "regression",
+      "id": "opponent_lane_change",
+      "scenario_type": "lane_change_collision",
+      "fault_ratio": { "my": 30, "other": 70 },
+      "role": "straight_vehicle",
+      "knia_chart": "차43-2",
+      "judgment": "needs_review",
+      "evidence_coverage": "medium"
+    },
+    {
+      "source": "regression",
+      "id": "user_lane_change",
+      "scenario_type": "lane_change_collision",
+      "fault_ratio": { "my": 70, "other": 30 },
+      "role": "lane_changing_vehicle",
+      "knia_chart": "차43-2",
+      "judgment": "needs_review",
+      "evidence_coverage": "medium"
+    },
+    {
+      "source": "regression",
+      "id": "opponent_signal_violation",
+      "scenario_type": "intersection_signal_violation",
+      "fault_ratio": { "my": 0, "other": 100 },
+      "role": "signal_compliant_vehicle",
+      "knia_chart": null,
+      "judgment": "needs_review",
+      "evidence_coverage": "medium"
+    },
+    {
+      "source": "regression",
+      "id": "user_bicycle_collision",
+      "scenario_type": "bicycle_collision",
+      "fault_ratio": { "my": 60, "other": 40 },
+      "role": "bicycle",
+      "knia_chart": "거9-1",
+      "judgment": "needs_review",
+      "evidence_coverage": "medium"
+    }
+  ],
+  "sanitization_note": "This file intentionally excludes secrets, raw payloads, access tokens, refresh tokens, .env values, storage credentials, and personally identifiable data."
+}
