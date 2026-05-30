@@ -312,11 +312,19 @@ def test_left_turn_yellow_to_red_unknown_opponent_signal_gets_conditional_outcom
     assert result["scenario_type"] == "intersection_signal_violation"
     assert result["accident_party_type"] == "car_vs_car"
     assert result["fault_ratio"]["fault_estimate_source"] == "contextual_complex_case"
-    assert len(result["fault_ratio"].get("conditional_outcomes") or []) == 2
+    conditionals = result["fault_ratio"].get("conditional_outcomes") or []
+    assert len(conditionals) == 2
+    conditional_labels = " ".join(item["label"] for item in conditionals)
+    assert "정상 진행" in conditional_labels or "녹색" in conditional_labels
+    assert "신호위반" in conditional_labels or "적색" in conditional_labels
     assert "pedestrian" not in result["structured_facts"]["scenario_tags"]
     evidence_text = " ".join(str(ev) for ev in result["evidence"]).lower()
     assert "pedestrian_crosswalk_accident" not in evidence_text
     assert "school_zone_child_accident" not in evidence_text
+    assert "static:rt-law:pedestrian-crosswalk" not in evidence_text
+    assert "static:fault-guide:pedestrian-crosswalk" not in evidence_text
+    assert "static:fault-guide:crosswalk-front-stop-rear-end" not in evidence_text
+    assert "static:legal:front-vehicle-stop-rear-end-duty" not in evidence_text
 
 
 def test_contextual_complex_fault_estimate_is_not_overwritten_by_knia_base_fault():

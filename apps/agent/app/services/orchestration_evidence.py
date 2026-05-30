@@ -46,7 +46,12 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
     )
     scenario_tags = scenario.get("scenario_tags") or []
     knia_matches = _filter_primary_knia_evidence(knia_result.get("items") or [], scenario_tags, scenario.get("scenario_type"))
-    knia_matches = _filter_pedestrian_target_mismatch(knia_matches, normalized["structured_facts"], scenario.get("accident_party_type"))
+    knia_matches = _filter_target_context_mismatch(
+        knia_matches,
+        normalized["structured_facts"],
+        scenario.get("accident_party_type"),
+        scenario.get("scenario_type"),
+    )
     knia_matches, _ = reject_mismatched_knia_items(knia_matches, scenario.get("accident_party_type"))
     knia_matches = _filter_knia_major_party(knia_matches, scenario.get("accident_party_type"))
     evidence_query = evidence_query_payload(
@@ -65,7 +70,12 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         limit=5,
     )
     knia_json_evidence = _filter_primary_knia_evidence(knia_json_result.get("items") or [], scenario_tags, scenario.get("scenario_type"))
-    knia_json_evidence = _filter_pedestrian_target_mismatch(knia_json_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
+    knia_json_evidence = _filter_target_context_mismatch(
+        knia_json_evidence,
+        normalized["structured_facts"],
+        scenario.get("accident_party_type"),
+        scenario.get("scenario_type"),
+    )
     knia_json_evidence, _ = reject_mismatched_knia_items(knia_json_evidence, scenario.get("accident_party_type"))
     knia_json_evidence = _filter_knia_major_party(knia_json_evidence, scenario.get("accident_party_type"))
     knia_fault_estimate: dict[str, Any] | None = None
@@ -108,7 +118,12 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         [*build_knia_evidence(knia_matches), *knia_reference_evidence, *knia_json_evidence],
         default_source="과실비율정보포털",
     )
-    knia_evidence = _filter_pedestrian_target_mismatch(knia_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
+    knia_evidence = _filter_target_context_mismatch(
+        knia_evidence,
+        normalized["structured_facts"],
+        scenario.get("accident_party_type"),
+        scenario.get("scenario_type"),
+    )
     knia_evidence = _filter_knia_major_party(knia_evidence, scenario.get("accident_party_type"))
     retrieval = retrieve_for_scenario(
         scenario_type=scenario["scenario_type"],
@@ -121,7 +136,12 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
     )
     legal_evidence = normalize_evidence_items(retrieval["items"], default_source="법률 근거")
     legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario_tags, scenario.get("scenario_type"))
-    legal_evidence = _filter_pedestrian_target_mismatch(legal_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
+    legal_evidence = _filter_target_context_mismatch(
+        legal_evidence,
+        normalized["structured_facts"],
+        scenario.get("accident_party_type"),
+        scenario.get("scenario_type"),
+    )
     legal_evidence = _filter_knia_major_party(legal_evidence, scenario.get("accident_party_type"))
     return EvidenceBundle(
         knia_result=knia_result,
@@ -268,34 +288,83 @@ def _filter_knia_major_party(items: list[dict[str, Any]], accident_party_type: s
     return filtered
 
 
-def _filter_pedestrian_target_mismatch(
+def _filter_target_context_mismatch(
     items: list[dict[str, Any]],
     facts: dict[str, Any],
     accident_party_type: str | None,
+    scenario_type: str | None = None,
 ) -> list[dict[str, Any]]:
     partner = str(facts.get("collision_partner_type") or "").strip().lower()
     direct_partner = str(facts.get("direct_collision_partner_type") or "").strip().lower()
-    vehicle_context = accident_party_type == "car_vs_car" or partner in {"vehicle", "car", "truck", "bus", "van"} or direct_partner in {"vehicle", "car", "truck", "bus", "van"}
+    target = str(facts.get("primary_collision_target") or "").strip().lower()
+    vehicle_context = (
+        accident_party_type == "car_vs_car"
+        or partner in {"vehicle", "car", "truck", "bus", "van"}
+        or direct_partner in {"vehicle", "car", "truck", "bus", "van"}
+        or target in {"vehicle", "car", "truck", "bus", "van"}
+    )
     if not vehicle_context:
         return items
+    scenario_name = str(scenario_type or "").strip().lower()
+    rear_context = scenario_name == "rear_end_collision" or any(
+        facts.get(key) is True
+        for key in ("front_vehicle_stopped", "rear_vehicle_collision", "rear_end_collision", "rear_impact")
+    )
+    trigger_actor = str(facts.get("trigger_actor_type") or "").strip().lower()
+    possible_trigger = str(facts.get("possible_trigger_vehicle") or "").strip().lower()
+    bicycle_context = (
+        scenario_name == "bicycle_collision"
+        or any(facts.get(key) is True for key in ("bicycle_involved", "bicycle_related", "non_contact_bicycle_trigger"))
+        or trigger_actor in {"bicycle", "자전거"}
+        or possible_trigger in {"bicycle", "자전거"}
+        or "자전거" in trigger_actor
+        or "자전거" in possible_trigger
+    )
     filtered: list[dict[str, Any]] = []
     for item in items:
-        text = " ".join(
-            str(item.get(key) or "")
-            for key in ("title", "article_title", "plain_summary", "related_reason", "accident_summary", "law_name", "source_type")
-        ).lower()
+        text = _target_filter_text(item)
         party = str(item.get("accident_party_type") or "").strip().lower()
         tags = " ".join(str(tag).lower() for tag in (item.get("scenario_tags") or item.get("display_tags") or []))
         pedestrian_target = (
             party == "car_vs_person"
             or "pedestrian_crosswalk_accident" in text
             or "school_zone_child_accident" in text
+            or "pedestrian-crosswalk" in text
+            or "school-zone" in text
             or any(token in text for token in ("보행자 사고", "보행자 보호", "pedestrian protection", "child protection"))
             or ("pedestrian" in tags and "vehicle" not in tags and "intersection" not in tags and "rear" not in tags)
         )
-        if not pedestrian_target:
-            filtered.append(item)
+        rear_target = not rear_context and (
+            "front-vehicle-stop-rear-end" in text
+            or "fault-guide:rear-end" in text
+            or ("rear-end" in tags and "intersection" not in tags and "centerline" not in tags)
+        )
+        bicycle_target = not bicycle_context and (
+            "bicycle" in text
+            or "bicycle" in tags
+            or "자전거" in text
+        )
+        if pedestrian_target or rear_target or bicycle_target:
+            continue
+        filtered.append(item)
     return filtered
+
+
+def _target_filter_text(item: dict[str, Any]) -> str:
+    return " ".join(
+        str(item.get(key) or "")
+        for key in (
+            "chunk_id",
+            "title",
+            "article_title",
+            "plain_summary",
+            "related_reason",
+            "accident_summary",
+            "law_name",
+            "source_type",
+            "scenario_type",
+        )
+    ).lower()
 
 
 def normalize_evidence_items(items: list[dict[str, Any]], *, default_source: str) -> list[dict[str, Any]]:

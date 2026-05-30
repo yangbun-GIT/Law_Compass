@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-30 P1-1 사고 대상 오염/조건부 결과 보강
+
+사고 2처럼 교차로 차대차 사고에 보행자, 횡단보도, 후방추돌, 자전거 계열 근거가 사고 대상처럼 섞이는 문제를 보강했다. 이 단계는 영상 처리 자체가 아니라 Agent evidence, 조건부 과실 결과, 전문가 안내 basis의 대상 스키마 정합성을 높이는 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Evidence 필터 | `apps/agent/app/services/orchestration_evidence.py`에 `_filter_target_context_mismatch`를 추가했다. 차대차 직접 충돌 맥락에서는 보행자 target, 후방추돌 target, 자전거 target 근거가 직접 사고 근거로 섞이지 않도록 걸러낸다. |
+| Reflection 재검색 | `apps/agent/app/services/orchestration_analysis.py`의 reflection requery 결과에도 같은 target 필터를 적용해 재검색으로 오염 근거가 다시 들어오지 않게 했다. |
+| 조건부 결과 | `fault_ratio`가 이미 신호 불명확 사고의 조건별 결과를 만든 경우, KNIA adjustment registry의 일반 조건부 결과가 중복으로 붙지 않도록 병합 규칙을 보강했다. |
+| 전문가 안내 | `apps/agent/app/services/expert_guidance_sections.py`에서 `excluded_knia_party_types`, video contract, fact arbitration 같은 메타 필드가 실제 사고 사실처럼 basis 컨텍스트에 들어가지 않도록 제외했다. |
+| 검증 | P1-1 단위 테스트 3건, Agent regression scenario script, Docker rebuild, 사고 2 E2E를 완료했다. 사고 2 E2E 결과 조건부 케이스는 2개이고 basis는 `신호 전환과 CCTV 확인 기준`, `도로교통법 신호 준수 의무`만 남았다. |
+| 검증 로그 | `logs/video_accuracy/p1_1_accident2_target_schema_e2e_20260530_r2.json`에 결과를 남겼다. `logs/`는 Git에 포함하지 않는다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. Agent 내부 evidence 필터, 조건부 결과 병합, 전문가 안내 표시 근거 선택만 보강했다.
+
 ## 2026-05-30 P0-2 영상+입력 Agent E2E 연결 보강
 
 관리자 Agent 테스트 페이지의 입력+영상 흐름에서 `video_preprocess -> video_analyze -> easy-report`가 끝까지 이어지는지 사고 1, 사고 2 샘플로 확인했다. 이 단계는 영상 처리 자체보다 영상 관찰값과 사용자 입력이 Agent 판단 계약에 정상 연결되는지 검증하는 P0 보강이다.

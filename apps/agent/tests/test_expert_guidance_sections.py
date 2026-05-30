@@ -198,6 +198,67 @@ def test_false_pedestrian_video_fact_does_not_boost_pedestrian_basis():
     assert "Crosswalk pedestrian duty guide" not in basis_titles[:2]
 
 
+def test_vehicle_intersection_guidance_removes_pedestrian_and_rear_end_basis():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "intersection_signal_violation", "accident_party_label": "vehicle intersection crash"},
+        facts={
+            "accident_party_type": "car_vs_car",
+            "collision_partner_type": "vehicle",
+            "direct_collision_partner_type": "vehicle",
+            "crosswalk_nearby": True,
+            "pedestrian_visible": False,
+            "opponent_signal_visible": False,
+            "excluded_knia_party_types": ["car_vs_bicycle", "car_vs_person"],
+        },
+        legal_analysis={"legal_issue_summary": "left turn signal transition and opponent signal uncertainty"},
+        fault_ratio={
+            "my": 80,
+            "other": 20,
+            "key_factors": ["intersection", "signal transition", "opponent signal", "CCTV"],
+            "conditional_outcomes": [
+                {"label": "opponent normal signal", "my_range": "70~90%", "other_range": "10~30%"},
+                {"label": "opponent signal violation", "my_range": "20~40%", "other_range": "60~80%"},
+            ],
+        },
+        legal_liability={"criminal_risk_level": "low"},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "legal_reference",
+                "title": "Crosswalk pedestrian duty guide",
+                "related_reason": "pedestrian and crosswalk duty reference.",
+            },
+            {
+                "source_type": "legal_reference",
+                "title": "Crosswalk front vehicle stop reason and rear-end fault guide",
+                "related_reason": "front vehicle stop reason, crosswalk, pedestrian signal, and rear-end collision are relevant.",
+            },
+            {
+                "source_type": "legal_reference",
+                "title": "Signal transition CCTV guide",
+                "related_reason": "intersection signal transition, opponent signal, and CCTV cycle are directly relevant.",
+            },
+            {
+                "source_type": "knia_reference",
+                "title": "Vehicle intersection signal fault guide",
+                "related_reason": "vehicle to vehicle intersection signal conflict fault ratio reference.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
+    assert "Signal transition CCTV guide" in basis_titles
+    assert "Vehicle intersection signal fault guide" in basis_titles
+    assert "Crosswalk pedestrian duty guide" not in basis_titles
+    assert "Crosswalk front vehicle stop reason and rear-end fault guide" not in basis_titles
+    basis_text = str(sections["legal_prediction"]["basis"]).lower()
+    assert "bicycle" not in basis_text
+
+
 def test_basis_summary_keeps_non_contact_bicycle_trigger_basis():
     sections = build_expert_guidance_sections(
         scenario={"scenario_type": "bicycle_collision", "accident_party_label": "bicycle trigger rear-end"},

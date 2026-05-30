@@ -15,7 +15,13 @@ from app.services.analysts.insurance_analyst import analyze_insurance
 from app.services.analysts.traffic_law_analyst import analyze_traffic_law
 from app.services.claim_evidence_validator import apply_claim_evidence_audit, validate_claim_evidence
 from app.services.orchestration_context import CaseContext
-from app.services.orchestration_evidence import EvidenceBundle, _filter_primary_knia_evidence, merge_evidence_items, normalize_evidence_items
+from app.services.orchestration_evidence import (
+    EvidenceBundle,
+    _filter_primary_knia_evidence,
+    _filter_target_context_mismatch,
+    merge_evidence_items,
+    normalize_evidence_items,
+)
 from app.services.rag_client import retrieve_for_scenario
 from app.services.reflection_loop import build_requery_plan
 
@@ -159,6 +165,12 @@ def run_reflection_requery_stage(
         ]
     )
     legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario.get("scenario_tags") or [], scenario.get("scenario_type"))
+    legal_evidence = _filter_target_context_mismatch(
+        legal_evidence,
+        normalized["structured_facts"],
+        scenario.get("accident_party_type"),
+        scenario.get("scenario_type"),
+    )
     next_evidence_bundle = EvidenceBundle(
         **{
             **evidence_bundle.__dict__,
@@ -256,19 +268,25 @@ def _apply_adjustment_registry(
         knia_fault_estimate,
         normalized["description_text"],
     )
-    if evaluation.get("base_fault"):
+    preserve_contextual_estimate = fault_ratio.get("fault_estimate_source") == "contextual_complex_case"
+    if evaluation.get("base_fault") and not preserve_contextual_estimate:
         fault_ratio["base_fault"] = evaluation["base_fault"]
-    if evaluation.get("final_fault"):
+    if evaluation.get("final_fault") and not preserve_contextual_estimate:
         fault_ratio["final_fault"] = evaluation["final_fault"]
         fault_ratio["my"] = evaluation["final_fault"].get("my", fault_ratio.get("my"))
         fault_ratio["other"] = evaluation["final_fault"].get("other", fault_ratio.get("other"))
-    if evaluation.get("fault_range"):
+    if evaluation.get("fault_range") and not preserve_contextual_estimate:
         fault_ratio["fault_range"] = evaluation["fault_range"]
     for key in ("applied_adjustments", "not_applied_adjustments", "unknown_adjustments", "conditional_outcomes"):
         if evaluation.get(key):
             existing = fault_ratio.get(key)
             if isinstance(existing, list) and key == "conditional_outcomes":
-                fault_ratio[key] = [*existing, *evaluation[key]]
+                if fault_ratio.get("fault_estimate_source") == "contextual_complex_case" and existing:
+                    fault_ratio[key] = _dedupe_conditional_outcomes(existing)
+                else:
+                    fault_ratio[key] = _dedupe_conditional_outcomes([*existing, *evaluation[key]])
+            elif preserve_contextual_estimate and isinstance(existing, list):
+                fault_ratio[key] = existing
             else:
                 fault_ratio[key] = evaluation[key]
     fault_ratio["knia_adjustment_policy"] = evaluation.get("policy") or {}
@@ -276,3 +294,20 @@ def _apply_adjustment_registry(
     fault_ratio["knia_reference_fault"] = (knia_fault_estimate or {}).get("final_fault") or fault_ratio.get("knia_reference_fault")
     if not knia_fault_estimate:
         fault_ratio["no_knia_match_reason"] = knia_result.get("no_knia_match_reason") or "knia_fault_estimate_unavailable"
+
+
+def _dedupe_conditional_outcomes(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        key = "|".join(
+            str(item.get(field) or "").strip().lower()
+            for field in ("label", "condition", "my_range", "other_range")
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped

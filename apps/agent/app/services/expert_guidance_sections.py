@@ -164,11 +164,14 @@ def _basis_summary(evidence: list[dict[str, Any]], *, context_text: str = "") ->
             continue
         seen.add(key)
         content_text = f"{title} {reason} {item.get('source') or ''} {item.get('law_name') or ''}"
+        relevance_score = _relevance_score(content_text, context_text)
+        if relevance_score <= -10:
+            continue
         source_quality = _source_quality(item, family_key)
         candidates.append(
             {
                 "_family_key": family_key,
-                "_relevance_score": str(_relevance_score(content_text, context_text)),
+                "_relevance_score": str(relevance_score),
                 "family_label": family,
                 "title": title,
                 "reason": reason,
@@ -475,6 +478,8 @@ def _fact_context_values(facts: dict[str, Any]) -> list[str]:
     output: list[str] = []
     vehicle_collision_context = _is_vehicle_collision_context(facts)
     for key, value in facts.items():
+        if key in _FACT_CONTEXT_SKIP_KEYS:
+            continue
         if value is None:
             continue
         if isinstance(value, bool):
@@ -509,6 +514,19 @@ def _fact_context_values(facts: dict[str, Any]) -> list[str]:
         output.append(str(key))
         output.append(str(value))
     return output
+
+
+_FACT_CONTEXT_SKIP_KEYS = {
+    "_fact_arbitration",
+    "_fact_sources",
+    "_video_input_contract",
+    "accident_party_label",
+    "excluded_knia_party_types",
+    "missing_fields",
+    "optional_input_fields",
+    "required_input_fields",
+    "video_context",
+}
 
 
 def _relevance_score(content_text: str, context_text: str) -> int:
@@ -548,8 +566,7 @@ def _context_excludes_pedestrian_target(context: str) -> bool:
 
 def _content_is_pedestrian_target_basis(content: str) -> bool:
     pedestrian_terms = ("pedestrian", "보행자", "횡단보도 보행자", "어린이보호구역", "school zone")
-    vehicle_terms = ("vehicle", "차량", "front vehicle", "intersection", "signal", "rear", "centerline")
-    return any(term in content for term in pedestrian_terms) and not any(term in content for term in vehicle_terms)
+    return any(term in content for term in pedestrian_terms)
 
 
 def _topic_groups() -> tuple[tuple[str, ...], ...]:

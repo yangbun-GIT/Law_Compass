@@ -43,8 +43,19 @@
 
 ### P1-1. 사고 대상 오염/조건부 결과 보강
 
-- 상태: 대기
-- 목표: 차대차 사고에서 보행자/횡단보도 근거가 사고 대상처럼 승격되지 않게 확인하고, 신호 불명확 사고는 조건별 결과를 표시한다.
+- 상태: 완료
+- 목표: 차대차 사고에서 보행자·횡단보도·후방추돌·자전거 근거가 사고 대상처럼 섞이지 않게 하고, 신호 불명확 사고는 조건별 결과를 중복 없이 표시한다.
+- 완료 내용:
+  - Agent evidence 단계에서 차대차 직접 충돌 맥락과 보행자/후방추돌/자전거 target 근거를 분리하는 `_filter_target_context_mismatch`를 추가했다.
+  - `fault_ratio`가 이미 사고별 조건부 결과를 만든 경우 KNIA 조정 registry의 일반 조건부 결과가 중복으로 붙지 않도록 병합 규칙을 보강했다.
+  - 전문가 안내 basis 생성 시 `excluded_knia_party_types`, video contract 같은 메타 필드가 실제 사고 사실처럼 컨텍스트에 들어가 근거 문구를 오염시키지 않도록 제외했다.
+  - 사고 2 E2E에서 조건부 결과는 2개로 유지되고, basis는 `신호 전환과 CCTV 확인 기준`, `도로교통법 신호 준수 의무`만 남는 것을 확인했다.
+- 검증:
+  - 완료: P1-1 Agent 단위 테스트 3건
+  - 완료: Agent regression scenario script
+  - 완료: Docker `agent`, `worker`, `gateway` rebuild
+  - 완료: 사고 2 `scripts/video_agent_e2e.py`
+  - 로그: `logs/video_accuracy/p1_1_accident2_target_schema_e2e_20260530_r2.json` (`logs/`는 Git에 포함하지 않음)
 
 ### P1-2. 과실비율/KNIA 근거 싱크 점검
 
