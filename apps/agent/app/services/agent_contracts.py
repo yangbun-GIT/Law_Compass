@@ -293,7 +293,7 @@ P1_INTERNAL_TOOL_SPECS: dict[str, MCPToolSpec] = {
     "get_knia_menu_tree_tool": MCPToolSpec(
         name="get_knia_menu_tree_tool",
         description="KNIA 기준 메뉴 트리를 조회한다.",
-        input_schema={"type": "object", "properties": {"party_type": {"type": "string"}}},
+        input_schema={"type": "object", "properties": {"myaccident_no": {"type": "integer"}}},
         output_schema={"type": "object", "properties": {"tree": {"type": "array"}}},
         required_scopes=["knia.read"],
     ),
@@ -321,7 +321,7 @@ P1_INTERNAL_TOOL_SPECS: dict[str, MCPToolSpec] = {
     "invalidate_cache_tool": MCPToolSpec(
         name="invalidate_cache_tool",
         description="허용된 cache key를 무효화한다.",
-        input_schema={"type": "object", "properties": {"key": {"type": "string"}}},
+        input_schema={"type": "object", "properties": {"scope": {"type": "string"}}},
         output_schema={"type": "object", "properties": {"status": {"type": "string"}}},
         required_scopes=["cache.write"],
         side_effect="write",

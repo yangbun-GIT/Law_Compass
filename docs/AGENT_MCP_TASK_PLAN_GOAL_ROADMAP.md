@@ -618,6 +618,21 @@ P3-2 제한 사항:
 - `mcp_tool_calls` 로그가 주요 tool 호출에 남는지 확인한다.
 - 기존 API 응답 payload가 깨지지 않는지 확인한다.
 
+P3-3 직접 service 호출 경로 정리 결과 (2026-05-31):
+
+| 구분 | 구현 파일 | 내용 |
+| --- | --- | --- |
+| Cache boundary | `apps/agent/app/routers/internal_routes/cache.py` | cache invalidate route를 `invalidate_cache_tool` executor 경유로 전환했다. |
+| KNIA JSON boundary | `apps/agent/app/routers/internal_routes/knia.py` | KNIA JSON import, myaccident pages/tree, JSON search, media search route를 executor 경유로 전환했다. |
+| Spec 정합성 | `apps/agent/app/services/agent_contracts.py` | `get_knia_menu_tree_tool` 입력을 `myaccident_no`, `invalidate_cache_tool` 입력을 `scope`로 실제 payload와 맞췄다. |
+| 유지 경계 | `apps/agent/app/services/orchestration_evidence.py` 등 | pure filtering/normalization, collector, vectorizer rebuild, repository reference 조회는 이번 단계에서 직접 호출을 유지한다. 대용량 수집/재빌드는 별도 운영 통제가 필요하다. |
+| 검증 | `apps/agent/tests/test_mcp_route_boundaries.py` | Docker Agent 컨테이너에서 `python -m pytest tests/test_mcp_route_boundaries.py tests/test_mcp_tool_executor.py tests/test_mcp_tool_registry.py tests/test_agent_contracts.py`를 실행했고 15건이 모두 통과했다. |
+
+P3-3 제한 사항:
+
+- 실제 `mcp_tool_calls` DB insert는 `DATABASE_URL`이 있는 실행 환경에서만 기록된다. 로컬 테스트는 route가 executor로 들어가는 계약을 검증했다.
+- core 분석 pipeline의 RAG/KNIA 호출은 아직 직접 service 호출을 일부 유지한다. 이 경계는 P4 이후 Agent 분리 과정에서 다시 선별한다.
+
 #### P3-4. 표준 MCP 도입 판단 gate
 
 - 표준 MCP Host/Client/Server를 바로 도입하지 않고 판단 gate를 둔다.

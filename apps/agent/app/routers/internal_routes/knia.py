@@ -6,13 +6,10 @@ from app.mcp.tool_executor import execute_tool
 from app.routers.internal_auth import check_internal_token
 from app.services.knia.knia_collector import KniaCollector
 from app.services.knia.knia_fault_adjuster import estimate_knia_fault
-from app.services.knia.knia_json_loader import import_knia_json
-from app.services.knia.knia_json_menu_builder import get_myaccident_pages, get_myaccident_tree
 from app.services.knia.knia_json_vectorizer import rebuild_knia_json_embeddings
 from app.services.knia.knia_matcher import match_knia_charts
 from app.services.knia.knia_repository import KniaRepository
 from app.services.knia.knia_vectorizer import rebuild_knia_embeddings
-from app.services.rag.two_stage_cache import search_knia_json_cached
 
 router = APIRouter()
 
@@ -101,10 +98,14 @@ async def knia_retrieval_test(q: str = "후미추돌 정차 뒤차 추돌", x_in
 async def knia_import_json(payload: dict | None = None, x_internal_token: str | None = Header(default=None)):
     check_internal_token(x_internal_token)
     payload = payload or {}
-    return import_knia_json(
-        payload.get("path"),
-        force=bool(payload.get("force", False)),
-        rebuild_embeddings=bool(payload.get("rebuild_embeddings", False)),
+    return execute_tool(
+        "import_knia_json_tool",
+        {
+            "path": payload.get("path"),
+            "force": bool(payload.get("force", False)),
+            "rebuild_embeddings": bool(payload.get("rebuild_embeddings", False)),
+        },
+        granted_scopes=["knia.read", "cache.write"],
     )
 
 
@@ -118,22 +119,30 @@ async def knia_json_rebuild_embeddings(payload: dict | None = None, x_internal_t
 @router.get("/knia/myaccident-pages")
 async def knia_myaccident_pages(x_internal_token: str | None = Header(default=None)):
     check_internal_token(x_internal_token)
-    return {"items": get_myaccident_pages()}
+    return execute_tool("get_knia_myaccident_pages_tool", {}, granted_scopes=["knia.read"])
 
 
 @router.get("/knia/myaccident/{myaccident_no}/tree")
 async def knia_myaccident_tree(myaccident_no: int, x_internal_token: str | None = Header(default=None)):
     check_internal_token(x_internal_token)
-    return get_myaccident_tree(myaccident_no)
+    return execute_tool("get_knia_menu_tree_tool", {"myaccident_no": myaccident_no}, granted_scopes=["knia.read"])
 
 
 @router.get("/knia/json/search")
 async def knia_json_search(q: str, accidentPartyType: str | None = None, limit: int = 5, x_internal_token: str | None = Header(default=None)):
     check_internal_token(x_internal_token)
-    return search_knia_json_cached(q, accident_party_type=accidentPartyType, limit=limit)
+    return execute_tool(
+        "search_knia_json_rag_tool",
+        {"query": q, "accident_party_type": accidentPartyType, "limit": limit},
+        granted_scopes=["knia.read"],
+    )
 
 
 @router.get("/knia/media/search")
 async def knia_media_search(q: str, accidentPartyType: str | None = None, x_internal_token: str | None = Header(default=None)):
     check_internal_token(x_internal_token)
-    return execute_tool("get_knia_media_by_query_tool", {"query": q, "accident_party_type": accidentPartyType, "limit": 8})
+    return execute_tool(
+        "get_knia_media_by_query_tool",
+        {"query": q, "accident_party_type": accidentPartyType, "limit": 8},
+        granted_scopes=["knia.read"],
+    )

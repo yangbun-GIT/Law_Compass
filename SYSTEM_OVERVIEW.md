@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P3-3 직접 Service 호출 경로 정리
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P3-3 단계를 완료했다. 이번 변경은 모든 내부 pure function을 무조건 tool executor로 보내지 않고, DB/RAG/검색/캐시/권한 경계가 있는 route부터 MCP-like executor를 경유하도록 정리한 작업이다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Cache boundary | `apps/agent/app/routers/internal_routes/cache.py`의 cache invalidate route를 `invalidate_cache_tool` executor 경유로 전환했다. |
+| KNIA JSON boundary | `apps/agent/app/routers/internal_routes/knia.py`의 KNIA JSON import, myaccident pages/tree, JSON search, media search route를 executor 경유로 전환했다. |
+| Spec 정합성 | `get_knia_menu_tree_tool` 입력 schema를 실제 payload인 `myaccident_no`로 맞추고, `invalidate_cache_tool` 입력 schema를 `scope`로 맞췄다. |
+| 유지 경계 | collector, vectorizer rebuild, repository reference 조회, pure filtering/normalization 함수는 현재 직접 호출을 유지한다. 대용량 수집/재빌드 작업은 별도 운영 판단이 필요해 이번 단계에서 강제 이관하지 않았다. |
+| 검증 | Agent 컨테이너에서 `docker compose exec -T agent python -m pytest tests/test_mcp_route_boundaries.py tests/test_mcp_tool_executor.py tests/test_mcp_tool_registry.py tests/test_agent_contracts.py`를 실행했고 15건이 통과했다. |
+
+P3-3은 route 경계를 우선 정리했다. 다음 구조 보강 단계는 P3-4 `표준 MCP 도입 판단 gate`다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P3-2 Tool Executor 권한/검증
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P3-2 단계를 완료했다. 이번 변경은 MCP-like tool 실행 전 payload schema와 scope를 검증하고, 실패를 raw exception 대신 표준 실패 packet으로 반환하도록 executor를 보강한 작업이다.
