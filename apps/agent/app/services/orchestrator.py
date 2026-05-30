@@ -24,6 +24,7 @@ def analyze_case(
     selected_keywords: list[str] | None = None,
     video_metadata: dict[str, Any] | None = None,
     analysis_mode: str | None = None,
+    initial_intake: dict[str, Any] | None = None,
     ai_profile: str | None = None,
     specialist_roles: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -35,6 +36,7 @@ def analyze_case(
         ai_profile=ai_profile,
         specialist_roles=specialist_roles,
         video_metadata=video_metadata,
+        initial_intake=initial_intake,
     )
 
 
@@ -46,6 +48,7 @@ def analyze_video_case(
     structured_facts: dict[str, Any] | None = None,
     selected_keywords: list[str] | None = None,
     analysis_mode: str | None = None,
+    initial_intake: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return _analyze_core(
         description_text=preprocessed_summary or "영상 분석 정보가 충분하지 않습니다. 사고 상황을 글로 조금 더 입력해 주세요.",
@@ -55,6 +58,7 @@ def analyze_video_case(
         ai_profile=ai_profile,
         specialist_roles=specialist_roles,
         video_metadata=video_metadata,
+        initial_intake=initial_intake,
     )
 
 
@@ -67,6 +71,7 @@ def analyze_scenario(payload: dict[str, Any]) -> dict[str, Any]:
         ai_profile=payload.get("ai_profile"),
         specialist_roles=payload.get("specialist_roles"),
         video_metadata=payload.get("video_metadata"),
+        initial_intake=payload.get("initial_intake"),
     )
 
 
@@ -79,6 +84,7 @@ def _analyze_core(
     ai_profile: str | None,
     specialist_roles: list[str] | None,
     video_metadata: dict[str, Any] | None,
+    initial_intake: dict[str, Any] | None,
 ) -> dict[str, Any]:
     context = build_case_context(
         description_text=description_text,
@@ -86,6 +92,7 @@ def _analyze_core(
         selected_keywords=selected_keywords,
         analysis_mode=analysis_mode,
         video_metadata=video_metadata,
+        initial_intake=initial_intake,
     )
     evidence_bundle = collect_evidence_stage(context, video_metadata)
     analysis_bundle = run_analysis_stage(context, evidence_bundle)

@@ -27,7 +27,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
     if _is_road_worker_pedestrian_accident(facts, haystack):
         tags.update(["pedestrian", "road_work", "worker", "sudden_entry", "fault_ratio"])
         return {
-            "scenario_type": "pedestrian_accident",
+            "scenario_type": "pedestrian_road_work_worker_accident",
             "accident_type": "pedestrian_roadway_worker_accident",
             "accident_party_type": "car_vs_person",
             "major_party_type": "car_vs_person",
@@ -292,6 +292,14 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         tags.add("single_vehicle")
 
     filtered_tags = filter_tags_by_party(sorted(tags), accident_party_type, facts)
+    if (
+        accident_party_type == "car_vs_car"
+        and scenario_type == "rear_end_collision"
+        and (facts.get("trigger_actor_type") == "bicycle" or facts.get("possible_trigger_vehicle") == "bicycle")
+        and facts.get("non_contact_trigger")
+        and "bicycle" not in filtered_tags
+    ):
+        filtered_tags = [*filtered_tags, "bicycle"]
     confidence = 0.86 if scenario_type != "general_collision" and accident_party_type != "unknown" else 0.48
     return {
         "scenario_type": scenario_type,
@@ -349,17 +357,17 @@ def _is_stealth_illegal_parked_vehicle_context(facts: dict[str, Any], haystack: 
     )
     abnormal_place = any(token in haystack for token in ("화단", "중앙분리대", "갓길", "통행 공간", "flowerbed", "median"))
     drunk = any(token in haystack for token in ("음주", "음주운전", "만취", "술", "drunk"))
+    explicit_stealth = "스텔스" in haystack
 
     fact_match = (
             facts.get("stopped_vehicle_without_lights") is True
             or facts.get("night_no_lights_or_low_visibility") is True
-            or facts.get("abnormal_parking") is True
             or str(facts.get("parked_vehicle_lighting") or "") == "unlit_stealth"
             or str(facts.get("visibility_condition") or "") in {"night_dark", "under_bridge_dark"}
-            or str(facts.get("opponent_impairment") or "") in {"drunk_driving_confirmed", "suspected_drunk"}
     )
+    fact_abnormal = facts.get("abnormal_parking") is True or str(facts.get("opponent_impairment") or "") in {"drunk_driving_confirmed", "suspected_drunk"}
 
-    return collision and parked_vehicle and (stealth_or_dark or abnormal_place or drunk or fact_match)
+    return collision and parked_vehicle and (stealth_or_dark or fact_match) and (explicit_stealth or abnormal_place or drunk or fact_abnormal)
 
 
 def _is_road_worker_pedestrian_accident(facts: dict[str, Any], text: str) -> bool:

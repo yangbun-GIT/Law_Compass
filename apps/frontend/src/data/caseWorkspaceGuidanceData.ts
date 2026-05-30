@@ -44,43 +44,121 @@ export const DEFAULT_PROGRESS_STEPS = [
     { key: "result", label: "결과 정리", percent: 100 },
 ];
 
-export const guidedAccidentTypeOptions = [
+export const guidedAccidentMajorCategoryOptions = [
     {
         label: "차대차 사고",
         scenario_type: "",
         accident_party_type: "car_vs_car",
+        major_category: "car_vs_car",
         hint: "자동차, 트럭, 버스, 주차·정차 차량 등 차량과 차량 사이의 사고",
     },
     {
         label: "차대사람 사고",
-        scenario_type: "pedestrian_crosswalk_accident",
+        scenario_type: "",
         accident_party_type: "car_vs_person",
+        major_category: "car_vs_person",
         hint: "보행자, 횡단보도, 어린이보호구역 등이 관련된 경우",
     },
     {
         label: "차대자전거 사고",
-        scenario_type: "bicycle_collision",
+        scenario_type: "",
         accident_party_type: "car_vs_bicycle",
+        major_category: "car_vs_bicycle",
         hint: "자전거와 직접 충돌한 경우",
     },
     {
-        label: "차대오토바이 사고",
-        scenario_type: "motorcycle_collision",
-        accident_party_type: "car_vs_motorcycle",
-        hint: "오토바이, 이륜차, 원동기장치자전거와 직접 충돌한 경우",
-    },
-    {
-        label: "차대기물 사고",
-        scenario_type: "object_collision",
-        accident_party_type: "car_vs_object",
-        hint: "가드레일, 전봇대, 벽, 낙하물, 시설물과 충돌한 경우",
+        label: "차대이륜차 사고",
+        scenario_type: "",
+        accident_party_type: "car_vs_two_wheeler",
+        major_category: "car_vs_two_wheeler",
+        hint: "오토바이, 이륜차, 원동기장치자전거가 관련된 경우",
     },
     {
         label: "차량단독 사고",
-        scenario_type: "single_vehicle_accident",
+        scenario_type: "",
         accident_party_type: "single_vehicle",
+        major_category: "single_vehicle",
         hint: "다른 차량·사람·자전거 없이 내 차량만 사고가 난 경우",
     },
+    {
+        label: "주차·정차 관련 사고",
+        scenario_type: "",
+        accident_party_type: "parking_or_stationary",
+        major_category: "parking_or_stationary",
+        hint: "주차·정차 차량, 야간 스텔스 정차, 갓길·통행공간 방치 차량이 관련된 경우",
+    },
+    {
+        label: "잘 모르겠어요",
+        scenario_type: "",
+        accident_party_type: "unknown",
+        major_category: "unknown",
+        hint: "영상 분석과 후속 질문으로 가장 가능성 높은 대분류를 보정합니다.",
+    },
+];
+
+export const guidedAccidentTypeOptions = guidedAccidentMajorCategoryOptions;
+
+export const guidedAccidentSubtypeOptionsByMajorCategory: Record<string, Array<{
+    value: string;
+    label: string;
+    scenario_type: string;
+    accident_party_type?: string;
+    hint: string;
+}>> = {
+    car_vs_car: [
+        { value: "rear_end_collision", label: "후미추돌", scenario_type: "rear_end_collision", hint: "앞차·뒤차 관계가 쟁점인 추돌 사고" },
+        { value: "lane_change_collision", label: "차로변경 중 충돌", scenario_type: "lane_change_collision", hint: "끼어들기, 진로변경, 방향지시등이 쟁점인 경우" },
+        { value: "intersection_signal_violation", label: "교차로·신호 관련 충돌", scenario_type: "intersection_signal_violation", hint: "신호, 좌회전·직진, 선진입 여부가 중요한 경우" },
+        { value: "left_turn_vs_straight", label: "좌회전 대 직진", scenario_type: "intersection_collision", hint: "좌회전 차량과 직진 차량의 진행 관계가 핵심인 경우" },
+        { value: "centerline_collision", label: "중앙선 침범", scenario_type: "centerline_obstacle_collision", hint: "중앙선, 회피, 맞은편 차량이 쟁점인 경우" },
+        { value: "parking_lot_collision", label: "주차장 사고", scenario_type: "parking_lot_collision", hint: "주차장 내부 진행·출차 중 발생한 사고" },
+        { value: "door_open_collision", label: "문 개방 사고", scenario_type: "door_open_collision", hint: "문을 열면서 충돌한 경우" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "영상과 확인 질문으로 세부유형을 좁힙니다." },
+    ],
+    car_vs_person: [
+        { value: "crosswalk_pedestrian", label: "횡단보도 보행자 사고", scenario_type: "pedestrian_crosswalk_accident", hint: "횡단보도, 보행자 신호가 쟁점인 경우" },
+        { value: "non_crosswalk_pedestrian", label: "횡단보도 밖 보행자 사고", scenario_type: "pedestrian_no_crosswalk_road_crossing", hint: "무단횡단, 차도 보행 등이 관련된 경우" },
+        { value: "school_zone_child_accident", label: "어린이보호구역 사고", scenario_type: "school_zone_child_accident", hint: "어린이보호구역 또는 어린이 피해자가 관련된 경우" },
+        { value: "sidewalk_or_shoulder", label: "인도·갓길 보행자 사고", scenario_type: "pedestrian_on_road_edge_accident", hint: "인도, 갓길, 도로 가장자리 보행자가 관련된 경우" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "보행자 위치와 신호를 후속 질문으로 확인합니다." },
+    ],
+    car_vs_bicycle: [
+        { value: "same_direction_collision", label: "같은 방향 진행 중 충돌", scenario_type: "bicycle_collision", hint: "차량과 자전거가 같은 방향으로 움직인 경우" },
+        { value: "intersection_collision", label: "교차로 충돌", scenario_type: "bicycle_collision", hint: "교차로에서 차량과 자전거가 만난 경우" },
+        { value: "turning_collision", label: "회전 중 충돌", scenario_type: "bicycle_collision", hint: "우회전·좌회전 과정에서 자전거와 부딪힌 경우" },
+        { value: "lane_change_collision", label: "차로변경 중 충돌", scenario_type: "bicycle_collision", hint: "차로 변경 또는 진로 변경 과정에서 자전거와 부딪힌 경우" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "자전거 위치와 진행 방향을 후속 질문으로 확인합니다." },
+    ],
+    car_vs_two_wheeler: [
+        { value: "same_direction_collision", label: "같은 방향 진행 중 충돌", scenario_type: "motorcycle_collision", hint: "차량과 이륜차가 같은 방향으로 진행한 경우" },
+        { value: "intersection_collision", label: "교차로 충돌", scenario_type: "motorcycle_collision", hint: "교차로에서 차량과 이륜차가 만난 경우" },
+        { value: "turning_collision", label: "회전 중 충돌", scenario_type: "motorcycle_collision", hint: "좌회전·우회전 중 이륜차와 부딪힌 경우" },
+        { value: "lane_change_collision", label: "차로변경 중 충돌", scenario_type: "motorcycle_collision", hint: "차로 변경 또는 진로 변경이 관련된 경우" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "이륜차 위치와 진행 방향을 후속 질문으로 확인합니다." },
+    ],
+    single_vehicle: [
+        { value: "object_collision", label: "시설물·물체 충돌", scenario_type: "object_collision", accident_party_type: "car_vs_object", hint: "가드레일, 벽, 기둥, 낙하물과 부딪힌 경우" },
+        { value: "guardrail_collision", label: "가드레일 충돌", scenario_type: "object_collision", accident_party_type: "car_vs_object", hint: "가드레일 또는 중앙분리대가 주된 충돌 대상인 경우" },
+        { value: "rollover", label: "전도·전복", scenario_type: "single_vehicle_accident", hint: "차량이 넘어지거나 전복된 경우" },
+        { value: "road_surface_or_weather", label: "노면·날씨 영향", scenario_type: "single_vehicle_accident", hint: "빗길, 눈길, 포트홀 등 도로 환경이 관련된 경우" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "영상과 추가 질문으로 원인을 확인합니다." },
+    ],
+    parking_or_stationary: [
+        { value: "parking_or_stopped_vehicle_accident", label: "주차·정차 차량", scenario_type: "parking_or_stopped_vehicle_accident", accident_party_type: "car_vs_car", hint: "정차 또는 주차된 차량과 부딪힌 경우" },
+        { value: "stealth_illegal_parked_vehicle_collision", label: "야간 스텔스 정차 차량", scenario_type: "stealth_illegal_parked_vehicle_collision", accident_party_type: "car_vs_car", hint: "야간, 교량 아래, 무등화, 갓길·통행공간 방치 차량이 관련된 경우" },
+        { value: "parking_lot_collision", label: "주차장 내 사고", scenario_type: "parking_lot_collision", accident_party_type: "car_vs_car", hint: "주차장 안에서 출차·후진·진행 중 발생한 사고" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", accident_party_type: "car_vs_car", hint: "정차 위치와 등화 여부를 후속 질문으로 확인합니다." },
+    ],
+    unknown: [
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", accident_party_type: "unknown", hint: "영상 분석과 후속 질문으로 사고유형을 추정합니다." },
+    ],
+};
+
+export function getGuidedAccidentSubtypeOptions(majorCategory?: string) {
+    return guidedAccidentSubtypeOptionsByMajorCategory[majorCategory || "unknown"] || guidedAccidentSubtypeOptionsByMajorCategory.unknown;
+}
+
+export const legacyGuidedAccidentScenarioOptions = [
     {
         label: "야간 스텔스 주차·정차 차량과 충돌",
         scenario_type: "stealth_illegal_parked_vehicle_collision",
@@ -98,12 +176,6 @@ export const guidedAccidentTypeOptions = [
         scenario_type: "intersection_collision",
         accident_party_type: "car_vs_car",
         hint: "직진, 좌회전, 우회전 중 충돌한 경우",
-    },
-    {
-        label: "신호위반이 관련된 사고",
-        scenario_type: "intersection_signal_violation",
-        accident_party_type: "car_vs_car",
-        hint: "빨간불 진입이나 신호 확인이 핵심인 경우",
     },
     {
         label: "차선변경 중 부딪힌 사고",

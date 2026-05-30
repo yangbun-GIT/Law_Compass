@@ -404,6 +404,19 @@ if (missingUserFriendlyKnia.length) {
 }
 
 const guidedFlowContracts = [
+  "guidedAccidentMajorCategoryOptions",
+  "guidedAccidentSubtypeOptions",
+  "selectAccidentMajorCategory",
+  "selectAccidentSubtype",
+  "initial_intake",
+  "natural_language_policy",
+  "source_type: \"subjective_user_claim\"",
+  "can_override_video: false",
+  "can_override_structured_followup: false",
+  "사고의 큰 유형을 먼저 선택해 주세요",
+  "영상은 사고 판단의 핵심 근거",
+  "추가 설명은 선택 사항입니다",
+  "설명은 참고 자료로만 사용",
   "어떤 사고에 가장 가까운가요?",
   "잘 모르겠어요",
   "결과를 어떤 방식으로 볼까요?",
@@ -423,6 +436,21 @@ const guidedFlowContracts = [
 const missingGuidedContracts = guidedFlowContracts.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingGuidedContracts.length) {
   console.error("guided analysis flow contract failed", missingGuidedContracts);
+  process.exit(1);
+}
+
+const videoFirstFlowContracts = [
+  "car_vs_two_wheeler",
+  "parking_or_stationary",
+  "getGuidedAccidentSubtypeOptions",
+  "guidedAccidentSubtypeOptionsByMajorCategory",
+  "buildInitialIntakePayload",
+  "initial_accident_major_category",
+  "initial_preliminary_accident_type",
+];
+const missingVideoFirstFlowContracts = videoFirstFlowContracts.filter((token) => !displayFiles.some((text) => text.includes(token)));
+if (missingVideoFirstFlowContracts.length) {
+  console.error("video-first intake contract failed", missingVideoFirstFlowContracts);
   process.exit(1);
 }
 

@@ -9,6 +9,8 @@ import {
     REPORT_READY_RETRY_LIMIT,
     caseKeywordPool,
     getFallbackGuidedQuestions,
+    getGuidedAccidentSubtypeOptions,
+    guidedAccidentMajorCategoryOptions,
     guidedAccidentTypeOptions,
     guidedAnalysisModes,
 } from "./caseWorkspaceGuidance";
@@ -36,7 +38,7 @@ import {
 } from "./caseWorkspacePayloads";
 
 export { formatDate, prettySize, statusClass, statusLabel } from "./caseWorkspaceFormatters";
-export { guidedAccidentTypeOptions, guidedAnalysisModes } from "./caseWorkspaceGuidance";
+export { guidedAccidentMajorCategoryOptions, guidedAccidentTypeOptions, guidedAnalysisModes } from "./caseWorkspaceGuidance";
 
 export type CaseWorkspaceBusyState = "" | "save" | "upload" | "preprocess" | "text-analysis" | "video-analysis";
 
@@ -54,6 +56,65 @@ function normalizeAnalysisMode(mode?: string | null) {
     }
 
     return "user_friendly";
+}
+
+function canonicalMajorCategory(value?: string | null) {
+    const raw = String(value || "").trim();
+    if (raw === "car_vs_motorcycle") return "car_vs_two_wheeler";
+    if (raw === "car_vs_object") return "single_vehicle";
+    return raw || "unknown";
+}
+
+function canonicalPartyType(value?: string | null) {
+    const raw = String(value || "").trim();
+    if (raw === "car_vs_two_wheeler") return "car_vs_motorcycle";
+    if (raw === "parking_or_stationary") return "car_vs_car";
+    return raw || "unknown";
+}
+
+function partyDefaults(partyType: string) {
+    if (partyType === "car_vs_person") {
+        return {
+            collision_partner_type: "pedestrian",
+            direct_collision_partner_type: "pedestrian",
+            excluded_knia_party_types: ["car_vs_car", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+        };
+    }
+    if (partyType === "car_vs_bicycle") {
+        return {
+            collision_partner_type: "bicycle",
+            direct_collision_partner_type: "bicycle",
+            excluded_knia_party_types: ["car_vs_car", "car_vs_person", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+        };
+    }
+    if (partyType === "car_vs_motorcycle") {
+        return {
+            collision_partner_type: "motorcycle",
+            direct_collision_partner_type: "motorcycle",
+            excluded_knia_party_types: ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_object", "single_vehicle"],
+        };
+    }
+    if (partyType === "single_vehicle") {
+        return {
+            collision_partner_type: "none",
+            excluded_knia_party_types: ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object"],
+        };
+    }
+    if (partyType === "car_vs_object") {
+        return {
+            collision_partner_type: "object",
+            direct_collision_partner_type: "object",
+            excluded_knia_party_types: ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "single_vehicle"],
+        };
+    }
+    if (partyType === "car_vs_car") {
+        return {
+            collision_partner_type: "vehicle",
+            direct_collision_partner_type: "vehicle",
+            excluded_knia_party_types: ["car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+        };
+    }
+    return {};
 }
 
 function firstUnansweredQuestionIndex(questions: any[], answers: Record<string, string>) {
@@ -103,7 +164,7 @@ export function useCaseWorkspace(caseId: string) {
     const followupError = ref("");
     const reanalyzing = ref(false);
     const busy = ref<CaseWorkspaceBusyState>("");
-    const guidedStep = ref<GuidedStep>("input");
+    const guidedStep = ref<GuidedStep>("accident-type");
     const guidedAnswers = ref<Record<string, string>>({});
     const currentGuidedQuestionIndex = ref(0);
     let pollTimer: number | null = null;
@@ -112,6 +173,15 @@ export function useCaseWorkspace(caseId: string) {
     let reportInFlight = false;
 
     const activeUploadId = computed(() => selectedUploadId.value);
+    const selectedMajorCategory = computed(() =>
+        canonicalMajorCategory(
+            (facts.value as any).initial_accident_major_category ||
+            (facts.value as any).selected_major_category ||
+            facts.value.accident_party_type ||
+            (facts.value as any).knia_major_party_type,
+        ),
+    );
+    const guidedAccidentSubtypeOptions = computed(() => getGuidedAccidentSubtypeOptions(selectedMajorCategory.value));
     const remainingProgressSteps = computed(() =>
         progressSteps.value
             .filter((step) => Number(step.percent || 0) > progressPercent.value)
@@ -197,7 +267,7 @@ export function useCaseWorkspace(caseId: string) {
     }
 
     function isAnalysisReady() {
-        return Boolean(descriptionText.value.trim() || activeUploadId.value || file.value);
+        return Boolean(selectedMajorCategory.value || descriptionText.value.trim() || activeUploadId.value || file.value);
     }
 
     async function saveCaseInputs(options: { quiet?: boolean } = {}) {
@@ -284,8 +354,8 @@ export function useCaseWorkspace(caseId: string) {
                     message: "영상은 저장되었습니다. 이제 사고유형과 추가 사고정보를 입력해 주세요.",
                 });
 
-                showMessage("영상 저장 완료. 아래 질문에 답하면 과실비율을 더 정확하게 볼 수 있습니다.");
-                guidedStep.value = "accident-type";
+                showMessage("영상 저장 완료. 영상에서 보이지 않는 점은 이후 확인 질문으로 보완합니다.");
+                if (guidedStep.value === "input") guidedStep.value = "input";
                 return true;
             }
 
@@ -533,7 +603,7 @@ export function useCaseWorkspace(caseId: string) {
                 return;
             }
 
-            if (guidedStep.value === "result") guidedStep.value = "input";
+            if (guidedStep.value === "result") guidedStep.value = "accident-type";
         } catch (error: any) {
             loadError.value = error?.message || "케이스 정보를 불러오지 못했습니다.";
         } finally {
@@ -603,8 +673,8 @@ export function useCaseWorkspace(caseId: string) {
     }
 
     async function continueFromInput() {
-        if (!isAnalysisReady()) {
-            showMessage("사고 설명을 쓰거나 영상을 먼저 선택해 주세요.", false);
+        if (!selectedMajorCategory.value) {
+            showMessage("사고 대분류를 먼저 선택해 주세요.", false);
             return;
         }
 
@@ -613,7 +683,73 @@ export function useCaseWorkspace(caseId: string) {
 
         guidedAnswers.value = {};
         currentGuidedQuestionIndex.value = 0;
-        guidedStep.value = "accident-type";
+        guidedStep.value = "purpose";
+    }
+
+    function selectAccidentMajorCategory(option: { scenario_type?: string; accident_party_type: string; major_category?: string }) {
+        const majorCategory = canonicalMajorCategory(option.major_category || option.accident_party_type);
+        const partyType = canonicalPartyType(option.accident_party_type || majorCategory);
+        const nextFacts: AccidentFacts = {
+            ...facts.value,
+            accident_party_type: partyType,
+            scenario_hint: "user_selected_major_category",
+            ...(partyType !== "unknown" ? partyDefaults(partyType) : {}),
+        };
+        (nextFacts as any).initial_accident_major_category = majorCategory;
+        (nextFacts as any).selected_major_category = majorCategory;
+        (nextFacts as any).knia_major_party_type = partyType;
+        if (majorCategory === "parking_or_stationary") {
+            nextFacts.accident_party_type = "car_vs_car";
+            (nextFacts as any).knia_major_party_type = "car_vs_car";
+            (nextFacts as any).is_parked_vehicle_collision = true;
+            Object.assign(nextFacts, partyDefaults("car_vs_car"));
+        }
+        if (majorCategory === "unknown") {
+            delete nextFacts.accident_type;
+            (nextFacts as any).knia_major_party_type = "unknown";
+        }
+        facts.value = nextFacts;
+        guidedAnswers.value = {};
+        currentGuidedQuestionIndex.value = 0;
+        guidedStep.value = "accident-subtype";
+    }
+
+    function selectAccidentSubtype(option: { scenario_type: string; accident_party_type?: string; value?: string }) {
+        const selected = option.value || option.scenario_type || "unknown";
+        const partyType = canonicalPartyType(option.accident_party_type || facts.value.accident_party_type || selectedMajorCategory.value);
+        const nextFacts: AccidentFacts = {
+            ...facts.value,
+            accident_party_type: partyType,
+            scenario_hint: option.scenario_type ? "user_selected_preliminary_type" : "agent_infer_after_video",
+            ...(partyType !== "unknown" ? partyDefaults(partyType) : {}),
+        };
+        (nextFacts as any).initial_preliminary_accident_type = selected;
+        (nextFacts as any).selected_preliminary_accident_type = selected;
+        (nextFacts as any).knia_major_party_type = partyType;
+        if (option.scenario_type) nextFacts.accident_type = option.scenario_type;
+        if (selected === "unknown") delete nextFacts.accident_type;
+        if (selectedMajorCategory.value === "parking_or_stationary") {
+            nextFacts.accident_party_type = "car_vs_car";
+            (nextFacts as any).knia_major_party_type = "car_vs_car";
+            (nextFacts as any).is_parked_vehicle_collision = true;
+            Object.assign(nextFacts, partyDefaults("car_vs_car"));
+        }
+        if (option.scenario_type === "stealth_illegal_parked_vehicle_collision") {
+            nextFacts.accident_type = "stealth_illegal_parked_vehicle_collision";
+            nextFacts.accident_party_type = "car_vs_car";
+            (nextFacts as any).knia_major_party_type = "car_vs_car";
+            (nextFacts as any).collision_partner_type = "vehicle";
+            (nextFacts as any).direct_collision_partner_type = "vehicle";
+            (nextFacts as any).target_vehicle_status = "abnormal_parked";
+            (nextFacts as any).is_parked_vehicle_collision = true;
+            (nextFacts as any).is_stealth_parked_vehicle_collision = true;
+            (nextFacts as any).excluded_knia_party_types = ["car_vs_bicycle", "car_vs_person"];
+        }
+
+        facts.value = nextFacts;
+        guidedAnswers.value = {};
+        currentGuidedQuestionIndex.value = 0;
+        guidedStep.value = "input";
     }
 
     function selectAccidentType(option: { scenario_type: string; accident_party_type: string }) {
@@ -849,7 +985,9 @@ export function useCaseWorkspace(caseId: string) {
         guidedStep,
         guidedAnswers,
         currentGuidedQuestionIndex,
+        guidedAccidentMajorCategoryOptions,
         guidedAccidentTypeOptions,
+        guidedAccidentSubtypeOptions,
         guidedAnalysisModes,
         guidedQuestions,
         activeGuidedQuestionSetKey,
@@ -875,6 +1013,8 @@ export function useCaseWorkspace(caseId: string) {
         prettySize,
         saveCaseInputs,
         continueFromInput,
+        selectAccidentMajorCategory,
+        selectAccidentSubtype,
         selectAccidentType,
         selectGuidedAnalysisMode,
         answerGuidedQuestion,

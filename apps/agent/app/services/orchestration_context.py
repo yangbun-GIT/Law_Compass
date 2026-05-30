@@ -31,6 +31,7 @@ def build_case_context(
     selected_keywords: list[str] | None,
     analysis_mode: str | None,
     video_metadata: dict[str, Any] | None,
+    initial_intake: dict[str, Any] | None = None,
 ) -> CaseContext:
     video_context = summarize_video_context(video_metadata)
     normalized = normalize_analysis_input(
@@ -39,6 +40,7 @@ def build_case_context(
         selected_keywords=selected_keywords,
         video_metadata=video_metadata,
         analysis_mode=analysis_mode,
+        initial_intake=initial_intake,
     )
     scenario = classify_scenario(
         normalized["merged_text"],

@@ -331,8 +331,6 @@ def _skip_base_missing_field(
     scenario_type: str,
     accident_party_type: str | None,
 ) -> bool:
-    if field == "injury" and accident_party_type == "car_vs_car":
-        return True
     if field == "signal_state" and scenario_type not in SIGNAL_RELEVANT_SCENARIOS:
         return True
     if field == "signal_state" and scenario_type == "intersection_signal_violation":

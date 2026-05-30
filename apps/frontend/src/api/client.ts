@@ -6,6 +6,10 @@ export type User = {
 };
 
 export type AccidentFacts = {
+  initial_accident_major_category?: string;
+  initial_preliminary_accident_type?: string;
+  selected_major_category?: string;
+  selected_preliminary_accident_type?: string;
   accident_type?: string;
   accident_party_type?: string;
   scenario_hint?: string;
@@ -63,6 +67,19 @@ export type AccidentFacts = {
   possible_trigger_vehicle?: string;
   bicycle_location?: string;
   bicycle_direction?: string;
+};
+
+export type InitialIntakePayload = {
+  accident_major_category: string;
+  preliminary_accident_type: string;
+  video_upload_id?: string;
+  natural_language_description?: string;
+  natural_language_policy?: {
+    weight: "low";
+    source_type: "subjective_user_claim";
+    can_override_video: false;
+    can_override_structured_followup: false;
+  };
 };
 
 export type CaseItem = {
@@ -293,11 +310,11 @@ export const api = {
   getViewUrl: (uploadId: string) => request<{ view_url: string; expires_in_sec: number }>(`/api/v1/uploads/${uploadId}/view-url`),
   getDownloadUrl: (uploadId: string) => request<{ download_url: string; expires_in_sec: number }>(`/api/v1/uploads/${uploadId}/download-url`),
 
-  analyzeText: (caseId: string, payload: { description_text: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; ai_profile?: string; specialist_roles?: string[] }) =>
+  analyzeText: (caseId: string, payload: { description_text: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; initial_intake?: InitialIntakePayload; ai_profile?: string; specialist_roles?: string[] }) =>
     request<any>(`/api/v1/cases/${caseId}/analyze-text`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
-  reanalyzeText: (caseId: string, payload: { description_text?: string; structured_facts?: AccidentFacts; followup_answers?: Record<string, string>; selected_keywords?: string[]; analysis_mode?: string; ai_profile?: string; specialist_roles?: string[] }) =>
+  reanalyzeText: (caseId: string, payload: { description_text?: string; structured_facts?: AccidentFacts; followup_answers?: Record<string, string>; selected_keywords?: string[]; analysis_mode?: string; initial_intake?: InitialIntakePayload; ai_profile?: string; specialist_roles?: string[] }) =>
     request<any>(`/api/v1/cases/${caseId}/reanalyze`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
-  analyzeVideo: (caseId: string, payload: { upload_id: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; specialist_roles?: string[] }) =>
+  analyzeVideo: (caseId: string, payload: { upload_id: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; initial_intake?: InitialIntakePayload; specialist_roles?: string[] }) =>
     request<any>(`/api/v1/cases/${caseId}/analyze-video`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
 
   getJobs: (caseId: string) => request<{ items: any[]; trace_id: string }>(`/api/v1/cases/${caseId}/jobs`),

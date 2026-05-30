@@ -19,6 +19,7 @@ async def analyze_text(payload: AnalyzeTextRequest, x_internal_token: str | None
             selected_keywords=payload.selected_keywords,
             video_metadata=payload.video_metadata,
             analysis_mode=payload.analysis_mode,
+            initial_intake=payload.initial_intake,
             ai_profile=payload.ai_profile,
             specialist_roles=payload.specialist_roles,
         )
@@ -38,6 +39,7 @@ async def analyze_video(payload: AnalyzeVideoRequest, x_internal_token: str | No
             structured_facts=payload.structured_facts,
             selected_keywords=payload.selected_keywords,
             analysis_mode=payload.analysis_mode,
+            initial_intake=payload.initial_intake,
         )
     )
 

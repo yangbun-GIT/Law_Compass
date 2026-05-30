@@ -3216,3 +3216,10 @@ P2-2a 단계에서 OpenAI+YOLO ON 재측정 결과를 사람이 반복 검토할
 | 남은 목표 | 현재 보강은 데이터 누수 방지와 직접 사고대상 오염 방지에 초점을 둔다. 이륜차·자전거처럼 작은 대상 recall은 더 많은 프레임 선택, 고해상도 crop, 별도 객체 감지 모델 비교로 계속 개선해야 한다. |
 
 이 변경은 public route, DB schema, Redis key, storage path를 변경하지 않는다. 평가 manifest와 라벨 파일은 계속 `.local/`, `datasets/`, `logs/` 등 Git 제외 경로에만 둔다.
+# Video-First Intake Flow
+
+- Frontend guided case analysis now starts with accident major category selection, then optional subtype selection, then video upload and optional natural-language description.
+- Analysis requests may include `initial_intake` with `accident_major_category`, `preliminary_accident_type`, optional `video_upload_id`, and a low-weight `natural_language_policy`.
+- Gateway normalizes `initial_intake` and passes it to Agent text/video/reanalysis flows and queued video analysis jobs.
+- Agent treats selected major category as a strong KNIA party guard prior, selected subtype as a scenario prior, and natural-language description as a low-weight subjective claim that cannot override high-confidence video observations or structured follow-up answers.
+- See `docs/VIDEO_FIRST_INTAKE_FLOW.md` for payload shape, fact priority, and follow-up output contract.

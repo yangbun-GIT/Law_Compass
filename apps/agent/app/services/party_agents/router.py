@@ -328,7 +328,7 @@ def _scenario_hint_for_party(
     patch: dict[str, Any] = {}
     tags: list[str] = []
     if party == "car_vs_car":
-        if _has_any(haystack, ("스텔스", "무등화", "등화 없이", "교량 밑", "교량 아래")) and _has_any(haystack, ("주차", "정차", "트럭", "화물차")):
+        if _has_any(haystack, ("스텔스", "무등화", "등화 없이", "교량 밑", "교량 아래")) and _has_any(haystack, ("주차", "정차", "트럭", "화물차")) and _has_strong_stealth_context(haystack, facts):
             patch.update({"is_stealth_parked_vehicle_collision": True, "is_parked_vehicle_collision": True})
             return "stealth_illegal_parked_vehicle_collision", "night_unlit_illegal_parked_vehicle_collision", ["parking", "stopped_vehicle", "unlit_stopped_vehicle", "visibility", "night"], patch
         if _has_any(haystack, ("차선변경", "진로변경", "끼어들", "깜빡이", "방향지시등")):
@@ -389,6 +389,15 @@ def _compact_text(value: str) -> str:
 
 def _has_any(text: str, tokens: tuple[str, ...]) -> bool:
     return any(token.lower() in text for token in tokens)
+
+
+def _has_strong_stealth_context(haystack: str, facts: dict[str, Any]) -> bool:
+    return (
+        "스텔스" in haystack
+        or _has_any(haystack, ("교량 밑", "교량 아래", "화단", "중앙분리대", "갓길", "통행 공간", "음주", "음주운전", "만취", "술"))
+        or facts.get("abnormal_parking") is True
+        or str(facts.get("opponent_impairment") or "") in {"drunk_driving_confirmed", "suspected_drunk"}
+    )
 
 
 def _environment_context(haystack: str) -> dict[str, bool]:

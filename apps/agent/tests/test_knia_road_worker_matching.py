@@ -16,11 +16,13 @@ def test_road_worker_input_stays_car_vs_person_and_matches_real_knia_chart():
 
     assert facts["accident_party_type"] == "car_vs_person"
     assert facts["major_party_type"] == "car_vs_person"
-    assert facts["collision_partner_type"] == "person"
-    assert facts["direct_collision_partner_type"] == "person"
+    assert facts["collision_partner_type"] == "pedestrian"
+    assert facts["direct_collision_partner_type"] == "pedestrian"
     assert facts["accident_type"] == "pedestrian_roadway_worker_accident"
+    assert facts["pedestrian_worker"] is True
+    assert facts["road_work_context"] is True
     assert scenario["accident_party_type"] == "car_vs_person"
-    assert scenario["scenario_type"] == "pedestrian_accident"
+    assert scenario["scenario_type"] == "pedestrian_road_work_worker_accident"
 
     result = match_knia_charts(
         description_text=ROAD_WORKER_TEXT,

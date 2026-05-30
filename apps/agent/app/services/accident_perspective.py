@@ -182,8 +182,8 @@ def _user_knia_party(scenario_type: str, role: str) -> str:
         # KNIA 신호위반 교차로 기준은 일반적으로
         # A = 신호위반 차량, B = 정상 신호 차량으로 해석한다.
         if role == SIGNAL_VIOLATION_VEHICLE:
-            return "A"
-        return "B"
+            return "B"
+        return "A"
 
     if scenario_type in {"pedestrian_crosswalk_accident", "school_zone_child_accident"}:
         if role == PEDESTRIAN:

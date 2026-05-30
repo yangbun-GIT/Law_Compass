@@ -3,7 +3,13 @@
 import json
 from typing import Any
 from app.services.analysis_modes import normalize_analysis_mode
+from app.services.fact_source_weights import build_fact_source_weight_contract
 from app.services.fact_arbitration import arbitrate_facts
+from app.services.initial_intake import (
+    build_fact_candidates_from_initial_intake,
+    enforce_initial_intake_priority,
+    normalize_initial_intake,
+)
 from app.services.llm_client import generate_accident_input_filter
 from app.services.party_agents.router import route_party_agent
 from app.services.security_filter import sanitize_input
@@ -147,10 +153,10 @@ def _enrich_road_worker_pedestrian_facts(facts: dict[str, Any], text: str) -> di
             "accident_party_type": "car_vs_person",
             "knia_major_party_type": "car_vs_person",
             "major_party_type": "car_vs_person",
-            "collision_partner_type": "person",
-            "direct_collision_partner_type": "person",
+            "collision_partner_type": "pedestrian",
+            "direct_collision_partner_type": "pedestrian",
             "direct_collision_target": "road_work_worker",
-            "scenario_type": "pedestrian_accident",
+            "scenario_type": "pedestrian_road_work_worker_accident",
             "accident_type": "pedestrian_roadway_worker_accident",
             "accident_subtype": "pedestrian_roadway_or_work_zone",
             "scenario_subtype": "pedestrian_roadway_or_work_zone",
@@ -227,8 +233,10 @@ def _has_stealth_illegal_parked_vehicle_context(text: str) -> bool:
             "갓길",
         ),
     )
+    explicit_stealth = _contains_any(hay, ("스텔스",))
+    abnormal_position = _contains_any(hay, ("교량 밑", "교량밑", "교량 아래", "화단", "중앙분리대", "갓길", "통행 공간"))
     impairment = _contains_any(hay, ("음주", "술", "만취", "음주운전"))
-    return collision and parked_vehicle and (visibility_or_place or impairment)
+    return collision and parked_vehicle and visibility_or_place and (explicit_stealth or abnormal_position or impairment)
 
 
 def _enrich_stealth_illegal_parked_vehicle_facts(facts: dict[str, Any], text: str) -> dict[str, Any]:
@@ -332,8 +340,10 @@ def _deterministic_accident_input_filter(text: str, facts: dict[str, Any] | None
             "음주운전",
         ),
     )
+    explicit_stealth = _contains_any(hay, ("스텔스",))
+    abnormal_or_drunk = _contains_any(hay, ("교량 밑", "교량 아래", "교량밑", "화단", "중앙분리대", "갓길", "통행 공간", "음주", "음주운전", "만취", "술"))
 
-    if not (collision and vehicle and parked and risk):
+    if not (collision and vehicle and parked and risk and (explicit_stealth or abnormal_or_drunk)):
         return {
             "matched": False,
             "confidence": 0.0,
@@ -473,8 +483,8 @@ def _apply_party_guard_facts(
                 guarded.pop(key, None)
     elif party == "car_vs_person":
         if guarded.get("road_worker") or guarded.get("accident_type") == "pedestrian_roadway_worker_accident":
-            guarded["collision_partner_type"] = "person"
-            guarded["direct_collision_partner_type"] = "person"
+            guarded["collision_partner_type"] = "pedestrian"
+            guarded["direct_collision_partner_type"] = "pedestrian"
             guarded.setdefault("direct_collision_target", "road_work_worker")
         else:
             guarded["collision_partner_type"] = "pedestrian"
@@ -727,16 +737,22 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
         _set_if_empty(enriched, "direct_collision_partner_type", "vehicle")
         _set_if_empty(enriched, "accident_party_type", "car_vs_car")
         _set_if_empty(enriched, "opponent_behavior", "rear_collision")
-        _set_if_empty(enriched, "accident_type", "rear_end_collision")
+        if (
+            _is_empty(enriched.get("accident_type"))
+            or str(enriched.get("accident_type")) in {"general_collision", "general_vehicle_collision", "intersection_signal_violation"}
+        ) and not enriched.get("user_signal_violation") and not enriched.get("opponent_signal_violation"):
+            enriched["accident_type"] = "rear_end_collision"
         _set_if_empty(enriched, "rear_end_context", True)
     return enriched
 
-def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None) -> dict[str, Any]:
+def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None, initial_intake: dict[str, Any] | None = None) -> dict[str, Any]:
     clean_text, security_flags = sanitize_input(description_text or "")
     clean_text = _normalize_accident_typos(clean_text)
     keywords = [str(x).strip() for x in (selected_keywords or []) if str(x).strip()]
     video_contract = normalize_video_input_contract(video_metadata, preprocessed_summary=clean_text)
     user_facts = _normalize_fact_aliases(_compact_for_analysis(structured_facts or {}))
+    normalized_initial_intake = normalize_initial_intake(initial_intake, structured_facts=user_facts)
+    user_facts = _compact_for_analysis({**user_facts, **build_fact_candidates_from_initial_intake(normalized_initial_intake)})
     party_agent_result = route_party_agent(
         description_text=clean_text,
         structured_facts=user_facts,
@@ -770,6 +786,8 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
     facts = _apply_accident_input_filter_result(facts, selected_filter)
     facts = _apply_party_agent_result(facts, party_agent_result)
     facts = _apply_party_guard_facts(facts, party_agent_result)
+    facts = enforce_initial_intake_priority(facts, normalized_initial_intake)
+    fact_source_weights = build_fact_source_weight_contract(normalized_initial_intake, facts)
     missing_fields = [field for field in REQUIRED_FACTS if _is_empty(facts.get(field))]
     facts_display = clean_structured_facts_for_display(facts)
     user_visible_summary_text = clean_text or format_facts_as_korean_sentences(facts)
@@ -792,14 +810,17 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "pending_video_confirmations": fact_arbitration.get("pending_video_confirmations"),
     })
     party_agent_for_text = _compact_for_analysis(party_agent_result)
-    merged_text = "\n".join([
-        clean_text,
+    analysis_lines = [clean_text]
+    if normalized_initial_intake.get("provided"):
+        analysis_lines.append("분석용 초기 입력: " + json.dumps(normalized_initial_intake, ensure_ascii=False, separators=(",", ":")))
+    analysis_lines.extend([
         "분석용 KNIA 대분류 라우터: " + json.dumps(party_agent_for_text, ensure_ascii=False, separators=(",", ":")),
         "분석용 사고 사실: " + json.dumps(facts, ensure_ascii=False, separators=(",", ":")),
         "분석용 선택 키워드: " + ", ".join(keywords),
         "분석용 영상 입력 계약: " + json.dumps(video_contract_for_text, ensure_ascii=False, separators=(",", ":")),
         "분석용 사실 중재 계약: " + json.dumps(arbitration_for_text, ensure_ascii=False, separators=(",", ":")),
-        ])
+    ])
+    merged_text = "\n".join(analysis_lines)
     canonical_analysis_mode = normalize_analysis_mode(analysis_mode)
     return {
         "description_text": clean_text,
@@ -810,6 +831,13 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "video_metadata": video_metadata or {},
         "video_input_contract": video_contract,
         "fact_arbitration": fact_arbitration,
+        "fact_source_weights": fact_source_weights,
+        "initial_intake": normalized_initial_intake,
+        "initial_intake_summary": {
+            "accident_major_category": normalized_initial_intake.get("accident_major_category", "unknown"),
+            "preliminary_accident_type": normalized_initial_intake.get("preliminary_accident_type", "unknown"),
+            "natural_language_used_as": "low_weight_supporting_claim" if normalized_initial_intake.get("natural_language_description") else "not_provided",
+        },
         "party_agent_result": party_agent_result,
         "knia_major_party_type": facts.get("knia_major_party_type") or (party_agent_result or {}).get("major_party_type") or "unknown",
         "excluded_knia_party_types": facts.get("excluded_knia_party_types") or (party_agent_result or {}).get("excluded_party_types") or [],

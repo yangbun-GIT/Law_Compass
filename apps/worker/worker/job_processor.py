@@ -517,6 +517,7 @@ def build_video_analyze_payload(row: tuple[Any, ...], payload: dict[str, Any], c
         "structured_facts": (case_inputs[0] if case_inputs else {}) or {},
         "selected_keywords": list(case_inputs[1] if case_inputs and case_inputs[1] else []),
         "analysis_mode": (case_inputs[2] if case_inputs else None) or "quick_summary",
+        "initial_intake": payload.get("initial_intake") or {},
     }
 
 
@@ -528,6 +529,7 @@ def build_agent_video_request(
 ) -> dict[str, Any]:
     structured_facts = payload.get("structured_facts") or {}
     selected_keywords = payload.get("selected_keywords") or []
+    initial_intake = payload.get("initial_intake") if isinstance(payload.get("initial_intake"), dict) else {}
     routing_reason = payload.get("routing_reason")
     case_text = f"{case_row[0] or ''} {case_row[1] or ''}".strip() if case_row else ""
     metadata = upload_row[0] if upload_row and isinstance(upload_row[0], dict) else {}
@@ -561,6 +563,7 @@ def build_agent_video_request(
         "structured_facts": structured_facts,
         "selected_keywords": selected_keywords,
         "analysis_mode": payload.get("analysis_mode") or "quick_summary",
+        "initial_intake": initial_intake,
     }
 
 
