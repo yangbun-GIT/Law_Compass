@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { buildUploadInsert, publicUpload } from "../src/routes/uploads.js";
+import { buildFrameViewUrl, buildUploadInsert, publicUpload, sanitizeFrameRef } from "../src/routes/uploads.js";
 import { makeUploadObjectKey } from "../src/lib/storage/index.js";
 
 describe("upload storage DB contract", () => {
@@ -126,5 +126,15 @@ describe("upload storage DB contract", () => {
     for (const column of ["storage_driver", "storage_key", "size_bytes", "sha256", "original_filename", "mime_type", "storage_status"]) {
       expect(migration).toContain(`ADD COLUMN IF NOT EXISTS ${column}`);
     }
+  });
+
+  it("builds owner-scoped processed frame view URLs without storage paths", () => {
+    expect(sanitizeFrameRef("../secret.jpg")).toBeNull();
+    expect(sanitizeFrameRef("processed/frames/case-1/upload-1/frame_001.jpg")).toBe("frame_001.jpg");
+    expect(sanitizeFrameRef("frame_001.txt")).toBeNull();
+
+    const url = buildFrameViewUrl("/api/v1", "case 1", "upload 1", "processed/frames/case-1/upload-1/frame_001.jpg");
+    expect(url).toBe("/api/v1/cases/case%201/uploads/upload%201/frames/frame_001.jpg");
+    expect(url).not.toContain("processed/frames");
   });
 });

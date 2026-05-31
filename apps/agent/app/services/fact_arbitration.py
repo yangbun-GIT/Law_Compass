@@ -55,6 +55,10 @@ USER_PRIMARY_FIELDS = {
     "insurance_status",
     "driver_role",
     "accident_party_type",
+    "initial_accident_major_category",
+    "selected_major_category",
+    "initial_preliminary_accident_type",
+    "selected_preliminary_accident_type",
 }
 
 EMPTY_VALUES = {None, "", "unknown", "모름", "None", "null"}

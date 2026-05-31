@@ -50,6 +50,70 @@ function normalizeAnalysisMode(mode: any) {
 }
 
 const ACTIVE_ANALYSIS_JOB_STATUSES = ["queued", "running", "retrying", "processing", "analyzing"];
+const INITIAL_INTAKE_DESCRIPTION_LIMIT = 1200;
+
+function normalizeInitialMajorCategory(value: any) {
+  const raw = String(value || "").trim();
+  if (!raw) return "unknown";
+  if (raw === "car_vs_motorcycle") return "car_vs_two_wheeler";
+  if (raw === "car_vs_object") return "single_vehicle";
+  return raw;
+}
+
+function canonicalInitialPartyType(value: any) {
+  const raw = normalizeInitialMajorCategory(value);
+  if (raw === "car_vs_two_wheeler") return "car_vs_motorcycle";
+  if (raw === "parking_or_stationary") return "car_vs_car";
+  return raw;
+}
+
+function normalizeInitialIntake(raw: any, facts: any, uploadId?: string) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const factMap = facts && typeof facts === "object" ? facts : {};
+  const majorCategory = normalizeInitialMajorCategory(
+    source.accident_major_category ??
+    factMap.initial_accident_major_category ??
+    factMap.selected_major_category ??
+    factMap.accident_party_type ??
+    factMap.knia_major_party_type
+  );
+  const preliminary = String(
+    source.preliminary_accident_type ??
+    factMap.initial_preliminary_accident_type ??
+    factMap.selected_preliminary_accident_type ??
+    factMap.accident_type ??
+    "unknown"
+  ).trim() || "unknown";
+  const natural = String(source.natural_language_description ?? "").trim().slice(0, INITIAL_INTAKE_DESCRIPTION_LIMIT);
+
+  return {
+    accident_major_category: majorCategory,
+    preliminary_accident_type: preliminary || "unknown",
+    ...(uploadId || source.video_upload_id ? { video_upload_id: String(uploadId || source.video_upload_id) } : {}),
+    ...(natural ? { natural_language_description: maskSensitive(natural) } : {}),
+    natural_language_policy: {
+      weight: "low",
+      source_type: "subjective_user_claim",
+      can_override_video: false,
+      can_override_structured_followup: false,
+    },
+  };
+}
+
+function mergeInitialIntakeFacts(facts: any, initialIntake: any) {
+  const base = facts && typeof facts === "object" ? facts : {};
+  const major = normalizeInitialMajorCategory(initialIntake?.accident_major_category);
+  const partyType = canonicalInitialPartyType(major);
+  return {
+    ...base,
+    initial_accident_major_category: major,
+    selected_major_category: major,
+    initial_preliminary_accident_type: initialIntake?.preliminary_accident_type || "unknown",
+    selected_preliminary_accident_type: initialIntake?.preliminary_accident_type || "unknown",
+    ...(partyType !== "unknown" ? { accident_party_type: partyType, knia_major_party_type: partyType } : {}),
+    ...(major === "parking_or_stationary" ? { is_parked_vehicle_collision: true } : {}),
+  };
+}
 
 export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRouteOptions) {
   app.post(`${opts.apiPrefix}/cases/:caseId/analyze-text`, async (req, reply) => {
@@ -60,6 +124,8 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
 
     const caseRow = await opts.db.query(`SELECT * FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`, [caseId, (req as any).user.id]);
     if (!caseRow.rowCount) return reply.code(404).send(opts.errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
+    const initialIntake = normalizeInitialIntake(body?.initial_intake, body?.structured_facts ?? caseRow.rows[0].structured_facts ?? {});
+    const structuredFacts = mergeInitialIntakeFacts(body?.structured_facts ?? caseRow.rows[0].structured_facts ?? {}, initialIntake);
 
     let agentResp;
     try {
@@ -68,9 +134,10 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
         case_id: caseId,
         user_id: (req as any).user.id,
         description_text: maskSensitive(body?.description_text ?? caseRow.rows[0].description_text ?? ""),
-        structured_facts: body?.structured_facts ?? caseRow.rows[0].structured_facts ?? {},
+        structured_facts: structuredFacts,
         selected_keywords: body?.selected_keywords ?? caseRow.rows[0].selected_keywords ?? [],
         analysis_mode: normalizeAnalysisMode(body?.analysis_mode ?? caseRow.rows[0].analysis_mode ?? "user_friendly"),
+        initial_intake: initialIntake,
         ai_profile: body?.ai_profile,
         specialist_roles: body?.specialist_roles
       }, traceId, { baseUrl: opts.agentUrl, internalToken: opts.internalToken, timeoutMs: opts.analyzeTimeoutMs, retryCount: opts.retryCount });
@@ -149,9 +216,11 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
       };
     }
     const uploadFull = await opts.db.query(`SELECT file_name, metadata FROM uploads WHERE id=$1`, [body.upload_id]);
+    const initialIntake = normalizeInitialIntake(body?.initial_intake, body?.structured_facts ?? {}, body.upload_id);
+    const structuredFacts = mergeInitialIntakeFacts(body?.structured_facts ?? {}, initialIntake);
     const route = selectVideoAiRoute({
       caseTitle: caseRow.rows[0].title ?? "",
-      caseDescription: `${caseRow.rows[0].description_text ?? ""} ${JSON.stringify(body.structured_facts ?? {})} ${(body.selected_keywords ?? []).join(" ")}`,
+      caseDescription: `${caseRow.rows[0].description_text ?? ""} ${JSON.stringify(structuredFacts)} ${(body.selected_keywords ?? []).join(" ")}`,
       fileName: uploadFull.rows[0]?.file_name ?? "",
       uploadMetadata: uploadFull.rows[0]?.metadata ?? {}
     });
@@ -166,7 +235,8 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
         specialist_roles: route.specialistRoles,
         routing_reason: route.reason,
         video_metadata: body.video_metadata ?? {},
-        structured_facts: body.structured_facts ?? {},
+        structured_facts: structuredFacts,
+        initial_intake: initialIntake,
         selected_keywords: body.selected_keywords ?? [],
         analysis_mode: normalizeAnalysisMode(body.analysis_mode ?? "user_friendly")
       })]
@@ -303,11 +373,13 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
       previousResult
     );
     const normalizedFollowup = normalizeFollowupAnswers(body?.followup_answers ?? body?.followupAnswers ?? {}, currentCase.structured_facts ?? {});
-    const structuredFacts = {
+    const baseStructuredFacts = {
       ...(currentCase.structured_facts ?? {}),
       ...(body?.structured_facts ?? {}),
       ...normalizedFollowup.patch
     };
+    const initialIntake = normalizeInitialIntake(body?.initial_intake, baseStructuredFacts);
+    const structuredFacts = mergeInitialIntakeFacts(baseStructuredFacts, initialIntake);
     const descriptionText = maskSensitive(body?.description_text ?? currentCase.description_text ?? "");
     const selectedKeywords = body?.selected_keywords ?? currentCase.selected_keywords ?? [];
     const analysisMode = normalizeAnalysisMode(body?.analysis_mode ?? currentCase.analysis_mode ?? "user_friendly");
@@ -342,6 +414,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
         selected_keywords: selectedKeywords,
         video_metadata: videoMetadata,
         analysis_mode: analysisMode,
+        initial_intake: initialIntake,
         ai_profile: body?.ai_profile,
         specialist_roles: body?.specialist_roles
       }, traceId, { baseUrl: opts.agentUrl, internalToken: opts.internalToken, timeoutMs: opts.analyzeTimeoutMs, retryCount: opts.retryCount });

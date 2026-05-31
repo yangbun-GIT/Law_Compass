@@ -155,6 +155,36 @@ function inferGuidedQuestionType(facts: AccidentFacts, descriptionText: string):
     }
 
     if (
+        accidentType.includes("highway") ||
+        partyType.includes("highway") ||
+        (facts as any).highway_or_expressway === true ||
+        description.includes("고속도로") ||
+        description.includes("자동차전용도로") ||
+        description.includes("합류도로") ||
+        description.includes("차로 감소") ||
+        description.includes("차로감소") ||
+        description.includes("갓길") ||
+        description.includes("낙하물")
+    ) {
+        return "highway";
+    }
+
+    if (
+        accidentType.includes("motorcycle") ||
+        accidentType.includes("two_wheeler") ||
+        partyType.includes("car_vs_motorcycle") ||
+        partyType.includes("car_vs_two_wheeler") ||
+        kniaMajorPartyType.includes("car_vs_motorcycle") ||
+        kniaMajorPartyType.includes("car_vs_two_wheeler") ||
+        collisionPartnerType === "motorcycle" ||
+        description.includes("이륜차") ||
+        description.includes("오토바이") ||
+        description.includes("원동기")
+    ) {
+        return "motorcycle";
+    }
+
+    if (
         accidentType.includes("pedestrian") ||
         partyType.includes("car_vs_person") ||
         kniaMajorPartyType.includes("car_vs_person") ||
@@ -242,6 +272,22 @@ function inferGuidedQuestionType(facts: AccidentFacts, descriptionText: string):
         description.includes("깜빡이")
     ) {
         return "lane_change";
+    }
+
+    if (
+        accidentType.includes("opposite_direction_vehicle") ||
+        accidentType.includes("same_direction_vehicle") ||
+        accidentType.includes("vehicle_other_road_type") ||
+        accidentType.includes("parking_lot") ||
+        accidentType.includes("door_open") ||
+        description.includes("마주보는 방향") ||
+        description.includes("같은 방향") ||
+        description.includes("회전교차로") ||
+        description.includes("주차장") ||
+        description.includes("문 개방") ||
+        description.includes("문을 열")
+    ) {
+        return "vehicle_progress";
     }
 
     if (

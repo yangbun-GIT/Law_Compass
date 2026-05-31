@@ -246,6 +246,7 @@ def derive_accident_event_summary_from_observations(
         "primary_collision_target",
         "collision_point_visible",
         "collision_point_location",
+        "impact_visible",
         "impact_direction",
         "collision_direction",
         "secondary_collision",

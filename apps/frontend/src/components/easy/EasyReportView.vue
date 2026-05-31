@@ -5,6 +5,19 @@
         <p class="eyebrow">현재 상황정리</p>
         <h2>{{ simpleSituationTitle }}</h2>
         <p v-if="simpleSituationDetail" class="big-text">{{ simpleSituationDetail }}</p>
+        <div v-if="videoSceneFacts.length || videoSceneQuestions.length" class="video-scene-summary">
+          <div v-if="videoSceneFacts.length" class="chips">
+            <span v-for="fact in videoSceneFacts" :key="`${fact.label}-${fact.value}`" class="chip">
+              {{ text(fact.label) }}: {{ text(fact.value) }}
+            </span>
+          </div>
+          <div v-if="videoSceneQuestions.length" class="chips compact">
+            <span class="chip">추가 확인 필요</span>
+            <span v-for="question in videoSceneQuestions" :key="String(question.field || question.label)" class="chip">
+              {{ text(question.label || question.field) }}
+            </span>
+          </div>
+        </div>
       </section>
 
       <section v-if="finalityCard" class="card easy-card simple-section finality-status-card">
@@ -34,6 +47,8 @@
         </div>
         <p class="soft-warning">{{ text(finalityCard.notice) }}</p>
       </section>
+
+      <FrameEvidenceCard v-if="frameEvidenceCards.length" :cards="frameEvidenceCards" />
 
       <section class="card easy-card simple-section corner-flourish">
         <p class="eyebrow">과실비율산정</p>
@@ -137,6 +152,13 @@
           <p>{{ simpleVideoSummary }}</p>
         </div>
       </section>
+
+      <KniaDetailEvidenceCard
+        v-if="simpleKniaChartNo"
+        :chart-no="simpleKniaChartNo"
+        :chart-type="simpleKniaChartType"
+        :fallback-standard="simpleKniaEvidence"
+      />
     </section>
 
     <section v-else class="expert-report">
@@ -171,6 +193,12 @@
       <AccidentPartyTypeActionCard v-if="safeReport.accident_party_type_card" :card="safeReport.accident_party_type_card" />
       <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
       <RelatedKniaStandardCard v-if="visibleRelatedFaultStandard" :standard="visibleRelatedFaultStandard" />
+      <KniaDetailEvidenceCard
+        v-if="simpleKniaChartNo"
+        :chart-no="simpleKniaChartNo"
+        :chart-type="simpleKniaChartType"
+        :fallback-standard="simpleKniaEvidence"
+      />
 
       <article v-if="safeReport.knia_fault_adjustment_card" class="card easy-card wide-card knia-adjustment-card">
         <p class="eyebrow">KNIA 기준과 가감요소</p>
@@ -284,6 +312,7 @@
 
       <ExpertGuidanceCard v-if="safeReport.expert_guidance_card" :card="safeReport.expert_guidance_card" />
       <VideoFactExplanationCard v-if="safeReport.video_fact_explanation_card" :card="safeReport.video_fact_explanation_card" />
+      <FrameEvidenceCard v-if="frameEvidenceCards.length" :cards="frameEvidenceCards" />
       <EvidenceReliabilityCard v-if="!isQuickSummary && safeReport.evidence_reliability_card" :card="safeReport.evidence_reliability_card" />
 
       <article v-if="!isQuickSummary" class="card easy-card wide-card">
@@ -340,12 +369,14 @@ import EvidenceReliabilityCard from "./EvidenceReliabilityCard.vue";
 import EasyFaultRatioCard from "./EasyFaultRatioCard.vue";
 import ExpertGuidanceCard from "./ExpertGuidanceCard.vue";
 import EasyLegalBasisCard from "./EasyLegalBasisCard.vue";
+import FrameEvidenceCard from "./FrameEvidenceCard.vue";
 import VideoFactExplanationCard from "./VideoFactExplanationCard.vue";
 import MissingInfoCard from "./MissingInfoCard.vue";
 import DetailToggleSection from "./DetailToggleSection.vue";
 import RelatedKniaStandardCard from "../knia/RelatedKniaStandardCard.vue";
 import RelatedVideoCard from "../knia/RelatedVideoCard.vue";
 import KniaFaultRatioBar from "../knia/KniaFaultRatioBar.vue";
+import KniaDetailEvidenceCard from "../knia/KniaDetailEvidenceCard.vue";
 import AccidentPartyTypeActionCard from "../result/AccidentPartyTypeActionCard.vue";
 import { formatKniaBody, removeTechnicalFields, sanitizeDisplayText } from "../../utils/displaySanitizer";
 
@@ -382,6 +413,7 @@ const isQuickSummary = computed(() => !isExpertMode.value);
 const basisCards = computed<any[]>(() => safeReport.value?.legal_basis_cards || []);
 const visibleBasisCards = computed(() => (showAllBasis.value ? basisCards.value : basisCards.value.slice(0, 3)));
 const actionItems = computed(() => Array.isArray(safeReport.value?.top_actions) ? safeReport.value.top_actions : []);
+const frameEvidenceCards = computed(() => collectFrameEvidenceCards(safeReport.value));
 const displayMissingInfo = computed(() => safeReport.value?.missing_info || {});
 const finalityCard = computed(() => safeReport.value?.finality_display_card || safeReport.value?.simple_report?.finality || null);
 const partyText = computed(() => [
@@ -423,20 +455,51 @@ function textOrFallback(...values: any[]) {
   }
   return "";
 }
+
+function collectFrameEvidenceCards(report: any) {
+  const sources = [
+    report?.frame_interpretation_cards,
+    report?.video_fact_explanation_card?.frame_interpretation_cards,
+    report?.simple_report?.frame_interpretation_cards,
+  ];
+  const seen = new Set<string>();
+  return sources
+    .flatMap((source) => Array.isArray(source) ? source : [])
+    .filter((card: any) => card?.display_allowed === true)
+    .filter((card: any) => {
+      const key = [
+        card?.image_ref?.case_id,
+        card?.image_ref?.upload_id,
+        card?.frame_ref || card?.image_ref?.frame_ref,
+        card?.time_sec,
+      ].join(":");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 6);
+}
+
 const simpleSituationTitle = computed(() => textOrFallback(
+  safeReport.value?.video_scene_summary?.title,
+  safeReport.value?.structured_facts?.video_scene_summary?.title,
   safeReport.value?.simple_report?.situation_title,
   safeReport.value?.situation_title,
   safeReport.value?.accident_title,
   extractSituationTitle(safeReport.value?.simple_report?.situation_summary),
   extractSituationTitle(safeReport.value?.summary),
+  "영상에서 확인된 사고 개요",
   "입력한 사고 상황"
 ));
 const simpleSituationSummary = computed(() => textOrFallback(
+  safeReport.value?.video_scene_summary?.summary_text,
+  safeReport.value?.structured_facts?.video_scene_summary?.summary_text,
   safeReport.value?.simple_report?.situation_summary,
   safeReport.value?.current_situation_summary,
   safeReport.value?.situation_summary,
   safeReport.value?.one_line_summary,
   safeReport.value?.summary,
+  "입력한 영상과 답변을 바탕으로 사고 상황을 정리했습니다.",
   "입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다."
 ));
 const simpleSituationDetail = computed(() => {
@@ -444,6 +507,29 @@ const simpleSituationDetail = computed(() => {
   const title = sanitizeDisplayText(simpleSituationTitle.value);
   if (!detail || detail === title || detail === `${title} 상황입니다.`) return "";
   return detail;
+});
+const videoSceneSummary = computed<any>(() =>
+  safeReport.value?.video_scene_summary ||
+  safeReport.value?.structured_facts?.video_scene_summary ||
+  safeReport.value?.simple_report?.video_scene_summary ||
+  {}
+);
+const videoSceneFacts = computed<any[]>(() => {
+  const confirmed = Array.isArray(videoSceneSummary.value?.confirmed_visual_facts)
+    ? videoSceneSummary.value.confirmed_visual_facts
+    : [];
+  const likely = Array.isArray(videoSceneSummary.value?.likely_visual_context)
+    ? videoSceneSummary.value.likely_visual_context
+    : [];
+  return [...confirmed, ...likely]
+    .filter((item: any) => item && (item.label || item.field) && item.value !== undefined)
+    .slice(0, 5);
+});
+const videoSceneQuestions = computed<any[]>(() => {
+  const questions = Array.isArray(videoSceneSummary.value?.needs_user_confirmation)
+    ? videoSceneSummary.value.needs_user_confirmation
+    : [];
+  return questions.filter((item: any) => item && (item.label || item.field)).slice(0, 4);
 });
 const simpleFaultRatio = computed<any>(() => {
   const simple = safeReport.value?.simple_report?.fault_ratio;
@@ -531,6 +617,8 @@ const simpleKniaPartyLabel = computed(() => resolveAccidentPartyLabel({
   accident_party_type: simpleKniaEvidence.value?.major_party_type || simpleKniaEvidence.value?.accident_party_type || safeReport.value?.accident_party_type,
   chart_no: simpleKniaEvidence.value?.chart_no || simpleKniaEvidence.value?.subchart_no,
 }));
+const simpleKniaChartNo = computed(() => sanitizeDisplayText(simpleKniaEvidence.value?.chart_no || simpleKniaEvidence.value?.subchart_no, ""));
+const simpleKniaChartType = computed(() => sanitizeDisplayText(simpleKniaEvidence.value?.chart_type || "1", "1"));
 const simpleVideoSummary = computed(() => textOrFallback(
   safeReport.value?.simple_report?.video_summary,
   safeReport.value?.video_summary,

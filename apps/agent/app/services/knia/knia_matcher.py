@@ -145,7 +145,7 @@ def match_knia_charts(
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         q = " ".join(_strip_bicycle_pollution([q]))
     direct_lookup_text = normalize_query(" ".join([description_text or "", " ".join(keywords)]))
-    chart_direct = re.search(r"[차보자기단]\d{1,3}(?:-\d+)?", direct_lookup_text)
+    chart_direct = re.search(r"[차보거자기단물]\d{1,3}(?:-\d+)?", direct_lookup_text)
     tags = filter_tags_by_party(list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)])), party, facts)
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         tags = [tag for tag in tags if tag != "bicycle"]
@@ -200,7 +200,7 @@ def match_knia_charts(
             "excluded_items": structured_rejected,
         }
 
-    cache_key = "knia:match:v10:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+    cache_key = "knia:match:v12:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
     cache = _redis_client()
     if cache:
         cached = cache.get(cache_key)
@@ -371,7 +371,7 @@ def _structured_chart_to_match(
             "aggregate_chart_no": aggregate_chart_no if aggregate_chart_no != display_chart_no else None,
             "subchart_no": (selected_candidate or {}).get("subchart_no") or row.get("subchart_no"),
             "display_chart_no": display_chart_no,
-            "major_party_type": row.get("major_party_type") or row.get("accident_party_type"),
+            "major_party_type": _party_from_chart_no(display_chart_no) or row.get("major_party_type") or row.get("accident_party_type"),
             "scenario_type": row.get("scenario_type"),
             "scenario_subtype": row.get("scenario_subtype"),
             "menu_path": row.get("menu_path") or metadata.get("menu_path") or [],
@@ -981,7 +981,7 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
         "match_label": "관련성이 높은 기준입니다." if score >= 0.35 else "참고할 수 있는 기준입니다.",
         "match_reason": reason,
         "accident_party_type": party,
-        "major_party_type": row.get("major_party_type") or party,
+        "major_party_type": party,
         "accident_party_label": party_label(party),
         "base_fault_a": base_a,
         "base_fault_b": base_b,
@@ -1003,7 +1003,7 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
 
 
 def _row_party_type(row: dict[str, Any]) -> str:
-    return row.get("major_party_type") or _party_from_chart_no(row.get("chart_no")) or row.get("accident_party_type") or "unknown"
+    return _party_from_chart_no(row.get("chart_no")) or row.get("major_party_type") or row.get("accident_party_type") or "unknown"
 
 
 def _base_fault_pair(base_fault: dict[str, Any]) -> tuple[int | None, int | None]:

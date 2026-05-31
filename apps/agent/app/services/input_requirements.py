@@ -196,6 +196,48 @@ SCENARIO_FIELD_SPECS: dict[str, list[dict[str, Any]]] = {
             "blocks_decision": True,
         },
     ],
+    "motorcycle_bicycle_collision": [
+        {
+            "field": "direct_collision_partner_type",
+            "label": "직접 충돌 대상",
+            "question": "영상에서 직접 부딪힌 대상이 자전거였나요?",
+            "reason": "오토바이와 자전거 사고인지 확정해야 KNIA 차대자전거 기준과 가감요소를 안정적으로 연결할 수 있습니다.",
+            "input_type": "single_choice",
+            "options": ["자전거", "보행자", "오토바이", "차량", "잘 모르겠어요"],
+            "priority": 0,
+            "blocks_decision": True,
+        },
+        {
+            "field": "victim_is_child",
+            "label": "어린이 여부",
+            "question": "상대 자전거 탑승자가 어린이였나요?",
+            "reason": "어린이보호구역 또는 어린이 사고 여부는 법률책임과 과실 판단에 큰 영향을 줄 수 있습니다.",
+            "input_type": "single_choice",
+            "options": ["어린이로 보임", "어린이는 아님", "잘 모르겠어요"],
+            "priority": 1,
+            "blocks_decision": True,
+        },
+        {
+            "field": "actual_speed_kmh",
+            "label": "실제 주행속도",
+            "question": "충돌 직전 실제 주행속도를 알 수 있나요?",
+            "reason": "영상의 30km 제한 표시는 제한속도 단서일 뿐 실제 속도는 별도 확인이 필요합니다.",
+            "input_type": "single_choice",
+            "options": ["30km/h 이하", "30km/h 초과", "속도 확인 불가"],
+            "priority": 2,
+            "blocks_decision": True,
+        },
+        {
+            "field": "centerline_crossed",
+            "label": "중앙선 또는 진행방향",
+            "question": "누가 중앙선 또는 반대방향 차로를 넘어왔나요?",
+            "reason": "맞은편 자전거가 보이는 사고에서는 진행방향과 중앙선 침범 여부를 분리해 확인해야 합니다.",
+            "input_type": "single_choice",
+            "options": ["상대 자전거", "내 오토바이", "둘 다 아님", "잘 모르겠어요"],
+            "priority": 2,
+            "blocks_decision": True,
+        },
+    ],
 }
 
 TEXT_SIGNALS: dict[str, tuple[str, ...]] = {
@@ -331,8 +373,6 @@ def _skip_base_missing_field(
     scenario_type: str,
     accident_party_type: str | None,
 ) -> bool:
-    if field == "injury" and accident_party_type == "car_vs_car":
-        return True
     if field == "signal_state" and scenario_type not in SIGNAL_RELEVANT_SCENARIOS:
         return True
     if field == "signal_state" and scenario_type == "intersection_signal_violation":

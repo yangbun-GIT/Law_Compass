@@ -7,6 +7,7 @@ import {
     createGetUrl,
     isDatabaseSchemaError,
     publicUpload,
+    sendUploadFrameContent,
     sendUploadContent,
     storageErrorCode,
     storageUserMessage,
@@ -14,7 +15,7 @@ import {
     type UploadRouteOptions,
 } from "../services/uploadService.js";
 
-export { buildUploadInsert, publicUpload } from "../services/uploadService.js";
+export { buildFrameViewUrl, buildUploadInsert, publicUpload, sanitizeFrameRef } from "../services/uploadService.js";
 
 export function registerUploadRoutes(app: FastifyInstance, opts: UploadRouteOptions) {
     app.post(
@@ -228,6 +229,11 @@ export function registerUploadRoutes(app: FastifyInstance, opts: UploadRouteOpti
     app.get(`${opts.apiPrefix}/uploads/:uploadId/download`, async (req, reply) => {
         if (!requireUser(req as any, reply)) return;
         return sendUploadContent(opts, req, reply);
+    });
+
+    app.get(`${opts.apiPrefix}/cases/:caseId/uploads/:uploadId/frames/:frameRef`, async (req, reply) => {
+        if (!requireUser(req as any, reply)) return;
+        return sendUploadFrameContent(opts, req, reply);
     });
 
     app.get(`${opts.apiPrefix}/uploads/:uploadId/view-url`, async (req, reply) => {

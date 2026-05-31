@@ -12,6 +12,7 @@ import redis
 
 from app.services.elderly_friendly.ui_text_mapper import evidence_confidence_label
 from app.services.legal.legal_vectorizer import vectorize_text
+from app.services.legal_api_clients import fetch_law_search
 
 DB_URL = os.getenv("DATABASE_URL", "")
 REDIS_URL = os.getenv("REDIS_URL", "")
@@ -19,15 +20,13 @@ REDIS_URL = os.getenv("REDIS_URL", "")
 
 def normalize_query(query: str) -> str:
     lowered = (query or "").lower()
-    lowered = re.sub(r"[^\w?-?\s]", " ", lowered)
+    lowered = re.sub(r"[^\w가-힣\-\s]", " ", lowered)
     replacements = {
-        "???": "??",
-        "??": "??",
-        "??": "??",
-        "???": "?? ??",
-        "???": "?? ??",
-        "??": "????",
-        "???": "???? ???????",
+        "후방추돌": "후미추돌",
+        "뒤에서 충돌": "후미추돌",
+        "안전 거리": "안전거리",
+        "교통 사고": "교통사고",
+        "자전거 사고": "자전거",
     }
     for old, new in replacements.items():
         lowered = lowered.replace(old, new)
@@ -36,7 +35,7 @@ def normalize_query(query: str) -> str:
 
 def _cache_key(query: str, tags: list[str], limit: int) -> str:
     raw = json.dumps({"q": normalize_query(query), "tags": sorted(tags), "limit": limit}, ensure_ascii=False)
-    return "rag:v2:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+    return "rag:v3:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
 
 
 def _redis_client():
@@ -84,11 +83,70 @@ def retrieve_legal_evidence(
             except Exception:
                 pass
 
-    items = _retrieve_from_postgres(query=query, scenario_type=scenario_type, scenario_tags=scenario_tags, limit=limit)
-    if cache:
+    retrieval_error: dict[str, str] | None = None
+    fallback_source: str | None = None
+    try:
+        items = _retrieve_from_postgres(query=query, scenario_type=scenario_type, scenario_tags=scenario_tags, limit=limit)
+    except Exception as exc:
+        items = []
+        retrieval_error = {"type": exc.__class__.__name__, "message": "postgres legal retrieval failed"}
+
+    if not items:
+        api_items = _retrieve_from_public_law_api(query, scenario_type=scenario_type, scenario_tags=scenario_tags, limit=limit)
+        if api_items:
+            items = api_items
+            fallback_source = "law_api"
+
+    if cache and items:
         # Cache only display metadata/result ids. No vectors or full legal corpus are stored in Redis.
         cache.setex(key, 900 + random.randint(0, 180), json.dumps(items, ensure_ascii=False))
-    return {"items": items, "cache_hit": False, "cache_key": key}
+    return {
+        "items": items,
+        "cache_hit": False,
+        "cache_key": key,
+        "fallback_source": fallback_source,
+        "retrieval_error": retrieval_error,
+    }
+
+
+def _retrieve_from_public_law_api(query: str, *, scenario_type: str, scenario_tags: list[str], limit: int) -> list[dict[str, Any]]:
+    rows = fetch_law_search(query, limit=limit)
+    items: list[dict[str, Any]] = []
+    for index, row in enumerate(rows):
+        title = str(row.get("title") or "국가법령정보센터 검색 결과")
+        snippet = str(row.get("snippet") or title)
+        source_uri = row.get("source_uri") or row.get("source_url")
+        tags = sorted(set(scenario_tags or []))
+        score = float(row.get("score") or 0.36)
+        items.append(
+            {
+                "chunk_id": row.get("chunk_id") or f"law_api:{index}",
+                "document_id": None,
+                "title": title,
+                "doc_type": "law_api",
+                "document_metadata": {"provider": "law_api", "source_family": "law_api_search"},
+                "source": row.get("source") or "국가법령정보센터 OPEN API",
+                "source_uri": source_uri,
+                "snippet": snippet,
+                "chunk_summary": snippet,
+                "article_no": None,
+                "clause_no": None,
+                "scenario_tags": tags,
+                "keywords": [normalize_query(query), title, *tags],
+                "plain_summary": snippet,
+                "related_reason": "입력한 사고 쟁점과 연결되는 법령·판례 검색 결과입니다.",
+                "display_priority": 60 + index,
+                "source_url": source_uri,
+                "law_name": title,
+                "article_title": title,
+                "score": score,
+                "confidence_label": evidence_confidence_label(score),
+                "used_for": _infer_used_for(scenario_type, tags, [title, normalize_query(query)]),
+                "source_family": row.get("source_family") or "law_api_search",
+                "retrieval_note": row.get("retrieval_note") or "law_api_search_fallback",
+            }
+        )
+    return items
 
 
 def _retrieve_from_postgres(query: str, scenario_type: str, scenario_tags: list[str], limit: int) -> list[dict[str, Any]]:
@@ -178,13 +236,16 @@ def _retrieve_from_postgres(query: str, scenario_type: str, scenario_tags: list[
         score = float(row[19] or 0.0)
         tags = list(row[11] or [])
         keywords = list(row[12] or [])
+        document_metadata = row[4] or {}
+        source_family = str(document_metadata.get("source_family") or "legal_db_article")
+        retrieval_note = str(document_metadata.get("retrieval_note") or "legal_db_article")
         items.append(
             {
                 "chunk_id": str(row[0]),
                 "document_id": str(row[1]),
                 "title": row[2],
                 "doc_type": row[3],
-                "document_metadata": row[4] or {},
+                "document_metadata": document_metadata,
                 "source": row[5],
                 "source_uri": row[6],
                 "snippet": row[7],
@@ -202,13 +263,15 @@ def _retrieve_from_postgres(query: str, scenario_type: str, scenario_tags: list[
                 "score": score,
                 "confidence_label": evidence_confidence_label(score),
                 "used_for": _infer_used_for(scenario_type, tags, keywords),
+                "source_family": source_family,
+                "retrieval_note": retrieval_note,
             }
         )
     return items
 
 
 def _infer_used_for(scenario_type: str, tags: list[str], keywords: list[str]) -> str:
-    joined = " ".join([scenario_type, *tags, *keywords])
+    joined = " ".join([scenario_type, *tags, *keywords]).lower()
     if "school_zone" in joined or "child" in joined:
         return "어린이보호구역 사고의 주의의무 판단 근거"
     if "signal" in joined:
@@ -221,4 +284,6 @@ def _infer_used_for(scenario_type: str, tags: list[str], keywords: list[str]) ->
         return "사고 후 조치와 신고 필요 여부 판단 근거"
     if "insurance" in joined:
         return "보험 처리와 필요 서류 안내 근거"
-    return "교통사고 분석에 참고할 수 있는 근거"
+    if "bicycle" in joined:
+        return "자전거 사고 주의의무 판단 근거"
+    return "교통사고 분석에 참고할 수 있는 법률 근거"

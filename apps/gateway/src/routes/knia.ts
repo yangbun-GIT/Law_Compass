@@ -91,6 +91,8 @@ function normalizeKniaRankingParty(input: { accident_party_type?: any; chart_no?
 }
 
 function kniaRankingPartyLabel(input: { accident_party_label?: any; accident_party_type?: any; chart_no?: any; source_category?: any }) {
+  const byPrefix = kniaPartyFromChartNo(input.chart_no);
+  if (byPrefix) return KNIA_PARTY_LABELS[byPrefix] ?? KNIA_PARTY_LABELS.unknown;
   const existing = String(input.accident_party_label ?? "").trim();
   if (existing && existing !== "확인이 필요합니다." && existing !== "사고유형 확인 필요") return existing;
   const party = normalizeKniaRankingParty(input);

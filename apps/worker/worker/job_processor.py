@@ -22,6 +22,7 @@ except ModuleNotFoundError:
         return None
 
 from worker.frame_analysis import analyze_frames_with_openai
+from worker.frame_interpretation import build_frame_interpretation_cards
 from worker.storage.base import frame_key
 from worker.storage.factory import create_storage_adapter
 from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION, extract_event_frames, probe_video, summarize_frame_selection
@@ -156,9 +157,18 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
         openai_frame_analysis = analyze_frames_with_openai(frame_details, frame_analysis_context)
         frame_observations = _merge_frame_observations(openai_frame_analysis, yolo_frame_analysis)
         frame_details = _persist_processed_frames(storage_adapter, frame_details, str(row[1]), str(row[2]))
+        frame_interpretation_cards = build_frame_interpretation_cards(
+            openai_frame_analysis,
+            frame_details,
+            frame_observations,
+            openai_frame_analysis.get("accident_event_summary") or {},
+            case_id=str(row[1]),
+            upload_id=str(row[2]),
+        )
         frames = [item.get("storage_key") or item["path"] for item in frame_details]
         metadata["representative_frames"] = frames
         metadata["representative_frame_details"] = frame_details
+        metadata["frame_interpretation_cards"] = frame_interpretation_cards
         metadata["frame_selection_summary"] = frame_selection_summary
         metadata["openai_frame_analysis"] = openai_frame_analysis
         metadata["yolo_frame_analysis"] = yolo_frame_analysis
@@ -185,6 +195,7 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
             "codec": metadata.get("codec"),
             "extracted_frame_paths": frames,
             "representative_frame_details": frame_details,
+            "frame_interpretation_cards": frame_interpretation_cards,
             "frame_selection_summary": frame_selection_summary,
             "openai_frame_analysis": openai_frame_analysis,
             "yolo_frame_analysis": yolo_frame_analysis,
@@ -535,6 +546,7 @@ def build_video_analyze_payload(row: tuple[Any, ...], payload: dict[str, Any], c
         "structured_facts": (case_inputs[0] if case_inputs else {}) or {},
         "selected_keywords": list(case_inputs[1] if case_inputs and case_inputs[1] else []),
         "analysis_mode": (case_inputs[2] if case_inputs else None) or "quick_summary",
+        "initial_intake": payload.get("initial_intake") or {},
     }
 
 
@@ -546,6 +558,7 @@ def build_agent_video_request(
 ) -> dict[str, Any]:
     structured_facts = payload.get("structured_facts") or {}
     selected_keywords = payload.get("selected_keywords") or []
+    initial_intake = payload.get("initial_intake") if isinstance(payload.get("initial_intake"), dict) else {}
     routing_reason = payload.get("routing_reason")
     case_text = f"{case_row[0] or ''} {case_row[1] or ''}".strip() if case_row else ""
     metadata = upload_row[0] if upload_row and isinstance(upload_row[0], dict) else {}
@@ -582,6 +595,7 @@ def build_agent_video_request(
         "structured_facts": structured_facts,
         "selected_keywords": selected_keywords,
         "analysis_mode": payload.get("analysis_mode") or "quick_summary",
+        "initial_intake": initial_intake,
     }
 
 

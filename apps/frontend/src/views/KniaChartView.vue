@@ -40,8 +40,8 @@
         <div class="fault-grid">
           <section class="glass-box">
             <p class="eyebrow">사고상황</p>
-            <ul v-if="chart.accident_situation_lines?.length" class="plain-list">
-              <li v-for="line in chart.accident_situation_lines" :key="line">{{ text(line) }}</li>
+            <ul v-if="accidentSituationLines.length" class="plain-list">
+              <li v-for="line in accidentSituationLines" :key="line">{{ line }}</li>
             </ul>
             <p v-else>{{ text(chart.accident_explanation || chart.accident_summary || '수집된 사고상황 설명이 없습니다.') }}</p>
           </section>
@@ -208,6 +208,9 @@ const adjustmentFactors = computed(() => Array.isArray(chart.value?.adjustment_f
 const adjustmentExplanations = computed(() => Array.isArray(chart.value?.adjustment_explanations) ? chart.value.adjustment_explanations : []);
 const relatedLaws = computed(() => Array.isArray(chart.value?.related_laws) ? chart.value.related_laws : []);
 const caseReferences = computed(() => Array.isArray(chart.value?.case_references) ? chart.value.case_references : []);
+const accidentSituationLines = computed(() => dedupeAccidentSituationLines(
+  Array.isArray(chart.value?.accident_situation_lines) ? chart.value.accident_situation_lines : [],
+));
 const isAdmin = computed(() => session.user?.role === "admin");
 const canCollectDetail = computed(() => Boolean(chart.value?.chart_no) && isAdmin.value && !chart.value?.detail_collected_at);
 const manualFault = computed(() => {
@@ -290,6 +293,23 @@ function numberOr(...values: any[]) {
   return null;
 }
 function text(value: unknown) { return sanitizeDisplayText(value); }
+function dedupeAccidentSituationLines(values: unknown[]) {
+  const lines = values.map((value) => sanitizeDisplayText(value, "")).filter(Boolean);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const line of lines) {
+    const normalized = line.replace(/\s+/g, " ").trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  if (out.length >= 3) {
+    const first = out[0].replace(/\s+/g, "");
+    const rest = out.slice(1).join(" ").replace(/\s+/g, "");
+    if (first && first === rest) return out.slice(1);
+  }
+  return out;
+}
 function safeKniaUrl(value: unknown) {
   const raw = String(value || "").trim();
   if (!raw || /\s/.test(raw)) return "";

@@ -473,6 +473,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   const accepted = asArray(contract.accepted_observations);
   const uncertain = asArray(contract.uncertain_observations);
   const supporting = asArray(contract.supporting_observations);
+  const frameInterpretationCards = displayFrameInterpretationCards(result);
   const observedCount = accepted.length + uncertain.length + supporting.length + asArray(contract.ignored_observations).length;
   const representativeFrameCount = toNumber(technical.representative_frame_count, 0);
   const eventCandidate = videoAccidentEventCandidate(technical.accident_event_summary);
@@ -484,7 +485,7 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
   ];
   const hasVideoFacts = accepted.length || uncertain.length || supporting.length || appliedFields.length || confirmedFields.length || reviewItems.length || eventCandidate;
   const hasVideoProcessing = Boolean(contract.version) && (representativeFrameCount > 0 || Boolean(contract.observation_quality_summary));
-  if (!hasVideoFacts && !hasVideoProcessing) return undefined;
+  if (!hasVideoFacts && !hasVideoProcessing && !frameInterpretationCards.length) return undefined;
   const qualitySummary = videoObservationQualitySummary(contract, representativeFrameCount);
 
   const observationByField = new Map<string, AnyRecord>();
@@ -613,8 +614,88 @@ function composeVideoFactExplanationCard(result: AnyRecord = {}) {
     event_candidate: eventCandidate,
     uncertain_items: uncertainItems,
     supporting_items: supportingItems,
+    frame_interpretation_cards: frameInterpretationCards,
     notice: "영상 관찰값은 프레임에서 보이는 사실 후보입니다. 신뢰도와 프레임 근거가 충분한 물리 사실만 판단 입력에 반영합니다.",
   };
+}
+
+function displayFrameInterpretationCards(result: AnyRecord = {}) {
+  const contract = result.video_input_contract ?? result.model_info?.video_input_contract ?? {};
+  const technical = contract.technical_metadata && typeof contract.technical_metadata === "object" ? contract.technical_metadata : {};
+  const sources = [
+    result.frame_interpretation_cards,
+    result.video_context?.frame_interpretation_cards,
+    result.video_metadata?.frame_interpretation_cards,
+    result.video_metadata?.metadata?.frame_interpretation_cards,
+    technical.frame_interpretation_cards,
+  ];
+  const seen = new Set<string>();
+  const sanitized = sources
+    .flatMap((source) => asArray(source))
+    .map((item: AnyRecord) => sanitizeFrameInterpretationCard(item))
+    .filter((item) => Boolean(item?.display_allowed)) as AnyRecord[];
+  return sanitized
+    .filter((item) => {
+      const key = `${item.image_ref?.case_id || ""}:${item.image_ref?.upload_id || ""}:${item.frame_ref || ""}:${item.time_sec || ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 6);
+}
+
+function sanitizeFrameInterpretationCard(item: AnyRecord = {}) {
+  if (!item || typeof item !== "object" || item.display_allowed !== true) return undefined;
+  const imageRef = sanitizeFrameImageRef(item.image_ref ?? item.imageRef ?? item);
+  const frameRef = imageRef.frame_ref || safeFrameName(item.frame_ref);
+  if (!frameRef) return undefined;
+  const observedFacts = asArray(item.observed_facts)
+    .map((fact: AnyRecord) => ({
+      field: cleanText(fact?.field ?? fact?.label, ""),
+      value: cleanText(fact?.value ?? fact?.description, ""),
+      confidence: toNumber(fact?.confidence, 0),
+      source: cleanText(fact?.source, ""),
+    }))
+    .filter((fact) => fact.field && fact.value)
+    .slice(0, 4);
+  const imageUrl = frameImageUrl(imageRef);
+  return {
+    frame_ref: frameRef,
+    time_sec: toNumber(item.time_sec, 0),
+    event_phase: cleanText(item.event_phase, "context"),
+    interpretation_summary: cleanText(
+      item.interpretation_summary,
+      "선별 프레임에서 확인 가능한 영상 단서를 정리했습니다.",
+    ),
+    judgment_reason: cleanText(item.judgment_reason ?? item.reason ?? item.rationale, ""),
+    observed_facts: observedFacts,
+    confidence: toNumber(item.confidence, 0),
+    event_probability: toNumber(item.event_probability ?? item.confidence, 0),
+    visibility: cleanText(item.visibility, "medium"),
+    display_allowed: true,
+    image_ref: imageRef,
+    ...(imageUrl ? { image_url: imageUrl } : {}),
+  };
+}
+
+function sanitizeFrameImageRef(value: AnyRecord = {}) {
+  return {
+    case_id: cleanText(value.case_id ?? value.caseId, ""),
+    upload_id: cleanText(value.upload_id ?? value.uploadId, ""),
+    frame_ref: safeFrameName(value.frame_ref ?? value.frameRef ?? value.filename),
+  };
+}
+
+function frameImageUrl(imageRef: AnyRecord) {
+  if (!imageRef.case_id || !imageRef.upload_id || !imageRef.frame_ref) return "";
+  return `/api/v1/cases/${encodeURIComponent(imageRef.case_id)}/uploads/${encodeURIComponent(imageRef.upload_id)}/frames/${encodeURIComponent(imageRef.frame_ref)}`;
+}
+
+function safeFrameName(value: any) {
+  const raw = String(value ?? "").replace(/\\/g, "/").replace(/\0/g, "").trim();
+  if (!raw || raw.split("/").some((part) => part === "." || part === "..")) return "";
+  const name = raw.split("/").filter(Boolean).at(-1) ?? "";
+  return /^[A-Za-z0-9_.-]+\.(jpg|jpeg|png|webp)$/i.test(name) ? name : "";
 }
 
 function videoObservationQualitySummary(contract: AnyRecord = {}, representativeFrameCount = 0) {
@@ -1831,7 +1912,10 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
     const userFault: AnyRecord = faultRatio.user_fault || faultRatio.final_fault || {};
     const kniaCandidates = collectSimpleKniaCandidates(report, result);
     const knia: AnyRecord | null = kniaCandidates[0] ?? null;
+    const videoSceneSummary = videoSceneSummaryOf(report, result);
+    const frameInterpretationCards = displayFrameInterpretationCards({ ...result, ...report });
     const videoSummary = cleanText(
+        videoSceneSummary?.summary_text ||
         report.video_summary ||
         result.video_summary ||
         result.video_context_summary ||
@@ -1845,8 +1929,8 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
         .slice(0, 4);
 
     return {
-        situation_title: composeSimpleSituationTitle(report, result),
-        situation_summary: composeSimpleSituationSummary(report, result),
+        situation_title: videoSceneSummary?.title || composeSimpleSituationTitle(report, result),
+        situation_summary: videoSceneSummary?.summary_text || composeSimpleSituationSummary(report, result),
         fault_ratio: {
             my: faultRatio.my ?? faultRatio.my_percent ?? faultRatio.my_fault ?? userFault.my ?? null,
             other: faultRatio.other ?? faultRatio.other_percent ?? faultRatio.opponent_fault ?? userFault.other ?? null,
@@ -1866,8 +1950,10 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
             primary: knia,
             candidates: kniaCandidates.slice(0, 3),
         },
+        video_scene_summary: videoSceneSummary,
         video_summary: videoSummary,
         finality: report.finality_display_card ?? composeFinalityDisplayCard(result, report),
+        frame_interpretation_cards: frameInterpretationCards,
     };
 }
 
@@ -2017,8 +2103,36 @@ function factValueLabel(value: any) {
     return labels[String(value)] ?? replaceRawFieldTokens(value);
 }
 
-function composeSimpleSituationTitle(report: AnyRecord = {}, result: AnyRecord = {}): string {
+function videoSceneSummaryOf(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord | null {
+    const structuredFacts = isPlainObject(report.structured_facts) ? report.structured_facts : {};
+    const resultStructuredFacts = isPlainObject(result.structured_facts) ? result.structured_facts : {};
+    const videoContext = isPlainObject(result.video_context) ? result.video_context : {};
+    const nestedVideoContext = isPlainObject(resultStructuredFacts.video_context) ? resultStructuredFacts.video_context : {};
     const candidates = [
+        report.video_scene_summary,
+        result.video_scene_summary,
+        structuredFacts.video_scene_summary,
+        resultStructuredFacts.video_scene_summary,
+        videoContext.video_scene_summary,
+        nestedVideoContext.video_scene_summary,
+    ];
+    for (const candidate of candidates) {
+        if (!isPlainObject(candidate)) continue;
+        const summary = cleanText(candidate.summary_text, "");
+        if (!summary) continue;
+        return {
+            ...candidate,
+            title: cleanText(candidate.title, "영상에서 확인된 사고 개요"),
+            summary_text: summary,
+        };
+    }
+    return null;
+}
+
+function composeSimpleSituationTitle(report: AnyRecord = {}, result: AnyRecord = {}): string {
+    const videoSceneSummary = videoSceneSummaryOf(report, result);
+    const candidates = [
+        videoSceneSummary?.title,
         report.simple_report?.situation_title,
         report.situation_title,
         report.accident_title,
@@ -2037,7 +2151,9 @@ function composeSimpleSituationTitle(report: AnyRecord = {}, result: AnyRecord =
 }
 
 function composeSimpleSituationSummary(report: AnyRecord = {}, result: AnyRecord = {}): string {
+    const videoSceneSummary = videoSceneSummaryOf(report, result);
     const candidates = [
+        videoSceneSummary?.summary_text,
         report.simple_report?.situation_summary,
         report.current_situation_summary,
         report.situation_summary,

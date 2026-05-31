@@ -11,6 +11,7 @@ class AnalyzeTextRequest(BaseModel):
     selected_keywords: list[str] | None = None
     video_metadata: dict[str, Any] | None = None
     analysis_mode: str | None = None
+    initial_intake: dict[str, Any] | None = None
     ai_profile: str | None = None
     specialist_roles: list[str] | None = None
 
@@ -27,6 +28,7 @@ class AnalyzeVideoRequest(BaseModel):
     structured_facts: dict[str, Any] | None = None
     selected_keywords: list[str] | None = None
     analysis_mode: str | None = None
+    initial_intake: dict[str, Any] | None = None
 
 
 class EvidenceItem(BaseModel):
@@ -55,6 +57,13 @@ class EvidenceItem(BaseModel):
 
 class AnalysisOutput(BaseModel):
     trace_id: str | None = None
+    analysis_status: str | None = None
+    followup_required: bool = False
+    confidence: dict[str, Any] = Field(default_factory=dict)
+    initial_intake_summary: dict[str, Any] = Field(default_factory=dict)
+    uncertain_facts: list[dict[str, Any]] = Field(default_factory=list)
+    followup_questions_structured: list[dict[str, Any]] = Field(default_factory=list)
+    provisional_result: dict[str, Any] = Field(default_factory=dict)
     accident_summary: str
     scenario_type: str
     accident_party_type: str | None = None
@@ -93,6 +102,7 @@ class AnalysisOutput(BaseModel):
     followup_loop: dict[str, Any] = Field(default_factory=dict)
     video_input_contract: dict[str, Any] = Field(default_factory=dict)
     fact_arbitration: dict[str, Any] = Field(default_factory=dict)
+    fact_source_weights: dict[str, Any] = Field(default_factory=dict)
     required_input_questions: list[dict[str, Any]] = Field(default_factory=list)
     uncertainty: dict[str, Any]
     disclaimers: list[str]

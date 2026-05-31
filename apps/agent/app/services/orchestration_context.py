@@ -10,6 +10,7 @@ from app.services.input_normalizer import normalize_analysis_input
 from app.services.input_requirements import build_followup_loop_state, build_input_requirements
 from app.services.scenario_classifier import classify_scenario
 from app.services.video_context_analyzer import summarize_video_context
+from app.services.video_observation_summarizer import build_video_scene_summary
 
 
 @dataclass
@@ -31,6 +32,7 @@ def build_case_context(
     selected_keywords: list[str] | None,
     analysis_mode: str | None,
     video_metadata: dict[str, Any] | None,
+    initial_intake: dict[str, Any] | None = None,
 ) -> CaseContext:
     video_context = summarize_video_context(video_metadata)
     normalized = normalize_analysis_input(
@@ -39,7 +41,20 @@ def build_case_context(
         selected_keywords=selected_keywords,
         video_metadata=video_metadata,
         analysis_mode=analysis_mode,
+        initial_intake=initial_intake,
     )
+    video_scene_summary = build_video_scene_summary(
+        normalized.get("video_input_contract") or {},
+        _nested_video_block(video_metadata, "openai_frame_analysis"),
+        _nested_video_block(video_metadata, "yolo_analysis") or _nested_video_block(video_metadata, "vision_object_inventory"),
+        video_metadata or {},
+    )
+    video_context = {**video_context, "video_scene_summary": video_scene_summary}
+    if video_scene_summary.get("available"):
+        normalized["structured_facts"] = {
+            **normalized["structured_facts"],
+            "video_scene_summary": video_scene_summary,
+        }
     scenario = classify_scenario(
         normalized["merged_text"],
         normalized["structured_facts"],
@@ -86,3 +101,18 @@ def build_case_context(
         followup_loop=followup_loop,
         decision_blocking_missing_fields=list(input_requirements.get("blocking_fields") or []),
     )
+
+
+def _nested_video_block(video_metadata: dict[str, Any] | None, key: str) -> dict[str, Any]:
+    if not isinstance(video_metadata, dict):
+        return {}
+    direct = video_metadata.get(key)
+    if isinstance(direct, dict):
+        return direct
+    metadata = video_metadata.get("metadata")
+    if isinstance(metadata, dict) and isinstance(metadata.get(key), dict):
+        return metadata[key]
+    analysis = video_metadata.get("analysis")
+    if isinstance(analysis, dict) and isinstance(analysis.get(key), dict):
+        return analysis[key]
+    return {}

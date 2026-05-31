@@ -328,7 +328,7 @@ def _scenario_hint_for_party(
     patch: dict[str, Any] = {}
     tags: list[str] = []
     if party == "car_vs_car":
-        if _has_any(haystack, ("스텔스", "무등화", "등화 없이", "교량 밑", "교량 아래")) and _has_any(haystack, ("주차", "정차", "트럭", "화물차")):
+        if _has_any(haystack, ("스텔스", "무등화", "등화 없이", "교량 밑", "교량 아래")) and _has_any(haystack, ("주차", "정차", "트럭", "화물차")) and _has_strong_stealth_context(haystack, facts):
             patch.update({"is_stealth_parked_vehicle_collision": True, "is_parked_vehicle_collision": True})
             return "stealth_illegal_parked_vehicle_collision", "night_unlit_illegal_parked_vehicle_collision", ["parking", "stopped_vehicle", "unlit_stopped_vehicle", "visibility", "night"], patch
         if _has_any(haystack, ("차선변경", "진로변경", "끼어들", "깜빡이", "방향지시등")):
@@ -373,7 +373,32 @@ def _scenario_hint_for_party(
             return "pedestrian_on_road_edge_accident", None, tags, patch
         return str(facts.get("accident_type") or "pedestrian_crosswalk_accident"), None, tags, patch
     if party == "car_vs_bicycle":
-        return "bicycle_collision", None, ["bicycle"], patch
+        ego = str(facts.get("ego_vehicle_type") or "").strip().lower()
+        tags = ["bicycle", "vulnerable_road_user"]
+        patch.update(
+            {
+                key: value
+                for key, value in {
+                    "ego_vehicle_type": facts.get("ego_vehicle_type"),
+                    "direct_collision_partner_type": facts.get("direct_collision_partner_type"),
+                    "collision_partner_type": facts.get("collision_partner_type") or "bicycle",
+                    "school_zone": facts.get("school_zone"),
+                    "speed_limit_kmh": facts.get("speed_limit_kmh"),
+                    "oncoming_bicycle_present": facts.get("oncoming_bicycle_present"),
+                    "factual_party_type": "motorcycle_vs_bicycle" if ego in {"motorcycle", "two_wheeler", "motorbike", "scooter", "moped"} else None,
+                    "knia_party_type": "car_vs_bicycle",
+                }.items()
+                if value is not None
+            }
+        )
+        if ego in {"motorcycle", "two_wheeler", "motorbike", "scooter", "moped"}:
+            tags.extend(["motorcycle", "two_wheeler"])
+            if facts.get("school_zone") or facts.get("speed_limit_kmh") == 30:
+                tags.extend(["school_zone", "speed_limit"])
+            if facts.get("oncoming_bicycle_present"):
+                tags.append("oncoming")
+            return "motorcycle_bicycle_collision", None, tags, patch
+        return "bicycle_collision", None, tags, patch
     if party == "car_vs_motorcycle":
         return "motorcycle_collision", None, ["motorcycle", "two_wheeler"], patch
     if party == "car_vs_object":
@@ -389,6 +414,15 @@ def _compact_text(value: str) -> str:
 
 def _has_any(text: str, tokens: tuple[str, ...]) -> bool:
     return any(token.lower() in text for token in tokens)
+
+
+def _has_strong_stealth_context(haystack: str, facts: dict[str, Any]) -> bool:
+    return (
+        "스텔스" in haystack
+        or _has_any(haystack, ("교량 밑", "교량 아래", "화단", "중앙분리대", "갓길", "통행 공간", "음주", "음주운전", "만취", "술"))
+        or facts.get("abnormal_parking") is True
+        or str(facts.get("opponent_impairment") or "") in {"drunk_driving_confirmed", "suspected_drunk"}
+    )
 
 
 def _environment_context(haystack: str) -> dict[str, bool]:

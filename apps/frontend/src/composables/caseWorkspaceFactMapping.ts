@@ -219,6 +219,25 @@ export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question:
             } else if (value === "not_crosswalk") {
                 (nextFacts as any).crosswalk_nearby = false;
             }
+        } else if (factKey === "pedestrian_knia_crossing_type") {
+            (nextFacts as any).pedestrian_knia_crossing_type = value;
+            markCarVsPersonAccident(
+                value === "no_crosswalk"
+                    ? "pedestrian_no_crosswalk_road_crossing"
+                    : value === "other"
+                        ? "pedestrian_other_accident"
+                        : "pedestrian_crosswalk_accident",
+            );
+            if (value === "crosswalk_signalized" || value === "crosswalk_unsignalized") {
+                (nextFacts as any).crosswalk_context = "crosswalk";
+                (nextFacts as any).crosswalk_nearby = true;
+            } else if (value === "near_crosswalk_signalized" || value === "near_crossing_facility_unsignalized") {
+                (nextFacts as any).crosswalk_context = "near_crosswalk";
+                (nextFacts as any).crosswalk_nearby = true;
+            } else if (value === "no_crosswalk") {
+                (nextFacts as any).crosswalk_context = "not_crosswalk";
+                (nextFacts as any).crosswalk_nearby = false;
+            }
         } else if (factKey === "pedestrian_signal") {
             (nextFacts as any).pedestrian_signal = value;
         } else if (factKey === "pedestrian_visibility") {
@@ -246,8 +265,56 @@ export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question:
             nextFacts.accident_party_type = "car_vs_bicycle";
             nextFacts.accident_type = "bicycle_collision";
             (nextFacts as any).knia_major_party_type = "car_vs_bicycle";
+        } else if (factKey === "bicycle_knia_category") {
+            (nextFacts as any).bicycle_knia_category = value;
+            nextFacts.accident_party_type = "car_vs_bicycle";
+            nextFacts.accident_type =
+                value === "intersection"
+                    ? "bicycle_intersection_collision"
+                    : value === "opposite_direction"
+                        ? "bicycle_opposite_direction_collision"
+                        : value === "other"
+                            ? "bicycle_other_accident"
+                            : "bicycle_collision";
+            (nextFacts as any).knia_major_party_type = "car_vs_bicycle";
+            (nextFacts as any).collision_partner_type = "bicycle";
+            (nextFacts as any).direct_collision_partner_type = "bicycle";
         } else if (factKey === "bicycle_movement") {
             (nextFacts as any).bicycle_movement = value;
+        } else if (factKey === "motorcycle_road_relation" || factKey === "motorcycle_position" || factKey === "motorcycle_signal_visibility") {
+            (nextFacts as any)[factKey] = value;
+            nextFacts.accident_party_type = "car_vs_motorcycle";
+            nextFacts.accident_type = "motorcycle_collision";
+            (nextFacts as any).knia_major_party_type = "car_vs_motorcycle";
+            (nextFacts as any).collision_partner_type = "motorcycle";
+            (nextFacts as any).direct_collision_partner_type = "motorcycle";
+        } else if (factKey === "highway_section" || factKey === "highway_event_type" || factKey === "highway_traffic_flow" || factKey === "highway_warning_measures") {
+            (nextFacts as any)[factKey] = value;
+            (nextFacts as any).highway_or_expressway = true;
+            if (value === "pedestrian_or_worker") {
+                markCarVsPersonAccident("highway_pedestrian_collision");
+            } else if (value === "falling_object") {
+                nextFacts.accident_party_type = "car_vs_object";
+                nextFacts.accident_type = "highway_falling_object_collision";
+                (nextFacts as any).knia_major_party_type = "car_vs_object";
+            } else {
+                nextFacts.accident_party_type = "car_vs_car";
+                if (!nextFacts.accident_type || nextFacts.accident_type === "unknown") nextFacts.accident_type = "highway_collision";
+                (nextFacts as any).knia_major_party_type = "car_vs_car";
+            }
+        } else if (factKey === "vehicle_direction_relation" || factKey === "vehicle_maneuver" || factKey === "vehicle_road_shape") {
+            (nextFacts as any)[factKey] = value;
+            nextFacts.accident_party_type = "car_vs_car";
+            (nextFacts as any).knia_major_party_type = "car_vs_car";
+            (nextFacts as any).collision_partner_type = "vehicle";
+            (nextFacts as any).direct_collision_partner_type = "vehicle";
+            if (factKey === "vehicle_direction_relation" && value === "opposite_direction") {
+                nextFacts.accident_type = "opposite_direction_vehicle_collision";
+            } else if (factKey === "vehicle_direction_relation" && value === "same_direction") {
+                nextFacts.accident_type = "same_direction_vehicle_collision";
+            } else if (factKey === "vehicle_direction_relation" && value === "parking_or_roundabout") {
+                nextFacts.accident_type = "vehicle_other_road_type_collision";
+            }
         } else if (factKey === "single_vehicle_cause") {
             (nextFacts as any).single_vehicle_cause = value;
             nextFacts.accident_party_type = "single_vehicle";
@@ -283,6 +350,15 @@ export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question:
                 nextFacts.accident_type = "rear_end_collision";
                 (nextFacts as any).rear_end_role = "ego_hit_front";
                 (nextFacts as any).collision_role = "ego_hit_front";
+            } else if (value === "motorcycle_collision") {
+                nextFacts.accident_party_type = "car_vs_motorcycle";
+                nextFacts.accident_type = "motorcycle_collision";
+                (nextFacts as any).knia_major_party_type = "car_vs_motorcycle";
+                (nextFacts as any).collision_partner_type = "motorcycle";
+                (nextFacts as any).direct_collision_partner_type = "motorcycle";
+            } else if (value === "highway_collision") {
+                nextFacts.accident_type = "highway_collision";
+                (nextFacts as any).highway_or_expressway = true;
             } else if (value !== "unknown") {
                 nextFacts.accident_type = value;
             }

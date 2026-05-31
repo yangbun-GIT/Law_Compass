@@ -346,7 +346,7 @@ for _pedestrian_scenario in (
 
 MODE_QUESTION_LIMITS = {
     "user_friendly": 6,
-    "expert": 12,
+    "expert": 6,
 }
 
 USER_FRIENDLY_REQUIRED_MODE_ALIASES = {
@@ -386,10 +386,16 @@ def build_dynamic_questionnaire(
     matched_knia_chart: dict[str, Any] | None = None,
     knia_adjustment_factors: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    raw_mode = str(analysis_mode or "").strip()
     mode = normalize_analysis_mode(analysis_mode)
     questions = list(SCENARIO_QUESTIONS.get(scenario_type) or [])
     questions.extend(_questions_from_knia_factors(knia_adjustment_factors or [], existing_ids={q["question_id"] for q in questions}))
-    filtered = [q for q in questions if _question_applies_to_mode(q, mode)]
+    fact_map = structured_facts or {}
+    skip_answered = raw_mode not in {"fault_ratio_focused"}
+    filtered = [
+        q for q in questions
+        if _question_applies_to_mode(q, mode) and (not skip_answered or not _question_already_answered(q, fact_map))
+    ]
     filtered.sort(key=lambda item: (int(item.get("priority", 9)), item.get("question_id", "")))
     limit = MODE_QUESTION_LIMITS.get(mode, 6)
     selected = filtered[:limit]
@@ -412,6 +418,18 @@ def build_dynamic_questionnaire(
             "matched_knia_chart_no": (matched_knia_chart or {}).get("chart_no"),
         },
     }
+
+
+def _question_already_answered(question: dict[str, Any], facts: dict[str, Any]) -> bool:
+    fact_key = str(question.get("fact_key") or question.get("knia_factor_key") or "").strip()
+    if not fact_key:
+        return False
+    value = facts.get(fact_key)
+    if value in (None, "", "unknown", "모름", "None", "null"):
+        return False
+    if isinstance(value, (list, tuple, set, dict)) and not value:
+        return False
+    return True
 
 
 def _questions_from_knia_factors(factors: list[dict[str, Any]], existing_ids: set[str]) -> list[dict[str, Any]]:

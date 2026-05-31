@@ -19,6 +19,7 @@ def retrieve_kb(query: str, limit: int = 5) -> list[dict[str, Any]]:
         items = retrieve_static_legal_chunks(query, limit=limit)
         for item in items:
             item.setdefault("retrieval_note", "static_fallback")
+            item.setdefault("source_family", "static_fallback")
     return items[:limit]
 
 
@@ -67,17 +68,24 @@ def retrieve_for_scenario(
         fallback = retrieve_static_legal_chunks(query, limit=limit)
         for item in fallback:
             item.setdefault("retrieval_note", "static_fallback")
+            item.setdefault("source_family", "static_fallback")
         result["items"] = fallback
         result["fallback_used"] = bool(fallback)
         result["static_support_count"] = len(fallback)
+        result["evidence_degraded"] = bool(fallback)
+        result["degraded_reason"] = "static_only" if fallback else None
     else:
         support = retrieve_static_legal_chunks(query, limit=4)
         for item in support:
             item.setdefault("retrieval_note", "static_scenario_support")
+            item.setdefault("source_family", "static_fallback")
         result["fallback_used"] = False
         result["static_support_count"] = len(support)
         result["items"] = _merge_static_support(result["items"], support, limit=limit)
+        result["evidence_degraded"] = False
+        result["degraded_reason"] = None
     for item in result["items"]:
+        item.setdefault("source_family", "legal_db_article")
         item["cache_hit"] = result["cache_hit"]
         item["cache_key"] = result["cache_key"]
         item["query_expansion_terms"] = query_terms

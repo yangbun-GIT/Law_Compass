@@ -5,6 +5,7 @@
   lane_change_collision: "차선변경 사고",
   pedestrian_crosswalk_accident: "보행자 사고",
   bicycle_collision: "차대자전거 사고",
+  motorcycle_bicycle_collision: "오토바이와 자전거 사고",
   object_collision: "차대기물 사고",
   single_vehicle_accident: "차량단독 사고",
   car_vs_car: "차대차 사고",
@@ -27,6 +28,28 @@
   SCHOOL_ZONE_CHILD_PROTECTION: "어린이보호구역에서 더 주의해서 운전해야 하는 의무",
   TWELVE_GROSS_NEGLIGENCE: "중대한 교통법규 위반 여부 확인",
   HIT_AND_RUN_RISK: "사고 후 필요한 조치를 하지 않았는지 확인"
+  ,
+  ego_vehicle_type: "블랙박스 차량 유형",
+  direct_collision_partner_type: "직접 충돌 대상",
+  primary_collision_target: "충돌 대상",
+  collision_partner_type: "충돌 상대",
+  school_zone: "어린이보호구역",
+  speed_limit_kmh: "제한속도",
+  road_marking_school_zone_visible: "어린이보호구역 노면표시",
+  speed_limit_sign_visible: "제한속도 표지",
+  oncoming_bicycle_present: "맞은편 자전거 확인",
+  opposing_direction_actor_type: "맞은편 진행 대상",
+  vulnerable_road_user: "보호가 필요한 교통약자",
+  child_candidate: "어린이 후보",
+  overlay_text_hint: "영상 자막 단서",
+  impact_visible: "충격 장면",
+  motorcycle: "오토바이",
+  two_wheeler: "이륜차",
+  bicycle: "자전거",
+  cyclist: "자전거",
+  vehicle: "차량",
+  pedestrian: "보행자",
+  object: "시설물"
 };
 const TECHNICAL_KEYS = new Set(["model_info", "technical_model_info", "scenario_classifier", "retrieval", "cache_key", "evidence_cache_key", "chunk_id", "score", "rag_top_k", "ai_profile", "llm_enabled", "llm_usage", "llm_policy", "analysis_source", "provider_enabled", "allowed_outputs", "deterministic_authority", "orchestrator", "security_flags", "scenario_tags", "scenario_type", "document_id", "source_uri", "source_type", "source_family", "evidence_ids", "used_evidence_ids", "claim_evidence", "claim_id", "evidence_refs", "required_evidence_family", "support_level", "unsupported_claims", "evidence_support_level", "decision_status", "judgment_status", "agent_judgment", "stage_statuses", "blocking_reasons", "must_not_present_as_final", "user_reference_allowed", "agent_judgment_contract_version", "agent_judgment_overall_status", "decision_blockers", "decision_readiness", "knia_basis", "presentation_policy", "presentation_status", "restricted_sections", "finality", "input_requirements", "followup_loop", "required_input_questions", "blocking_fields", "optional_fields", "video_input_contract", "_video_input_contract", "accepted_observations", "uncertain_observations", "supporting_observations", "ignored_observations", "fact_patch", "confirmation_candidates", "confirmation_groups", "observation_quality", "observation_quality_summary", "quality_gate", "frame_refs", "fact_arbitration", "_fact_arbitration", "fact_sources", "_fact_sources", "video_primary_fields", "user_primary_fields", "applied_video_fields", "kept_user_fields", "confirmed_fields", "held_video_fields", "tentatively_supported_fields", "pending_video_confirmations", "confirmation_fields", "conflicts", "requires_confirmation", "agent_trace", "reflection_loop", "trace_policy", "packet", "internal_packet", "metadata", "payload", "trace", "debug", "raw", "raw_payload", "raw_metadata", "raw_trace", "step_count", "requery_attempted", "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "initial_query_terms", "final_missing_requirements", "next_action", "expert_guidance_sections", "source_blocked_reason", "retrieval_id", "trace_id", "raw_trace_id", "raw_prompt", "structured_chart_used", "party_guard_policy", "rejected_mismatch_count", "fallback_used", "parsing_confidence", "review_required", "reference_only"]);
 const BAD_PATTERNS = [

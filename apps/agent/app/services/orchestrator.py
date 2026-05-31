@@ -25,6 +25,7 @@ def analyze_case(
     selected_keywords: list[str] | None = None,
     video_metadata: dict[str, Any] | None = None,
     analysis_mode: str | None = None,
+    initial_intake: dict[str, Any] | None = None,
     ai_profile: str | None = None,
     specialist_roles: list[str] | None = None,
     case_id: str | None = None,
@@ -42,6 +43,7 @@ def analyze_case(
         input_mode=input_mode,
         case_id=case_id,
         trace_id=trace_id,
+        initial_intake=initial_intake,
     )
 
 
@@ -56,6 +58,7 @@ def analyze_video_case(
     case_id: str | None = None,
     upload_id: str | None = None,
     trace_id: str | None = None,
+    initial_intake: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     input_mode = _input_mode_for_video(structured_facts, selected_keywords, video_metadata)
     return _analyze_core(
@@ -70,6 +73,7 @@ def analyze_video_case(
         case_id=case_id,
         upload_id=upload_id,
         trace_id=trace_id,
+        initial_intake=initial_intake,
     )
 
 
@@ -86,6 +90,7 @@ def analyze_scenario(payload: dict[str, Any]) -> dict[str, Any]:
         case_id=payload.get("case_id"),
         upload_id=payload.get("upload_id"),
         trace_id=payload.get("trace_id"),
+        initial_intake=payload.get("initial_intake"),
     )
 
 
@@ -102,6 +107,7 @@ def _analyze_core(
     case_id: str | None,
     upload_id: str | None = None,
     trace_id: str | None = None,
+    initial_intake: dict[str, Any] | None,
 ) -> dict[str, Any]:
     agent_plan = _build_agent_plan_safe(
         description_text=description_text,
@@ -120,6 +126,7 @@ def _analyze_core(
         selected_keywords=selected_keywords,
         analysis_mode=analysis_mode,
         video_metadata=video_metadata,
+        initial_intake=initial_intake,
     )
     evidence_bundle = collect_evidence_stage(context, video_metadata)
     analysis_bundle = run_analysis_stage(context, evidence_bundle)

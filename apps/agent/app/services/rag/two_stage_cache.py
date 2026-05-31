@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 from typing import Any
 
@@ -25,6 +26,8 @@ REVIEW_REQUIRED_SQL = (
     "IN ('true', '1', 'yes') THEN true ELSE false END"
 )
 
+CHART_NO_RE = re.compile(r"(?<![가-힣A-Za-z0-9])([차보거자단기물]\d{1,3}(?:-\d{1,2})?)")
+
 
 def _chart_prefix_patterns(party_type: str | None) -> list[str]:
     return {
@@ -34,6 +37,38 @@ def _chart_prefix_patterns(party_type: str | None) -> list[str]:
         "car_vs_object": ["기%", "湲%"],
         "single_vehicle": ["단%"],
     }.get(str(party_type or ""), [])
+
+
+def _extract_chart_no(*parts: Any) -> str | None:
+    text = " ".join(str(part or "") for part in parts)
+    match = CHART_NO_RE.search(text)
+    return match.group(1) if match else None
+
+
+def _party_from_chart_no(chart_no: str | None) -> str | None:
+    value = str(chart_no or "")
+    if value.startswith("차"):
+        return "car_vs_car"
+    if value.startswith("보"):
+        return "car_vs_person"
+    if value.startswith(("거", "자")):
+        return "car_vs_bicycle"
+    if value.startswith("단"):
+        return "single_vehicle"
+    if value.startswith(("기", "물")):
+        return "car_vs_object"
+    return None
+
+
+def _party_label(party_type: str | None, fallback: str | None = None) -> str:
+    labels = {
+        "car_vs_car": "차대차 사고",
+        "car_vs_person": "차대보행자 사고",
+        "car_vs_bicycle": "차대자전거 사고",
+        "car_vs_object": "물체/시설물 사고",
+        "single_vehicle": "단독 사고",
+    }
+    return labels.get(str(party_type or ""), fallback or "확인이 필요합니다.")
 
 
 def _db_url() -> str | None:
@@ -49,6 +84,25 @@ def normalize_query(query: str) -> str:
 
 def query_hash(query: str) -> str:
     return hashlib.sha256(normalize_query(query).encode("utf-8")).hexdigest()
+
+
+def _literal_patterns(query: str) -> list[str]:
+    generic_terms = {"사고", "차량", "자동차", "과실", "기준", "관련", "상황", "검토", "정보"}
+    tokens = [token.strip() for token in normalize_query(query).split()]
+    expanded = [token for token in tokens if len(token) >= 2 and token not in generic_terms]
+    query_text = " ".join(tokens)
+    if "후미추돌" in query_text or "후방추돌" in query_text or "추돌" in query_text:
+        expanded.extend(["후방 추돌", "추돌사고", "안전거리미확보"])
+    if "정차" in query_text or "정지" in query_text:
+        expanded.extend(["주정차", "정지 직후", "정차 중"])
+    seen: set[str] = set()
+    patterns: list[str] = []
+    for token in expanded:
+        if token in seen:
+            continue
+        seen.add(token)
+        patterns.append(f"%{token}%")
+    return patterns
 
 
 def _redis() -> redis.Redis | None:
@@ -123,16 +177,18 @@ def _public_items_from_refs(refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         r = by_id.get(ref.get("chunk_id"))
         if not r:
             continue
+        inferred_chart_no = r[9] or _extract_chart_no(r[1], r[2], r[14])
+        inferred_party = _party_from_chart_no(inferred_chart_no) or r[4]
         out.append({
             "title": r[1],
             "summary": r[2],
             "source_url": r[3],
-            "accident_party_type": r[4],
-            "accident_party_label": r[5],
+            "accident_party_type": inferred_party,
+            "accident_party_label": _party_label(inferred_party, r[5]),
             "display_tags": r[6] or [],
             "keywords": r[7] or [],
             "source": r[8] or "KNIA 자동차사고 과실비율 정보포털",
-            "chart_no": r[9],
+            "chart_no": inferred_chart_no,
             "major_party_type": r[10],
             "scenario_type": r[11],
             "chunk_type": r[12],
@@ -144,26 +200,29 @@ def _public_items_from_refs(refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _rows_to_public_items(rows: list[Any]) -> list[dict[str, Any]]:
-    return [
-        {
+    out = []
+    for row in rows:
+        metadata = row[14] if len(row) > 14 else {}
+        inferred_chart_no = (row[9] if len(row) > 9 else None) or _extract_chart_no(row[1], row[2], metadata)
+        inferred_party = _party_from_chart_no(inferred_chart_no) or row[4]
+        out.append({
             "title": row[1],
             "summary": row[2],
             "source_url": row[3],
-            "accident_party_type": row[4],
-            "accident_party_label": row[5],
+            "accident_party_type": inferred_party,
+            "accident_party_label": _party_label(inferred_party, row[5]),
             "display_tags": row[6] or [],
             "keywords": row[7] or [],
             "source": row[8] or "KNIA 자동차사고 과실비율 정보포털",
-            "chart_no": row[9] if len(row) > 9 else None,
+            "chart_no": inferred_chart_no,
             "major_party_type": row[10] if len(row) > 10 else None,
             "scenario_type": row[11] if len(row) > 11 else None,
             "chunk_type": row[12] if len(row) > 12 else None,
             "review_required": bool(row[13]) if len(row) > 13 else False,
-            "metadata": row[14] if len(row) > 14 else {},
+            "metadata": metadata,
             "attribution": "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
-        }
-        for row in rows
-    ]
+        })
+    return out
 
 
 def _keyword_fallback_search(
@@ -192,7 +251,8 @@ def _keyword_fallback_search(
         }
     try:
         with psycopg.connect(db_url) as conn, conn.cursor() as cur:
-            params: list[Any] = [query]
+            patterns = _literal_patterns(query)
+            params: list[Any] = [query, patterns]
             where = "kc.source_url IS NOT NULL"
             if chart_no:
                 params.append(chart_no)
@@ -205,11 +265,14 @@ def _keyword_fallback_search(
                 if prefixes:
                     params.append(prefixes)
                     where += f" OR {CHART_NO_SQL} LIKE ANY(%s::text[])"
+                if patterns:
+                    params.append(patterns)
+                    where += " OR kc.chunk_text ILIKE ANY(%s::text[])"
                 where += ")"
             params.append(limit)
             cur.execute(
                 f"""
-                WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq)
+                WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq, %s::text[] AS patterns)
                 SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
                        kc.display_tags, kc.keywords, kd.source,
                        {CHART_NO_SQL} AS chart_no,
@@ -218,14 +281,19 @@ def _keyword_fallback_search(
                        kc.chunk_type,
                        {REVIEW_REQUIRED_SQL} AS review_required,
                        kd.metadata AS metadata,
+                       (SELECT count(*)::numeric FROM unnest(q.patterns) AS pattern
+                        WHERE kc.chunk_text ILIKE pattern
+                           OR coalesce(kc.plain_summary, '') ILIKE pattern
+                           OR coalesce(kd.title, '') ILIKE pattern) AS literal_score,
                        (CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) AS fts_rank,
                        kc.evidence_quality_score
                 FROM knia_reference_chunks kc
                 JOIN knia_reference_documents kd ON kd.id=kc.document_id
                 CROSS JOIN q
                 WHERE {where}
-                ORDER BY ((CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) * 0.80
-                        + kc.evidence_quality_score * 0.20) DESC
+                ORDER BY literal_score DESC,
+                         fts_rank DESC,
+                         kc.evidence_quality_score DESC
                 LIMIT %s
                 """.format(
                     where=where,
@@ -237,6 +305,13 @@ def _keyword_fallback_search(
                 params,
             )
             rows = cur.fetchall()
+            refs = [{"chunk_id": str(row[0])} for row in rows]
+            r = _redis()
+            if r:
+                try:
+                    r.setex(cache_key, 3600, json.dumps(refs, ensure_ascii=False))
+                except Exception:
+                    pass
             return {
                 "items": _rows_to_public_items(rows),
                 "cache": {
@@ -336,7 +411,8 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
                 },
             }
 
-        params: list[Any] = [normalized, vec_literal]
+        patterns = _literal_patterns(normalized)
+        params: list[Any] = [normalized, patterns, vec_literal]
         where = "kc.source_url IS NOT NULL"
         if chart_no:
             params.append(chart_no)
@@ -349,11 +425,14 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
             if prefixes:
                 params.append(prefixes)
                 where += f" OR {CHART_NO_SQL} LIKE ANY(%s::text[])"
+            if patterns:
+                params.append(patterns)
+                where += " OR kc.chunk_text ILIKE ANY(%s::text[])"
             where += ")"
         params.append(limit)
         cur.execute(
             f"""
-            WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq, %s::vector AS qvec)
+            WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq, %s::text[] AS patterns, %s::vector AS qvec)
             SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
                    kc.display_tags, kc.keywords, kd.source,
                    {CHART_NO_SQL} AS chart_no,
@@ -362,6 +441,10 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
                    kc.chunk_type,
                    {REVIEW_REQUIRED_SQL} AS review_required,
                    kd.metadata AS metadata,
+                   (SELECT count(*)::numeric FROM unnest(q.patterns) AS pattern
+                    WHERE kc.chunk_text ILIKE pattern
+                       OR coalesce(kc.plain_summary, '') ILIKE pattern
+                       OR coalesce(kd.title, '') ILIKE pattern) AS literal_score,
                    (CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) AS fts_rank,
                    (CASE WHEN kc.embedding IS NOT NULL THEN 1 - (kc.embedding <=> q.qvec) ELSE 0 END) AS vector_score,
                    kc.evidence_quality_score
@@ -369,9 +452,10 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
             JOIN knia_reference_documents kd ON kd.id=kc.document_id
             CROSS JOIN q
             WHERE {where}
-            ORDER BY ((CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) * 0.55
-                    + (CASE WHEN kc.embedding IS NOT NULL THEN 1 - (kc.embedding <=> q.qvec) ELSE 0 END) * 0.35
-                    + kc.evidence_quality_score * 0.10) DESC
+            ORDER BY literal_score DESC,
+                     vector_score DESC,
+                     fts_rank DESC,
+                     kc.evidence_quality_score DESC
             LIMIT %s
             """,
             params,

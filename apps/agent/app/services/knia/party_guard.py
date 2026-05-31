@@ -215,7 +215,7 @@ def reject_mismatched_knia_items(items: Iterable[dict[str, Any]], party_type: An
     kept: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     for item in items or []:
-        item_party = canonicalize_party_type(item.get("major_party_type") or item.get("accident_party_type") or _party_from_chart_no(item.get("chart_no")))
+        item_party = canonicalize_party_type(_party_from_chart_no(item.get("chart_no")) or item.get("major_party_type") or item.get("accident_party_type"))
         chart_no = str(item.get("chart_no") or "")
         text = _item_text(item)
         allowed = True

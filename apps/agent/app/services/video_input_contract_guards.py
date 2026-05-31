@@ -18,6 +18,7 @@ def apply_video_fact_guards(
 ) -> None:
     guard_collision_partner_classification(fact_patch, accepted, uncertain)
     guard_ego_vehicle_partner_pollution(fact_patch, accepted, uncertain)
+    promote_supported_bicycle_candidates(fact_patch, accepted, uncertain)
     guard_candidate_target_values(fact_patch, accepted, uncertain)
     guard_object_presence_pollution(fact_patch, accepted, uncertain)
     guard_signal_pollution(fact_patch, accepted, uncertain)
@@ -25,6 +26,100 @@ def apply_video_fact_guards(
     align_collision_partner_from_direct_contact(fact_patch, accepted, uncertain)
     guard_target_fact_consensus(fact_patch, accepted, uncertain)
     demote_context_dependent_facts(fact_patch, accepted, uncertain)
+
+
+def promote_supported_bicycle_candidates(
+    fact_patch: dict[str, Any],
+    accepted: list[dict[str, Any]],
+    uncertain: list[dict[str, Any]],
+) -> None:
+    """Upgrade bicycle candidates only when visual contact support is strong.
+
+    This keeps ambiguous two-wheeler detections conservative, while allowing a
+    multi-frame bicycle/cyclist contact bundle to drive the KNIA bicycle path
+    for video-only cases.
+    """
+
+    items = [*accepted, *uncertain]
+    bicycle_candidates = [
+        item
+        for item in items
+        if str(item.get("field") or "") in TARGET_FACT_FIELDS
+        and target_value(item.get("value")) == "bicycle"
+        and as_float(item.get("confidence")) >= 0.82
+        and frame_ref_count(item) >= 2
+        and _has_bicycle_reasoning(item)
+    ]
+    if not bicycle_candidates:
+        return
+    if not _has_contact_support_for_candidate(fact_patch, items):
+        return
+    if _has_stronger_competing_target("bicycle", bicycle_candidates, items):
+        return
+
+    best = max(bicycle_candidates, key=lambda item: (as_float(item.get("confidence")), frame_ref_count(item)))
+    fact_patch["direct_collision_partner_type"] = "bicycle"
+    fact_patch["collision_partner_type"] = "bicycle"
+    fact_patch.setdefault("primary_collision_target", "bicycle")
+    frame_refs = best.get("frame_refs") if isinstance(best.get("frame_refs"), list) else []
+    accepted.append(
+        {
+            "field": "direct_collision_partner_type",
+            "value": "bicycle",
+            "confidence": max(0.82, as_float(best.get("confidence"))),
+            "source": best.get("source") or "frame_analysis:contract_guard",
+            "frame_refs": frame_refs,
+            "reason": "promoted_from_bicycle_candidate_with_multi_frame_contact_support",
+        }
+    )
+
+
+def _has_bicycle_reasoning(item: dict[str, Any]) -> bool:
+    text = " ".join(
+        str(value).lower()
+        for value in (item.get("reason"), item.get("label"), item.get("raw_field"), item.get("value"))
+        if value is not None
+    )
+    return any(
+        token in text
+        for token in (
+            "bicycle",
+            "bike",
+            "cyclist",
+            "wheel",
+            "handlebar",
+            "rider",
+            "pedal",
+            "\uc790\uc804\uac70",
+        )
+    )
+
+
+def _has_contact_support_for_candidate(fact_patch: dict[str, Any], items: list[dict[str, Any]]) -> bool:
+    if fact_patch.get("impact_visible") is True or fact_patch.get("collision_point_visible") is True:
+        return True
+    for item in items:
+        if item.get("field") not in {"collision_point_visible", "impact_visible"}:
+            continue
+        if item.get("value") is True and as_float(item.get("confidence")) >= 0.78 and frame_ref_count(item) >= 2:
+            return True
+    return False
+
+
+def _has_stronger_competing_target(
+    target: str,
+    candidate_items: list[dict[str, Any]],
+    items: list[dict[str, Any]],
+) -> bool:
+    best_candidate = max(as_float(item.get("confidence")) for item in candidate_items)
+    for item in items:
+        if str(item.get("field") or "") not in TARGET_FACT_FIELDS:
+            continue
+        other = target_value(item.get("value"))
+        if other in CANONICAL_TARGETS and other != target and frame_ref_count(item) >= 2:
+            if as_float(item.get("confidence")) > best_candidate + 0.03:
+                return True
+    return False
 
 
 def guard_candidate_target_values(
@@ -456,7 +551,7 @@ def has_single_source_contact_bundle(
         contact_items = [
             item
             for item in source_items
-            if item.get("field") == "collision_point_visible"
+            if item.get("field") in {"collision_point_visible", "impact_visible"}
             and item.get("value") is True
             and as_float(item.get("confidence")) >= 0.78
             and frame_ref_count(item) >= 2
@@ -467,10 +562,9 @@ def has_single_source_contact_bundle(
         contact_refs = union_frame_refs(contact_items)
         if len(target_refs & contact_refs) < 1:
             continue
-        if "collision_partner_type" in target_fields and (
-            "primary_collision_target" in target_fields
-            or "direct_collision_partner_type" in target_fields
-        ):
+        if "direct_collision_partner_type" in target_fields:
+            return True
+        if "collision_partner_type" in target_fields and "primary_collision_target" in target_fields:
             return True
         if any(as_float(item.get("confidence")) >= 0.88 for item in target_items):
             return True

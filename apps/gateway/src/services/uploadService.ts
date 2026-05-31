@@ -117,6 +117,23 @@ function maskStorageKey(value: string) {
     return `${parts.slice(0, 2).join("/")}/.../${parts.at(-1)}`;
 }
 
+export function sanitizeFrameRef(value: any): string | null {
+    const raw = String(value ?? "").trim().replace(/\\/g, "/");
+    if (!raw || raw.includes("\0")) return null;
+    const parts = raw.split("/").filter(Boolean);
+    if (parts.some((part) => part === "." || part === "..")) return null;
+    const frameName = parts.at(-1) ?? "";
+    if (!frameName || frameName === "." || frameName === "..") return null;
+    if (!/^[A-Za-z0-9_.-]+\.(jpg|jpeg|png|webp)$/i.test(frameName)) return null;
+    return frameName;
+}
+
+export function buildFrameViewUrl(apiPrefix: string, caseId: string, uploadId: string, frameRef: string) {
+    const safeFrame = sanitizeFrameRef(frameRef);
+    if (!safeFrame || !caseId || !uploadId) return null;
+    return `${apiPrefix}/cases/${encodeURIComponent(caseId)}/uploads/${encodeURIComponent(uploadId)}/frames/${encodeURIComponent(safeFrame)}`;
+}
+
 export function storageErrorCode(err: any) {
     const message = String(err?.message || "");
     const lowered = message.toLowerCase();
@@ -357,6 +374,91 @@ export async function createGetUrl(
         gateway_proxy: true,
         expiresIn,
     } as any;
+}
+
+function findFrameStorageKey(upload: any, frameRef: string): string | null {
+    const safeFrame = sanitizeFrameRef(frameRef);
+    if (!safeFrame) return null;
+
+    const metadata = upload.metadata && typeof upload.metadata === "object" ? upload.metadata : {};
+    const candidates = [
+        ...(Array.isArray(metadata.representative_frame_details) ? metadata.representative_frame_details : []),
+        ...(Array.isArray(metadata.frame_details) ? metadata.frame_details : []),
+    ];
+
+    for (const item of candidates) {
+        if (!item || typeof item !== "object") continue;
+        const refs = [item.frame_ref, item.storage_key, item.path, item.filename].map(sanitizeFrameRef).filter(Boolean);
+        if (!refs.includes(safeFrame)) continue;
+        const storageKey = normalizeUploadStorageKey(item.storage_key ?? item.path);
+        if (storageKey) return storageKey;
+    }
+
+    const frameDir = normalizeUploadStorageKey(upload.frame_dir ?? upload.derived_path ?? metadata.processed_frames_key);
+    return frameDir ? `${frameDir.replace(/\/+$/, "")}/${safeFrame}` : null;
+}
+
+export async function sendUploadFrameContent(opts: UploadRouteOptions, req: FastifyRequest, reply: any) {
+    const traceId = trace(req);
+    const { caseId, uploadId, frameRef } = req.params as any;
+    const safeFrame = sanitizeFrameRef(frameRef);
+
+    if (!safeFrame) {
+        return reply.code(400).send(opts.errorPayload("INVALID_FRAME_REF", "프레임 참조가 올바르지 않습니다.", traceId));
+    }
+
+    const row = await opts.db.query(
+        `SELECT u.*
+           FROM uploads u
+           JOIN cases c ON c.id = u.case_id
+          WHERE u.id=$1
+            AND u.case_id=$2
+            AND u.owner_user_id=$3
+            AND c.owner_user_id=$3
+            AND u.deleted_at IS NULL
+            AND c.deleted_at IS NULL`,
+        [uploadId, caseId, (req as any).user.id]
+    );
+
+    if (!row.rowCount) {
+        return reply.code(404).send(opts.errorPayload("UPLOAD_NOT_FOUND", "업로드를 찾을 수 없습니다.", traceId));
+    }
+
+    const upload = row.rows[0];
+    if (!["processing", "ready", "verified"].includes(upload.status)) {
+        return reply.code(409).send(opts.errorPayload("UPLOAD_NOT_READY", "아직 프레임을 확인할 수 없습니다.", traceId));
+    }
+
+    const storageKey = findFrameStorageKey(upload, safeFrame);
+    if (!storageKey) {
+        return reply.code(404).send(opts.errorPayload("FRAME_NOT_FOUND", "선별 프레임을 찾을 수 없습니다.", traceId));
+    }
+
+    try {
+        const stream = await opts.storage.getStream(storageKey);
+        reply.header("content-type", contentTypeForFrame(safeFrame));
+        reply.header("cache-control", "private, max-age=300");
+        return reply.send(stream);
+    } catch (err: any) {
+        (req as any).log?.warn?.(
+            {
+                err,
+                trace_id: traceId,
+                upload_id: uploadId,
+                case_id: caseId,
+                storage_key: maskStorageKey(storageKey),
+            },
+            "frame content storage read failed"
+        );
+        return reply.code(404).send(opts.errorPayload(storageErrorCode(err), storageUserMessage(err), traceId));
+    }
+}
+
+function contentTypeForFrame(frameRef: string) {
+    const lowered = frameRef.toLowerCase();
+    if (lowered.endsWith(".png")) return "image/png";
+    if (lowered.endsWith(".webp")) return "image/webp";
+    return "image/jpeg";
 }
 
 export async function sendUploadContent(opts: UploadRouteOptions, req: FastifyRequest, reply: any) {
