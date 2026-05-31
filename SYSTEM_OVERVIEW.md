@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P10-3 표준 MCP 도입/보류 결정
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P10-3 단계를 완료했다. P10-1 요구사항 재평가와 P10-2 pilot 설계를 기준으로, 현재는 표준 MCP Host/Client/Server를 즉시 도입하지 않고 Agent 내부 MCP-like tool registry/executor를 유지하기로 결정했다.
+
+| 항목 | 현재 결정 |
+| --- | --- |
+| 최종 판단 | 표준 MCP runtime 도입은 보류한다. 현재 production tool 실행 경로는 내부 executor를 source of truth로 유지한다. |
+| 판단 근거 | pilot은 adapter mapping 가능성을 확인했지만, 현재 외부 tool server, cross-host 재사용, 표준 MCP client, 독립 process 격리, 내부 executor 권한 모델 한계 같은 구체적 운영 문제가 아직 없다. |
+| 문서 | `docs/STANDARD_MCP_DECISION.md`에 도입 보류 결정, 근거, 향후 trigger, migration 순서, 발표/인수인계 표현을 정리했다. |
+| 향후 조건 | 외부 tool/Agent 3개 이상, 다중 host tool 재사용, 표준 MCP client 요구, 독립 process 격리, 내부 executor scope 한계가 실제 요구가 되면 재검토한다. |
+| 비변경 범위 | 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
+
+검증은 표준 MCP pilot/gate 테스트와 문서 diff 검증으로 완료했다. 다음 P11 단계에서는 이 결정이 `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, 발표/인수인계 문서와 충돌하지 않도록 정리한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P10-2 표준 MCP Pilot 설계
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P10-2 단계를 완료했다. 이번 변경은 표준 MCP를 즉시 도입하지 않고, `search_knia_json_rag_tool`을 대상으로 future standard MCP adapter compatibility를 검증할 수 있는 설계 계약을 만든 작업이다.

@@ -1163,15 +1163,15 @@ P5-1 완료 기록:
 | P7 | 완료 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리, P7-3 결과 표시 finality 정리 완료 |
 | P8 | 완료 | P8-1 Trace id 통합, P8-2 LLM/vision 사용량 기록, P8-3 실패 관찰값 표준화 완료 |
 | P9 | 완료 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장, P9-3 Reference 평가 확장, P9-4 CI/검증 명령 정리 완료 |
-| P10 | 진행 중 | P10-1 표준 MCP 요구사항 재평가, P10-2 표준 MCP pilot 설계 완료. 다음은 P10-3 도입/보류 결정 |
-| P11 | 대기 | 문서/인수인계/발표 정합성 |
+| P10 | 완료 | P10-1 표준 MCP 요구사항 재평가, P10-2 표준 MCP pilot 설계, P10-3 도입 보류 결정 완료 |
+| P11 | 진행 중 | 다음은 P11-1 문서 동기화 |
 | P12 | 대기 | 최종 구조 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P10-3. 도입/보류 결정**부터 진행한다.
+다음 개발은 **P11-1. 문서 동기화**부터 진행한다.
 
-P10-3을 시작할 때는 P10-1 재평가와 P10-2 pilot 설계가 내부 executor 대비 어떤 문제를 해결하는지 확인하고, 이득이 명확하지 않으면 표준 MCP 도입을 계속 보류한다.
+P11-1을 시작할 때는 P10-3의 표준 MCP 보류 결정이 `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/STACK_DECISION_REVIEW.md`, 발표/인수인계 문서와 충돌하지 않는지 확인한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1338,3 +1338,13 @@ P10-3을 시작할 때는 P10-1 재평가와 P10-2 pilot 설계가 내부 execut
 - 이번 단계는 compatibility 설계이며 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, public API/DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 표준 MCP pilot/gate/registry/executor/route boundary 테스트와 compileall로 완료했다.
 - 다음 개발은 **P10-3 도입/보류 결정**이다.
+
+### 2026-05-31 P10-3 진행 기록
+
+- P10-3 표준 MCP 도입/보류 결정 완료: 현재는 표준 MCP Host/Client/Server를 도입하지 않고 Agent 내부 MCP-like tool registry/executor를 유지한다.
+- P10-2 pilot은 `search_knia_json_rag_tool`의 future adapter mapping 가능성을 확인했지만, 표준 MCP runtime이 내부 executor 대비 지금 해결하는 구체적 운영 문제는 아직 없다.
+- 도입 재검토 trigger는 외부 tool/Agent 3개 이상, 다중 host tool 재사용, 표준 MCP client 요구, 내부 executor scope 한계, 독립 process 격리 필요로 고정했다.
+- `docs/STANDARD_MCP_DECISION.md`에 결정, 근거, 향후 migration 순서, 발표/인수인계 표현을 정리했다.
+- 이번 단계는 결정 문서화이며 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, public API/DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
+- 검증은 표준 MCP pilot/gate 테스트와 문서 diff 검증으로 완료한다.
+- 다음 개발은 **P11-1 문서 동기화**다.

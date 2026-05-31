@@ -268,6 +268,14 @@ P10-2 pilot 대상은 `search_knia_json_rag_tool`로 정했다. 이 tool은 read
 
 설계 산출물은 `docs/STANDARD_MCP_PILOT_DESIGN.md`와 `apps/agent/app/mcp/standard_mcp_pilot.py`다. 이 산출물은 표준 MCP server/client/transport를 추가하지 않고, future adapter가 내부 tool spec을 어떻게 mapping할 수 있는지만 검증한다. production tool 실행은 계속 내부 executor를 사용한다.
 
+### 2026-05-31 P10-3 표준 MCP 도입/보류 결정
+
+P10-3 기준 결론은 **표준 MCP Host/Client/Server 도입 보류**다. P10-2 pilot은 내부 `MCPToolSpec`을 future standard MCP adapter로 mapping할 수 있음을 보여주었지만, 현재 제품 문제가 표준 MCP runtime 추가로 직접 해결되는 상태는 아니다.
+
+현재 우선순위는 영상 관찰값 오염 방지, 사고축 기반 근거 routing, 조건부 판단, 사용자 표시 finality, Agent 역할 계약 안정화다. 표준 MCP는 외부 tool server, 다중 host tool 재사용, 표준 MCP client 연동, 독립 process 격리, 내부 executor scope 한계가 실제 요구로 확정될 때 다시 검토한다.
+
+결정 기록은 `docs/STANDARD_MCP_DECISION.md`에 남긴다. 발표와 인수인계에서는 “표준 MCP 구현 완료”가 아니라 “Agent 내부 MCP-like tool registry/executor 구현, 표준 MCP 도입 gate와 pilot 설계 완료, 현재는 보류”로 표현한다.
+
 ## 7. OpenAI API 사용 방식
 
 ### 현재 적용
