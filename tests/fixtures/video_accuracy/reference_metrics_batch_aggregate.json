@@ -1,7 +1,7 @@
 {
   "video_accuracy_batch": "completed",
-  "sample_count": 2,
-  "passed_count": 2,
+  "sample_count": 8,
+  "passed_count": 8,
   "mismatch_count": 0,
   "failed_count": 0,
   "samples": [
@@ -102,6 +102,433 @@
         ],
         "legal_limits": [
           "상대 신호가 확인되지 않으면 신호위반으로 단정하지 않습니다."
+        ]
+      }
+    },
+    {
+      "name": "metrics_right_turn_front_vehicle_stop",
+      "status": "passed",
+      "frame_observation_count": 5,
+      "agent_accepted_count": 3,
+      "agent_uncertain_count": 1,
+      "agent_supporting_count": 1,
+      "field_metrics": [
+        {
+          "field": "direct_collision_partner_type",
+          "value": "vehicle",
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "accident_party_type",
+          "value": "car_vs_car",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": true,
+          "conflict": false,
+          "in_fact_patch": false
+        },
+        {
+          "field": "front_vehicle_stopped",
+          "value": true,
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "crosswalk_nearby",
+          "value": true,
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "pedestrian_signal",
+          "value": "red_light",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": false
+        }
+      ],
+      "conditional_outcome_card": {
+        "branch_key": "rear_stop",
+        "detected_branch_keys": [
+          "rear_stop"
+        ],
+        "title": "앞차 정차 사유에 따라 달라지는 판단",
+        "summary": "우회전, crosswalk, front vehicle stop, red pedestrian signal context를 함께 확인합니다."
+      },
+      "expert_guidance": {
+        "present": true,
+        "basis": [
+          {
+            "family_label": "KNIA 기준",
+            "title": "앞차 정차 후 후방 추돌 참고 기준",
+            "reason": "front vehicle stopped near crosswalk and rear vehicle safe-distance duty are relevant."
+          }
+        ],
+        "legal_points": [
+          "우회전 right turn 상황과 횡단보도 crosswalk 앞 정차 사유를 확인합니다."
+        ],
+        "legal_limits": [
+          "보행자가 보이더라도 직접 충돌 대상은 vehicle인지 따로 확인합니다."
+        ]
+      }
+    },
+    {
+      "name": "metrics_unlit_stopped_vehicle_highway",
+      "status": "passed",
+      "frame_observation_count": 4,
+      "agent_accepted_count": 2,
+      "agent_uncertain_count": 2,
+      "agent_supporting_count": 1,
+      "field_metrics": [
+        {
+          "field": "direct_collision_partner_type",
+          "value": "vehicle",
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "accident_party_type",
+          "value": "car_vs_car",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": true,
+          "conflict": false,
+          "in_fact_patch": false
+        },
+        {
+          "field": "stopped_vehicle_without_lights",
+          "value": true,
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "highway_or_expressway",
+          "value": true,
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "reported_speed_kmh",
+          "value": "unknown",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": false
+        }
+      ],
+      "conditional_outcome_card": {
+        "branch_key": "unlit",
+        "detected_branch_keys": [
+          "unlit",
+          "rear_stop"
+        ],
+        "title": "시야와 회피 가능성에 따라 달라지는 판단",
+        "summary": "unlit stopped vehicle, highway context, speed evidence가 쟁점입니다."
+      },
+      "expert_guidance": {
+        "present": true,
+        "basis": [
+          {
+            "family_label": "법률 근거",
+            "title": "무등화 정차차량 시인성 검토 기준",
+            "reason": "unlit stopped vehicle visibility, highway condition, speed evidence, and avoidability are relevant."
+          }
+        ],
+        "legal_points": [
+          "무등화 정차 차량과 고속도로 highway 환경을 구분합니다."
+        ],
+        "legal_limits": [
+          "영상 인상만으로 속도를 확정하지 않습니다."
+        ]
+      }
+    },
+    {
+      "name": "metrics_non_contact_bicycle_trigger_rear_bus",
+      "status": "passed",
+      "frame_observation_count": 6,
+      "agent_accepted_count": 3,
+      "agent_uncertain_count": 1,
+      "agent_supporting_count": 1,
+      "field_metrics": [
+        {
+          "field": "direct_collision_partner_type",
+          "value": "vehicle",
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "accident_party_type",
+          "value": "car_vs_car",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": true,
+          "conflict": false,
+          "in_fact_patch": false
+        },
+        {
+          "field": "trigger_actor_type",
+          "value": "bicycle",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": false
+        },
+        {
+          "field": "non_contact_trigger",
+          "value": true,
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "rear_vehicle_collision",
+          "value": true,
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        }
+      ],
+      "conditional_outcome_card": {
+        "branch_key": "non_contact",
+        "detected_branch_keys": [
+          "non_contact",
+          "rear_stop",
+          "collision_target",
+          "small_target"
+        ],
+        "title": "비접촉 유발자와 직접 충돌 상대 분리",
+        "summary": "bicycle non-contact trigger and rear bus collision are separated."
+      },
+      "expert_guidance": {
+        "present": true,
+        "basis": [
+          {
+            "family_label": "KNIA 기준",
+            "title": "비접촉 유발 및 후방 추돌 참고 기준",
+            "reason": "non-contact trigger bicycle, rear bus collision, time gap, and safe distance are relevant."
+          }
+        ],
+        "legal_points": [
+          "자전거는 trigger actor이고 직접 충돌 상대는 후방 bus vehicle입니다."
+        ],
+        "legal_limits": [
+          "자전거가 보인다는 이유만으로 직접 자전거 충돌로 승격하지 않습니다."
+        ]
+      }
+    },
+    {
+      "name": "metrics_aihub_motorcycle_intersection",
+      "status": "passed",
+      "frame_observation_count": 5,
+      "agent_accepted_count": 2,
+      "agent_uncertain_count": 1,
+      "agent_supporting_count": 1,
+      "field_metrics": [
+        {
+          "field": "direct_collision_partner_type",
+          "value": "motorcycle",
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "accident_party_type",
+          "value": "car_vs_motorcycle",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": true,
+          "conflict": false,
+          "in_fact_patch": false
+        },
+        {
+          "field": "motorcycle_visible",
+          "value": true,
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "intersection",
+          "value": true,
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        }
+      ],
+      "expert_guidance": {
+        "present": true,
+        "basis": [
+          {
+            "family_label": "AI-Hub label reference",
+            "title": "차대이륜차 교차로 라벨 기준",
+            "reason": "motorcycle small target and intersection context are used for recall evaluation only."
+          }
+        ],
+        "legal_points": [
+          "이륜차 motorcycle 직접 충돌 대상 recall을 확인합니다."
+        ],
+        "legal_limits": [
+          "AI-Hub 라벨은 사용자 입력 fact가 아니라 평가 reference입니다."
+        ]
+      }
+    },
+    {
+      "name": "metrics_aihub_bicycle_straight",
+      "status": "passed",
+      "frame_observation_count": 5,
+      "agent_accepted_count": 2,
+      "agent_uncertain_count": 1,
+      "agent_supporting_count": 1,
+      "field_metrics": [
+        {
+          "field": "direct_collision_partner_type",
+          "value": "bicycle",
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "accident_party_type",
+          "value": "car_vs_bicycle",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": true,
+          "conflict": false,
+          "in_fact_patch": false
+        },
+        {
+          "field": "bicycle_visible",
+          "value": true,
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        }
+      ],
+      "expert_guidance": {
+        "present": true,
+        "basis": [
+          {
+            "family_label": "AI-Hub label reference",
+            "title": "차대자전거 직선도로 라벨 기준",
+            "reason": "bicycle small target context is used for recall evaluation only."
+          }
+        ],
+        "legal_points": [
+          "자전거 bicycle 직접 충돌 대상 recall을 확인합니다."
+        ],
+        "legal_limits": [
+          "AI-Hub 라벨은 사용자 입력 fact가 아니라 평가 reference입니다."
+        ]
+      }
+    },
+    {
+      "name": "metrics_pedestrian_background_vehicle_collision",
+      "status": "passed",
+      "frame_observation_count": 5,
+      "agent_accepted_count": 2,
+      "agent_uncertain_count": 2,
+      "agent_supporting_count": 1,
+      "field_metrics": [
+        {
+          "field": "direct_collision_partner_type",
+          "value": "vehicle",
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        },
+        {
+          "field": "accident_party_type",
+          "value": "car_vs_car",
+          "from_observation": true,
+          "applied": false,
+          "confirmed": true,
+          "conflict": false,
+          "in_fact_patch": false
+        },
+        {
+          "field": "pedestrian_visible",
+          "value": true,
+          "from_observation": true,
+          "applied": false,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": false
+        },
+        {
+          "field": "crosswalk_nearby",
+          "value": true,
+          "from_observation": true,
+          "applied": false,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": false
+        },
+        {
+          "field": "intersection",
+          "value": true,
+          "from_observation": true,
+          "applied": true,
+          "confirmed": false,
+          "conflict": false,
+          "in_fact_patch": true
+        }
+      ],
+      "expert_guidance": {
+        "present": true,
+        "basis": [
+          {
+            "family_label": "법률 근거",
+            "title": "보행자 배경 오염 방지 기준",
+            "reason": "pedestrian and crosswalk are background context while direct partner remains vehicle."
+          }
+        ],
+        "legal_points": [
+          "교차로 intersection와 횡단보도 crosswalk 주변 보행자 visible context를 배경으로만 봅니다."
+        ],
+        "legal_limits": [
+          "직접 접촉 근거 없이는 보행자 사고로 승격하지 않습니다."
         ]
       }
     }

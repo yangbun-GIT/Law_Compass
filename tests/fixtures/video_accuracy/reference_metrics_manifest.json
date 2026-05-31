@@ -82,6 +82,235 @@
         "raw_video_commit_allowed": false,
         "notes": "Public-link style synthetic fixture. Do not download or commit raw media."
       }
+    },
+    {
+      "id": "metrics_right_turn_front_vehicle_stop",
+      "title": "우회전 중 횡단보도 앞차 정차 후 후방 추돌",
+      "source_type": "local_user_provided",
+      "reference_role": "evaluation_only_not_agent_input",
+      "review_status": "reviewed_for_evaluation",
+      "local_video_path": "C:/path/to/local-only/metrics_right_turn_front_vehicle_stop.mp4",
+      "scenario_summary": "우회전 중 횡단보도 앞에서 앞차가 정차했고 뒤따르던 차량이 앞차를 추돌한 synthetic reference.",
+      "reference_expectations": {
+        "direct_collision_partner_type": "vehicle",
+        "accident_event_required": true,
+        "expected_context": [
+          "right_turn_context",
+          "crosswalk_context",
+          "front_vehicle_stop",
+          "pedestrian_signal_red"
+        ],
+        "must_not_promote": [
+          "pedestrian_crosswalk_accident",
+          "car_vs_person",
+          "signal_violation_without_vehicle_collision"
+        ],
+        "ambiguous_branches": [
+          {
+            "condition": "front vehicle stopped near crosswalk and rear vehicle hit it",
+            "expected_guidance": "앞차 정차 사유와 뒤차 안전거리 의무를 나누어 설명한다."
+          }
+        ]
+      },
+      "evaluation_focus": [
+        "direct_collision_target_accuracy",
+        "pedestrian_context_pollution",
+        "front_rear_role_pollution"
+      ],
+      "usage_policy": {
+        "agent_input_allowed": false,
+        "raw_video_commit_allowed": false,
+        "notes": "Synthetic fixture only. Raw video is not committed."
+      }
+    },
+    {
+      "id": "metrics_unlit_stopped_vehicle_highway",
+      "title": "고속도로 무등화 정차차량 추돌",
+      "source_type": "local_user_provided",
+      "reference_role": "evaluation_only_not_agent_input",
+      "review_status": "reviewed_for_evaluation",
+      "local_video_path": "C:/path/to/local-only/metrics_unlit_stopped_vehicle_highway.mp4",
+      "scenario_summary": "야간 또는 저시야 고속도로에서 등화 없이 정차한 차량과 충돌한 synthetic reference.",
+      "reference_expectations": {
+        "direct_collision_partner_type": "vehicle",
+        "accident_event_required": true,
+        "expected_context": [
+          "unlit_stopped_vehicle",
+          "highway_context",
+          "speed_uncertain"
+        ],
+        "must_not_promote": [
+          "simple_rear_end_only",
+          "speed_as_confirmed_video_fact",
+          "lane_change_collision"
+        ],
+        "ambiguous_branches": [
+          {
+            "condition": "unlit stopped vehicle visibility and speed/avoidability are disputed",
+            "expected_guidance": "무등화 정차차량의 시인성, 제한속도, 회피 가능성을 조건부로 설명한다."
+          }
+        ]
+      },
+      "evaluation_focus": [
+        "direct_collision_target_accuracy",
+        "visibility_stealth_pollution",
+        "speed_or_highway_pollution"
+      ],
+      "usage_policy": {
+        "agent_input_allowed": false,
+        "raw_video_commit_allowed": false,
+        "notes": "Synthetic fixture only. Raw video is not committed."
+      }
+    },
+    {
+      "id": "metrics_non_contact_bicycle_trigger_rear_bus",
+      "title": "자전거 비접촉 유발 후 고속버스 후방 추돌",
+      "source_type": "local_user_provided",
+      "reference_role": "evaluation_only_not_agent_input",
+      "review_status": "reviewed_for_evaluation",
+      "local_video_path": "C:/path/to/local-only/metrics_non_contact_bicycle_trigger_rear_bus.mp4",
+      "scenario_summary": "자전거를 보고 트럭이 정지했으며 후방 고속버스가 트럭을 추돌한 synthetic reference.",
+      "reference_expectations": {
+        "direct_collision_partner_type": "vehicle",
+        "trigger_actor_type": "bicycle",
+        "accident_event_required": true,
+        "expected_context": [
+          "non_contact_trigger",
+          "bicycle_trigger",
+          "rear_bus_collision"
+        ],
+        "must_not_promote": [
+          "car_vs_bicycle",
+          "bicycle_collision_as_direct",
+          "simple_rear_end_only"
+        ],
+        "ambiguous_branches": [
+          {
+            "condition": "bicycle caused non-contact trigger and rear bus hit stopped truck",
+            "expected_guidance": "자전거는 비접촉 유발자, 직접 충돌 상대는 후방 차량으로 분리한다."
+          }
+        ]
+      },
+      "evaluation_focus": [
+        "direct_collision_target_accuracy",
+        "bicycle_presence_pollution",
+        "front_rear_role_pollution"
+      ],
+      "usage_policy": {
+        "agent_input_allowed": false,
+        "raw_video_commit_allowed": false,
+        "notes": "Synthetic fixture only. Raw video is not committed."
+      }
+    },
+    {
+      "id": "metrics_aihub_motorcycle_intersection",
+      "title": "AI-Hub 이륜차 교차로 라벨 reference",
+      "source_type": "aihub_sample",
+      "reference_role": "evaluation_only_not_agent_input",
+      "review_status": "reviewed_for_evaluation",
+      "dataset_ref": {
+        "provider": "AI Hub",
+        "dataset_name": "교통사고 영상 데이터",
+        "dataset_key": "597",
+        "file_key": "509399",
+        "split": "Validation label video"
+      },
+      "scenario_summary": "AI-Hub 차대이륜차 사거리교차로(신호등있음) 영상 라벨 reference. 라벨은 사고대상 recall 평가에만 사용한다.",
+      "reference_expectations": {
+        "direct_collision_partner_type": "motorcycle",
+        "accident_event_required": true,
+        "expected_context": [
+          "intersection_context",
+          "motorcycle_visible",
+          "small_target"
+        ],
+        "must_not_promote": [
+          "car_vs_person",
+          "car_vs_bicycle",
+          "vehicle_only_when_motorcycle_direct"
+        ]
+      },
+      "evaluation_focus": [
+        "direct_collision_target_accuracy",
+        "small_target_recall",
+        "traffic_signal_presence_pollution"
+      ],
+      "usage_policy": {
+        "agent_input_allowed": false,
+        "raw_video_commit_allowed": false,
+        "notes": "AI-Hub label reference only. Raw label ZIP and source video are not committed."
+      }
+    },
+    {
+      "id": "metrics_aihub_bicycle_straight",
+      "title": "AI-Hub 자전거 직선도로 라벨 reference",
+      "source_type": "aihub_sample",
+      "reference_role": "evaluation_only_not_agent_input",
+      "review_status": "reviewed_for_evaluation",
+      "dataset_ref": {
+        "provider": "AI Hub",
+        "dataset_name": "교통사고 영상 데이터",
+        "dataset_key": "597",
+        "file_key": "509410",
+        "split": "Validation label video"
+      },
+      "scenario_summary": "AI-Hub 차대자전거 직선도로 영상 라벨 reference. 라벨은 작은 사고대상 recall 평가에만 사용한다.",
+      "reference_expectations": {
+        "direct_collision_partner_type": "bicycle",
+        "accident_event_required": true,
+        "expected_context": [
+          "bicycle_visible",
+          "small_target"
+        ],
+        "must_not_promote": [
+          "car_vs_person",
+          "car_vs_motorcycle",
+          "vehicle_only_when_bicycle_direct"
+        ]
+      },
+      "evaluation_focus": [
+        "direct_collision_target_accuracy",
+        "small_target_recall",
+        "bicycle_presence_pollution"
+      ],
+      "usage_policy": {
+        "agent_input_allowed": false,
+        "raw_video_commit_allowed": false,
+        "notes": "AI-Hub label reference only. Raw label ZIP and source video are not committed."
+      }
+    },
+    {
+      "id": "metrics_pedestrian_background_vehicle_collision",
+      "title": "보행자 배경이 있는 차대차 사고 reference",
+      "source_type": "public_reference_link",
+      "reference_role": "calibration_reference_only",
+      "review_status": "reviewed_for_evaluation",
+      "source_url": "https://www.youtube.com/watch?v=example-pedestrian-background",
+      "scenario_summary": "교차로 또는 횡단보도 주변에 사람이 보이지만 실제 충돌은 차량끼리 발생한 synthetic public-style reference.",
+      "reference_expectations": {
+        "direct_collision_partner_type": "vehicle",
+        "accident_event_required": true,
+        "expected_context": [
+          "intersection_context",
+          "crosswalk_context",
+          "pedestrian_visible"
+        ],
+        "must_not_promote": [
+          "car_vs_person",
+          "pedestrian_crosswalk_accident",
+          "pedestrian_collision_without_contact"
+        ]
+      },
+      "evaluation_focus": [
+        "direct_collision_target_accuracy",
+        "pedestrian_context_pollution",
+        "context_pollution_rate"
+      ],
+      "usage_policy": {
+        "agent_input_allowed": false,
+        "raw_video_commit_allowed": false,
+        "notes": "Public reference metadata only. Raw media is not downloaded or committed."
+      }
     }
   ]
 }

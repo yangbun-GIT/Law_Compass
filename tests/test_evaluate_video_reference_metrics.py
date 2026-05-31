@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from scripts.evaluate_video_reference_metrics import score_sample
+from pathlib import Path
+
+from scripts.evaluate_video_reference_metrics import aggregate, load_batch_samples, load_reference_cases, score_sample
 
 
 def test_reference_metrics_ignore_unpromoted_candidate_target_pollution() -> None:
@@ -79,3 +81,44 @@ def test_reference_metrics_do_not_treat_unconfirmed_candidate_as_direct_target()
     assert scored["actual_direct_collision_partner_type"] == "unknown"
     assert scored["direct_collision_target_passed"] is False
     assert scored["context_pollution"] is False
+
+
+def test_reference_metrics_fixture_covers_p9_3_regression_axes() -> None:
+    root = Path(__file__).resolve().parents[1]
+    references = load_reference_cases(root / "tests/fixtures/video_accuracy/reference_metrics_manifest.json")
+    samples = load_batch_samples(root / "tests/fixtures/video_accuracy/reference_metrics_batch_aggregate.json")
+    required_ids = {
+        "metrics_centerline_vehicle",
+        "metrics_intersection_signal_unknown",
+        "metrics_right_turn_front_vehicle_stop",
+        "metrics_unlit_stopped_vehicle_highway",
+        "metrics_non_contact_bicycle_trigger_rear_bus",
+        "metrics_aihub_motorcycle_intersection",
+        "metrics_aihub_bicycle_straight",
+        "metrics_pedestrian_background_vehicle_collision",
+    }
+
+    assert required_ids.issubset(references)
+    assert required_ids.issubset({sample["name"] for sample in samples})
+
+    scored = [score_sample(sample, references.get(sample["name"])) for sample in samples]
+    summary = aggregate(
+        scored,
+        {
+            "direct_collision_target_accuracy": 0.8,
+            "accident_party_accuracy": 0.8,
+            "context_pollution_rate_max": 0.0,
+            "zero_observation_rate_max": 0.2,
+            "evidence_mismatch_rate_max": 0.2,
+            "conditional_branch_coverage": 0.8,
+        },
+    )
+
+    assert summary["sample_count"] >= 8
+    assert summary["direct_collision_target_accuracy"] == 1.0
+    assert summary["accident_party_accuracy"] == 1.0
+    assert summary["context_pollution_rate"] == 0.0
+    assert summary["zero_observation_rate"] == 0.0
+    assert summary["evidence_mismatch_rate"] == 0.0
+    assert summary["conditional_branch_coverage"] == 1.0
+    assert summary["status"] == "passed"

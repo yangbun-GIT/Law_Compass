@@ -1162,16 +1162,16 @@ P5-1 완료 기록:
 | P6 | 완료 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약, P6-4 근거 표시 품질 강화 완료 |
 | P7 | 완료 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리, P7-3 결과 표시 finality 정리 완료 |
 | P8 | 완료 | P8-1 Trace id 통합, P8-2 LLM/vision 사용량 기록, P8-3 실패 관찰값 표준화 완료 |
-| P9 | 진행 중 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장 완료. 다음은 P9-3 Reference 평가 확장 |
+| P9 | 진행 중 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장, P9-3 Reference 평가 확장 완료. 다음은 P9-4 CI/검증 명령 정리 |
 | P10 | 대기 | 표준 MCP 도입 판단 |
 | P11 | 대기 | 문서/인수인계/발표 정합성 |
 | P12 | 대기 | 최종 구조 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P9-3. Reference 평가 확장**부터 진행한다.
+다음 개발은 **P9-4. CI/검증 명령 정리**부터 진행한다.
 
-P9-3을 시작할 때는 사고 1~5, AI-Hub label reference, 공개 영상 metadata reference, synthetic contamination fixture, 보행자 배경 오염, 신호 불확실성, 중앙선 장애물 회피, 자전거/이륜차 작은 대상, 무등화 정차차량 reference 평가가 반복 가능한 명령으로 실행되는지 확인하고 확장한다.
+P9-4를 시작할 때는 로컬 빠른 검증, Docker 기반 검증, OpenAI/YOLO ON 실제 검증, 비용 발생 검증, 문서만 변경 검증 명령을 한곳에서 확인할 수 있도록 정리한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1303,3 +1303,12 @@ P9-3을 시작할 때는 사고 1~5, AI-Hub label reference, 공개 영상 metad
 - OpenAI/YOLO가 꺼진 영상 입력은 확정 fact를 만들지 않고 `frame_rich_no_actionable_observation` 복구 계획을 제공한다.
 - 검증은 Agent 컨테이너에서 `python -m pytest tests/test_orchestrator_e2e_modes.py -q`로 완료했다.
 - 다음 개발은 **P9-3 Reference 평가 확장**이다.
+
+### 2026-05-31 P9-3 진행 기록
+
+- P9-3 Reference 평가 확장 완료: `reference_metrics_manifest.json`과 `reference_metrics_batch_aggregate.json`을 사고 1~5 축, AI-Hub label reference, 공개 영상 metadata reference, synthetic contamination fixture 기준으로 확장했다.
+- 추가된 reference 축은 중앙선 장애물 회피, 교차로 신호 불확실성, 우회전 중 앞차 정차 후 후방 추돌, 무등화 정차차량, 자전거 비접촉 유발 후 후방 추돌, AI-Hub 이륜차/자전거 작은 대상, 보행자 배경 차대차 사고다.
+- `evaluate_video_reference_metrics.py`는 right turn, crosswalk, front vehicle stop, unlit stopped vehicle, highway, speed uncertainty, non-contact trigger, bicycle/motorcycle small target, rear bus collision context alias를 평가할 수 있게 확장했다.
+- reference fixture는 Agent 입력 payload를 포함하지 않고, AI-Hub 원천 라벨/영상과 공개 영상 원본은 Git에 올리지 않는다.
+- 검증은 reference manifest preflight, video reference metrics threshold, 관련 pytest 7개로 완료했다.
+- 다음 개발은 **P9-4 CI/검증 명령 정리**다.

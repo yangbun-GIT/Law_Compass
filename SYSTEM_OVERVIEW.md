@@ -1,5 +1,21 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P9-3 Reference 평가 확장
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P9-3 단계를 완료했다. 이번 변경은 영상·입력 사실 추출이 특정 테스트 영상에 맞춰지는 것을 막기 위해 reference 평가 fixture를 사고 1~5 축, AI-Hub 라벨 축, 공개 reference metadata 축, synthetic contamination 축으로 확장한 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 사고 1~5 reference 축 | 중앙선 장애물 회피, 교차로 신호 불확실성, 우회전 중 앞차 정차 후 후방 추돌, 무등화 정차차량 추돌, 자전거 비접촉 유발 후 후방 추돌을 `reference_metrics_manifest.json`과 batch aggregate fixture에 반영했다. |
+| AI-Hub label reference | AI-Hub 597 교통사고 영상 데이터의 이륜차/자전거 validation label file key를 reference manifest에 넣었다. 라벨은 평가 전용이며 Agent 입력 fact로 주입하지 않는다. |
+| 공개 영상 metadata reference | 공개 reference 링크 형태의 보행자 배경 차대차 사고 fixture를 추가했다. 원본 영상 다운로드나 설명란 원문 커밋 없이 metadata reference만 남긴다. |
+| 오염 방지 평가 | 보행자 배경, 신호 불확실성, 중앙선 장애물 회피, 작은 대상 recall, 무등화/시야/속도 맥락이 context pollution 없이 평가되도록 `evaluate_video_reference_metrics.py` alias를 확장했다. |
+| 평가 기준 | direct collision target accuracy, accident party accuracy, context pollution rate, zero observation rate, evidence mismatch rate, conditional branch coverage가 fixture 기준 `passed` 상태다. |
+
+검증은 `python scripts/validate_reference_case_manifest.py --manifest tests/fixtures/video_accuracy/reference_metrics_manifest.json`, `python scripts/evaluate_video_reference_metrics.py --reference-manifest tests/fixtures/video_accuracy/reference_metrics_manifest.json --batch-aggregate tests/fixtures/video_accuracy/reference_metrics_batch_aggregate.json --fail-on-threshold`, `python -m pytest tests/test_evaluate_video_reference_metrics.py tests/test_reference_case_manifest_policy.py tests/test_validate_video_accuracy_manifest.py -q`로 완료했다.
+
+P9-3은 reference 평가 축을 확장한 단계다. 다음 P9-4에서는 로컬 빠른 검증, Docker 기반 검증, OpenAI/YOLO ON 실제 검증, 비용 발생 검증, 문서만 변경 검증 명령을 한곳에 정리한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P9-2 E2E 테스트 확장
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P9-2 단계를 완료했다. 이번 변경은 개별 단위 계약이 실제 Agent orchestration 경로에서도 유지되는지 확인하기 위해 텍스트만, 영상만, 텍스트+영상, 보완 답변 후 재분석, KNIA 기준 존재/누락, OpenAI/YOLO ON/OFF fallback 흐름을 E2E 테스트로 고정한 작업이다.

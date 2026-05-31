@@ -37,17 +37,32 @@ CONTEXT_ALIASES = {
     "oncoming_vehicle": ["oncoming", "마주", "대향"],
     "secondary_rear_collision": ["secondary", "2차", "후속", "rear"],
     "intersection_context": ["intersection", "교차로"],
+    "right_turn_context": ["right turn", "right_turn", "우회전"],
+    "crosswalk_context": ["crosswalk", "횡단보도"],
+    "front_vehicle_stop": ["front vehicle", "앞차", "선행", "front stop", "정차"],
+    "pedestrian_signal_red": ["pedestrian signal", "보행자 신호", "red", "빨간불", "적색"],
     "ego_signal_timing": ["signal", "신호", "황색", "적색", "녹색"],
     "opponent_signal_unknown": ["opponent signal", "상대 신호", "신호"],
+    "unlit_stopped_vehicle": ["unlit", "무등화", "스텔스", "stopped vehicle", "정차 차량"],
+    "highway_context": ["highway", "expressway", "고속도로", "자동차전용도로"],
+    "speed_uncertain": ["speed", "속도", "과속", "speed evidence"],
+    "non_contact_trigger": ["non contact", "non-contact", "비접촉", "trigger", "유발"],
+    "bicycle_trigger": ["bicycle", "bike", "자전거"],
+    "rear_bus_collision": ["bus", "버스", "rear", "후방"],
     "vehicle_visible": ["vehicle", "차량"],
     "pedestrian_visible": ["pedestrian", "보행자", "사람"],
+    "motorcycle_visible": ["motorcycle", "two-wheeled", "two_wheeled", "이륜차", "오토바이"],
+    "bicycle_visible": ["bicycle", "bike", "자전거"],
+    "small_target": ["motorcycle", "bicycle", "two-wheeled", "작은 대상", "이륜차", "자전거"],
 }
 CONDITIONAL_BRANCH_ALIASES = {
     "signal": ["signal", "traffic light", "opponent signal", "신호", "황색", "적색", "녹색"],
     "centerline": ["centerline", "중앙선", "침범", "obstacle", "parked", "주정차", "장애물"],
     "non_contact": ["non contact", "non-contact", "비접촉", "유발", "trigger", "bicycle", "자전거"],
-    "rear_stop": ["rear", "rear-end", "stopped", "sudden brake", "후방", "추돌", "정차", "급정거"],
+    "rear_stop": ["rear", "rear-end", "stopped", "front vehicle", "sudden brake", "후방", "추돌", "정차", "급정거", "앞차", "선행"],
     "collision_target": ["collision target", "direct collision", "partner", "사고 대상", "직접 충돌", "충돌 대상"],
+    "unlit": ["unlit", "무등화", "스텔스", "night", "dark", "visibility", "시야"],
+    "small_target": ["bicycle", "motorcycle", "two-wheeled", "자전거", "이륜차", "오토바이", "작은 대상"],
 }
 
 
