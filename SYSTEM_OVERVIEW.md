@@ -1,5 +1,23 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P6-2 조건부 판단 강화
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P6-2 단계를 완료했다. 이번 변경은 상대 신호, 중앙선 침범 사유, 정차 사유, 무등화·시야·속도, 비접촉 유발, 2차 충돌처럼 결론이 조건에 따라 갈리는 사고를 단일 50:50 fallback으로 접지 않고 조건부 결과와 확인 필요 fact로 분리하는 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 조건부 판단 모듈 | `apps/agent/app/services/conditional_judgment.py`를 추가해 사고 조건별 분기 결과를 `conditional_outcomes`, `conditional_judgment`, `conditional_required_facts`로 만든다. |
+| 신호 불확실성 | 교차로 사고에서 상대 신호가 보이지 않으면 상대 정상 신호/상대 신호위반 두 조건을 분리한다. |
+| 중앙선·정차 사유 | 중앙선 침범 사유가 불명확하면 장애물 회피와 무리한 침범 조건을 나누고, 후방추돌 정차 사유가 불명확하면 정당한 정차와 이유 없는 급정차 조건을 나눈다. |
+| 무등화·비접촉·2차 충돌 | 스텔스 정차 차량, 과속/시야, 자전거 등 비접촉 유발, 1차/2차 충돌 분리도 조건부 결과로 남긴다. |
+| 과실비율 연결 | `fault_ratio_analyst.py`가 기존 산정 결과를 유지하면서 조건부 결과를 additive로 병합한다. 확인 사실이 부족한 일반 50:50 fallback은 `conditional_fact_gap`으로 표시한다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API, 환경변수 키를 변경하지 않는다. 사용자 표시 계층은 기존 conditional outcome card 계약을 그대로 사용하며, Agent 결과 payload에 조건부 판단 metadata가 추가된다.
+
+검증은 `docker compose exec -T agent python -m pytest tests/test_conditional_judgment.py tests/test_fault_knia_axis_generalization.py tests/test_orchestrator.py tests/test_judgment_contract.py`와 `docker compose exec -T agent python -m compileall app/services/conditional_judgment.py app/services/analysts/fault_ratio_analyst.py`로 완료했다.
+
+P6-2는 불확실성을 숨기지 않고 조건부 결과로 드러내는 단계다. 다음 P6-3에서는 과실비율 결과 계약을 더 강화해 단일 숫자보다 기본 범위, 조정 가능성, 확인 필요 요소가 일관되게 전달되도록 정리한다.
+
 ## 2026-05-31 P6 진행 상태 문서 정합성 보강
 
 Agent/MCP/Task-Plan-Goal 로드맵의 진행 상태 표와 바로 다음 작업 문구를 실제 완료 상태에 맞게 갱신했다. 기존 표에는 P5가 진행 중, P6가 대기로 남아 있었지만 현재 유효 상태는 P5 완료, P6-1 완료, 다음 작업 P6-2 조건부 판단 강화다.

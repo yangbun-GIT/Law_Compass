@@ -1159,7 +1159,7 @@ P5-1 완료 기록:
 | P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
 | P4 | 완료 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter, P4-3 persona/prompt version registry, P4-4 Agent consensus/conflict packet 완료 |
 | P5 | 완료 | P5-1 사고 기점 탐지, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 완료 |
-| P6 | 진행 중 | P6-1 사고축 기반 evidence routing 완료. 다음은 P6-2 조건부 판단 강화 |
+| P6 | 진행 중 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화 완료. 다음은 P6-3 과실비율 결과 계약 강화 |
 | P7 | 대기 | Gateway/Frontend 표시 계약 |
 | P8 | 대기 | 관측성/비용/운영 리스크 |
 | P9 | 대기 | 테스트/평가 체계 |
@@ -1169,9 +1169,9 @@ P5-1 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P6-2. 조건부 판단 강화**부터 진행한다.
+다음 개발은 **P6-3. 과실비율 결과 계약 강화**부터 진행한다.
 
-P6-2를 시작할 때는 상대 신호 미확인, 중앙선 침범 사유 미확인, 정차 사유 미확인, 과속·무등화 정차차량·2차 충돌·비접촉 유발처럼 결론이 조건에 따라 갈리는 사고를 단일 50:50 fallback으로 처리하지 않는다. 확인된 사실로 가능한 범위를 제시하고, 결론이 달라지는 핵심 조건은 시나리오별 예상 과실과 확인 질문으로 분리한다.
+P6-3을 시작할 때는 과실비율 결과가 단일 숫자만 앞세우지 않도록 기본 범위, 조정 가능성, 확인 필요 요소, 근거 부족 fallback 여부를 같은 계약으로 정리한다. 근거가 충분한 사고는 사고축 기준 범위를 제시하고, 근거가 부족한 경우에만 일반 50:50 fallback으로 남긴다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1210,3 +1210,11 @@ P6-2를 시작할 때는 상대 신호 미확인, 중앙선 침범 사유 미확
 - 중앙선 사고에서 `차43` 전체를 무조건 제거하던 기존 필터를 보정해, 실제 진로/차선변경 축인 `차43`만 제외하도록 했다.
 - 검증은 `tests/test_evidence_axis_router.py`, `tests/test_fault_knia_axis_generalization.py`, `tests/test_orchestration_evidence_filter.py`, `tests/test_orchestrator.py`, `tests/test_judgment_contract.py`, `tests/test_evidence_quality_gate.py`, `tests/test_evidence_source_status.py`, `tests/test_agent_task_packets.py`, `tests/test_agent_goal_aggregator.py`, `tests/test_specialist_agent_runners.py`, `tests/test_specialist_role_definitions.py`와 compileall로 완료했다.
 - 다음 개발은 **P6-2 조건부 판단 강화**다. 상대 신호, 중앙선 침범 사유, 정차 사유, 속도·무등화·2차 충돌처럼 결론이 조건부로 갈리는 상황을 단일 50:50 fallback이 아니라 조건부 결과로 분리한다.
+
+### 2026-05-31 P6-2 진행 기록
+
+- P6-2 조건부 판단 강화 완료: `conditional_judgment` 모듈을 추가해 상대 신호, 중앙선 침범 사유, 정차 사유, 무등화·시야·속도, 비접촉 유발, 2차 충돌을 조건부 결과와 확인 필요 fact로 분리한다.
+- `fault_ratio_analyst`는 기존 과실 산정 결과를 유지하면서 `conditional_outcomes`, `conditional_judgment`, `conditional_required_facts`를 additive로 붙인다. 일반 50:50 fallback이 필요한 경우에도 조건부 분기가 있으면 `conditional_fact_gap`으로 구분한다.
+- 특정 사고 영상에 맞춘 hard-coded 결과가 아니라, 사고축과 미확인 fact 조합에 따라 범용적으로 조건부 결과를 만든다.
+- 검증은 `tests/test_conditional_judgment.py`, `tests/test_fault_knia_axis_generalization.py`, `tests/test_orchestrator.py`, `tests/test_judgment_contract.py`와 compileall로 완료했다.
+- 다음 개발은 **P6-3 과실비율 결과 계약 강화**다. 단일 숫자보다 기본 범위, 조정 가능성, 확인 필요 요소, 근거 부족 fallback 여부가 일관되게 표시되도록 결과 계약을 정리한다.

@@ -12,6 +12,7 @@ from app.services.accident_perspective import (
     STRAIGHT_VEHICLE,
     infer_user_vehicle_role,
 )
+from app.services.conditional_judgment import build_conditional_judgment, merge_conditional_outcomes
 from app.services.llm_client import generate_fault_ratio_analysis
 from app.services.llm_policy import attach_llm_usage, evaluate_llm_usage, mark_llm_output_unavailable
 
@@ -155,9 +156,33 @@ def analyze_fault_ratio(
             "기본적으로 뒤차 과실이 높게 검토되지만, 이유 없는 급정지, 제동등 고장, 비정상 정차, 선행사고 후 도로상 정차, 야간 무등화, 시야장애 여부는 추가 확인이 필요합니다."
         ]
         payload["adjustment_review_factors"] = ["급정지", "제동등", "비정상 정차", "선행사고 후 정차", "야간 무등화", "시야장애"]
-    if conditional_outcomes:
-        payload["conditional_outcomes"] = conditional_outcomes
-        payload["basis"] = "상대 차량 신호가 확인되지 않은 교차로 사고라서, 신호 조건별 과실 범위를 나누어 제시한 참고용 추정입니다."
+    conditional_judgment = build_conditional_judgment(scenario_type=scenario_type, facts=facts, text=text)
+    if conditional_judgment.get("outcomes"):
+        payload["conditional_judgment"] = conditional_judgment
+        payload["conditional_outcomes"] = merge_conditional_outcomes(
+            payload.get("conditional_outcomes") or [],
+            conditional_judgment["outcomes"],
+        )
+        payload["conditional_required_facts"] = list(
+            dict.fromkeys(
+                field
+                for trigger in conditional_judgment.get("triggers") or []
+                for field in (trigger.get("required_facts") or [])
+            )
+        )
+        if payload.get("fault_estimate_source") == "scenario_default" and payload.get("my") == 50 and payload.get("other") == 50:
+            payload["fault_estimate_source"] = "conditional_fact_gap"
+            payload["basis"] = "현재 확인된 사실만으로 단일 과실비율을 확정하기 어렵지만, 결론이 달라지는 핵심 조건을 시나리오별로 나누어 제시합니다."
+            payload["fault_range"] = {"my": "조건별 확인 필요", "other": "조건별 확인 필요"}
+    if payload.get("conditional_outcomes"):
+        trigger_types = {str(item.get("type") or "") for item in (conditional_judgment.get("triggers") or [])}
+        if signal_uncertainty or "opponent_signal_uncertainty" in trigger_types:
+            payload["basis"] = "상대 차량 신호가 확인되지 않은 교차로 사고라서, 신호 조건별 과실 범위를 나누어 제시한 참고용 추정입니다."
+        elif payload.get("fault_estimate_source") != "conditional_fact_gap":
+            payload["basis"] = (
+                f"{payload.get('basis') or '사고 사실 기반 참고용 과실 추정입니다.'} "
+                "다만 결론이 달라지는 핵심 조건은 조건부 결과로 분리했습니다."
+            ).strip()
     return attach_llm_usage(guard_fault_ratio_output(payload, evidence), llm_usage, used=False)
 
 
