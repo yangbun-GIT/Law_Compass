@@ -1,5 +1,21 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P8-3 실패 관찰값 표준화
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P8-3 단계를 완료했다. 이번 변경은 OpenAI 프레임 분석, YOLO 보조 관찰, Agent LLM 정책에서 실패·비활성·설정 누락·JSON parse 실패가 조용한 성공처럼 보이지 않도록 `failure_observations` 안전 관찰값을 남기는 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| OpenAI 프레임 분석 | 비활성화, 대표 프레임 없음, API 키 없음, 호출 실패, retry 실패, JSON parse 실패를 `failure-observation-v1` 형태로 기록한다. raw provider 오류는 관리자 영상 전처리 진단 payload에 직접 노출하지 않고 `error_type`, `safe_message`, `fallback_reason`으로 요약한다. |
+| YOLO 보조 관찰 | 비활성화, 대표 프레임 없음, 모델 경로 없음, ultralytics module 없음, predict 실패를 `failure_observations`로 남긴다. YOLO는 계속 사고 판단 모델이 아니라 객체 후보 관찰 모델로만 취급한다. |
+| Agent LLM 정책 | LLM 결과가 없거나 거절된 경우 `llm_output_unavailable` 실패 관찰값을 표준 필드(`version`, `code`, `source`, `stage`, `severity`, `safe_message`)와 함께 남긴다. |
+| 관리자 진단 | Agent trace diagnostic은 LLM failure observation 요약을, video preprocess diagnostic은 OpenAI/YOLO failure observation 요약을 제공한다. 사용자 원문, raw prompt, API key, token, provider raw stack은 포함하지 않는다. |
+| 저장 경계 | 새 DB table이나 column은 추가하지 않았다. 기존 JSON metadata와 diagnostic payload 안에 additive로 보존한다. |
+
+검증은 Worker에서 `python -m unittest discover -s tests -p "test_frame_analysis_contract.py"`, `python -m unittest discover -s tests -p "test_yolo_frame_analysis_contract.py"`, `python -m py_compile worker/frame_analysis.py worker/frame_analysis_usage.py worker/yolo_frame_analysis.py`, Gateway에서 `npm test -- --run agent-diagnostics.test.ts video-preprocess-diagnostics.test.ts`, `npm run build`, Agent 컨테이너에서 `python -m pytest tests/test_llm_policy.py tests/test_mcp_tool_executor.py -q`, `python -m compileall app/services/llm_policy.py app/mcp/tool_executor.py`로 완료했다.
+
+P8-3은 실패/fallback 관측성을 정리한 단계다. 다음 P9-1에서는 Task/Plan, MCP tool, Specialist result, Video input, Evidence routing, Fault ratio branch, Presentation sanitization 단위 테스트를 확장한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P8-2 LLM/Vision 사용량 기록
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P8-2 단계를 완료했다. 이번 변경은 OpenAI 프레임 분석, YOLO 보조 관찰, Agent LLM 정책, 관리자 진단 payload가 비용과 운영 점검에 필요한 안전 사용량 metadata를 남기도록 보강한 작업이다.

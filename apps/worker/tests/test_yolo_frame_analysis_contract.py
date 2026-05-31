@@ -69,6 +69,8 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
         self.assertFalse(result["ai_usage_event"]["enabled"])
         self.assertFalse(result["ai_usage_event"]["success"])
         self.assertEqual(result["ai_usage_event"]["fallback_reason"], "disabled")
+        self.assertEqual(result["failure_observations"][0]["code"], "yolo_frame_analysis_disabled")
+        self.assertIn("safe_message", result["failure_observations"][0])
 
     def test_enabled_without_model_path_returns_configuration_reason(self):
         yolo_frame_analysis.ENABLE_YOLO_FRAME_ANALYSIS = True
@@ -85,6 +87,8 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
         self.assertFalse(result["enabled"])
         self.assertEqual(result["reason"], "YOLO_MODEL_PATH is empty")
         self.assertEqual(result["ai_usage_event"]["fallback_reason"], "model_path_missing")
+        self.assertEqual(result["failure_observations"][0]["code"], "yolo_model_path_missing")
+        self.assertEqual(result["failure_observations"][0]["fallback_reason"], "model_path_missing")
 
     def test_yolo_candidates_are_capped_below_agent_fact_threshold(self):
         observations = yolo_frame_analysis._observation_candidates(

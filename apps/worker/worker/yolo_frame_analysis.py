@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from worker.frame_analysis_usage import safe_failure_observation
 from worker.frame_observations import expand_two_wheeler_subtype_uncertainty
 
 
@@ -50,6 +51,31 @@ MOBILE_TARGET_CLASSES = set().union(*TARGET_CLASS_GROUPS.values())
 OVERLAY_NOISE_CLASSES = {"person"}
 
 
+def _yolo_failure_observation(
+    code: str,
+    stage: str,
+    safe_message: str,
+    *,
+    severity: str = "warning",
+    fallback_reason: str = "",
+    error_type: str = "",
+    retryable: bool = False,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return safe_failure_observation(
+        code=code,
+        source="yolo_frame_analysis",
+        stage=stage,
+        safe_message=safe_message,
+        severity=severity,
+        recoverable=True,
+        retryable=retryable,
+        fallback_reason=fallback_reason,
+        error_type=error_type,
+        metadata=metadata,
+    )
+
+
 def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[str, Any]) -> dict[str, Any]:
     started = time.perf_counter()
     selected_frames = _select_yolo_frames(frame_details, YOLO_FRAME_ANALYSIS_MAX_FRAMES)
@@ -60,6 +86,12 @@ def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[
             "enabled": False,
             "reason": "ENABLE_YOLO_FRAME_ANALYSIS is not 1",
             **selection_metadata,
+            "failure_observations": [_yolo_failure_observation(
+                "yolo_frame_analysis_disabled",
+                "configuration",
+                "YOLO 보조 관찰이 비활성화되어 객체 후보를 만들지 않았습니다.",
+                fallback_reason="disabled",
+            )],
         }, enabled=False, success=False, frame_details=frame_details, selected_frames=selected_frames, started=started, fallback_reason="disabled")
     if not selected_frames:
         return _with_yolo_usage_event({
@@ -67,6 +99,13 @@ def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[
             "enabled": False,
             "reason": "no frames extracted",
             **selection_metadata,
+            "failure_observations": [_yolo_failure_observation(
+                "frame_extraction_empty",
+                "frame_selection",
+                "분석할 대표 프레임이 없어 YOLO 객체 후보를 만들지 못했습니다.",
+                fallback_reason="no_frames_extracted",
+                retryable=True,
+            )],
         }, enabled=False, success=False, frame_details=frame_details, selected_frames=selected_frames, started=started, fallback_reason="no_frames_extracted")
     if not YOLO_MODEL_PATH:
         return _with_yolo_usage_event({
@@ -74,6 +113,12 @@ def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[
             "enabled": False,
             "reason": "YOLO_MODEL_PATH is empty",
             **selection_metadata,
+            "failure_observations": [_yolo_failure_observation(
+                "yolo_model_path_missing",
+                "configuration",
+                "YOLO 모델 경로가 설정되지 않아 객체 후보를 만들지 못했습니다.",
+                fallback_reason="model_path_missing",
+            )],
         }, enabled=False, success=False, frame_details=frame_details, selected_frames=selected_frames, started=started, fallback_reason="model_path_missing")
     try:
         from ultralytics import YOLO
@@ -87,6 +132,13 @@ def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[
             **selection_metadata,
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "observations": [],
+            "failure_observations": [_yolo_failure_observation(
+                "yolo_module_missing",
+                "model_load",
+                "YOLO 실행 모듈을 불러오지 못해 객체 후보를 만들지 못했습니다.",
+                fallback_reason="module_missing",
+                error_type=type(exc).__name__,
+            )],
             "created_at": _now_iso(),
         }, enabled=True, success=False, frame_details=frame_details, selected_frames=selected_frames, started=started, fallback_reason="module_missing", error=str(exc))
     try:
@@ -118,6 +170,15 @@ def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[
             **selection_metadata,
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "observations": [],
+            "failure_observations": [_yolo_failure_observation(
+                "yolo_frame_analysis_failed",
+                "prediction",
+                "YOLO 객체 후보 분석이 실패했습니다.",
+                severity="error",
+                fallback_reason="yolo_error",
+                error_type=type(exc).__name__,
+                retryable=True,
+            )],
             "created_at": _now_iso(),
         }, enabled=True, success=False, frame_details=frame_details, selected_frames=selected_frames, started=started, fallback_reason="yolo_error", error=str(exc))
 

@@ -152,9 +152,14 @@ def mark_llm_output_unavailable(usage: dict[str, Any], *, stage: str) -> dict[st
         **usage,
         "reason": "llm_output_unavailable",
         "failure_observation": {
+            "version": "failure-observation-v1",
+            "code": "llm_output_unavailable",
+            "source": "agent_llm_policy",
             "type": "llm_output_unavailable",
             "stage": stage,
+            "severity": "warning",
             "recoverable": True,
+            "retryable": False,
             "safe_message": "LLM output was unavailable or rejected, so deterministic fallback was used.",
         },
     }

@@ -1,6 +1,53 @@
 from typing import Any, Callable
 
 
+FAILURE_OBSERVATION_VERSION = "failure-observation-v1"
+
+
+def safe_failure_observation(
+    *,
+    code: str,
+    source: str,
+    stage: str,
+    safe_message: str,
+    severity: str = "warning",
+    recoverable: bool = True,
+    retryable: bool = False,
+    fallback_reason: str = "",
+    error_type: str = "",
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    observation: dict[str, Any] = {
+        "version": FAILURE_OBSERVATION_VERSION,
+        "code": safe_token(code, "unknown_failure"),
+        "source": safe_token(source, "unknown"),
+        "stage": safe_token(stage, "unknown"),
+        "severity": safe_token(severity, "warning"),
+        "recoverable": bool(recoverable),
+        "retryable": bool(retryable),
+        "safe_message": safe_message.strip() or "분석 과정에서 확인 가능한 오류가 발생했습니다.",
+    }
+    if fallback_reason:
+        observation["fallback_reason"] = safe_token(fallback_reason, "fallback")
+    if error_type:
+        observation["error_type"] = safe_token(error_type, "error")
+    safe_metadata = sanitize_metadata(metadata or {})
+    if safe_metadata:
+        observation["metadata"] = safe_metadata
+    return observation
+
+
+def extend_failure_observations(result: dict[str, Any], observations: list[dict[str, Any]]) -> dict[str, Any]:
+    if not observations:
+        return result
+    existing = result.get("failure_observations")
+    merged = [item for item in existing if isinstance(item, dict)] if isinstance(existing, list) else []
+    merged.extend(observations)
+    updated = dict(result)
+    updated["failure_observations"] = merged
+    return updated
+
+
 def openai_usage(data: dict[str, Any]) -> dict[str, Any]:
     raw = data.get("usage")
     if not isinstance(raw, dict):
@@ -131,3 +178,32 @@ def usage_int(value: Any) -> int:
     except (TypeError, ValueError):
         return 0
     return max(0, number)
+
+
+def safe_token(value: Any, fallback: str) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return fallback
+    allowed = []
+    for char in text[:80]:
+        if char.isalnum() or char in {"_", "-", ".", ":"}:
+            allowed.append(char)
+        elif char.isspace():
+            allowed.append("_")
+    cleaned = "".join(allowed).strip("_")
+    return cleaned or fallback
+
+
+def sanitize_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    safe: dict[str, Any] = {}
+    for key, value in metadata.items():
+        safe_key = safe_token(key, "")
+        if not safe_key:
+            continue
+        if isinstance(value, bool) or value is None:
+            safe[safe_key] = value
+        elif isinstance(value, (int, float)):
+            safe[safe_key] = value
+        elif isinstance(value, str):
+            safe[safe_key] = safe_token(value, "value")[:80]
+    return safe

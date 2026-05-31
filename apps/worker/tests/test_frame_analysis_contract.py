@@ -58,6 +58,8 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(result["available_frame_count"], 3)
         self.assertEqual(result["selected_frame_count"], 0)
         self.assertEqual(result["frame_selection_strategy"], frame_analysis.FRAME_SELECTION_STRATEGY)
+        self.assertEqual(result["failure_observations"][0]["code"], "openai_frame_analysis_disabled")
+        self.assertIn("safe_message", result["failure_observations"][0])
 
     def test_fixture_mode_returns_contract_observations_without_api_key(self):
         frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
@@ -100,6 +102,56 @@ class FrameAnalysisContractTest(unittest.TestCase):
 
         self.assertFalse(result["enabled"])
         self.assertEqual(result["reason"], "OPENAI_API_KEY is empty")
+        self.assertEqual(result["failure_observations"][0]["code"], "openai_api_key_missing")
+        self.assertEqual(result["failure_observations"][0]["fallback_reason"], "api_key_missing")
+
+    def test_openai_failure_returns_safe_failure_observation(self):
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            raise ValueError("provider returned raw stack with secret token")
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_ERROR_RETRY = True
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frame_path = Path(tmp) / "frame_001.jpg"
+            frame_path.write_bytes(b"exists")
+            result = frame_analysis.analyze_frames_with_openai(
+                [{"path": str(frame_path), "time_sec": 0.5, "role": "early"}],
+                {},
+            )
+
+        codes = {item["code"] for item in result["failure_observations"]}
+        self.assertIn("openai_frame_analysis_attempt_failed", codes)
+        self.assertIn("openai_frame_analysis_unavailable", codes)
+        self.assertEqual(result["failure_observations"][0]["error_type"], "valueerror")
+        self.assertNotIn("secret token", json.dumps(result["failure_observations"]))
+
+    def test_openai_json_parse_failure_is_observable(self):
+        def fake_post_json(url, payload, headers=None, timeout=25):
+            return {"id": "resp-bad-json", "status": "completed", "output_text": "not json"}
+
+        frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True
+        frame_analysis.FRAME_ANALYSIS_FIXTURE_MODE = ""
+        frame_analysis.OPENAI_API_KEY = "test-key"
+        frame_analysis.OPENAI_FRAME_ANALYSIS_ZERO_OBSERVATION_RETRY = False
+        frame_analysis.OPENAI_FRAME_ANALYSIS_TARGET_RETRY = False
+        frame_analysis.OPENAI_FRAME_ANALYSIS_RETRY_MIN_FRAMES = 6
+        frame_analysis._post_json = fake_post_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = []
+            for index in range(1, 7):
+                frame_path = Path(tmp) / f"frame_{index:03d}.jpg"
+                frame_path.write_bytes(b"exists")
+                frames.append({"path": str(frame_path), "time_sec": index, "role": "time_sequence"})
+            result = frame_analysis.analyze_frames_with_openai(frames, {})
+
+        self.assertEqual(result["analysis_attempts"][0]["parse_status"], "failed")
+        self.assertEqual(result["failure_observations"][0]["code"], "openai_frame_analysis_json_parse_failed")
+        self.assertEqual(result["failure_observations"][0]["safe_message"], "OpenAI 프레임 분석 응답을 구조화된 JSON으로 해석하지 못했습니다.")
 
     def test_held_quality_fixture_returns_low_confidence_observation(self):
         frame_analysis.ENABLE_OPENAI_FRAME_ANALYSIS = True

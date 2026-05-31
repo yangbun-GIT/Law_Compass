@@ -106,6 +106,19 @@ describe("agent diagnostics", () => {
             token_usage_available: false,
             usage_event_version: "ai-usage-event-v1",
           },
+          failure_observations: [
+            {
+              section: "fault_ratio_analysis",
+              version: "failure-observation-v1",
+              code: "llm_output_unavailable",
+              source: "agent_llm_policy",
+              stage: "fault_ratio_analysis",
+              severity: "warning",
+              recoverable: true,
+              retryable: false,
+              safe_message: "LLM output was unavailable or rejected, so deterministic fallback was used.",
+            },
+          ],
           sections: {
             fault_ratio_analysis: {
               ai_usage_event: {
@@ -143,6 +156,8 @@ describe("agent diagnostics", () => {
     expect(diagnostic.usage.blocked_section_count).toBe(1);
     expect(diagnostic.usage.section_events[0].model).toBe("gpt-4.1-mini");
     expect(diagnostic.usage.section_events[0].token_usage_available).toBe(false);
+    expect(diagnostic.usage.failure_observation_count).toBe(1);
+    expect(diagnostic.usage.failure_observations[0].code).toBe("llm_output_unavailable");
     expect(JSON.stringify(diagnostic)).not.toContain("driver@example.com");
     expect(JSON.stringify(diagnostic)).not.toContain("secret-token");
     expect(JSON.stringify(diagnostic)).not.toContain("law-1");

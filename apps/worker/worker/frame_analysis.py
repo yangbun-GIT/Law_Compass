@@ -6,7 +6,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from worker.frame_analysis_usage import aggregate_attempt_usage, openai_usage, with_openai_usage_event
+from worker.frame_analysis_usage import (
+    aggregate_attempt_usage,
+    openai_usage,
+    safe_failure_observation,
+    with_openai_usage_event,
+)
 from worker.frame_observations import (
     as_float,
     derive_accident_event_summary_from_observations,
@@ -103,6 +108,31 @@ CONTACT_EVIDENCE_FIELDS = {
 }
 
 
+def _openai_failure_observation(
+    code: str,
+    stage: str,
+    safe_message: str,
+    *,
+    severity: str = "warning",
+    fallback_reason: str = "",
+    error_type: str = "",
+    retryable: bool = False,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return safe_failure_observation(
+        code=code,
+        source="openai_frame_analysis",
+        stage=stage,
+        safe_message=safe_message,
+        severity=severity,
+        recoverable=True,
+        retryable=retryable,
+        fallback_reason=fallback_reason,
+        error_type=error_type,
+        metadata=metadata,
+    )
+
+
 def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dict[str, Any]) -> dict[str, Any]:
     if not ENABLE_OPENAI_FRAME_ANALYSIS:
         return _with_openai_usage_event({
@@ -110,12 +140,31 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "enabled": False,
             "reason": "ENABLE_OPENAI_FRAME_ANALYSIS is not 1",
             **_frame_selection_metadata(frame_details, []),
+            "failure_observations": [_openai_failure_observation(
+                "openai_frame_analysis_disabled",
+                "configuration",
+                "OpenAI 프레임 분석이 비활성화되어 영상 관찰값을 만들지 않았습니다.",
+                fallback_reason="disabled",
+                retryable=False,
+            )],
         }, enabled=False, success=False, frame_details=frame_details, selected_frames=[], fallback_reason="disabled")
     selected_frames = _select_openai_frames(frame_details, OPENAI_FRAME_ANALYSIS_MAX_FRAMES)
     selection_metadata = _frame_selection_metadata(frame_details, selected_frames)
     if not selected_frames:
         return _with_openai_usage_event(
-            {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "no frames extracted", **selection_metadata},
+            {
+                "version": FRAME_ANALYSIS_CONTRACT_VERSION,
+                "enabled": False,
+                "reason": "no frames extracted",
+                **selection_metadata,
+                "failure_observations": [_openai_failure_observation(
+                    "frame_extraction_empty",
+                    "frame_selection",
+                    "분석할 대표 프레임이 없어 OpenAI 프레임 관찰값을 만들지 못했습니다.",
+                    fallback_reason="no_frames_extracted",
+                    retryable=True,
+                )],
+            },
             enabled=False,
             success=False,
             frame_details=frame_details,
@@ -126,7 +175,19 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
         return _fixture_frame_analysis(selected_frames, context, FRAME_ANALYSIS_FIXTURE_MODE, selection_metadata)
     if not OPENAI_API_KEY:
         return _with_openai_usage_event(
-            {"version": FRAME_ANALYSIS_CONTRACT_VERSION, "enabled": False, "reason": "OPENAI_API_KEY is empty", **selection_metadata},
+            {
+                "version": FRAME_ANALYSIS_CONTRACT_VERSION,
+                "enabled": False,
+                "reason": "OPENAI_API_KEY is empty",
+                **selection_metadata,
+                "failure_observations": [_openai_failure_observation(
+                    "openai_api_key_missing",
+                    "configuration",
+                    "OpenAI API 키가 없어 프레임 분석을 실행하지 못했습니다.",
+                    fallback_reason="api_key_missing",
+                    retryable=False,
+                )],
+            },
             enabled=False,
             success=False,
             frame_details=frame_details,
@@ -164,7 +225,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                 elif retry_event_summary and not event_summary:
                     event_summary = retry_event_summary
             except Exception as exc:
-                retry_error = str(exc)
+                retry_error = _safe_error_type(exc)
         if not observations:
             observations = _fallback_limited_visual_observations(selected_frames, event_summary)
         if _should_retry_missing_target_observation(observations, selected_frames):
@@ -188,7 +249,8 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                     if target_retry_summary:
                         event_summary = target_retry_summary
             except Exception as exc:
-                retry_error = f"{retry_error}; target_observation_retry_error={exc}" if retry_error else f"target_observation_retry_error={exc}"
+                error_type = _safe_error_type(exc)
+                retry_error = f"{retry_error}; target_observation_retry_error={error_type}" if retry_error else f"target_observation_retry_error={error_type}"
         if _should_retry_missing_road_context_observation(observations, selected_frames):
             try:
                 road_context_retry_frames = _target_retry_frames_with_crops(selected_frames, event_summary)
@@ -213,7 +275,8 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                     if road_context_retry_summary:
                         event_summary = road_context_retry_summary
             except Exception as exc:
-                retry_error = f"{retry_error}; road_context_observation_retry_error={exc}" if retry_error else f"road_context_observation_retry_error={exc}"
+                error_type = _safe_error_type(exc)
+                retry_error = f"{retry_error}; road_context_observation_retry_error={error_type}" if retry_error else f"road_context_observation_retry_error={error_type}"
         result = {
             "version": FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": True,
@@ -236,6 +299,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "accident_event_summary": event_summary,
             "observations": observations,
             "observation_quality_summary": _observation_quality_summary(observations),
+            "failure_observations": _failure_observations_from_attempts(attempts),
             "uncertainties": parsed.get("uncertainties") or _empty_output_uncertainty(data, observations),
             "created_at": _now_iso(),
         }
@@ -261,7 +325,8 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
         return result
     except Exception as exc:
         primary_error = str(exc)
-        attempts.append(_analysis_error_attempt_summary("primary", primary_error))
+        primary_error_type = _safe_error_type(exc)
+        attempts.append(_analysis_error_attempt_summary("primary", primary_error, error_type=primary_error_type))
         if _should_retry_openai_error(primary_error, selected_frames):
             error_retry_used = True
             try:
@@ -334,6 +399,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                     "accident_event_summary": event_summary,
                     "observations": observations,
                     "observation_quality_summary": _observation_quality_summary(observations),
+                    "failure_observations": _failure_observations_from_attempts(attempts),
                     "uncertainties": parsed.get("uncertainties") or _empty_output_uncertainty(data, observations),
                     "created_at": _now_iso(),
                 }
@@ -350,7 +416,7 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
                 )
             except Exception as retry_exc:
                 error_retry_error = str(retry_exc)
-                attempts.append(_analysis_error_attempt_summary("error_retry", error_retry_error))
+                attempts.append(_analysis_error_attempt_summary("error_retry", error_retry_error, error_type=_safe_error_type(retry_exc)))
         result = {
             "version": FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": True,
@@ -366,6 +432,18 @@ def analyze_frames_with_openai(frame_details: list[dict[str, Any]], context: dic
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "observations": [],
             "observation_quality_summary": _observation_quality_summary([]),
+            "failure_observations": [
+                *_failure_observations_from_attempts(attempts),
+                _openai_failure_observation(
+                    "openai_frame_analysis_unavailable",
+                    "responses",
+                    "OpenAI 프레임 분석이 실패해 영상 관찰값을 만들지 못했습니다.",
+                    severity="error",
+                    fallback_reason="openai_error",
+                    error_type=primary_error_type,
+                    retryable=error_retry_used,
+                ),
+            ],
             "created_at": _now_iso(),
         }
         return _with_openai_usage_event(
@@ -974,7 +1052,10 @@ def _run_openai_analysis_attempt(label: str, payload: dict[str, Any], selected_f
         timeout=OPENAI_TIMEOUT_SEC,
     )
     latency_ms = int((time.perf_counter() - started) * 1000)
-    parsed = _safe_json_loads(_openai_output_text(data)) or {}
+    output_text = _openai_output_text(data)
+    parsed_result = _safe_json_loads(output_text)
+    parse_failed = bool(output_text.strip()) and parsed_result is None
+    parsed = parsed_result or {}
     observations = _normalize_openai_observations(
         parsed.get("observations") or parsed.get("detected_events") or [],
         selected_frames,
@@ -995,6 +1076,7 @@ def _run_openai_analysis_attempt(label: str, payload: dict[str, Any], selected_f
             model,
             latency_ms=latency_ms,
             selected_frame_count=len(selected_frames),
+            parse_failed=parse_failed,
         ),
     }
 
@@ -1008,6 +1090,7 @@ def _analysis_attempt_summary(
     *,
     latency_ms: int = 0,
     selected_frame_count: int = 0,
+    parse_failed: bool = False,
 ) -> dict[str, Any]:
     return {
         "label": label,
@@ -1022,6 +1105,7 @@ def _analysis_attempt_summary(
         "observation_count": len(observations),
         "event_frame_count": len(event_summary.get("event_frame_refs") or []) if isinstance(event_summary, dict) else 0,
         "impact_visible": event_summary.get("impact_visible") if isinstance(event_summary, dict) else None,
+        "parse_status": "failed" if parse_failed else "ok",
     }
 
 
@@ -1065,15 +1149,52 @@ def _with_openai_usage_event(
     )
 
 
-def _analysis_error_attempt_summary(label: str, error: str) -> dict[str, Any]:
+def _failure_observations_from_attempts(attempts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    observations: list[dict[str, Any]] = []
+    for attempt in attempts:
+        if not isinstance(attempt, dict):
+            continue
+        label = str(attempt.get("label") or "openai_attempt")
+        if attempt.get("response_status") == "error":
+            observations.append(_openai_failure_observation(
+                "openai_frame_analysis_attempt_failed",
+                label,
+                "OpenAI 프레임 분석 시도 중 오류가 발생했습니다. 재시도 또는 보완 입력이 필요할 수 있습니다.",
+                severity="warning",
+                fallback_reason="attempt_error",
+                error_type=str(attempt.get("error_type") or "openai_frame_analysis_error"),
+                retryable=label == "primary",
+                metadata={"attempt": label},
+            ))
+        if attempt.get("parse_status") == "failed":
+            observations.append(_openai_failure_observation(
+                "openai_frame_analysis_json_parse_failed",
+                label,
+                "OpenAI 프레임 분석 응답을 구조화된 JSON으로 해석하지 못했습니다.",
+                severity="warning",
+                fallback_reason="json_parse_failed",
+                error_type="json_parse_failed",
+                retryable=True,
+                metadata={"attempt": label},
+            ))
+    return observations
+
+
+def _analysis_error_attempt_summary(label: str, error: str, *, error_type: str = "") -> dict[str, Any]:
     return {
         "label": label,
         "response_status": "error",
         "error": error[:200],
+        "error_type": error_type or "openai_frame_analysis_error",
+        "safe_message": "OpenAI 프레임 분석 시도 중 오류가 발생했습니다.",
         "observation_count": 0,
         "event_frame_count": 0,
         "impact_visible": None,
     }
+
+
+def _safe_error_type(exc: BaseException) -> str:
+    return type(exc).__name__ or "Exception"
 
 
 def _is_gpt5_family(model: str) -> bool:

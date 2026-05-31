@@ -255,6 +255,9 @@ function compactAnalysisPayload(payload: any) {
   const observations = asArray(data.observations);
   const attempts = asArray(data.analysis_attempts);
   const summary = asRecord(data.summary);
+  const failureObservations = compactFailureObservations(data.failure_observations);
+  const firstFailure = asRecord(failureObservations[0]);
+  const usageEvent = compactUsageEvent(data.ai_usage_event);
   return {
     enabled: Boolean(data.enabled),
     provider: safeString(data.provider, 80),
@@ -269,11 +272,34 @@ function compactAnalysisPayload(payload: any) {
     observations: observations.map(compactObservation).slice(0, OBSERVATION_LIMIT),
     attempt_count: attempts.length,
     zero_observation_retry_used: data.zero_observation_retry_used ?? null,
-    has_error: Boolean(data.error || data.has_error),
-    error: safeString(data.error ?? data.zero_observation_retry_error, 240),
-    ai_usage_event: compactUsageEvent(data.ai_usage_event),
+    has_error: Boolean(data.error || data.has_error || failureObservations.length),
+    error_type: safeString(asRecord(usageEvent).error_type ?? firstFailure.error_type, 120),
+    safe_error_message: safeString(firstFailure.safe_message, 240),
+    failure_observation_count: failureObservations.length,
+    failure_observations: failureObservations,
+    ai_usage_event: usageEvent,
     summary: Object.keys(summary).length ? summary : null,
   };
+}
+
+function compactFailureObservations(value: any) {
+  return asArray(value).map((item) => {
+    const observation = asRecord(item);
+    const metadata = asRecord(observation.metadata);
+    return {
+      version: safeString(observation.version, 80),
+      code: safeString(observation.code, 120) ?? "unknown_failure",
+      source: safeString(observation.source, 120),
+      stage: safeString(observation.stage, 120),
+      severity: safeString(observation.severity, 40),
+      recoverable: observation.recoverable ?? null,
+      retryable: observation.retryable ?? null,
+      fallback_reason: safeString(observation.fallback_reason, 120),
+      error_type: safeString(observation.error_type, 120),
+      safe_message: safeString(observation.safe_message, 240),
+      metadata: Object.keys(metadata).length ? metadata : null,
+    };
+  }).slice(0, 20);
 }
 
 function compactUsageEvent(value: any) {

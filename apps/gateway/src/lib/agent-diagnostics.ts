@@ -201,8 +201,27 @@ function summarizeUsage(llmPolicy: AnyRecord = {}) {
     failed_section_count: toNumber(costMetadata.failed_section_count, asArray(llmPolicy.failed_sections).length),
     token_usage_available: costMetadata.token_usage_available ?? null,
     usage_event_version: safeString(costMetadata.usage_event_version) ?? "unknown",
+    failure_observation_count: asArray(llmPolicy.failure_observations).length,
+    failure_observations: safeFailureObservations(llmPolicy.failure_observations),
     section_events: sectionEvents,
   };
+}
+
+function safeFailureObservations(value: any) {
+  return asArray(value).map((item) => {
+    const observation = asRecord(item);
+    return {
+      section: safeString(observation.section) ?? null,
+      version: safeString(observation.version) ?? "unknown",
+      code: safeString(observation.code ?? observation.type) ?? "unknown_failure",
+      source: safeString(observation.source) ?? "unknown",
+      stage: safeString(observation.stage) ?? "unknown",
+      severity: safeString(observation.severity) ?? "warning",
+      recoverable: observation.recoverable ?? null,
+      retryable: observation.retryable ?? null,
+      safe_message: safeString(observation.safe_message) ?? null,
+    };
+  }).slice(0, 12);
 }
 
 function safeVideoObservationQuality(videoContract: AnyRecord = {}) {

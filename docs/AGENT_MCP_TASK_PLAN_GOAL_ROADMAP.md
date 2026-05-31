@@ -1161,17 +1161,17 @@ P5-1 완료 기록:
 | P5 | 완료 | P5-1 사고 기점 탐지, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 완료 |
 | P6 | 완료 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약, P6-4 근거 표시 품질 강화 완료 |
 | P7 | 완료 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리, P7-3 결과 표시 finality 정리 완료 |
-| P8 | 진행 중 | P8-2 LLM/vision 사용량 기록 완료. 다음은 P8-3 실패 관찰값 표준화 |
-| P9 | 대기 | 테스트/평가 체계 |
+| P8 | 완료 | P8-1 Trace id 통합, P8-2 LLM/vision 사용량 기록, P8-3 실패 관찰값 표준화 완료 |
+| P9 | 대기 | 다음은 P9-1 단위 테스트 확장 |
 | P10 | 대기 | 표준 MCP 도입 판단 |
 | P11 | 대기 | 문서/인수인계/발표 정합성 |
 | P12 | 대기 | 최종 구조 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P8-3. 실패 관찰값 표준화**부터 진행한다.
+다음 개발은 **P9-1. 단위 테스트 확장**부터 진행한다.
 
-P8-3을 시작할 때는 OpenAI/YOLO/Agent tool 실패, timeout, fallback, retry exhausted 상태가 안전한 관찰값으로 남는지 확인하고, 일반 사용자 화면에는 raw error나 내부 세부 정보가 노출되지 않도록 정리한다.
+P9-1을 시작할 때는 Task/Plan schema, MCP tool schema/executor, Specialist Agent result schema, Video input contract, Evidence routing, Fault ratio branch, Presentation sanitization 단위 테스트의 부족한 지점을 확인하고 확장한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1276,3 +1276,11 @@ P8-3을 시작할 때는 OpenAI/YOLO/Agent tool 실패, timeout, fallback, retry
 - Gateway 관리자 진단은 Agent LLM usage 요약과 OpenAI/YOLO usage event 요약을 노출하되 raw prompt, API key, token, 사용자 원문은 포함하지 않는다.
 - 검증은 Worker frame/yolo contract tests, Gateway agent diagnostic test/build, Agent llm_policy/orchestrator Docker tests, Worker/Agent compile로 완료했다.
 - 다음 개발은 **P8-3 실패 관찰값 표준화**다. OpenAI/YOLO/Agent tool 실패, timeout, fallback, retry exhausted 상태를 안전한 관찰값으로 표준화한다.
+
+### 2026-05-31 P8-3 진행 기록
+
+- P8-3 실패 관찰값 표준화 완료: OpenAI frame analysis, YOLO frame analysis, Agent LLM policy가 비활성, 설정 누락, 호출 실패, JSON parse 실패를 `failure-observation-v1` 안전 관찰값으로 남긴다.
+- Gateway 관리자 진단은 raw provider error나 secret-like 문자열을 직접 노출하지 않고 `error_type`, `safe_message`, `fallback_reason`, failure observation count를 중심으로 요약한다.
+- 일반 사용자 결과 화면에 raw error, provider stack, token, API key, 내부 prompt가 노출되지 않도록 사용자 payload와 관리자 진단 payload 경계를 유지한다.
+- 검증은 Worker frame/yolo contract tests, Gateway diagnostics tests/build, Agent llm/mcp Docker tests, Worker/Agent compile, `git diff --check`로 완료했다.
+- 다음 개발은 **P9-1 단위 테스트 확장**이다.
