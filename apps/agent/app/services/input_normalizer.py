@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import json
+import re
 from typing import Any
 from app.services.analysis_modes import normalize_analysis_mode
 from app.services.fact_source_weights import build_fact_source_weight_contract
@@ -41,6 +42,22 @@ FIELD_LABELS = {
     "opponent_impairment": "상대 운전자 상태",
     "avoidability": "회피 가능성",
     "fault_ratio_claim_target": "과실비율 주장 목표",
+    "direct_contact_with_ego": "내 차량과 직접 접촉 여부",
+    "ego_collision_confirmed": "내 차량 충돌 확인",
+    "opponent_single_fall": "상대 오토바이 단독 전도",
+    "non_contact_near_miss": "비접촉 근접 사고",
+    "opponent_loss_of_control": "상대 균형 상실",
+    "curve_road": "커브길",
+    "narrow_road": "좁은 도로",
+    "road_width_m": "도로 폭",
+    "ego_vehicle_position": "내 차량 위치",
+    "opponent_vehicle_position": "상대 오토바이 위치",
+    "ego_kept_right": "내 차량 우측 피양",
+    "opponent_failed_keep_right": "상대 우측통행 불충분",
+    "opposing_motorcycle_present": "맞은편 오토바이",
+    "opponent_speed_fast_claimed": "상대 속도 빠름 주장",
+    "ego_speed_within_limit_claimed": "제한속도 내 주행 주장",
+    "speed_limit_kmh": "제한속도",
 }
 VALUE_LABELS = {
     "rear_end_collision": "후미추돌 사고",
@@ -66,6 +83,13 @@ VALUE_LABELS = {
     "opponent_100_ego_0_possible": "상대 100 대 내 차량 0 주장 가능",
     "opponent_90_ego_10": "상대 90 대 내 차량 10",
     "opponent_80_ego_20": "상대 80 대 내 차량 20",
+    "non_contact_motorcycle_single_fall": "비접촉 이륜차 단독 전도",
+    "narrow_curve_oncoming_motorcycle_loss_of_control": "비좁은 커브길 맞은편 오토바이 단독 전도",
+    "non_contact_involving_motorcycle": "비접촉 이륜차 근접 사고",
+    "opponent_motorcycle_nearby": "상대 오토바이 관여",
+    "right_edge": "우측 가장자리",
+    "center": "중앙 쪽",
+    "loss_of_control": "균형 상실",
     True: "예",
     False: "아니오",
 }
@@ -142,6 +166,101 @@ def _has_road_worker_pedestrian_context(text: str) -> bool:
         "차량을 보지 않고",
     )
     return any(token in text for token in tokens)
+
+
+def _bool_false(value: Any) -> bool:
+    return value is False or str(value).strip().lower() in {"false", "no", "0", "아니오", "없음"}
+
+
+def _bool_true(value: Any) -> bool:
+    return value is True or str(value).strip().lower() in {"true", "yes", "1", "예", "있음", "확인됨"}
+
+
+def _parse_road_width_m(text: str) -> float | None:
+    match = re.search(r"(?:도로\s*폭|폭)\s*(?:은|이|:)?\s*(\d+(?:\.\d+)?)\s*(?:m|미터)", text, re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        value = float(match.group(1))
+    except ValueError:
+        return None
+    return value if 0 < value < 30 else None
+
+
+def _has_non_contact_motorcycle_single_fall_context(facts: dict[str, Any], text: str = "") -> bool:
+    hay = " ".join([text or "", str(facts)]).lower()
+    motorcycle = _contains_any(hay, ("오토바이", "이륜차", "바이크", "원동기", "motorcycle", "motorbike", "two_wheeler"))
+    fall = _contains_any(hay, ("넘어", "넘어짐", "전도", "쓰러", "미끄러", "단독", "fall", "fallen", "slip", "loss of control"))
+    non_contact_text = _contains_any(
+        hay,
+        ("비접촉", "직접 접촉 없음", "접촉 없음", "충돌 없음", "부딪히지", "닿지", "no contact", "non contact", "near miss"),
+    )
+    if motorcycle and fall and non_contact_text:
+        return True
+    return (
+        motorcycle
+        and (_bool_false(facts.get("direct_contact_with_ego")) or _bool_false(facts.get("ego_collision_confirmed")))
+        and (_bool_true(facts.get("opponent_single_fall")) or _bool_true(facts.get("non_contact_near_miss")))
+    )
+
+
+def _enrich_non_contact_motorcycle_single_fall_facts(facts: dict[str, Any], text: str = "") -> dict[str, Any]:
+    if not _has_non_contact_motorcycle_single_fall_context(facts, text):
+        return facts
+    enriched = dict(facts)
+    road_width = _parse_road_width_m(text)
+    enriched.update(
+        {
+            "direct_contact_with_ego": False,
+            "ego_collision_confirmed": False,
+            "opponent_single_fall": True,
+            "non_contact_near_miss": True,
+            "opponent_loss_of_control": True,
+            "opposing_motorcycle_present": True,
+            "motorcycle_involved": True,
+            "collision_partner_type": "opponent_motorcycle_nearby",
+            "accident_party_type": "non_contact_involving_motorcycle",
+            "knia_major_party_type": "non_contact_involving_motorcycle",
+            "major_party_type": "non_contact_involving_motorcycle",
+            "accident_type": "non_contact_motorcycle_single_fall",
+            "scenario_type": "non_contact_motorcycle_single_fall",
+            "factual_party_type": "ego_car_near_opponent_motorcycle_single_fall",
+            "excluded_knia_party_types": ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+            "knia_reference_policy": "no_primary_contact_standard",
+            "physical_contact_frame_refs": [],
+        }
+    )
+    for key in ("direct_collision_partner_type", "direct_collision_target", "primary_collision_target"):
+        enriched.pop(key, None)
+    if _bool_true(enriched.get("curve_road")) or _contains_any(text.lower(), ("커브", "굽은", "곡선", "curve")):
+        enriched["curve_road"] = True
+        enriched["scenario_type"] = "narrow_curve_oncoming_motorcycle_loss_of_control"
+    if _bool_true(enriched.get("narrow_road")) or _contains_any(text.lower(), ("좁은", "비좁", "협소", "narrow")):
+        enriched["narrow_road"] = True
+        enriched["scenario_type"] = "narrow_curve_oncoming_motorcycle_loss_of_control"
+    try:
+        existing_road_width = float(enriched.get("road_width_m"))
+    except (TypeError, ValueError):
+        existing_road_width = None
+    road_width_value = road_width if road_width is not None else existing_road_width
+    if road_width_value is not None:
+        enriched["road_width_m"] = road_width_value
+        enriched["narrow_road"] = True
+        if road_width_value <= 4.0:
+            enriched["scenario_type"] = "narrow_curve_oncoming_motorcycle_loss_of_control"
+    if _contains_any(text.lower(), ("우측", "우측단", "오른쪽", "갓길", "right edge", "kept right")):
+        enriched["ego_kept_right"] = True
+        enriched["ego_vehicle_position"] = "right_edge"
+    if _contains_any(text.lower(), ("중앙", "가운데", "center", "centre")):
+        enriched["opponent_vehicle_position"] = "center"
+    if _contains_any(text.lower(), ("우측통행", "우측으로 붙", "중앙 쪽", "중앙선", "keep right")):
+        enriched["opponent_failed_keep_right"] = True
+    if _contains_any(text.lower(), ("빠르게", "과속", "속도가 빠", "질주", "fast", "speeding")):
+        enriched["opponent_speed_fast_claimed"] = True
+    if _contains_any(text.lower(), ("제한속도", "시속 30", "30km", "30 km", "30킬로")):
+        enriched["speed_limit_kmh"] = 30
+        enriched["ego_speed_within_limit_claimed"] = True
+    return enriched
 
 
 def _enrich_road_worker_pedestrian_facts(facts: dict[str, Any], text: str) -> dict[str, Any]:
@@ -465,6 +584,11 @@ def _apply_party_guard_facts(
     party_agent_result: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     guarded = dict(facts)
+    if _has_non_contact_motorcycle_single_fall_context(guarded):
+        guarded = _enrich_non_contact_motorcycle_single_fall_facts(guarded)
+        guarded["knia_major_party_type"] = "non_contact_involving_motorcycle"
+        guarded["accident_party_type"] = "non_contact_involving_motorcycle"
+        return guarded
     party = str(
         guarded.get("knia_major_party_type")
         or guarded.get("accident_party_type")
@@ -585,6 +709,9 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
     """Fill broadly applicable traffic facts that the UI can express but users often write in free text."""
     enriched = dict(facts)
     hay = _normalize_accident_typos(text).lower()
+    enriched = _enrich_non_contact_motorcycle_single_fall_facts(enriched, hay)
+    if _has_non_contact_motorcycle_single_fall_context(enriched, hay):
+        return enriched
     party = str(enriched.get("accident_party_type") or "").strip().lower()
     partner = str(enriched.get("collision_partner_type") or "").strip().lower()
     vehicle_declared = party == "car_vs_car" or partner in {"vehicle", "car", "truck", "bus", "van"}
@@ -787,6 +914,8 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
     facts = _apply_party_agent_result(facts, party_agent_result)
     facts = _apply_party_guard_facts(facts, party_agent_result)
     facts = enforce_initial_intake_priority(facts, normalized_initial_intake)
+    facts = _enrich_non_contact_motorcycle_single_fall_facts(facts, clean_text)
+    facts = _apply_party_guard_facts(facts, party_agent_result)
     fact_source_weights = build_fact_source_weight_contract(normalized_initial_intake, facts)
     missing_fields = [field for field in REQUIRED_FACTS if _is_empty(facts.get(field))]
     facts_display = clean_structured_facts_for_display(facts)

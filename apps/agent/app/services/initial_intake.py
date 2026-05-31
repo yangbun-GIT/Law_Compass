@@ -97,10 +97,26 @@ def build_fact_candidates_from_initial_intake(initial_intake: dict[str, Any] | N
     if major != "unknown":
         patch["initial_accident_major_category"] = major
         patch["selected_major_category"] = major
+    non_contact_motorcycle = _is_non_contact_motorcycle_single_fall_intake(intake)
     if party != "unknown":
         patch["accident_party_type"] = party
         patch["knia_major_party_type"] = party
-        patch.update(PARTY_DEFAULTS.get(party, {}))
+        if not (party == "car_vs_motorcycle" and non_contact_motorcycle):
+            patch.update(PARTY_DEFAULTS.get(party, {}))
+    if non_contact_motorcycle:
+        patch.update(
+            {
+                "direct_contact_with_ego": False,
+                "ego_collision_confirmed": False,
+                "opponent_single_fall": True,
+                "non_contact_near_miss": True,
+                "opposing_motorcycle_present": True,
+                "accident_party_type": "non_contact_involving_motorcycle",
+                "knia_major_party_type": "non_contact_involving_motorcycle",
+                "accident_type": "non_contact_motorcycle_single_fall",
+                "excluded_knia_party_types": ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+            }
+        )
     if preliminary and preliminary != "unknown":
         patch["initial_preliminary_accident_type"] = preliminary
         patch["selected_preliminary_accident_type"] = preliminary
@@ -122,6 +138,7 @@ def enforce_initial_intake_priority(facts: dict[str, Any], initial_intake: dict[
     if major == "unknown":
         return facts
     patch = build_fact_candidates_from_initial_intake(intake)
+    non_contact_motorcycle = _is_non_contact_motorcycle_single_fall_facts(facts) or _is_non_contact_motorcycle_single_fall_intake(intake)
     protected = {
         "initial_accident_major_category",
         "selected_major_category",
@@ -135,6 +152,8 @@ def enforce_initial_intake_priority(facts: dict[str, Any], initial_intake: dict[
     }
     merged = dict(facts)
     for key in protected:
+        if non_contact_motorcycle and key in {"collision_partner_type", "direct_collision_partner_type"}:
+            continue
         if key in patch:
             merged[key] = patch[key]
     if patch.get("accident_type") and patch.get("accident_type") != "unknown":
@@ -158,6 +177,23 @@ def canonical_party_type(value: Any) -> str:
 
 def _safe_text(value: Any) -> str:
     return str(value or "").replace("\x00", "").strip()
+
+
+def _is_non_contact_motorcycle_single_fall_intake(intake: dict[str, Any]) -> bool:
+    text = _safe_text(intake.get("natural_language_description")).lower()
+    if not text:
+        return False
+    motorcycle = any(token in text for token in ("오토바이", "이륜차", "바이크", "motorcycle", "motorbike"))
+    fall = any(token in text for token in ("넘어", "전도", "쓰러", "미끄러", "단독", "fall", "loss of control"))
+    no_contact = any(token in text for token in ("비접촉", "직접 접촉 없음", "접촉 없음", "충돌 없음", "부딪히지", "닿지", "no contact", "non contact"))
+    return motorcycle and fall and no_contact
+
+
+def _is_non_contact_motorcycle_single_fall_facts(facts: dict[str, Any]) -> bool:
+    direct_negative = facts.get("direct_contact_with_ego") is False or facts.get("ego_collision_confirmed") is False
+    single_fall = facts.get("opponent_single_fall") is True or facts.get("non_contact_near_miss") is True
+    motorcycle = facts.get("opposing_motorcycle_present") is True or "motorcycle" in str(facts).lower() or "오토바이" in str(facts)
+    return bool(direct_negative and single_fall and motorcycle)
 
 
 def _has_initial_intake_payload(

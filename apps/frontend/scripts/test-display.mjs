@@ -64,6 +64,11 @@ const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
 const styles = readFileSync("src/styles.css", "utf8");
 const agentVideoSummarizer = readFileSync("../agent/app/services/video_observation_summarizer.py", "utf8");
 const agentVideoRules = readFileSync("../agent/app/services/video_input_contract_rules.py", "utf8");
+const agentInputNormalizer = readFileSync("../agent/app/services/input_normalizer.py", "utf8");
+const agentScenarioClassifier = readFileSync("../agent/app/services/scenario_classifier.py", "utf8");
+const agentFaultRatioAnalyst = readFileSync("../agent/app/services/analysts/fault_ratio_analyst.py", "utf8");
+const agentDynamicQuestionnaire = readFileSync("../agent/app/services/dynamic_questionnaire.py", "utf8");
+const agentVideoFactGuards = readFileSync("../agent/app/services/video_input_contract_guards.py", "utf8");
 const workerFrameAnalysis = readFileSync("../worker/worker/frame_analysis.py", "utf8");
 const sanitizerContracts = [
   "sanitizeUserVisibleText",
@@ -108,6 +113,43 @@ const missingVideoOnlySceneContracts = videoOnlySceneContracts.filter((token) =>
 if (missingVideoOnlySceneContracts.length) {
   console.error("video-only frame observation summary contract failed", missingVideoOnlySceneContracts);
   process.exit(1);
+}
+
+const nonContactMotorcycleContracts = [
+  "non_contact_motorcycle_single_fall",
+  "narrow_curve_oncoming_motorcycle_loss_of_control",
+  "direct_contact_with_ego",
+  "ego_collision_confirmed",
+  "opponent_single_fall",
+  "non_contact_near_miss",
+  "opponent_motorcycle_nearby",
+  "physical_contact_frame_refs",
+  "non_contact_motorcycle_single_fall_rule",
+  "no_primary_contact_standard",
+  "direct_contact_negative_fact_blocks_contact_partner",
+  "비접촉 이륜차 단독 전도",
+];
+const nonContactMotorcycleSource = [
+  agentInputNormalizer,
+  agentScenarioClassifier,
+  agentFaultRatioAnalyst,
+  agentDynamicQuestionnaire,
+  agentVideoRules,
+  agentVideoFactGuards,
+  workerFrameAnalysis,
+  displaySanitizer,
+].join("\n");
+const missingNonContactMotorcycleContracts = nonContactMotorcycleContracts.filter((token) => !nonContactMotorcycleSource.includes(token));
+if (missingNonContactMotorcycleContracts.length) {
+  console.error("non-contact motorcycle single-fall contract failed", missingNonContactMotorcycleContracts);
+  process.exit(1);
+}
+if (agentDynamicQuestionnaire.includes("opponent_signal") && agentDynamicQuestionnaire.includes("non_contact_motorcycle_single_fall")) {
+  const nonContactQuestionBlock = agentDynamicQuestionnaire.slice(agentDynamicQuestionnaire.indexOf("non_contact_motorcycle_single_fall"));
+  if (nonContactQuestionBlock.slice(0, 1800).includes("opponent_signal")) {
+    console.error("non-contact motorcycle flow must not start with irrelevant signal questions");
+    process.exit(1);
+  }
 }
 
 const brandLinkContracts = [

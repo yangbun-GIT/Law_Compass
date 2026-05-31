@@ -75,11 +75,12 @@ def route_party_agent(
         }
 
     if party == "unknown":
+        unknown_patch = direct_target.get("facts_patch") if isinstance(direct_target.get("facts_patch"), dict) else {}
         result = PartyAgentResult(
             major_party_type="unknown",
             scenario_type=str(facts.get("accident_type") or "general_collision"),
             confidence=0.0,
-            facts_patch={},
+            facts_patch=unknown_patch,
             excluded_party_types=[],
             reason="no_direct_collision_partner_identified",
         )
@@ -105,6 +106,25 @@ def route_party_agent(
 
 
 def _detect_direct_collision_target(haystack: str, facts: dict[str, Any]) -> dict[str, Any]:
+    if _non_contact_motorcycle_single_fall_context(haystack, facts):
+        return {
+            "party": "unknown",
+            "confidence": 0.0,
+            "reason": "non_contact_motorcycle_single_fall_context",
+            "facts_patch": {
+                "direct_contact_with_ego": False,
+                "ego_collision_confirmed": False,
+                "opponent_single_fall": True,
+                "non_contact_near_miss": True,
+                "opponent_loss_of_control": True,
+                "opposing_motorcycle_present": True,
+                "collision_partner_type": "opponent_motorcycle_nearby",
+                "accident_type": "non_contact_motorcycle_single_fall",
+                "scenario_type": "non_contact_motorcycle_single_fall",
+                "accident_party_type": "non_contact_involving_motorcycle",
+                "knia_major_party_type": "non_contact_involving_motorcycle",
+            },
+        }
     partner = canonical_party(facts.get("direct_collision_partner_type"))
     if partner != "unknown":
         return {
@@ -276,6 +296,8 @@ def _detect_direct_collision_target(haystack: str, facts: dict[str, Any]) -> dic
 
 
 def _infer_from_user_text(haystack: str, facts: dict[str, Any]) -> tuple[str, str]:
+    if _non_contact_motorcycle_single_fall_context(haystack, facts):
+        return "unknown", "non_contact_motorcycle_single_fall_context"
     partner = canonical_party(facts.get("direct_collision_partner_type") or facts.get("collision_partner_type"))
     if partner != "unknown":
         return partner, "structured_collision_partner"
@@ -414,6 +436,16 @@ def _compact_text(value: str) -> str:
 
 def _has_any(text: str, tokens: tuple[str, ...]) -> bool:
     return any(token.lower() in text for token in tokens)
+
+
+def _non_contact_motorcycle_single_fall_context(haystack: str, facts: dict[str, Any]) -> bool:
+    text = " ".join([haystack or "", str(facts)]).lower()
+    motorcycle = _has_any(text, ("오토바이", "이륜차", "바이크", "motorcycle", "motorbike", "two_wheeler"))
+    fall = _has_any(text, ("넘어", "전도", "쓰러", "미끄러", "단독", "fall", "fallen", "loss of control"))
+    no_contact = _has_any(text, ("비접촉", "직접 접촉 없음", "접촉 없음", "충돌 없음", "부딪히지", "닿지", "no contact", "non contact", "near miss"))
+    direct_negative = facts.get("direct_contact_with_ego") is False or facts.get("ego_collision_confirmed") is False
+    structured_single_fall = facts.get("opponent_single_fall") is True or facts.get("non_contact_near_miss") is True
+    return bool(motorcycle and fall and (no_contact or (direct_negative and structured_single_fall)))
 
 
 def _has_strong_stealth_context(haystack: str, facts: dict[str, Any]) -> bool:

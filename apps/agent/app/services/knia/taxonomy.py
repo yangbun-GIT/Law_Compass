@@ -29,6 +29,12 @@ PARTY_TYPES: dict[str, dict[str, Any]] = {
         "keywords": ["차대오토바이", "차대이륜차", "오토바이", "이륜차", "원동기장치자전거", "바이크"],
         "actions": ["이륜차 운전자의 부상 여부를 먼저 확인하세요.", "필요하면 119와 112에 신고하세요.", "진행 방향과 충돌 위치를 기록하세요.", "블랙박스와 현장 사진을 보관하세요."],
     },
+    "non_contact_involving_motorcycle": {
+        "label": "비접촉 이륜차 근접 사고",
+        "description": "자동차와 직접 접촉하지 않았지만 주변 이륜차의 전도나 회피가 문제 되는 사고입니다.",
+        "keywords": ["비접촉", "오토바이 단독 전도", "이륜차 단독 전도", "근접 사고", "좁은 커브길", "우측통행"],
+        "actions": ["블랙박스 원본을 보관하세요.", "직접 접촉이 없었다는 장면과 상대 전도 장면을 따로 확인하세요.", "도로 폭과 양 차량 위치를 사진으로 기록하세요.", "보험사에 비접촉 사고로 접수하세요."],
+    },
     "car_vs_object": {
         "label": "차대기물 사고",
         "description": "자동차와 시설물, 가드레일, 전봇대, 주차장 기둥 같은 물체 사이의 사고입니다.",
@@ -113,6 +119,8 @@ def classify_knia_accident_party_type(chart_data: dict[str, Any]) -> dict[str, A
 def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -> str:
     facts = facts or {}
     hay = " ".join([text or "", str(facts)]).lower()
+    if _is_non_contact_motorcycle_context(hay, facts):
+        return "non_contact_involving_motorcycle"
     prefix_party = _party_from_chart_no(facts.get("chart_no"))
     if prefix_party:
         return prefix_party
@@ -167,6 +175,15 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         if any(word.lower() in hay for word in words):
             return party
     return "unknown"
+
+
+def _is_non_contact_motorcycle_context(hay: str, facts: dict[str, Any]) -> bool:
+    motorcycle = any(token in hay for token in ("오토바이", "이륜차", "바이크", "motorcycle", "motorbike", "two_wheeler"))
+    fall = any(token in hay for token in ("넘어", "전도", "쓰러", "미끄러", "단독", "fall", "fallen", "loss of control"))
+    no_contact = any(token in hay for token in ("비접촉", "직접 접촉 없음", "접촉 없음", "충돌 없음", "부딪히지", "닿지", "no contact", "non contact", "near miss"))
+    negative = facts.get("direct_contact_with_ego") is False or facts.get("ego_collision_confirmed") is False
+    single_fall = facts.get("opponent_single_fall") is True or facts.get("non_contact_near_miss") is True
+    return bool(motorcycle and fall and (no_contact or (negative and single_fall)))
 
 
 def _party_from_chart_no(chart_no: Any) -> str | None:

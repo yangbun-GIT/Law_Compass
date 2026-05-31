@@ -219,6 +219,59 @@ SCENARIO_QUESTIONS: dict[str, list[dict[str, Any]]] = {
 
 SCENARIO_QUESTIONS["stealth_illegal_parked_vehicle_collision"] = SCENARIO_QUESTIONS["parking_or_stopped_vehicle_accident"]
 SCENARIO_QUESTIONS["intersection_collision"] = SCENARIO_QUESTIONS["intersection_signal_violation"]
+SCENARIO_QUESTIONS["non_contact_motorcycle_single_fall"] = [
+    _question(
+        question_id="non_contact_motorcycle.direct_contact",
+        title="직접 접촉 여부",
+        plain_question="내 차량과 상대 오토바이가 실제로 닿거나 부딪힌 장면이 있나요?",
+        why_it_matters="직접 접촉이 없으면 일반 차대오토바이 충돌 기준을 바로 적용하지 않고 비접촉 단독 전도로 분리해야 합니다.",
+        choices=[_choice("no_contact", "직접 접촉 없음"), _choice("contact", "직접 접촉 있음"), UNKNOWN_CHOICE],
+        fact_key="direct_contact_with_ego",
+        priority=0,
+        affects_fault_ratio=True,
+        required_for_modes=["quick_summary", "fault_ratio_focused", "full_deep_research"],
+    ),
+    _question(
+        question_id="non_contact_motorcycle.single_fall",
+        title="상대 단독 전도",
+        plain_question="상대 오토바이가 내 차량과 닿기 전 스스로 넘어졌나요?",
+        why_it_matters="상대 오토바이의 단독 전도인지, 내 차량과 충돌한 뒤 넘어진 것인지가 과실 판단의 핵심입니다.",
+        choices=[_choice("single_fall", "단독으로 넘어짐"), _choice("after_contact", "접촉 후 넘어짐"), UNKNOWN_CHOICE],
+        fact_key="opponent_single_fall",
+        priority=1,
+        affects_fault_ratio=True,
+    ),
+    _question(
+        question_id="non_contact_motorcycle.ego_position",
+        title="내 차량 위치",
+        plain_question="내 차량은 비좁은 커브길에서 우측 가장자리로 붙어 진행했나요?",
+        why_it_matters="좁은 도로 교행에서는 내 차량의 우측 피양과 감속 여부가 중요합니다.",
+        choices=[_choice("right_edge", "우측 가장자리"), _choice("center", "중앙 쪽"), UNKNOWN_CHOICE],
+        fact_key="ego_kept_right",
+        priority=2,
+        affects_fault_ratio=True,
+    ),
+    _question(
+        question_id="non_contact_motorcycle.opponent_position",
+        title="상대 오토바이 위치",
+        plain_question="상대 오토바이는 중앙 쪽으로 붙거나 우측통행을 충분히 하지 않았나요?",
+        why_it_matters="상대 오토바이의 진행 위치가 전도 원인인지 확인해야 합니다.",
+        choices=[_choice("center", "중앙 쪽"), _choice("right_edge", "우측 가장자리"), UNKNOWN_CHOICE],
+        fact_key="opponent_failed_keep_right",
+        priority=3,
+        affects_fault_ratio=True,
+    ),
+    _question(
+        question_id="non_contact_motorcycle.road_width",
+        title="도로 폭",
+        plain_question="사고 지점 도로 폭이 약 3.8m처럼 차량과 오토바이가 교행하기 좁았나요?",
+        why_it_matters="도로 폭과 커브 구조는 회피 가능성과 양보 의무 판단에 필요한 사실입니다.",
+        choices=[_choice("narrow_3_8m", "약 3.8m 내외"), _choice("wide_enough", "충분히 넓음"), UNKNOWN_CHOICE],
+        fact_key="road_width_m",
+        priority=4,
+    ),
+]
+SCENARIO_QUESTIONS["narrow_curve_oncoming_motorcycle_loss_of_control"] = SCENARIO_QUESTIONS["non_contact_motorcycle_single_fall"]
 
 PEDESTRIAN_DIRECT_COLLISION_QUESTIONS = [
     _question(

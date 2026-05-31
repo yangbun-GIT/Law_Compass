@@ -251,6 +251,11 @@ def derive_accident_event_summary_from_observations(
         "collision_direction",
         "secondary_collision",
         "non_contact_trigger",
+        "direct_contact_with_ego",
+        "ego_collision_confirmed",
+        "opponent_single_fall",
+        "non_contact_near_miss",
+        "opposing_motorcycle_present",
         "direct_collision_partner_type",
         "rear_vehicle_collision",
     }

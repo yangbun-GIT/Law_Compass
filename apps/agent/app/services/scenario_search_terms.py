@@ -663,6 +663,24 @@ def _fact_value_terms(facts: dict[str, Any]) -> tuple[str, ...]:
     return tuple(terms)
 
 
+SCENARIO_SEARCH_TERMS["non_contact_motorcycle_single_fall"] = (
+    "비접촉 오토바이 단독 전도",
+    "이륜차 단독 전도",
+    "오토바이 비접촉 사고",
+    "좁은 도로 교행",
+    "비좁은 커브길",
+    "우측통행 의무",
+    "맞은편 오토바이 전도",
+    "non-contact motorcycle fall",
+    "motorcycle single fall near miss",
+)
+SCENARIO_SEARCH_TERMS["narrow_curve_oncoming_motorcycle_loss_of_control"] = SCENARIO_SEARCH_TERMS["non_contact_motorcycle_single_fall"]
+TAG_SEARCH_TERMS["non_contact"] = ("비접촉 사고", "near miss", "non-contact")
+TAG_SEARCH_TERMS["single_fall"] = ("단독 전도", "오토바이 전도", "loss of control")
+TAG_SEARCH_TERMS["narrow_road"] = ("좁은 도로", "비좁은 커브길", "도로 폭 3.8m")
+TAG_SEARCH_TERMS["keep_right_failure"] = ("우측통행", "중앙선", "중앙 쪽 진행")
+
+
 def _filter_rear_end_query_pollution(values: list[str]) -> list[str]:
     pollution_tokens = (
         "신호위반",

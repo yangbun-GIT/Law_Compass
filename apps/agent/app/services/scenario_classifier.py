@@ -24,6 +24,38 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         accident_party_type = fixed_party_type
     vehicle_collision_declared = accident_party_type == "car_vs_car" or collision_partner_type == "vehicle"
 
+    if _is_non_contact_motorcycle_single_fall_context(facts, haystack):
+        scenario_type = "narrow_curve_oncoming_motorcycle_loss_of_control" if (
+            facts.get("curve_road") or facts.get("narrow_road") or "커브" in haystack or "좁" in haystack
+        ) else "non_contact_motorcycle_single_fall"
+        tags.update(["motorcycle", "two_wheeler", "non_contact", "single_fall", "near_miss", "fault_ratio"])
+        if facts.get("curve_road"):
+            tags.add("curve_road")
+        if facts.get("narrow_road") or facts.get("road_width_m"):
+            tags.add("narrow_road")
+        if facts.get("ego_kept_right"):
+            tags.add("ego_kept_right")
+        if facts.get("opponent_failed_keep_right"):
+            tags.add("keep_right_failure")
+        if facts.get("opposing_motorcycle_present"):
+            tags.add("oncoming_motorcycle")
+        return {
+            "scenario_type": scenario_type,
+            "accident_type": "non_contact_motorcycle_single_fall",
+            "accident_party_type": "non_contact_involving_motorcycle",
+            "major_party_type": "non_contact_involving_motorcycle",
+            "accident_party_label": party_label("non_contact_involving_motorcycle"),
+            "scenario_subtype": "narrow_curve_oncoming_motorcycle_single_fall" if scenario_type.startswith("narrow_curve") else "motorcycle_single_fall_near_ego",
+            "scenario_tags": sorted(tags),
+            "knia_tree_hint": {
+                "major": "비접촉 이륜차 근접 사고",
+                "mid": "직접 접촉 없는 상대 이륜차 단독 전도",
+                "leaf_candidates": [],
+                "policy": "primary_contact_standard_required_before_knia_chart_selection",
+            },
+            "confidence": 0.86,
+        }
+
     if _is_road_worker_pedestrian_accident(facts, haystack):
         tags.update(["pedestrian", "road_work", "worker", "sudden_entry", "fault_ratio"])
         return {
@@ -499,6 +531,15 @@ def _has_red_light_violation_context(text: str) -> bool:
     violation_context = any(token in text for token in ("진입", "들어갔", "통과", "무시", "위반", "진행", "교차로로", "entered", "ran", "ignored", "violation"))
     lawful_wait = any(token in text for token in ("신호대기", "신호 대기", "빨간불에 정차", "적색신호 대기", "정지선에서 대기"))
     return red_context and violation_context and not lawful_wait
+
+
+def _is_non_contact_motorcycle_single_fall_context(facts: dict[str, Any], haystack: str) -> bool:
+    motorcycle = any(token in haystack for token in ("오토바이", "이륜차", "바이크", "motorcycle", "motorbike", "two_wheeler"))
+    fall = any(token in haystack for token in ("넘어", "전도", "쓰러", "미끄러", "단독", "fall", "fallen", "loss of control"))
+    no_contact = any(token in haystack for token in ("비접촉", "직접 접촉 없음", "접촉 없음", "충돌 없음", "부딪히지", "닿지", "no contact", "non contact", "near miss"))
+    direct_negative = facts.get("direct_contact_with_ego") is False or facts.get("ego_collision_confirmed") is False
+    single_fall = facts.get("opponent_single_fall") is True or facts.get("non_contact_near_miss") is True
+    return bool(motorcycle and fall and (no_contact or (direct_negative and single_fall)))
 
 
 def _is_non_contact_trigger_context(facts: dict[str, Any], haystack: str) -> bool:

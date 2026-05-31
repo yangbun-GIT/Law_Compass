@@ -25,7 +25,8 @@ def analyze_fault_ratio(
         text: str,
 ) -> dict[str, Any]:
     llm_usage = evaluate_llm_usage(section="fault_ratio_analysis", evidence=evidence, facts=facts)
-    llm = generate_fault_ratio_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence) if llm_usage["allowed"] else None
+    non_contact_motorcycle_context = _non_contact_motorcycle_single_fall_context(facts, text, scenario_type)
+    llm = generate_fault_ratio_analysis(text=text, scenario_type=scenario_type, facts=facts, evidence=evidence) if llm_usage["allowed"] and not non_contact_motorcycle_context else None
     if llm:
         return attach_llm_usage(guard_fault_ratio_output(_normalize(llm, evidence), evidence), llm_usage, used=True)
     if llm_usage["allowed"]:
@@ -40,7 +41,16 @@ def analyze_fault_ratio(
     extra_payload: dict[str, Any] = {}
     stealth_context = _stealth_illegal_parked_vehicle_context(facts, text, scenario_type)
     centerline_context = _centerline_obstacle_context(facts, text)
-    if stealth_context:
+    if non_contact_motorcycle_context:
+        score = _non_contact_motorcycle_single_fall_score(facts, text)
+        my = score["my"]
+        other = score["other"]
+        confidence = score["confidence"]
+        key_factors = score["key_factors"]
+        conditional_outcomes = score["conditional_outcomes"]
+        extra_payload = score["extra_payload"]
+        fault_estimate_source = "non_contact_motorcycle_single_fall_rule"
+    elif stealth_context:
         score = _stealth_illegal_parked_vehicle_score(facts, text)
         my = score["my"]
         other = score["other"]
@@ -192,6 +202,58 @@ def _normalize(data: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str
     data.setdefault("key_factors", ["AI 분석", "RAG 근거", "KNIA 기준"])
     return data
 
+
+
+def _non_contact_motorcycle_single_fall_context(facts: dict[str, Any], text: str = "", scenario_type: str = "") -> bool:
+    haystack = " ".join([text or "", scenario_type or "", str(facts)]).lower()
+    motorcycle = any(token in haystack for token in ("오토바이", "이륜차", "바이크", "motorcycle", "motorbike", "two_wheeler"))
+    fall = any(token in haystack for token in ("넘어", "전도", "쓰러", "미끄러", "단독", "fall", "fallen", "loss of control"))
+    no_contact = any(token in haystack for token in ("비접촉", "직접 접촉 없음", "접촉 없음", "충돌 없음", "부딪히지", "닿지", "no contact", "non contact", "near miss"))
+    direct_negative = facts.get("direct_contact_with_ego") is False or facts.get("ego_collision_confirmed") is False
+    single_fall = facts.get("opponent_single_fall") is True or facts.get("non_contact_near_miss") is True
+    scenario_match = scenario_type in {"non_contact_motorcycle_single_fall", "narrow_curve_oncoming_motorcycle_loss_of_control"}
+    return bool(scenario_match or (motorcycle and fall and (no_contact or (direct_negative and single_fall))))
+
+
+def _non_contact_motorcycle_single_fall_score(facts: dict[str, Any], text: str = "") -> dict[str, Any]:
+    complete = (
+        facts.get("direct_contact_with_ego") is False
+        and facts.get("ego_collision_confirmed") is False
+        and facts.get("opponent_single_fall") is True
+    )
+    road_context = any(
+        facts.get(field)
+        for field in ("curve_road", "narrow_road", "ego_kept_right", "opponent_failed_keep_right", "opposing_motorcycle_present")
+    )
+    my, other = (0, 100) if complete else (20, 80)
+    confidence = 0.72 if complete and road_context else 0.58
+    conditional = {
+        "label": "직접 접촉이 없고 상대 오토바이가 단독 전도한 경우",
+        "my_range": "0~10%",
+        "other_range": "90~100%",
+        "explanation": "내 차량과 물리적으로 접촉한 장면이 없고 상대 오토바이가 비좁은 커브길에서 균형을 잃어 단독으로 넘어진 사실이 확인되면, 내 차량 책임은 낮거나 없다는 방향으로 검토할 수 있습니다.",
+        "basis": ["직접 접촉 없음", "상대 오토바이 단독 전도", "도로 폭과 커브길", "내 차량 우측 피양", "상대 우측통행 여부"],
+    }
+    required = []
+    if facts.get("direct_contact_with_ego") is not False:
+        required.append("direct_contact_with_ego")
+    if facts.get("opponent_single_fall") is not True:
+        required.append("opponent_single_fall")
+    if facts.get("opponent_failed_keep_right") is not True:
+        required.append("opponent_failed_keep_right")
+    return {
+        "my": my,
+        "other": other,
+        "confidence": confidence,
+        "key_factors": ["직접 접촉 없음", "상대 오토바이 단독 전도", "비좁은 커브길", "내 차량 우측 피양", "상대 우측통행 여부"],
+        "conditional_outcomes": [conditional],
+        "extra_payload": {
+            "basis": "직접 접촉이 없고 상대 오토바이가 단독 전도했다는 입력 사실을 전제로 한 조건부 과실 후보입니다.",
+            "conditional_required_facts": required,
+            "knia_reference_fault": None,
+            "no_knia_match_reason": "non_contact_motorcycle_single_fall_has_no_primary_contact_knia_standard",
+        },
+    }
 
 
 def _stealth_illegal_parked_vehicle_context(facts: dict[str, Any], text: str = "", scenario_type: str = "") -> bool:

@@ -240,6 +240,61 @@ SCENARIO_FIELD_SPECS: dict[str, list[dict[str, Any]]] = {
     ],
 }
 
+NON_CONTACT_MOTORCYCLE_SINGLE_FALL_FIELDS = [
+    {
+        "field": "direct_contact_with_ego",
+        "label": "직접 접촉 여부",
+        "question": "블랙박스 차량과 상대 오토바이가 실제로 닿거나 부딪힌 장면이 있나요?",
+        "reason": "직접 접촉이 없으면 일반적인 차대오토바이 충돌 기준을 바로 적용하면 안 됩니다.",
+        "input_type": "single_choice",
+        "options": ["직접 접촉 없음", "직접 접촉 있음", "확인 필요"],
+        "priority": 0,
+        "blocks_decision": True,
+    },
+    {
+        "field": "opponent_single_fall",
+        "label": "상대 단독 전도",
+        "question": "상대 오토바이가 내 차량과 닿기 전 스스로 넘어졌나요?",
+        "reason": "상대 오토바이 단독 전도인지, 내 차량과 충돌한 사고인지가 과실 판단의 출발점입니다.",
+        "input_type": "single_choice",
+        "options": ["단독으로 넘어짐", "내 차량과 충돌 후 넘어짐", "확인 필요"],
+        "priority": 1,
+        "blocks_decision": True,
+    },
+    {
+        "field": "ego_kept_right",
+        "label": "내 차량 우측 피양",
+        "question": "내 차량은 좁은 커브길에서 우측 가장자리로 붙어 진행했나요?",
+        "reason": "좁은 도로 교행에서는 양측의 우측통행과 감속 여부가 중요합니다.",
+        "input_type": "single_choice",
+        "options": ["우측으로 붙음", "중앙 쪽으로 진행", "확인 필요"],
+        "priority": 2,
+        "blocks_decision": True,
+    },
+    {
+        "field": "opponent_failed_keep_right",
+        "label": "상대 우측통행 여부",
+        "question": "상대 오토바이가 중앙 쪽으로 붙거나 우측통행을 충분히 하지 않았나요?",
+        "reason": "상대 오토바이의 진행 위치가 단독 전도의 주요 원인인지 확인해야 합니다.",
+        "input_type": "single_choice",
+        "options": ["중앙 쪽으로 진행", "우측으로 붙어 진행", "확인 필요"],
+        "priority": 3,
+        "blocks_decision": True,
+    },
+    {
+        "field": "road_width_m",
+        "label": "도로 폭",
+        "question": "사고 지점 도로 폭이 약 3.8m처럼 차량과 오토바이가 교행하기 좁은 폭이었나요?",
+        "reason": "도로 폭은 회피 가능성과 양보 의무 판단에 직접적인 단서입니다.",
+        "input_type": "single_choice",
+        "options": ["약 3.8m 내외", "충분히 넓음", "확인 필요"],
+        "priority": 4,
+        "blocks_decision": False,
+    },
+]
+SCENARIO_FIELD_SPECS["non_contact_motorcycle_single_fall"] = NON_CONTACT_MOTORCYCLE_SINGLE_FALL_FIELDS
+SCENARIO_FIELD_SPECS["narrow_curve_oncoming_motorcycle_loss_of_control"] = NON_CONTACT_MOTORCYCLE_SINGLE_FALL_FIELDS
+
 TEXT_SIGNALS: dict[str, tuple[str, ...]] = {
     "accident_type": ("추돌", "차선변경", "교차로", "횡단보도", "보행자", "자전거", "시설물", "단독"),
     "signal_state": ("신호", "빨간불", "적색", "녹색", "초록불", "황색", "점멸"),
@@ -259,6 +314,15 @@ TEXT_SIGNALS: dict[str, tuple[str, ...]] = {
     "bicycle_location": ("자전거도로", "횡단보도", "차도", "보도"),
     "bicycle_direction": ("같은 방향", "마주", "교차", "직진", "좌회전", "우회전"),
 }
+TEXT_SIGNALS.update(
+    {
+        "direct_contact_with_ego": ("비접촉", "직접 접촉 없음", "접촉 없음", "충돌 없음", "부딪히지", "닿지"),
+        "opponent_single_fall": ("오토바이", "이륜차", "넘어", "전도", "쓰러", "단독"),
+        "ego_kept_right": ("우측", "우측단", "오른쪽", "갓길"),
+        "opponent_failed_keep_right": ("중앙", "우측통행", "중앙선", "가운데"),
+        "road_width_m": ("도로 폭", "도로폭", "3.8m", "3.8미터", "좁은", "비좁"),
+    }
+)
 
 
 def build_input_requirements(

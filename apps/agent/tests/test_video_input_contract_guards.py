@@ -154,6 +154,38 @@ def test_guard_requires_direct_contact_for_motorcycle_collision_partner():
     assert uncertain[0]["reason"] == "motorcycle_collision_partner_requires_direct_contact_evidence"
 
 
+def test_guard_negative_contact_blocks_motorcycle_partner_for_single_fall():
+    fact_patch = {
+        "direct_contact_with_ego": False,
+        "ego_collision_confirmed": False,
+        "opponent_single_fall": True,
+        "non_contact_near_miss": True,
+        "collision_partner_type": "motorcycle",
+        "direct_collision_partner_type": "motorcycle",
+        "primary_collision_target": "motorcycle",
+    }
+    accepted = [
+        {"field": "direct_contact_with_ego", "value": False, "source": "frame_analysis", "confidence": 0.9, "frame_refs": ["frame_1.jpg", "frame_2.jpg"]},
+        {"field": "opponent_single_fall", "value": True, "source": "frame_analysis", "confidence": 0.88, "frame_refs": ["frame_1.jpg", "frame_2.jpg"]},
+        {"field": "collision_partner_type", "value": "motorcycle", "source": "frame_analysis", "confidence": 0.9, "frame_refs": ["frame_1.jpg"]},
+        {"field": "direct_collision_partner_type", "value": "motorcycle", "source": "frame_analysis", "confidence": 0.9, "frame_refs": ["frame_1.jpg"]},
+        {"field": "primary_collision_target", "value": "motorcycle", "source": "frame_analysis", "confidence": 0.9, "frame_refs": ["frame_1.jpg"]},
+    ]
+    uncertain = []
+
+    apply_video_fact_guards(fact_patch, accepted, uncertain)
+
+    assert fact_patch["direct_contact_with_ego"] is False
+    assert fact_patch["ego_collision_confirmed"] is False
+    assert fact_patch["opponent_single_fall"] is True
+    assert fact_patch["collision_partner_type"] == "opponent_motorcycle_nearby"
+    assert "direct_collision_partner_type" not in fact_patch
+    assert "primary_collision_target" not in fact_patch
+    reasons = {item["field"]: item["reason"] for item in uncertain}
+    assert reasons["direct_collision_partner_type"] == "direct_contact_negative_fact_blocks_contact_partner"
+    assert reasons["primary_collision_target"] == "direct_contact_negative_fact_blocks_contact_partner"
+
+
 def test_guard_allows_motorcycle_direct_collision_partner_when_contact_is_clear():
     fact_patch = {
         "collision_partner_type": "motorcycle",

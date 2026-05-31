@@ -79,6 +79,19 @@ SCENARIO_CONTEXT_FIELDS = ROAD_CONTEXT_RETRY_FIELDS | {
     "non_contact_trigger",
     "trigger_actor_type",
     "trigger_actor_behavior",
+    "direct_contact_with_ego",
+    "ego_collision_confirmed",
+    "opponent_single_fall",
+    "non_contact_near_miss",
+    "opponent_loss_of_control",
+    "curve_road",
+    "narrow_road",
+    "road_width_m",
+    "ego_vehicle_position",
+    "opponent_vehicle_position",
+    "ego_kept_right",
+    "opponent_failed_keep_right",
+    "opposing_motorcycle_present",
 }
 SCENARIO_CONTEXT_RETRY_SKIP_THRESHOLDS = {
     "centerline_crossed": 0.86,
@@ -97,6 +110,11 @@ SCENARIO_CONTEXT_RETRY_SKIP_THRESHOLDS = {
     "non_contact_trigger": 0.82,
     "trigger_actor_type": 0.78,
     "trigger_actor_behavior": 0.78,
+    "direct_contact_with_ego": 0.84,
+    "ego_collision_confirmed": 0.84,
+    "opponent_single_fall": 0.82,
+    "non_contact_near_miss": 0.80,
+    "opposing_motorcycle_present": 0.78,
 }
 CONTACT_EVIDENCE_FIELDS = {
     "collision_point_visible",
@@ -595,6 +613,8 @@ def _openai_frame_analysis_prompt(
         "Do not treat the first risky scene, visible pedestrian, crosswalk, parked vehicle, signal, near miss, or lane conflict as the accident merely because it appears first. "
         "If the selected sequence shows multiple possible event candidates, compare all candidates and base collision_partner_type, primary_collision_target, collision_point_visible, impact_direction, and opponent_behavior on the candidate with visible contact, abrupt impact evidence, or immediate aftermath. "
         "If no contact, impact evidence, or immediate aftermath is visible in the selected frames, say so in uncertainties and do not confirm collision-target facts. "
+        "If an oncoming motorcycle or scooter comes close to the ego vehicle and then falls without visible physical contact with the ego vehicle, emit direct_contact_with_ego=false, ego_collision_confirmed=false, opponent_single_fall=true, non_contact_near_miss=true, and do not emit collision_partner_type or direct_collision_partner_type as a physical target. "
+        "For narrow curved two-way roads in that non-contact motorcycle context, emit curve_road, narrow_road, road_width_m when visible or marked, ego_vehicle_position, opponent_vehicle_position, ego_kept_right, opponent_failed_keep_right, and opposing_motorcycle_present when supported. "
         "Road environment facts such as crosswalks, centerline, parked vehicles, obstacles, and signals are secondary context and must not replace collision-target identification. "
         "The Context JSON may contain user-supplied accident type or structured facts. "
         "Use it only to prioritize which visual facts to inspect; never use it as visual evidence and never copy it into observations unless the frames support it. "
@@ -613,6 +633,8 @@ def _openai_frame_analysis_prompt(
         "centerline_crossed, centerline_cross_reason, road_obstruction, illegal_parking_obstruction, "
         "opposing_vehicle_present, opposing_vehicle_did_not_stop, secondary_collision, "
         "non_contact_trigger, trigger_actor_type, trigger_actor_behavior, direct_collision_partner_type, rear_vehicle_collision, "
+        "direct_contact_with_ego, ego_collision_confirmed, opponent_single_fall, non_contact_near_miss, opponent_loss_of_control, "
+        "curve_road, narrow_road, road_width_m, ego_vehicle_position, opponent_vehicle_position, ego_kept_right, opponent_failed_keep_right, opposing_motorcycle_present, "
         "collision_partner_type, primary_collision_target, impact_visible, collision_point_visible, collision_point_location, "
         "front_vehicle_stopped, ego_turn_direction, stopped_vehicle_without_lights, highway_or_expressway, "
         "recaptured_screen, dashcam_screen_visible, screen_glare_or_reflection. "

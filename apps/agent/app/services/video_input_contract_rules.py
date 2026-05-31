@@ -310,6 +310,73 @@ FIELD_ALIASES = {
     "event_window_candidate": "accident_event_candidate",
 }
 
+NON_CONTACT_MOTORCYCLE_FIELDS = {
+    "direct_contact_with_ego",
+    "ego_collision_confirmed",
+    "opponent_single_fall",
+    "non_contact_near_miss",
+    "opponent_loss_of_control",
+    "curve_road",
+    "narrow_road",
+    "road_width_m",
+    "ego_vehicle_position",
+    "opponent_vehicle_position",
+    "ego_kept_right",
+    "opponent_failed_keep_right",
+    "opposing_motorcycle_present",
+    "opponent_speed_fast_claimed",
+    "ego_speed_within_limit_claimed",
+    "physical_contact_frame_refs",
+    "no_contact_evidence_frame_refs",
+}
+
+FIELD_CONFIDENCE_THRESHOLDS.update(
+    {
+        "direct_contact_with_ego": 0.84,
+        "ego_collision_confirmed": 0.84,
+        "opponent_single_fall": 0.82,
+        "non_contact_near_miss": 0.80,
+        "opponent_loss_of_control": 0.78,
+        "curve_road": 0.76,
+        "narrow_road": 0.76,
+        "road_width_m": 0.70,
+        "ego_vehicle_position": 0.76,
+        "opponent_vehicle_position": 0.76,
+        "ego_kept_right": 0.76,
+        "opponent_failed_keep_right": 0.76,
+        "opposing_motorcycle_present": 0.78,
+        "opponent_speed_fast_claimed": 0.70,
+        "ego_speed_within_limit_claimed": 0.70,
+    }
+)
+CONFIRMATION_FIELD_PRIORITIES.update({field: 400 + index for index, field in enumerate(sorted(NON_CONTACT_MOTORCYCLE_FIELDS))})
+FACT_FIELDS.update(NON_CONTACT_MOTORCYCLE_FIELDS)
+FRAME_REF_REQUIRED_FACT_FIELDS.update(NON_CONTACT_MOTORCYCLE_FIELDS - {"road_width_m", "physical_contact_frame_refs", "no_contact_evidence_frame_refs"})
+FIELD_ALIASES.update(
+    {
+        "contact_with_ego": "direct_contact_with_ego",
+        "physical_contact_with_ego": "direct_contact_with_ego",
+        "direct_contact": "direct_contact_with_ego",
+        "ego_collision": "ego_collision_confirmed",
+        "ego_contact_confirmed": "ego_collision_confirmed",
+        "single_fall": "opponent_single_fall",
+        "opponent_fall": "opponent_single_fall",
+        "motorcycle_single_fall": "opponent_single_fall",
+        "near_miss": "non_contact_near_miss",
+        "noncontact_near_miss": "non_contact_near_miss",
+        "loss_of_control": "opponent_loss_of_control",
+        "curved_road": "curve_road",
+        "road_width": "road_width_m",
+        "kept_right": "ego_kept_right",
+        "ego_kept_to_right": "ego_kept_right",
+        "opponent_keep_right_failure": "opponent_failed_keep_right",
+        "oncoming_motorcycle": "opposing_motorcycle_present",
+        "opposing_motorcycle": "opposing_motorcycle_present",
+        "physical_contact_frames": "physical_contact_frame_refs",
+        "no_contact_frames": "no_contact_evidence_frame_refs",
+    }
+)
+
 TECHNICAL_FIELDS = (
     "duration_sec",
     "width",
@@ -356,6 +423,25 @@ def normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
             return None
         speed = int(round(numeric))
         return speed if 0 < speed <= 130 else None
+    if field == "road_width_m":
+        numeric = as_float(str(value).replace("미터", "").replace("m", ""))
+        if numeric is None:
+            return None
+        return round(numeric, 1) if 0 < numeric < 30 else None
+    if field in {"ego_vehicle_position", "opponent_vehicle_position"}:
+        text = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+        if text in {"right", "right_edge", "road_edge", "shoulder", "far_right"}:
+            return "right_edge"
+        if text in {"center", "centre", "middle", "centerline", "near_center"}:
+            return "center"
+        if text in {"left", "left_edge", "far_left"}:
+            return "left_edge"
+        return text if text and text != "unknown" else None
+    if field in {"physical_contact_frame_refs", "no_contact_evidence_frame_refs"}:
+        if isinstance(value, (list, tuple, set)):
+            return [str(item).strip() for item in value if str(item).strip()][:12]
+        text = str(value or "").strip()
+        return [text] if text else []
     if field == "overlay_text_hint":
         if isinstance(value, (list, tuple, set)):
             hints = [str(item).replace("\x00", "").strip() for item in value if str(item).strip()]
@@ -391,7 +477,7 @@ def normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
         if text in {"green_to_yellow", "yellow_to_red", "red_to_green", "green_to_red", "flashing", "none"}:
             return text
         return text if text and text != "unknown" else None
-    if field in {"stopped", "sudden_brake", "opponent_signal_visible", "opponent_signal_violation", "intersection", "crosswalk_nearby", "pedestrian_visible", "school_zone", "road_marking_school_zone_visible", "speed_limit_sign_visible", "oncoming_traffic_present", "oncoming_bicycle_present", "vulnerable_road_user", "child_candidate", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "non_contact_trigger", "rear_vehicle_collision", "impact_visible", "collision_point_visible", "front_vehicle_stopped", "stopped_vehicle_without_lights", "highway_or_expressway"}:
+    if field in {"stopped", "sudden_brake", "opponent_signal_visible", "opponent_signal_violation", "intersection", "crosswalk_nearby", "pedestrian_visible", "school_zone", "road_marking_school_zone_visible", "speed_limit_sign_visible", "oncoming_traffic_present", "oncoming_bicycle_present", "vulnerable_road_user", "child_candidate", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "non_contact_trigger", "rear_vehicle_collision", "impact_visible", "collision_point_visible", "front_vehicle_stopped", "stopped_vehicle_without_lights", "highway_or_expressway", "direct_contact_with_ego", "ego_collision_confirmed", "opponent_single_fall", "non_contact_near_miss", "opponent_loss_of_control", "curve_road", "narrow_road", "ego_kept_right", "opponent_failed_keep_right", "opposing_motorcycle_present", "opponent_speed_fast_claimed", "ego_speed_within_limit_claimed"}:
         return as_bool(value)
     if isinstance(value, str):
         return value.strip() or None

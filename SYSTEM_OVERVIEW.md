@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 비접촉 이륜차 단독 전도 분석 계약 보강
+
+비좁은 커브길에서 맞은편 오토바이가 직접 접촉 없이 단독 전도한 유형을 직접 차대오토바이 충돌로 오분류하지 않도록 Agent/Worker/Gateway/Frontend 표시 계약을 보강했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| Agent fact contract | `direct_contact_with_ego=false`, `ego_collision_confirmed=false`, `opponent_single_fall=true`, `non_contact_near_miss=true` 조합이면 `non_contact_involving_motorcycle` 및 `non_contact_motorcycle_single_fall`로 보존한다. 비좁은 커브길·도로폭·우측 피양·상대 중앙 주행 정보가 있으면 `narrow_curve_oncoming_motorcycle_loss_of_control`로 좁힌다. |
+| 영상 관찰 guard | Worker frame prompt와 Agent video input guard가 직접 접촉 프레임 근거 없이 `collision_partner_type=motorcycle` 같은 직접 충돌 fact를 승격하지 않는다. `physical_contact_frame_refs=[]`는 접촉 근거 없음으로 취급한다. |
+| 과실비율 표시 | 핵심 비접촉 단독 전도 fact가 모두 확인되면 조건부 후보로 내 과실 0%, 상대 100%를 만들되, KNIA 직접 접촉 기준으로 단정하지 않고 `no_primary_contact_standard` 정책을 남긴다. |
+| 질문 흐름 | 비접촉 이륜차 단독 전도 질문 세트는 접촉 여부, 상대 단독 전도, 내 차 위치, 상대 위치, 도로 폭/우측통행을 먼저 묻고 신호 질문으로 새지 않게 했다. |
+| 디버그 스크립트 | `scripts/debug_video_case.py`는 로컬 사고 영상 경로를 받아 ffmpeg/ffprobe가 있을 때 프레임 추출 요약을 생성한다. 원본 영상과 추출 프레임/log는 Git에 포함하지 않는다. |
+| 비변경 범위 | Public API route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키는 변경하지 않았다. |
+
+검증은 Agent targeted pytest, Frontend display/build, Gateway build/test, Python compileall로 수행했다. 현재 로컬 환경에는 ffmpeg/ffprobe가 없어 지정 영상 프레임 추출은 `missing_ffmpeg` 상태로 기록된다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P11-3 팀원 인수인계
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P11-3 단계를 완료했다. 팀원 동시 작업에서 웹 디자인 변경과 영상/Agent 변경이 서로 롤백되지 않도록 `docs/GITHUB_COLLABORATION_WORKFLOW.md`의 역할 분리와 충돌 위험 경로를 보강했다.

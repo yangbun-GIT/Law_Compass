@@ -39,6 +39,19 @@ VIDEO_PRIMARY_FIELDS = {
     "rear_vehicle_collision",
     "collision_partner_type",
     "primary_collision_target",
+    "direct_contact_with_ego",
+    "ego_collision_confirmed",
+    "opponent_single_fall",
+    "non_contact_near_miss",
+    "opponent_loss_of_control",
+    "curve_road",
+    "narrow_road",
+    "road_width_m",
+    "ego_vehicle_position",
+    "opponent_vehicle_position",
+    "ego_kept_right",
+    "opponent_failed_keep_right",
+    "opposing_motorcycle_present",
     "collision_point_visible",
     "collision_point_location",
     "front_vehicle_stopped",
@@ -59,6 +72,20 @@ USER_PRIMARY_FIELDS = {
     "selected_major_category",
     "initial_preliminary_accident_type",
     "selected_preliminary_accident_type",
+    "direct_contact_with_ego",
+    "ego_collision_confirmed",
+    "opponent_single_fall",
+    "non_contact_near_miss",
+    "curve_road",
+    "narrow_road",
+    "road_width_m",
+    "ego_vehicle_position",
+    "opponent_vehicle_position",
+    "ego_kept_right",
+    "opponent_failed_keep_right",
+    "opposing_motorcycle_present",
+    "opponent_speed_fast_claimed",
+    "ego_speed_within_limit_claimed",
 }
 
 EMPTY_VALUES = {None, "", "unknown", "모름", "None", "null"}
@@ -133,6 +160,21 @@ def arbitrate_facts(
         authority = _authority(field)
         observation = _observation_for_field(observations, field)
         user_value = facts.get(field)
+
+        if field in DIRECT_TARGET_FIELDS and _user_negative_direct_contact_context(facts):
+            kept_user_fields.append(field)
+            conflicts.append(
+                _conflict(
+                    field,
+                    facts.get("direct_contact_with_ego", facts.get("ego_collision_confirmed")),
+                    video_value,
+                    "user",
+                    authority,
+                    observation,
+                    "user_negative_direct_contact_blocks_video_target",
+                )
+            )
+            continue
 
         if _is_empty(user_value):
             facts[field] = video_value
@@ -222,6 +264,12 @@ def _authority(field: str) -> str:
     if field in USER_PRIMARY_FIELDS:
         return "user_primary"
     return "user_when_present"
+
+
+def _user_negative_direct_contact_context(facts: dict[str, Any]) -> bool:
+    direct_negative = facts.get("direct_contact_with_ego") is False or facts.get("ego_collision_confirmed") is False
+    single_fall = facts.get("opponent_single_fall") is True or facts.get("non_contact_near_miss") is True
+    return bool(direct_negative or single_fall)
 
 
 def _observation_for_field(observations: list[Any], field: str) -> dict[str, Any]:

@@ -1384,8 +1384,26 @@ function videoFactLabel(field: string) {
     injury: "인명피해 여부",
     damage_level: "파손 정도",
   };
-  return labels[field] ?? cleanText(field, "");
+  return labels[field] ?? EXTRA_VIDEO_FACT_LABELS[field] ?? cleanText(field, "");
 }
+
+const EXTRA_VIDEO_FACT_LABELS: AnyRecord = {
+  direct_contact_with_ego: "내 차량 직접 접촉",
+  ego_collision_confirmed: "내 차량 충돌 확인",
+  opponent_single_fall: "상대 오토바이 단독 전도",
+  non_contact_near_miss: "비접촉 근접 사고",
+  opponent_loss_of_control: "상대 균형 상실",
+  curve_road: "커브길",
+  narrow_road: "좁은 도로",
+  road_width_m: "도로 폭",
+  ego_vehicle_position: "내 차량 위치",
+  opponent_vehicle_position: "상대 오토바이 위치",
+  ego_kept_right: "내 차량 우측 피양",
+  opponent_failed_keep_right: "상대 우측통행 불충분",
+  opposing_motorcycle_present: "맞은편 오토바이",
+  opponent_speed_fast_claimed: "상대 속도 빠름 주장",
+  ego_speed_within_limit_claimed: "제한속도 내 주행 주장",
+};
 
 function safeInputQuestionLabel(field: string, fallback: any = "") {
   const mapped = videoFactLabel(field);
@@ -1912,7 +1930,7 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
     const userFault: AnyRecord = faultRatio.user_fault || faultRatio.final_fault || {};
     const kniaCandidates = collectSimpleKniaCandidates(report, result);
     const knia: AnyRecord | null = kniaCandidates[0] ?? null;
-    const videoSceneSummary = videoSceneSummaryOf(report, result);
+    const videoSceneSummary = nonContactMotorcycleSceneSummary(report, result) || videoSceneSummaryOf(report, result);
     const frameInterpretationCards = displayFrameInterpretationCards({ ...result, ...report });
     const videoSummary = cleanText(
         videoSceneSummary?.summary_text ||
@@ -1954,6 +1972,25 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
         video_summary: videoSummary,
         finality: report.finality_display_card ?? composeFinalityDisplayCard(result, report),
         frame_interpretation_cards: frameInterpretationCards,
+    };
+}
+
+function nonContactMotorcycleSceneSummary(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord | null {
+    const facts = {
+        ...(isPlainObject(result.structured_facts) ? result.structured_facts : {}),
+        ...(isPlainObject(report.structured_facts) ? report.structured_facts : {}),
+    };
+    const directNegative = facts.direct_contact_with_ego === false || facts.ego_collision_confirmed === false;
+    const singleFall = facts.opponent_single_fall === true || facts.non_contact_near_miss === true;
+    const motorcycle = facts.opposing_motorcycle_present === true || String(JSON.stringify(facts)).includes("motorcycle") || String(JSON.stringify(facts)).includes("오토바이");
+    if (!directNegative || !singleFall || !motorcycle) return null;
+    const narrowCurve = facts.curve_road || facts.narrow_road || facts.road_width_m;
+    return {
+        title: narrowCurve ? "비좁은 커브길 비접촉 이륜차 전도 사고" : "비접촉 이륜차 단독 전도 사고",
+        summary_text: narrowCurve
+            ? "비좁은 커브길에서 맞은편 오토바이가 내 차량과 직접 접촉하기 전 단독으로 넘어진 비접촉 또는 근접 사고로 보입니다."
+            : "상대 오토바이가 내 차량과 직접 접촉하지 않은 상태에서 단독으로 넘어진 비접촉 또는 근접 사고로 보입니다.",
+        source: "structured_non_contact_motorcycle_facts",
     };
 }
 
@@ -2061,7 +2098,16 @@ function confirmedFactLabels(result: AnyRecord = {}, report: AnyRecord = {}) {
     };
     add("accident_party_type", facts.accident_party_type);
     add("accident_type", facts.accident_type);
-    add("collision_partner_type", facts.collision_partner_type || facts.direct_collision_partner_type);
+    if (facts.direct_contact_with_ego === false || facts.ego_collision_confirmed === false) {
+        add("direct_contact_with_ego", facts.direct_contact_with_ego);
+        add("opponent_single_fall", facts.opponent_single_fall);
+    } else {
+        add("collision_partner_type", facts.collision_partner_type || facts.direct_collision_partner_type);
+    }
+    add("road_width_m", facts.road_width_m);
+    add("ego_kept_right", facts.ego_kept_right);
+    add("opponent_failed_keep_right", facts.opponent_failed_keep_right);
+    add("opposing_motorcycle_present", facts.opposing_motorcycle_present);
     add("stopped", facts.stopped);
     add("intersection", facts.intersection);
     add("centerline_crossed", facts.centerline_crossed);
@@ -2100,8 +2146,18 @@ function factValueLabel(value: any) {
         red: "적색",
         green: "녹색",
     };
-    return labels[String(value)] ?? replaceRawFieldTokens(value);
+    return EXTRA_FACT_VALUE_LABELS[String(value)] ?? labels[String(value)] ?? replaceRawFieldTokens(value);
 }
+
+const EXTRA_FACT_VALUE_LABELS: AnyRecord = {
+    non_contact_involving_motorcycle: "비접촉 이륜차 근접 사고",
+    non_contact_motorcycle_single_fall: "비접촉 이륜차 단독 전도",
+    narrow_curve_oncoming_motorcycle_loss_of_control: "비좁은 커브길 맞은편 오토바이 단독 전도",
+    opponent_motorcycle_nearby: "상대 오토바이 관여",
+    right_edge: "우측 가장자리",
+    center: "중앙 쪽",
+    loss_of_control: "균형 상실",
+};
 
 function videoSceneSummaryOf(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord | null {
     const structuredFacts = isPlainObject(report.structured_facts) ? report.structured_facts : {};

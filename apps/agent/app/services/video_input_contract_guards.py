@@ -16,6 +16,7 @@ def apply_video_fact_guards(
     accepted: list[dict[str, Any]],
     uncertain: list[dict[str, Any]],
 ) -> None:
+    guard_negative_direct_contact(fact_patch, accepted, uncertain)
     guard_collision_partner_classification(fact_patch, accepted, uncertain)
     guard_ego_vehicle_partner_pollution(fact_patch, accepted, uncertain)
     promote_supported_bicycle_candidates(fact_patch, accepted, uncertain)
@@ -26,6 +27,39 @@ def apply_video_fact_guards(
     align_collision_partner_from_direct_contact(fact_patch, accepted, uncertain)
     guard_target_fact_consensus(fact_patch, accepted, uncertain)
     demote_context_dependent_facts(fact_patch, accepted, uncertain)
+
+
+def guard_negative_direct_contact(
+    fact_patch: dict[str, Any],
+    accepted: list[dict[str, Any]],
+    uncertain: list[dict[str, Any]],
+) -> None:
+    """Do not let a contact target survive when the contract says there was no ego contact."""
+
+    negative_contact = fact_patch.get("direct_contact_with_ego") is False or fact_patch.get("ego_collision_confirmed") is False
+    non_contact_fall = fact_patch.get("opponent_single_fall") is True or fact_patch.get("non_contact_near_miss") is True
+    if not (negative_contact or non_contact_fall):
+        return
+    has_physical_contact_refs = bool(fact_patch.get("physical_contact_frame_refs"))
+    if has_physical_contact_refs and (fact_patch.get("impact_visible") is True or fact_patch.get("collision_point_visible") is True):
+        return
+    moved = False
+    for field in TARGET_FACT_FIELDS:
+        value = target_value(fact_patch.get(field))
+        if value in CANONICAL_TARGETS:
+            move_accepted_to_uncertain(
+                field,
+                fact_patch,
+                accepted,
+                uncertain,
+                "direct_contact_negative_fact_blocks_contact_partner",
+            )
+            moved = True
+    if moved and fact_patch.get("opponent_single_fall") is True:
+        fact_patch["collision_partner_type"] = "opponent_motorcycle_nearby"
+    if fact_patch.get("opponent_single_fall") is True:
+        fact_patch["direct_contact_with_ego"] = False
+        fact_patch["ego_collision_confirmed"] = False
 
 
 def promote_supported_bicycle_candidates(
@@ -170,6 +204,8 @@ def guard_target_fact_consensus(
                 uncertain,
                 f"{field}_vehicle_target_requires_collision_context_or_user_confirmation",
             )
+            continue
+        if fact_patch.get("collision_point_visible") is True or fact_patch.get("impact_visible") is True:
             continue
         if has_non_vehicle_target_support(target, accepted, uncertain):
             continue
@@ -506,8 +542,6 @@ def has_non_vehicle_target_support(
     frame_refs: set[str] = set()
     for item in [*accepted, *uncertain]:
         if str(item.get("field") or "") not in TARGET_FACT_FIELDS:
-            continue
-        if is_candidate_target_value(item.get("value")):
             continue
         if target_value(item.get("value")) != target:
             continue
