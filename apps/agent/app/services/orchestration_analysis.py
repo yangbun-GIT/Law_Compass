@@ -14,6 +14,7 @@ from app.services.analysts.fault_ratio_analyst import analyze_fault_ratio
 from app.services.analysts.insurance_analyst import analyze_insurance
 from app.services.analysts.traffic_law_analyst import analyze_traffic_law
 from app.services.claim_evidence_validator import apply_claim_evidence_audit, validate_claim_evidence
+from app.services.evidence_axis_router import route_evidence_by_accident_axis
 from app.services.orchestration_context import CaseContext
 from app.services.orchestration_evidence import (
     EvidenceBundle,
@@ -171,11 +172,29 @@ def run_reflection_requery_stage(
         scenario.get("accident_party_type"),
         scenario.get("scenario_type"),
     )
+    legal_route = route_evidence_by_accident_axis(
+        legal_evidence,
+        facts=normalized["structured_facts"],
+        accident_party_type=scenario.get("accident_party_type"),
+        scenario_type=scenario.get("scenario_type"),
+    )
+    legal_evidence = legal_route["primary"]
+    secondary_evidence = merge_evidence_items([*evidence_bundle.secondary_evidence, *legal_route["secondary"]])
+    excluded_evidence = merge_evidence_items([*evidence_bundle.excluded_evidence, *legal_route["excluded"]])
+    evidence_axis_routing = {
+        **(evidence_bundle.evidence_axis_routing or {}),
+        "reflection_legal": legal_route["summary"],
+        "secondary_count": len(secondary_evidence),
+        "excluded_count": len(excluded_evidence),
+    }
     next_evidence_bundle = EvidenceBundle(
         **{
             **evidence_bundle.__dict__,
             "legal_evidence": legal_evidence,
             "evidence": merge_evidence_items([*evidence_bundle.knia_evidence, *legal_evidence]),
+            "secondary_evidence": secondary_evidence,
+            "excluded_evidence": excluded_evidence,
+            "evidence_axis_routing": evidence_axis_routing,
         }
     )
     return ReflectionStageResult(

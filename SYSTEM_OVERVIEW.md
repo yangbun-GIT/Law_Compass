@@ -1,5 +1,23 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P6-1 사고축 기반 Evidence Routing
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P6-1 단계를 완료했다. 이번 변경은 법령/KNIA/정적 fallback 근거가 현재 사고 대분류와 직접 사고대상에 맞는지 먼저 분류하고, 보행자·횡단보도·자전거·신호·차선 같은 환경축 근거가 1차 직접 근거로 섞이지 않도록 만든 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| Evidence axis router | `apps/agent/app/services/evidence_axis_router.py`를 추가해 근거별 상태를 `primary`, `secondary`, `excluded`로 분류한다. |
+| Agent evidence stage | `orchestration_evidence.py`가 직접 근거로 쓸 수 있는 evidence만 `knia_evidence`, `legal_evidence`, `evidence`에 남기고, 환경축 근거는 `secondary_evidence`, 축 불일치 근거는 `excluded_evidence`와 `evidence_axis_routing` audit으로 분리한다. |
+| Reflection requery | 재검색으로 추가된 legal evidence도 같은 사고축 라우팅을 거친 뒤 병합한다. |
+| 출력 trace | `orchestration_output.py`가 `model_info.evidence_axis_routing`과 `secondary_evidence`를 노출해 관리자/품질 점검에서 왜 직접 근거가 아닌지 확인할 수 있게 했다. |
+| 중앙선 기준 보정 | `knia_matcher.py`의 중앙선 primary mismatch 조건을 보정해 `차43` 전체를 무조건 제거하지 않고, 실제 진로/차선변경 축인 경우만 제외한다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키를 변경하지 않는다. 사용자 화면 표시 정책은 기존 Gateway/Frontend sanitizer를 유지하며, 이번 단계는 Agent 내부 근거 라우팅과 audit contract를 보강한 것이다.
+
+검증은 `docker compose exec -T agent python -m pytest tests/test_evidence_axis_router.py tests/test_fault_knia_axis_generalization.py tests/test_orchestration_evidence_filter.py`, `docker compose exec -T agent python -m pytest tests/test_orchestrator.py tests/test_judgment_contract.py tests/test_evidence_quality_gate.py tests/test_evidence_source_status.py`, `docker compose exec -T agent python -m pytest tests/test_agent_task_packets.py tests/test_agent_goal_aggregator.py tests/test_specialist_agent_runners.py tests/test_specialist_role_definitions.py`, `docker compose exec -T agent python -m compileall app/services/evidence_axis_router.py app/services/orchestration_evidence.py app/services/orchestration_analysis.py app/services/orchestration_output.py app/services/knia/knia_matcher.py`로 완료했다.
+
+P6-1은 근거의 사고축 정합성을 정리하는 단계다. 다음 P6-2에서는 상대 신호, 중앙선 침범 사유, 정차 사유, 속도·무등화·2차 충돌처럼 결론이 조건부로 갈리는 상황을 더 명확한 조건부 판단으로 분리한다.
+
 ## 2026-05-31 P5-2~P5-4 문서 정합성 재점검
 
 사용자 지적에 따라 Agent/MCP/Task-Plan-Goal 로드맵 문서의 P5-2 이후 완료 기록을 다시 점검했다. 코드와 `SYSTEM_OVERVIEW.md`에는 P5-2, P5-3, P5-4 완료 내역이 존재하지만, `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`의 오래된 진행 상태 표와 “바로 다음 작업” 문구가 P5-1 기준으로 남아 있어 문서 참조 시 혼동 가능성이 있었다.

@@ -1201,3 +1201,12 @@ P5-2를 시작할 때는 `vehicle`, `pedestrian`, `bicycle`, `motorcycle`, `obje
 - 현재 유효한 상태는 `P5 완료`이다. 완료 범위는 P5-1 사고 기점 후보 품질, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 AI-Hub/공개 reference 평가 경계다.
 - 재검증은 `docker compose exec -T worker python -m unittest discover -s tests -p 'test_job_processor_contract.py'`, `docker compose exec -T agent python -m pytest tests/test_video_input_contract.py tests/test_fact_arbitration.py tests/test_party_router_direct_collision_priority.py`, `python -m pytest tests/test_reference_case_manifest_policy.py tests/test_validate_video_accuracy_manifest.py tests/test_evaluate_video_reference_metrics.py`로 완료했다.
 - 현재 유효한 바로 다음 작업은 **P6-1 사고축 기반 evidence routing**이다. 오래된 상태표의 P5-1 기준 다음 작업 문구보다 이 기록을 우선한다.
+
+### 2026-05-31 P6-1 진행 기록
+
+- P6-1 사고축 기반 evidence routing 완료: `evidence_axis_router`가 근거별 사고축 상태를 `primary`, `secondary`, `excluded`로 분류한다.
+- Agent evidence stage는 사고 대분류와 직접 사고대상에 맞는 근거만 직접 근거로 남기고, 횡단보도·보행자·자전거·신호 같은 환경축 근거는 secondary 또는 excluded audit으로 분리한다.
+- Reflection requery로 추가된 legal evidence도 같은 라우팅을 거친다. `model_info.evidence_axis_routing`과 `secondary_evidence`에서 왜 직접 근거가 아닌지 확인할 수 있다.
+- 중앙선 사고에서 `차43` 전체를 무조건 제거하던 기존 필터를 보정해, 실제 진로/차선변경 축인 `차43`만 제외하도록 했다.
+- 검증은 `tests/test_evidence_axis_router.py`, `tests/test_fault_knia_axis_generalization.py`, `tests/test_orchestration_evidence_filter.py`, `tests/test_orchestrator.py`, `tests/test_judgment_contract.py`, `tests/test_evidence_quality_gate.py`, `tests/test_evidence_source_status.py`, `tests/test_agent_task_packets.py`, `tests/test_agent_goal_aggregator.py`, `tests/test_specialist_agent_runners.py`, `tests/test_specialist_role_definitions.py`와 compileall로 완료했다.
+- 다음 개발은 **P6-2 조건부 판단 강화**다. 상대 신호, 중앙선 침범 사유, 정차 사유, 속도·무등화·2차 충돌처럼 결론이 조건부로 갈리는 상황을 단일 50:50 fallback이 아니라 조건부 결과로 분리한다.

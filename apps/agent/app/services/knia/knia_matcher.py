@@ -875,7 +875,11 @@ def _is_centerline_primary_mismatch(tags: list[str], row: dict[str, Any]) -> boo
         return True
     if any(token in chart_text for token in ("무등화", "스텔스", "후미추돌", "후방추돌", "횡단보도", "앞차 정차", "보행자")):
         return True
-    return "차41" in chart_text or "차42" in chart_text or "차43" in chart_text
+    if "차41" in chart_text or "차42" in chart_text:
+        return True
+    if "차43" in chart_text:
+        return any(token in chart_text for token in ("진로변경", "진로 변경", "차선변경", "차로변경", "lane change"))
+    return False
 
 
 def _scenario_chart_score_adjustment(row: dict[str, Any], tags: list[str], joined_text: str) -> float:

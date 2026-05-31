@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
+from app.services.evidence_axis_router import route_evidence_by_accident_axis
 from app.services.knia.knia_fault_adjuster import calculate_fault_from_structured_chart, estimate_knia_fault
 from app.services.knia.knia_matcher import (
     _is_centerline_primary_mismatch,
@@ -31,6 +32,9 @@ class EvidenceBundle:
     retrieval: dict[str, Any]
     legal_evidence: list[dict[str, Any]]
     evidence: list[dict[str, Any]]
+    secondary_evidence: list[dict[str, Any]] = field(default_factory=list)
+    excluded_evidence: list[dict[str, Any]] = field(default_factory=list)
+    evidence_axis_routing: dict[str, Any] = field(default_factory=dict)
 
 
 def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] | None) -> EvidenceBundle:
@@ -143,6 +147,13 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         scenario.get("scenario_type"),
     )
     legal_evidence = _filter_knia_major_party(legal_evidence, scenario.get("accident_party_type"))
+    routed = _route_stage_evidence(
+        knia_evidence=knia_evidence,
+        legal_evidence=legal_evidence,
+        facts=normalized["structured_facts"],
+        accident_party_type=scenario.get("accident_party_type"),
+        scenario_type=scenario.get("scenario_type"),
+    )
     return EvidenceBundle(
         knia_result=knia_result,
         knia_matches=knia_matches,
@@ -151,10 +162,13 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         knia_json_evidence=knia_json_evidence,
         knia_fault_estimate=knia_fault_estimate,
         knia_reference_evidence=knia_reference_evidence,
-        knia_evidence=knia_evidence,
+        knia_evidence=routed["knia_evidence"],
         retrieval=retrieval,
-        legal_evidence=legal_evidence,
-        evidence=[*knia_evidence, *legal_evidence],
+        legal_evidence=routed["legal_evidence"],
+        evidence=[*routed["knia_evidence"], *routed["legal_evidence"]],
+        secondary_evidence=routed["secondary_evidence"],
+        excluded_evidence=routed["excluded_evidence"],
+        evidence_axis_routing=routed["evidence_axis_routing"],
     )
 
 
@@ -208,6 +222,45 @@ def _static_knia_match_to_fault_estimate(match: dict[str, Any]) -> dict[str, Any
         "evidence_used": [{"type": "static_knia_fallback", "value": match.get("chart_no")}],
         "source_chart": source_chart,
         "notice": "KNIA DB/JSON 조회가 불가능한 환경에서 차선변경 regression을 위한 정적 차대차 참고 기준입니다.",
+    }
+
+
+def _route_stage_evidence(
+    *,
+    knia_evidence: list[dict[str, Any]],
+    legal_evidence: list[dict[str, Any]],
+    facts: dict[str, Any],
+    accident_party_type: str | None,
+    scenario_type: str | None,
+) -> dict[str, Any]:
+    knia_route = route_evidence_by_accident_axis(
+        knia_evidence,
+        facts=facts,
+        accident_party_type=accident_party_type,
+        scenario_type=scenario_type,
+    )
+    legal_route = route_evidence_by_accident_axis(
+        legal_evidence,
+        facts=facts,
+        accident_party_type=accident_party_type,
+        scenario_type=scenario_type,
+    )
+    secondary_evidence = merge_evidence_items([*knia_route["secondary"], *legal_route["secondary"]])
+    excluded_evidence = merge_evidence_items([*knia_route["excluded"], *legal_route["excluded"]])
+    return {
+        "knia_evidence": knia_route["primary"],
+        "legal_evidence": legal_route["primary"],
+        "secondary_evidence": secondary_evidence,
+        "excluded_evidence": excluded_evidence,
+        "evidence_axis_routing": {
+            "version": knia_route["version"],
+            "accident_party_type": accident_party_type,
+            "scenario_type": scenario_type,
+            "knia": knia_route["summary"],
+            "legal": legal_route["summary"],
+            "secondary_count": len(secondary_evidence),
+            "excluded_count": len(excluded_evidence),
+        },
     }
 
 

@@ -103,6 +103,8 @@ def enrich_analysis_output(
         x.get("source_url") for x in evidence_bundle.knia_json_evidence if x.get("source_url")
     ]
     output["model_info"]["retrieval"] = _build_retrieval_model_info(evidence_bundle)
+    output["model_info"]["evidence_axis_routing"] = evidence_bundle.evidence_axis_routing
+    output["secondary_evidence"] = evidence_bundle.secondary_evidence
     if (analysis_bundle.fault_ratio or {}).get("rejected_knia_fault_estimate"):
         observation = {
             "type": "knia_basis_mismatch",
