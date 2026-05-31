@@ -1160,7 +1160,7 @@ P5-1 완료 기록:
 | P4 | 완료 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter, P4-3 persona/prompt version registry, P4-4 Agent consensus/conflict packet 완료 |
 | P5 | 완료 | P5-1 사고 기점 탐지, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 완료 |
 | P6 | 완료 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약, P6-4 근거 표시 품질 강화 완료 |
-| P7 | 진행 중 | P7-1 사용자 payload와 관리자 payload 분리 완료. 다음은 P7-2 보완 질문 payload 정리 |
+| P7 | 진행 중 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리 완료. 다음은 P7-3 결과 표시 finality 정리 |
 | P8 | 대기 | 관측성/비용/운영 리스크 |
 | P9 | 대기 | 테스트/평가 체계 |
 | P10 | 대기 | 표준 MCP 도입 판단 |
@@ -1169,9 +1169,9 @@ P5-1 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P7-2. 보완 질문 payload 정리**부터 진행한다.
+다음 개발은 **P7-3. 결과 표시 finality 정리**부터 진행한다.
 
-P7-2를 시작할 때는 질문 field와 answer key가 서로 영향을 주지 않게 하고, 같은 field를 쓰는 질문도 독립적으로 선택되며, 질문 문장은 짧고 명확하게 표시되도록 정리한다.
+P7-3을 시작할 때는 확정, 참고, 조건부, 추가 확인 필요 상태가 UI에서 명확히 구분되는지 확인하고, 과실비율이 참고 범위인지 조건부 결과인지 근거 부족 fallback인지 사용자가 이해할 수 있게 정리한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1241,3 +1241,12 @@ P7-2를 시작할 때는 질문 field와 answer key가 서로 영향을 주지 �
 - 관리자 진단은 기존 `/api/v1/admin/cases/:caseId/agent-trace`와 `/api/v1/admin/uploads/:uploadId/video-preprocess`를 유지한다. 사용자 흐름과 관리자 진단 흐름은 분리되어 있다.
 - 검증은 Gateway에서 `npm test -- --run analysis-routes.test.ts agent-diagnostics.test.ts report-composer.test.ts`와 `npm run build`로 완료했다.
 - 다음 개발은 **P7-2 보완 질문 payload 정리**다. 질문 field/answer key 독립성, raw key 제거, 짧고 명확한 질문 문구를 정리한다.
+
+### 2026-05-31 P7-2 진행 기록
+
+- P7-2 보완 질문 payload 정리 완료: `missing_info.questions[*].field`와 실제 답변 key인 `answer_key`를 분리해 같은 field를 쓰는 여러 질문이 서로의 선택값을 덮어쓰지 않도록 했다.
+- Gateway report composer는 `field__qN` 형식의 안정적인 `answer_key`를 생성하고, 같은 field라도 질문 문장이 다르면 독립 질문으로 유지한다. raw/debug 성격의 기존 저장 질문은 더 안전한 영상 후보 질문으로 대체한다.
+- Gateway follow-up normalizer는 `answer_key`를 다시 기본 field로 접되, 같은 field의 여러 답변이 서로 충돌하면 조용히 덮어쓰지 않고 unresolved로 남긴다.
+- Frontend의 `MissingInfoCard`, `CaseResultView`, `caseWorkspaceFactMapping`도 같은 answer key 규칙을 사용한다.
+- 검증은 Gateway에서 `npm test -- --run report-composer.test.ts followup-normalizer.test.ts`, Gateway `npm run build`, Frontend `npm run build`로 완료했다.
+- 다음 개발은 **P7-3 결과 표시 finality 정리**다. 확정, 참고, 조건부, 추가 확인 필요 상태와 과실비율의 근거 수준을 사용자 화면에서 일관되게 구분한다.

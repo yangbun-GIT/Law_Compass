@@ -84,9 +84,10 @@ const questions = computed<MissingQuestion[]>(() => {
     .map((item: any, index: number) => {
       const field = String(item.field);
       const question = String(item.question || item.label || item.field);
+      const answerKey = String(item.answer_key || item.answerKey || `${field}__q${index}`);
       return {
         field,
-        answerKey: `${field}::${index}::${question}`,
+        answerKey,
         label: String(item.label || item.field),
         question,
         input_type: String(item.input_type || "text"),
@@ -113,7 +114,7 @@ function submit() {
   for (const question of questions.value) {
     const value = answers[question.answerKey];
     const trimmed = String(value || "").trim();
-    if (trimmed) payload[question.field] = trimmed;
+    if (trimmed) payload[question.answerKey] = trimmed;
   }
   if (Object.keys(payload).length) emit("submit", payload);
 }

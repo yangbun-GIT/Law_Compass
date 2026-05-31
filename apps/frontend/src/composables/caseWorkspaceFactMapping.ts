@@ -1,11 +1,11 @@
 import type { AccidentFacts } from "../api/client";
 
 export function getGuidedQuestionId(question: any): string {
-    return question.question_id || question.field || question.fact_key || "unknown_question";
+    return question.answer_key || question.answerKey || question.question_id || question.field || question.fact_key || "unknown_question";
 }
 
 export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question: any, value: string): AccidentFacts {
-        const factKey = question.fact_key || question.knia_factor_key || String(question.question_id || "").split(".").pop();
+        const factKey = question.fact_key || question.knia_factor_key || canonicalQuestionField(question);
         const nextFacts: AccidentFacts = { ...currentFacts };
 
         function markStealthParkedVehicleCollision() {
@@ -381,4 +381,13 @@ export function applyGuidedQuestionAnswer(currentFacts: AccidentFacts, question:
         }
 
         return nextFacts;
+}
+
+function canonicalQuestionField(question: any): string {
+    const field = String(question?.field || "").trim();
+    if (field) return field;
+    const answerKey = String(question?.answer_key || question?.answerKey || "").trim();
+    if (answerKey.includes("__q")) return answerKey.split("__q")[0];
+    if (answerKey.includes("::")) return answerKey.split("::")[0];
+    return String(question?.question_id || "").split(".").pop() || "";
 }

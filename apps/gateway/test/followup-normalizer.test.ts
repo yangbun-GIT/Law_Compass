@@ -100,4 +100,35 @@ describe("followup normalizer", () => {
     expect(result.patch.centerline_crossed).toBe(true);
     expect(result.patch.illegal_parking_obstruction).toBe(true);
   });
+
+  it("accepts independent answer keys for repeated questions on the same field", () => {
+    const result = normalizeFollowupAnswers(
+      {
+        opponent_signal__q0: "녹색",
+        opponent_signal__q1: "녹색",
+      },
+      {}
+    );
+
+    expect(result.patch.opponent_signal).toBe("green");
+    expect(result.patch._followup_answered_fields).toEqual(["opponent_signal"]);
+    expect(result.answered_fields).toEqual(["opponent_signal"]);
+    expect(result.unresolved_fields).toEqual([]);
+  });
+
+  it("does not silently overwrite conflicting repeated answers for the same field", () => {
+    const result = normalizeFollowupAnswers(
+      {
+        opponent_signal__q0: "녹색",
+        opponent_signal__q1: "적색",
+      },
+      {}
+    );
+
+    expect(result.patch.opponent_signal).toBeUndefined();
+    expect(result.patch.opponent_signal_violation).toBeUndefined();
+    expect(result.patch._followup_answered_fields ?? []).toEqual([]);
+    expect(result.patch._followup_unresolved_fields).toEqual(["opponent_signal"]);
+    expect(result.unresolved_fields).toEqual(["opponent_signal"]);
+  });
 });

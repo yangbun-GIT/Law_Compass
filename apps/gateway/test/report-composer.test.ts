@@ -278,6 +278,41 @@ describe("report composer", () => {
     expect(JSON.stringify(report)).not.toContain("blocking_fields");
   });
 
+  it("keeps same-field missing-info questions independently answerable", () => {
+    const enriched = enrichEasyReport(
+      sanitizeEasyReport({
+        headline: "교차로 신호 사고",
+        missing_info: {
+          title: "더 정확한 분석을 위해 필요한 정보",
+          questions: [
+            {
+              field: "opponent_signal",
+              label: "상대 차량 신호",
+              question: "상대 차량이 교차로에 진입할 때 신호는 무엇이었나요?",
+              options: ["녹색", "황색", "적색"],
+            },
+            {
+              field: "opponent_signal",
+              label: "상대 차량 신호",
+              question: "상대 차량 신호를 영상이나 CCTV로 확인할 수 있나요?",
+              options: ["확인 가능", "확인 불가"],
+            },
+          ],
+        },
+      }),
+      { accident_summary: "교차로에서 신호에 따라 결론이 갈릴 수 있는 사고" }
+    );
+
+    const questions = (enriched as any).missing_info.questions.filter((item: any) => item.field === "opponent_signal");
+    expect(questions).toHaveLength(2);
+    expect(questions.map((item: any) => item.question)).toEqual([
+      "상대 차량이 교차로에 진입할 때 신호는 무엇이었나요?",
+      "상대 차량 신호를 영상이나 CCTV로 확인할 수 있나요?",
+    ]);
+    expect(new Set(questions.map((item: any) => item.answer_key)).size).toBe(2);
+    expect(questions.every((item: any) => String(item.answer_key).startsWith("opponent_signal__q"))).toBe(true);
+  });
+
   it("prioritizes remaining missing-info questions for the next user action", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({
       headline: "report",

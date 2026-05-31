@@ -7,17 +7,27 @@ export function normalizeFollowupAnswers(answers: AnyRecord = {}, previousFacts:
   const answeredFields: string[] = [];
   const unresolvedFields: string[] = [];
   const ignoredFields: string[] = [];
+  const groupedAnswers = groupFollowupAnswers(answers);
 
-  for (const [field, raw] of Object.entries(answers || {})) {
-    const value = String(raw ?? "").trim();
-    if (!field || !value) {
-      ignoredFields.push(field);
+  for (const [field, items] of groupedAnswers.entries()) {
+    const values = unique(items.map((item) => item.value).filter((value) => !isUnknown(value)));
+    const hasUnknown = items.some((item) => isUnknown(item.value));
+
+    if (!field || (!values.length && !hasUnknown)) {
+      ignoredFields.push(...items.map((item) => item.key));
       continue;
     }
-    if (isUnknown(value)) {
+    if (!values.length && hasUnknown) {
       unresolvedFields.push(field);
       continue;
     }
+
+    if (values.length > 1) {
+      unresolvedFields.push(field);
+      continue;
+    }
+
+    const value = values[0];
     const before = JSON.stringify(patch);
     applyAnswer(patch, field, value);
     if (JSON.stringify(patch) === before) {
@@ -43,6 +53,29 @@ export function normalizeFollowupAnswers(answers: AnyRecord = {}, previousFacts:
     ignored_fields: ignoredFields,
     iteration,
   };
+}
+
+function groupFollowupAnswers(answers: AnyRecord = {}) {
+  const grouped = new Map<string, { key: string; value: string }[]>();
+  for (const [rawKey, rawValue] of Object.entries(answers || {})) {
+    const key = String(rawKey ?? "").trim();
+    const field = normalizeFollowupFieldKey(key);
+    const value = String(rawValue ?? "").trim();
+    const bucket = grouped.get(field) ?? [];
+    bucket.push({ key, value });
+    grouped.set(field, bucket);
+  }
+  return grouped;
+}
+
+function normalizeFollowupFieldKey(key: string) {
+  const raw = String(key || "").trim();
+  if (!raw) return "";
+  for (const marker of ["__q", "::"]) {
+    const index = raw.indexOf(marker);
+    if (index > 0) return raw.slice(0, index);
+  }
+  return raw;
 }
 
 function applyAnswer(patch: AnyRecord, field: string, value: string) {

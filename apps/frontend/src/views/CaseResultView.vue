@@ -102,7 +102,8 @@ async function submitFollowup(answers: Record<string, string>) {
 
 function normalizeAnswerPatch(answers: Record<string, string>): AccidentFacts {
   const patch: AccidentFacts = {};
-  for (const [field, raw] of Object.entries(answers)) {
+  for (const [rawField, raw] of Object.entries(answers)) {
+    const field = canonicalAnswerField(rawField);
     const value = raw.trim();
     if (!value) continue;
     if (field === "injury") patch.injury = value.includes("없음") ? false : value.includes("확인") ? null : true;
@@ -122,6 +123,16 @@ function normalizeAnswerPatch(answers: Record<string, string>): AccidentFacts {
     else (patch as Record<string, any>)[field] = value;
   }
   return Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)) as AccidentFacts;
+}
+
+function canonicalAnswerField(key: string) {
+  const raw = String(key || "").trim();
+  if (!raw) return "";
+  const qIndex = raw.indexOf("__q");
+  if (qIndex > 0) return raw.slice(0, qIndex);
+  const legacyIndex = raw.indexOf("::");
+  if (legacyIndex > 0) return raw.slice(0, legacyIndex);
+  return raw;
 }
 
 function mapAccidentType(value: string) {

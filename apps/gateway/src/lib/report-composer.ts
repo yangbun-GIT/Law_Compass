@@ -40,7 +40,7 @@ function requiredQuestionTexts(result: AnyRecord = {}) {
 }
 function requiredQuestionsForReport(result: AnyRecord = {}) {
   return asArray(result.required_input_questions ?? result.input_requirements?.questions)
-    .map((item) => {
+    .map((item, index) => {
       if (!item || typeof item !== "object") return undefined;
       const field = String(item.field ?? "");
       if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
@@ -50,6 +50,7 @@ function requiredQuestionsForReport(result: AnyRecord = {}) {
         field,
         label: safeInputQuestionLabel(field, item.label ?? question),
         question,
+        answer_key: safeQuestionAnswerKey(item, field, index),
         input_type: cleanText(item.input_type ?? "text"),
         options: asArray(item.options).map((option) => cleanText(option)).filter(Boolean).slice(0, 8),
       };
@@ -971,8 +972,9 @@ function combineVideoQuestions(...groups: AnyRecord[][]) {
   const seen = new Set<string>();
   for (const question of groups.flat()) {
     const field = String(question?.field ?? "");
-    if (!field || seen.has(field)) continue;
-    seen.add(field);
+    const key = questionDedupeKey(question);
+    if (!field || seen.has(key)) continue;
+    seen.add(key);
     combined.push(question);
   }
   return combined.slice(0, 6);
@@ -1028,14 +1030,14 @@ function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []
   const missing = report.missing_info && typeof report.missing_info === "object" ? report.missing_info : {};
   const existingQuestions = asArray(missing.questions);
   const videoFields = new Set(questions.map((item: AnyRecord) => String(item?.field ?? "")).filter(Boolean));
-  const existingFields = new Set(
-    existingQuestions
-      .map((item: AnyRecord) => String(item?.field ?? ""))
-      .filter((field: string) => field && !videoFields.has(field))
-  );
+  const keptExistingQuestions = existingQuestions.filter((item: AnyRecord) => {
+    const field = String(item?.field ?? "");
+    return !videoFields.has(field) || !shouldReplaceStoredQuestionWithVideo(item);
+  });
+  const existingKeys = new Set(keptExistingQuestions.map((item: AnyRecord) => questionDedupeKey(item)));
   const nextQuestions = [
-    ...existingQuestions.filter((item: AnyRecord) => !videoFields.has(String(item?.field ?? ""))),
-    ...questions.filter((item) => !existingFields.has(String(item.field))),
+    ...keptExistingQuestions,
+    ...questions.filter((item) => !existingKeys.has(questionDedupeKey(item))),
   ].slice(0, 8);
   const questionTexts = nextQuestions.map((item) => item?.question);
   const nextItems = compactDisplayItems([
@@ -1051,6 +1053,18 @@ function mergeVideoQuestions(report: AnyRecord = {}, questions: AnyRecord[] = []
       questions: nextQuestions,
     },
   });
+}
+
+function questionDedupeKey(value: AnyRecord = {}) {
+  const field = String(value.field ?? "");
+  const question = cleanText(value.question ?? value.label, "").toLowerCase();
+  return `${field}|${question}`;
+}
+
+function shouldReplaceStoredQuestionWithVideo(value: AnyRecord = {}) {
+  const label = cleanText(value.label, "").toLowerCase();
+  const question = cleanText(value.question, "").toLowerCase();
+  return label === "raw" || question === "raw" || question === "raw?" || containsBadValuePattern(question);
 }
 
 function prioritizeMissingInfo(report: AnyRecord = {}) {
@@ -1099,12 +1113,22 @@ function annotateMissingInfoQuestion(value: any, index = 0, contextText = "") {
   return {
     ...value,
     field,
+    answer_key: safeQuestionAnswerKey(value, field, index),
     label,
     question,
     priority_label: missingInfoPriorityLabel(priority),
     priority_reason: missingInfoPriorityReason(field),
     priority_order: priority * 100 + index,
   };
+}
+
+function safeQuestionAnswerKey(value: any, field: string, index = 0) {
+  const explicit = String(value?.answer_key ?? value?.answerKey ?? "").trim();
+  const prefix = `${field}__q`;
+  if (explicit.startsWith(prefix) && explicit.length <= 96 && /^[a-zA-Z0-9_]+__q\d+$/.test(explicit)) {
+    return explicit;
+  }
+  return `${field}__q${Math.max(0, index)}`;
 }
 
 function missingInfoContextText(report: AnyRecord = {}) {
@@ -2371,7 +2395,7 @@ function sanitizeValue(value: any): any {
     for (const [key, nested] of Object.entries(value)) {
       if (TECHNICAL_KEYS.has(key)) continue;
       if (key === "questions" && Array.isArray(nested)) {
-        out[key] = nested.map(sanitizeInputQuestion).filter(Boolean);
+        out[key] = nested.map((item, index) => sanitizeInputQuestion(item, index)).filter(Boolean);
         continue;
       }
       if (key === "priority_items" && Array.isArray(nested)) {
@@ -2390,7 +2414,7 @@ function sanitizeValue(value: any): any {
   }
   return undefined;
 }
-function sanitizeInputQuestion(value: any) {
+function sanitizeInputQuestion(value: any, index = 0) {
   if (!value || typeof value !== "object") return undefined;
   const field = String(value.field ?? "");
   if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
@@ -2398,6 +2422,7 @@ function sanitizeInputQuestion(value: any) {
   if (!question) return undefined;
   return {
     field,
+    answer_key: safeQuestionAnswerKey(value, field, index),
     label: safeInputQuestionLabel(field, value.label ?? question),
     question,
     input_type: String(value.input_type ?? "text"),

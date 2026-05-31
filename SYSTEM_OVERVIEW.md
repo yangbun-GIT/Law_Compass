@@ -1,5 +1,22 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P7-2 보완 질문 Payload 정리
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P7-2 단계를 완료했다. 이번 변경은 보완 질문의 `field`와 실제 답변 저장 key를 분리해, 같은 field를 쓰는 여러 질문이 서로의 선택값을 덮어쓰지 않도록 정리한 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 질문 식별자 | Gateway 리포트 composer가 `missing_info.questions[*].answer_key`를 생성한다. 기본 형식은 `field__qN`이며, 사용자 화면의 select/input은 이 값을 기준으로 독립 상태를 가진다. |
+| 같은 field 질문 | 같은 `field`라도 질문 문장이 다르면 별도 질문으로 유지된다. 단, raw/debug 성격의 저장 질문은 더 안전한 영상 후보 질문으로 대체된다. |
+| 답변 정규화 | Gateway `followup-normalizer`는 `answer_key`를 다시 기본 field로 접되, 같은 field의 복수 답변이 충돌하면 조용히 덮어쓰지 않고 unresolved로 남긴다. |
+| 프론트 반영 | `MissingInfoCard.vue`, `CaseResultView.vue`, `caseWorkspaceFactMapping.ts`가 같은 answer key 규칙을 사용한다. |
+
+이 변경은 DB schema, Redis key, storage path, 외부 API 종류, Agent/Worker 판단 로직을 변경하지 않는다. 사용자 보완 질문 payload와 프론트 상태 관리, Gateway follow-up 정규화만 보강한 additive 변경이다.
+
+검증은 `apps/gateway`에서 `npm test -- --run report-composer.test.ts followup-normalizer.test.ts`, `apps/gateway`에서 `npm run build`, `apps/frontend`에서 `npm run build`로 완료했다.
+
+P7-2는 보완 질문의 독립 선택과 재분석 입력 안정성을 정리하는 단계다. 다음 P7-3에서는 결과 표시 finality를 정리해 확정/참고/조건부/추가 확인 필요 상태가 사용자 화면에서 일관되게 보이도록 보강한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P7-1 사용자/Admin Payload 분리
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P7-1 단계를 완료했다. 이번 변경은 일반 사용자 API 응답에는 쉬운 리포트 중심 payload만 유지하고, raw diagnostic/debug payload는 관리자 권한이 확인된 요청에서만 접근할 수 있게 제한한 작업이다.
