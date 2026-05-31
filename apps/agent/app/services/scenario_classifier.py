@@ -261,7 +261,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         scenario_type = "parking_or_stopped_vehicle_accident"
         accident_party_type = "car_vs_car"
         tags.update(["stopped_vehicle", "parking"])
-    elif facts.get("stopped") or any(w in haystack for w in ["후미", "뒤차", "후방", "안전거리", "정차"]) or ("앞차" in haystack and "추돌" in haystack):
+    elif facts.get("stopped") or _has_assertive_rear_end_context(haystack):
         scenario_type = "rear_end_collision"
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance", "stopped_vehicle"])
@@ -524,6 +524,38 @@ def _is_lawful_signal_stop_rear_end_context(facts: dict[str, Any], haystack: str
 
 def _has_rear_end_tokens(text: str) -> bool:
     return any(token in text for token in ("뒷차", "뒷 차", "뒤차", "뒤 차", "후방", "후속", "후미", "추돌", "들이받", "받힘", "rear"))
+
+
+def _has_assertive_rear_end_context(text: str) -> bool:
+    if _has_assertive_token(text, ("후미", "뒤차", "뒤 차", "뒷차", "뒷 차", "후방", "후속", "안전거리", "정차", "들이받", "받힘", "rear")):
+        return True
+    return _has_assertive_token(text, ("앞차",)) and _has_assertive_token(text, ("추돌",))
+
+
+def _has_assertive_token(text: str, tokens: tuple[str, ...]) -> bool:
+    uncertainty_markers = (
+        "알 수 없",
+        "알수없",
+        "모르",
+        "확인 필요",
+        "확인필요",
+        "확인 불가",
+        "불명",
+        "미확인",
+        "unknown",
+        "unclear",
+    )
+    for token in tokens:
+        start = 0
+        while True:
+            index = text.find(token, start)
+            if index < 0:
+                break
+            window = text[max(0, index - 8): index + len(token) + 16]
+            if not any(marker in window for marker in uncertainty_markers):
+                return True
+            start = index + len(token)
+    return False
 
 
 def _has_red_light_violation_context(text: str) -> bool:

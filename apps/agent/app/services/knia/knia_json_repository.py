@@ -30,6 +30,10 @@ LOCAL_JSON_CANDIDATES = (
     "/app/scripts/knia_fault_ratio/knia_fault_ratio_2023_06.review.json",
     "/app/scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_review.json",
     "/app/scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_catalog.json",
+    "/app/project_scripts/knia_fault_ratio/knia_fault_ratio.json",
+    "/app/project_scripts/knia_fault_ratio/knia_fault_ratio_2023_06.review.json",
+    "/app/project_scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_review.json",
+    "/app/project_scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_catalog.json",
 )
 
 
@@ -349,9 +353,12 @@ def get_rag_documents_by_chart_no(chart_no: str) -> list[dict[str, Any]]:
                 """,
                 (chart_no,),
             )
-            return [dict(row) for row in cur.fetchall()]
+            rows = [dict(row) for row in cur.fetchall()]
+            if rows:
+                return rows
     except Exception:
-        return [doc for doc in _local_rag_documents() if doc.get("chart_no") == chart_no]
+        pass
+    return [doc for doc in _local_rag_documents() if doc.get("chart_no") == chart_no]
 
 
 def upsert_myaccident_page(page: dict[str, Any], file_hash: str) -> dict[str, Any]:

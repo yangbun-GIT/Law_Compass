@@ -1165,13 +1165,13 @@ P5-1 완료 기록:
 | P9 | 완료 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장, P9-3 Reference 평가 확장, P9-4 CI/검증 명령 정리 완료 |
 | P10 | 완료 | P10-1 표준 MCP 요구사항 재평가, P10-2 표준 MCP pilot 설계, P10-3 도입 보류 결정 완료 |
 | P11 | 완료 | P11-1 문서 동기화, P11-2 발표 설명 정리, P11-3 팀원 인수인계 완료 |
-| P12 | 진행 중 | P12-1 문서와 코드 일치 점검 완료. 다음은 P12-2 Agent 실행 품질 점검 |
+| P12 | 완료 | P12-1 문서와 코드 일치, P12-2 전체 Agent 실행 품질, P12-3 사용자 가치 점검 완료 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P12-2. Agent 실행 품질 점검**부터 진행한다.
+Agent/MCP/Task-Plan-Goal 구조 보강 P0~P12 전체 점검은 완료했다. 다음 개발은 실제 제품 고도화 항목에서 선택해 진행한다.
 
-P12-2를 시작할 때는 영상/텍스트 입력이 오염 없이 fact로 정리되는지, Agent별 결과가 독립적으로 남는지, 충돌과 불확실성이 final result에 올바르게 반영되는지 확인한다.
+다음 제품 고도화에서는 현재 보강한 Agent 계약, MCP-like tool boundary, 근거축 분리, 사용자 가치 점검 명령을 유지한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1387,3 +1387,18 @@ P12-2를 시작할 때는 영상/텍스트 입력이 오염 없이 fact로 정�
 - 이번 단계는 문서/검증 스크립트 보강이며 제품 코드 동작, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 `python scripts/check_document_code_sync.py`, `git diff --check`, 표준 MCP pilot/gate 테스트로 완료한다.
 - 다음 개발은 **P12-2 Agent 실행 품질 점검**이다.
+
+### 2026-05-31 P12-2 진행 기록
+
+- P12-2 Agent 실행 품질 점검 완료: `scripts/check_agent_execution_quality.ps1`를 추가해 Agent Docker 컨테이너 기준으로 입력/fact 품질, 역할/goal 독립성, 충돌/불확실성/finality 품질을 반복 검증할 수 있게 했다.
+- `docs/AGENT_EXECUTION_QUALITY_CHECK.md`에 점검 범위, 실행 명령, 완료 기준, 실제 영상/비용 발생 검증과의 차이를 정리했다.
+- 점검 범위는 텍스트만/영상만/텍스트+영상/보완 재분석, 영상 fact 승격·보류·충돌, 직접 사고대상 오염 방지, Specialist Agent 결과 독립성, 조건부 판단, 과실비율 결과 계약, judgment contract, evidence axis routing이다.
+- 이번 단계는 문서/검증 스크립트 보강이며 제품 코드 동작, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
+- 검증은 `powershell -ExecutionPolicy Bypass -File scripts\check_agent_execution_quality.ps1 -SkipDockerBuild`, `python scripts/check_document_code_sync.py`, `git diff --check`로 완료했다.
+
+### 2026-05-31 P12-3 진행 기록
+
+- P12-3 사용자 가치 점검 완료: `scripts/check_user_value_readiness.ps1`와 `docs/USER_VALUE_READINESS_CHECK.md`를 추가해 사용자 화면 가치, 리포트 조립, reference metrics, Frontend 표시 안전성, Gateway report/route 동작을 반복 확인한다.
+- P12-3 검증 결과: Agent 사용자 가치 계약 `27 passed`, reference metrics fixture `passed`, Gateway test `101 passed`, Gateway build 통과, Frontend display/chat safety 통과, Frontend build 통과.
+- P12 최종 재점검 결과: P12-2는 P0~P11 전체 Agent 실행 구조를 대상으로 재검증했고 Docker Agent 전체 테스트 `340 passed`와 source compile이 통과했다.
+- Agent/MCP/Task-Plan-Goal 구조 보강 P0~P12 전체 점검은 완료 상태다.

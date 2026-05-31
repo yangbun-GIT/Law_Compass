@@ -15,6 +15,32 @@
 
 검증은 Agent targeted pytest, Frontend display/build, Gateway build/test, Python compileall로 수행했다. 현재 로컬 환경에는 ffmpeg/ffprobe가 없어 지정 영상 프레임 추출은 `missing_ffmpeg` 상태로 기록된다.
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P12-3 사용자 가치 점검
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P12-3 단계를 완료했다. P0~P11에서 만든 Agent 실행 결과가 실제 사용자 화면에서 법률 관점, 보험 처리, 근거, 추가 확인 항목으로 안전하게 전달되는지 반복 점검할 수 있도록 `scripts/check_user_value_readiness.ps1`와 `docs/USER_VALUE_READINESS_CHECK.md`를 추가했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 점검 스크립트 | `scripts/check_user_value_readiness.ps1`가 Docker Agent 사용자 가치 계약, reference metrics fixture, Gateway report/route 테스트와 build, Frontend display/chat 표시 안전성과 build를 묶어 실행한다. |
+| 점검 문서 | `docs/USER_VALUE_READINESS_CHECK.md`에 P12-3 점검 범위, 실행 방법, 완료 기준을 정리했다. |
+| 점검 범위 | 단순한 "확인 필요" 반복 방지, 조건부 결과 표시, 사고축에 맞는 KNIA/법령/영상 근거 표시, 내부 trace/raw key/model metadata 비노출, Frontend 사용자 문구 안전성을 확인한다. |
+| 비변경 범위 | API route, DTO, DB schema, Redis key, storage path, 외부 API 연결 방식은 변경하지 않았다. |
+
+검증은 `powershell -ExecutionPolicy Bypass -File scripts\check_user_value_readiness.ps1 -SkipDockerBuild`, `powershell -ExecutionPolicy Bypass -File scripts\check_agent_execution_quality.ps1 -SkipDockerBuild`, `python scripts/check_document_code_sync.py`, `git diff --check`로 완료한다.
+
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P12-2 Agent 실행 품질 점검
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P12-2 단계를 완료했다. 영상/텍스트 입력이 오염 없이 fact로 정리되는지, Agent별 결과가 독립적으로 남는지, 충돌과 불확실성이 final result에 올바르게 반영되는지 전체 Agent 테스트 기준으로 반복 점검할 수 있도록 `scripts/check_agent_execution_quality.ps1`와 `docs/AGENT_EXECUTION_QUALITY_CHECK.md`를 추가했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 점검 스크립트 | `scripts/check_agent_execution_quality.ps1`가 Docker Agent 컨테이너에서 전체 Agent 테스트와 source compile을 실행한다. |
+| 점검 문서 | `docs/AGENT_EXECUTION_QUALITY_CHECK.md`에 점검 범위, 실행 방법, 완료 기준, 실제 OpenAI/YOLO 영상 검증과의 차이를 정리했다. |
+| 점검 범위 | 텍스트만/영상만/텍스트+영상/보완 재분석, 영상 fact 승격·보류·충돌, 직접 사고대상 오염 방지, Specialist Agent 결과 독립성, 조건부 판단, 과실비율 결과 계약, judgment contract, evidence axis routing을 확인한다. |
+| 비변경 범위 | 제품 코드 동작, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
+
+검증은 `powershell -ExecutionPolicy Bypass -File scripts\check_agent_execution_quality.ps1 -SkipDockerBuild`, `python scripts/check_document_code_sync.py`, `git diff --check`로 완료한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P12-1 문서와 코드 일치 점검
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P12-1 단계를 완료했다. 문서에 적힌 핵심 파일, endpoint, job type, 실행 스크립트가 실제 코드와 맞는지 반복 확인할 수 있도록 `scripts/check_document_code_sync.py`와 `docs/DOCUMENT_CODE_SYNC_CHECK.md`를 추가했다.

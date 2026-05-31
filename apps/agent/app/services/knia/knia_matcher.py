@@ -149,6 +149,19 @@ def match_knia_charts(
     tags = filter_tags_by_party(list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)])), party, facts)
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         tags = [tag for tag in tags if tag != "bicycle"]
+    if _lacks_minimum_knia_basis(
+        facts=facts,
+        keywords=keywords,
+        scenario_type=scenario_type,
+        party=party,
+        chart_direct=chart_direct.group(0) if chart_direct else None,
+    ):
+        return _empty_match_result(
+            party=party,
+            expansion_terms=expansion_terms,
+            reason="minimum_accident_axis_required",
+            direct_collision_partner_type=facts.get("direct_collision_partner_type"),
+        )
     structured_lookup_error = None
     structured_items: list[dict[str, Any]] = []
     structured_rejected: list[dict[str, Any]] = []
@@ -308,6 +321,83 @@ def match_knia_charts(
 
 def _should_use_static_lane_change_fallback(scenario_type: str | None, party: str | None) -> bool:
     return scenario_type == "lane_change_collision" and canonicalize_party_type(party) in {"car_vs_car", "unknown"}
+
+
+def _lacks_minimum_knia_basis(
+    *,
+    facts: dict[str, Any],
+    keywords: list[str],
+    scenario_type: str | None,
+    party: str | None,
+    chart_direct: str | None,
+) -> bool:
+    if chart_direct:
+        return False
+    if _has_actionable_knia_fact(facts):
+        return False
+    if keywords:
+        return False
+    return not scenario_type or scenario_type in {"general_collision", "unknown"}
+
+
+def _has_actionable_knia_fact(facts: dict[str, Any]) -> bool:
+    non_actionable_keys = {
+        "accident_party_type",
+        "accident_party_label",
+        "knia_major_party_type",
+        "major_party_type",
+        "excluded_knia_party_types",
+        "scenario_tags",
+        "missing_fields",
+        "required_input_fields",
+        "optional_input_fields",
+        "video_context",
+        "video_scene_summary",
+    }
+    for key, value in facts.items():
+        if key.startswith("_") or key in non_actionable_keys:
+            continue
+        if key in {"accident_type", "scenario_type"}:
+            if str(value or "").strip() not in {"", "unknown", "general_collision"}:
+                return True
+            continue
+        if value in {None, "", False, "unknown"}:
+            continue
+        if isinstance(value, (list, dict, tuple, set)) and not value:
+            continue
+        return True
+    return False
+
+
+def _empty_match_result(
+    *,
+    party: str | None,
+    expansion_terms: list[str],
+    reason: str,
+    direct_collision_partner_type: Any,
+) -> dict[str, Any]:
+    return {
+        "items": [],
+        "cache_hit": False,
+        "cache_key": None,
+        "accident_party_type": party,
+        "requested_party_type": party,
+        "query_expansion_terms": expansion_terms,
+        "lookup_error": None,
+        "fallback_lookup_error": None,
+        "structured_lookup_error": None,
+        "structured_chart_used": False,
+        "chart_no": None,
+        "party_guard_policy": _party_guard_policy(party),
+        "rejected_mismatch_count": 0,
+        "fallback_used": False,
+        "no_knia_match_reason": reason,
+        "chart_prefix_allowed": list(allowed_chart_prefixes(party)),
+        "direct_collision_partner_type": direct_collision_partner_type,
+        "review_required": None,
+        "parsing_confidence": None,
+        "excluded_items": [],
+    }
 
 
 def _should_use_static_person_fallback(party: str | None) -> bool:
@@ -755,6 +845,8 @@ def _is_strict_scenario_mismatch(scenario_type: str | None, row: dict[str, Any],
             return True
         if has_lane_terms or has_signal_terms:
             return True
+        if chart_no.startswith("차42"):
+            return False
         return not stealth_terms
     return False
 
@@ -878,7 +970,7 @@ def _is_centerline_primary_mismatch(tags: list[str], row: dict[str, Any]) -> boo
     if "차41" in chart_text or "차42" in chart_text:
         return True
     if "차43" in chart_text:
-        return any(token in chart_text for token in ("진로변경", "진로 변경", "차선변경", "차로변경", "lane change"))
+        return True
     return False
 
 

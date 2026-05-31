@@ -85,10 +85,10 @@ def _display_status(fault_ratio: dict[str, Any]) -> str:
         return CONDITIONAL_RANGE
     if fault_ratio.get("knia_reference_fault") and not fault_ratio.get("knia_reference_only"):
         return SUPPORTED_RANGE
-    if fault_ratio.get("evidence_support_level") == "direct":
-        return SUPPORTED_RANGE
     if _is_flat_default(fault_ratio):
         return FALLBACK_NEEDS_EVIDENCE
+    if fault_ratio.get("evidence_support_level") == "direct":
+        return SUPPORTED_RANGE
     return SUPPORTED_RANGE if source and source != "scenario_default" else FALLBACK_NEEDS_EVIDENCE
 
 
@@ -106,11 +106,11 @@ def _range_basis(fault_ratio: dict[str, Any], *, display_status: str) -> str:
         return "conditional_fact_branches"
     if display_status == FALLBACK_NEEDS_EVIDENCE:
         return "insufficient_direct_basis"
-    if fault_ratio.get("knia_reference_fault") and not fault_ratio.get("knia_reference_only"):
-        return "knia_or_adjustment"
     source = str(fault_ratio.get("fault_estimate_source") or "")
     if source in CONTEXTUAL_SOURCES:
         return source
+    if fault_ratio.get("knia_reference_fault") and not fault_ratio.get("knia_reference_only"):
+        return "knia_or_adjustment"
     return "agent_supported_estimate"
 
 

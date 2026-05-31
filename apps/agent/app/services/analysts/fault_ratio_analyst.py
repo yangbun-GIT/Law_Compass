@@ -167,11 +167,19 @@ def analyze_fault_ratio(
         ]
         payload["adjustment_review_factors"] = ["급정지", "제동등", "비정상 정차", "선행사고 후 정차", "야간 무등화", "시야장애"]
     conditional_judgment = build_conditional_judgment(scenario_type=scenario_type, facts=facts, text=text)
+    trigger_types = {str(item.get("type") or "") for item in (conditional_judgment.get("triggers") or [])}
     if conditional_judgment.get("outcomes"):
         payload["conditional_judgment"] = conditional_judgment
+        judgment_outcomes = conditional_judgment["outcomes"]
+        if signal_uncertainty and "opponent_signal_uncertainty" in trigger_types:
+            judgment_outcomes = [
+                item
+                for item in judgment_outcomes
+                if str(item.get("condition_key") or "") not in {"opponent_signal_normal", "opponent_signal_violation"}
+            ]
         payload["conditional_outcomes"] = merge_conditional_outcomes(
             payload.get("conditional_outcomes") or [],
-            conditional_judgment["outcomes"],
+            judgment_outcomes,
         )
         payload["conditional_required_facts"] = list(
             dict.fromkeys(
@@ -185,7 +193,6 @@ def analyze_fault_ratio(
             payload["basis"] = "현재 확인된 사실만으로 단일 과실비율을 확정하기 어렵지만, 결론이 달라지는 핵심 조건을 시나리오별로 나누어 제시합니다."
             payload["fault_range"] = {"my": "조건별 확인 필요", "other": "조건별 확인 필요"}
     if payload.get("conditional_outcomes"):
-        trigger_types = {str(item.get("type") or "") for item in (conditional_judgment.get("triggers") or [])}
         if signal_uncertainty or "opponent_signal_uncertainty" in trigger_types:
             payload["basis"] = "상대 차량 신호가 확인되지 않은 교차로 사고라서, 신호 조건별 과실 범위를 나누어 제시한 참고용 추정입니다."
         elif payload.get("fault_estimate_source") != "conditional_fact_gap":

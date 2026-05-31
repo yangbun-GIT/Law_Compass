@@ -288,11 +288,25 @@ def _filter_primary_knia_evidence(
     filtered: list[dict[str, Any]] = []
     for item in items:
         if _is_centerline_primary_mismatch(scenario_tags, item):
-            continue
+            if not _is_centerline_reference_candidate(item, scenario_tags):
+                continue
         if scenario_type and _is_knia_like_item(item) and not is_knia_match_compatible_with_scenario(item, scenario_type):
             continue
         filtered.append(item)
     return filtered
+
+
+def _is_centerline_reference_candidate(item: dict[str, Any], scenario_tags: list[str]) -> bool:
+    if not ("centerline" in scenario_tags or "oncoming_vehicle" in scenario_tags or "road_obstruction" in scenario_tags):
+        return False
+    chart_no = str(item.get("chart_no") or "")
+    if not chart_no.startswith("차43"):
+        return False
+    joined = " ".join(
+        str(item.get(key) or "")
+        for key in ("title", "accident_summary", "accident_situation", "scenario_summary_easy", "menu_path")
+    )
+    return not any(token in joined for token in ("진로변경", "진로 변경", "차선변경", "차로변경", "lane change"))
 
 
 def _is_knia_like_item(item: dict[str, Any]) -> bool:

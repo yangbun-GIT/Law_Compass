@@ -115,6 +115,18 @@ Agent 핵심 회귀만 확인한다.
 powershell -ExecutionPolicy Bypass -File scripts\verify_agent_regression.ps1 -SkipDockerBuild
 ```
 
+Agent 실행 품질을 P12-2 기준으로 확인한다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\check_agent_execution_quality.ps1 -SkipDockerBuild
+```
+
+사용자 가치 표시와 리포트 조립을 P12-3 기준으로 확인한다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\check_user_value_readiness.ps1 -SkipDockerBuild
+```
+
 프로젝트 핵심 회귀를 확인한다.
 
 ```powershell

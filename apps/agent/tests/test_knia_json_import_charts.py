@@ -5,8 +5,16 @@ from pathlib import Path
 from app.services.knia.knia_json_loader import load_knia_json_file, validate_knia_json
 
 
-ROOT = Path(__file__).resolve().parents[3]
-REVIEW_JSON = ROOT / "scripts" / "knia_fault_ratio" / "knia_fault_ratio_2023_06.codex_review.json"
+def _review_json_path() -> Path:
+    for base in [Path.cwd(), *Path(__file__).resolve().parents]:
+        for folder in ("scripts", "project_scripts"):
+            candidate = base / folder / "knia_fault_ratio" / "knia_fault_ratio_2023_06.codex_review.json"
+            if candidate.exists():
+                return candidate
+    return Path(__file__).resolve().parents[1] / "project_scripts" / "knia_fault_ratio" / "knia_fault_ratio_2023_06.codex_review.json"
+
+
+REVIEW_JSON = _review_json_path()
 
 
 def test_codex_review_json_loads_charts():
