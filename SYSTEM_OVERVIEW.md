@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P10-1 표준 MCP 요구사항 재평가
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P10-1 단계를 완료했다. 이번 변경은 내부 MCP-like 구조를 충분히 강화한 현재 상태에서 표준 MCP Host/Client/Server 도입이 실제로 필요한지 재평가한 문서화 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 결론 | 표준 MCP 즉시 도입은 보류한다. 현재는 Agent 내부 `app/mcp` tool registry/executor를 유지한다. |
+| 판단 근거 | 외부 tool/server 요구, cross-host 재사용 요구, 표준 MCP client 요구, 독립 process 격리 요구가 아직 명확하지 않다. 내부 executor는 schema, scope, timeout/failure packet, safe trace metadata를 이미 제공한다. |
+| 문서 반영 | `docs/STACK_DECISION_REVIEW.md`에 P10-1 재평가 표와 도입 재검토 trigger를 추가했다. |
+| 비변경 범위 | 표준 MCP runtime, transport, server/client, 기존 tool 실행 동작, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
+
+검증은 표준 MCP gate 테스트와 MCP registry/executor/route boundary 회귀 테스트로 완료했다. 다음 P10-2에서는 KNIA search, legal RAG search, evidence guard 중 하나를 대상으로 표준 MCP adapter compatibility pilot 설계를 제한적으로 진행한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P9-4 CI/검증 명령 정리
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P9-4 단계를 완료했다. 이번 변경은 로컬 빠른 검증, Docker 기반 검증, OpenAI/YOLO ON 실제 영상 검증, 비용 발생 검증, 문서만 변경 검증, GitHub CI 확인 기준을 `docs/VERIFICATION_COMMANDS.md`로 모은 작업이다.

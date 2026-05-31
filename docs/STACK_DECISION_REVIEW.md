@@ -15,7 +15,7 @@
 | AI Agent | FastAPI + Python + Docker | FastAPI + Python 3.12 + Pydantic + httpx | 적절. LangChain 등 무거운 추상화는 현재 필수 아님 |
 | DB/Cache/Storage | PostgreSQL pgvector + Redis + AWS S3 | PostgreSQL pgvector + Redis + local storage. S3 SDK만 존재 | DB/Redis 적절. S3는 운영 전환 시 구현 후보 |
 | Video Pipeline | Firebase ML Kit | ffmpeg/ffprobe + Agent 텍스트/메타데이터 분석 | 차이 큼. Firebase ML Kit 대신 Google ML Kit/TFLite/프레임 분석 구조로 재검토 필요 |
-| Security/Integration | MCP | Agent 내부 `app/mcp` tool registry/executor | 표준 MCP는 아님. 현재는 내부 tool registry 수준으로 충분 |
+| Security/Integration | MCP | Agent 내부 `app/mcp` tool registry/executor | 표준 MCP는 아님. 2026-05-31 P10-1 재평가 기준 현재는 내부 tool registry/executor 유지가 적절 |
 
 ## 1. Frontend
 
@@ -238,6 +238,29 @@ Firebase ML Kit이라는 명칭은 현재 기준으로 재검토가 필요하다
   - 민감정보 마스킹
   - 파일 업로드 검증
   - 외부 API 호출 제한
+
+### 2026-05-31 P10-1 표준 MCP 요구사항 재평가
+
+P10-1 기준 결론은 **표준 MCP Host/Client/Server 즉시 도입 보류**다. 현재 구현은 표준 MCP가 아니라 Agent 내부 MCP-like registry/executor이며, 이 표현은 유지한다.
+
+| 평가 항목 | 현재 상태 | 판단 |
+| --- | --- | --- |
+| 외부 tool 수 | 현재 운영 경로는 Agent 내부 tool과 service 중심이다. 별도 외부 tool server 또는 외부 Agent host와 연결해야 하는 요구는 없다. | 표준 MCP 도입 근거 부족 |
+| 보안 격리 필요성 | 내부 executor에 tool spec, scope validation, timeout/failure packet, safe trace metadata가 있다. untrusted code 실행이나 독립 process 격리 요구는 아직 없다. | 내부 executor 강화로 충분 |
+| 다중 host 필요성 | 현재 Gateway, Agent, Worker, DB/Redis의 Docker Compose 경계는 있지만 tool 자체를 여러 host가 재사용하는 요구는 없다. | 표준 MCP transport 이득 낮음 |
+| 팀 개발 복잡도 | 2인 팀, 마감 일정, 기존 MSA/Docker/Agent 계약 보강 작업이 동시에 진행 중이다. 표준 MCP server/client/runtime을 추가하면 학습·디버깅·CI 비용이 커진다. | 즉시 도입 부담 큼 |
+| 배포/운영 비용 | 표준 MCP를 넣으면 별도 server process, auth/permission, health/trace, secret 관리, 네트워크 장애 처리가 추가된다. 현재 2GB RAM 제약도 고려해야 한다. | 운영 비용 대비 이득 낮음 |
+| 내부 executor로 해결 가능 여부 | P3~P9에서 registry schema, executor 권한/검증, route boundary, task/goal/specialist trace, failure observation, 테스트가 보강됐다. | 현재 문제는 내부 구조로 해결 가능 |
+
+표준 MCP 도입 재검토 trigger는 아래 조건 중 하나가 명확해질 때다.
+
+- 외부 tool 또는 외부 Agent가 3개 이상으로 늘어 protocol-level lifecycle이 필요해질 때
+- 다른 host/runtime이 같은 tool을 재사용해야 할 때
+- 표준 MCP client와 연결해야 하는 제품 또는 인프라 요구가 생길 때
+- 내부 executor scope 모델로 권한 분리가 부족해질 때
+- 보안, 장애 격리, untrusted code 처리 때문에 독립 process 경계가 필요해질 때
+
+따라서 P10-2는 기능 전체 전환이 아니라 KNIA search, legal RAG search, evidence guard 중 하나를 대상으로 **호환성 pilot 설계**만 진행한다. pilot 결과가 위 문제 중 무엇을 해결하는지 명확하지 않으면 P10-3에서 표준 MCP 도입은 계속 보류한다.
 
 ## 7. OpenAI API 사용 방식
 

@@ -1163,15 +1163,15 @@ P5-1 완료 기록:
 | P7 | 완료 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리, P7-3 결과 표시 finality 정리 완료 |
 | P8 | 완료 | P8-1 Trace id 통합, P8-2 LLM/vision 사용량 기록, P8-3 실패 관찰값 표준화 완료 |
 | P9 | 완료 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장, P9-3 Reference 평가 확장, P9-4 CI/검증 명령 정리 완료 |
-| P10 | 진행 중 | 다음은 P10-1 표준 MCP 요구사항 재평가 |
+| P10 | 진행 중 | P10-1 표준 MCP 요구사항 재평가 완료. 다음은 P10-2 표준 MCP pilot 설계 |
 | P11 | 대기 | 문서/인수인계/발표 정합성 |
 | P12 | 대기 | 최종 구조 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P10-1. 표준 MCP 요구사항 재평가**부터 진행한다.
+다음 개발은 **P10-2. 표준 MCP pilot 설계**부터 진행한다.
 
-P10-1을 시작할 때는 외부 tool 수, 보안 격리 필요성, 다중 host 필요성, 팀 개발 복잡도, 배포/운영 비용, 현재 내부 executor로 해결 가능한 범위를 기준으로 표준 MCP 도입 필요성을 다시 평가한다.
+P10-2를 시작할 때는 KNIA search, legal RAG search, evidence guard 중 하나를 pilot 대상으로 고르고, 기능 전체 전환이 아니라 기존 내부 executor와 표준 MCP adapter가 공존 가능한 compatibility 설계를 제한적으로 정리한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1320,3 +1320,12 @@ P10-1을 시작할 때는 외부 tool 수, 보안 격리 필요성, 다중 host 
 - 이번 단계는 검증 명령과 운영 기준 문서화 작업이며 애플리케이션 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API, Docker Compose 서비스 정의는 변경하지 않았다.
 - 검증은 `git diff --check`, reference manifest preflight, video reference metrics threshold, reference metrics 관련 pytest로 완료했다.
 - 다음 개발은 **P10-1 표준 MCP 요구사항 재평가**다.
+
+### 2026-05-31 P10-1 진행 기록
+
+- P10-1 표준 MCP 요구사항 재평가 완료: 현재는 표준 MCP Host/Client/Server 즉시 도입을 보류하고 Agent 내부 MCP-like registry/executor를 유지하는 것이 적절하다고 정리했다.
+- 외부 tool/server, cross-host 재사용, 표준 MCP client, 독립 process 격리, 내부 executor 권한 분리 부족 요구가 아직 명확하지 않고, P3~P9에서 내부 executor schema/scope/failure packet/trace/test가 이미 강화된 점을 근거로 남겼다.
+- `docs/STACK_DECISION_REVIEW.md`에 평가표, 도입 재검토 trigger, P10-2 compatibility pilot 범위를 추가했다.
+- 이번 단계는 판단 근거 문서화 작업이며 표준 MCP runtime, transport, server/client, 기존 tool 실행 동작, public API/DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
+- 검증은 표준 MCP gate와 MCP registry/executor/route boundary 회귀 테스트로 완료했다.
+- 다음 개발은 **P10-2 표준 MCP pilot 설계**다.
