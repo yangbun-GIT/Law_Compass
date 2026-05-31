@@ -99,3 +99,16 @@ flowchart LR
 | 모바일 on-device vision | 앱 패키징 이후 서버 비용 절감과 개인정보 보호를 위해 단말 전처리가 필요할 때 |
 | 판례/KNIA 원문 coverage 확장 | 실제 근거 DB coverage가 제품 신뢰도의 병목이 될 때 |
 | S3 직접 업로드 | 대용량 영상 업로드와 운영 저장소 확장이 필요할 때 |
+
+## 9. 영상처리/Agent 발표 인수인계
+
+영상처리와 Agent 담당 범위를 발표자료로 정리할 때는 `docs/VIDEO_AGENT_PRESENTATION_HANDOFF.md`를 우선 참고한다.
+
+해당 문서는 다음 내용을 발표용으로 풀어 쓴다.
+
+- 영상 전처리, YOLO, OpenAI 프레임 분석, Agent fact arbitration의 연결 흐름
+- 사용자 입력과 영상 관찰값의 반영 기준
+- AI Agent가 LawCompass에서 활용되는 방식
+- 자문위원 Q&A가 현재 프로젝트에 반영된 방식
+- 프로젝트 구조 보강과 P12 전체 점검 결과
+- 발표에서 피해야 할 과장 표현과 권장 표현
