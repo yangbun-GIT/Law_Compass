@@ -45,6 +45,7 @@ def execute_tool(
         _validate_payload(spec, safe_payload)
         _validate_scope(spec, granted_scopes)
         output = get_tool(tool_name)(safe_payload)
+        _validate_output(spec, output)
         latency = _latency_ms(started)
         if latency > spec.timeout_ms:
             output = _failure_packet(
@@ -109,6 +110,24 @@ def _validate_scope(spec: MCPToolSpec, granted_scopes: list[str] | None) -> None
         raise PermissionError("tool_scope_denied")
 
 
+def _validate_output(spec: MCPToolSpec, output: Any) -> None:
+    schema = spec.output_schema or {}
+    if schema.get("type") == "object" and not isinstance(output, dict):
+        raise ValueError("tool_output_schema_invalid")
+    if not isinstance(output, dict):
+        return
+    required = schema.get("required") or []
+    for field in required:
+        if field not in output or output.get(field) is None:
+            raise ValueError("tool_output_schema_invalid")
+    properties = schema.get("properties") or {}
+    for field, rules in properties.items():
+        if field not in output or output.get(field) is None:
+            continue
+        if not _matches_type(output.get(field), str(_dict(rules).get("type") or "")):
+            raise ValueError("tool_output_schema_invalid")
+
+
 def _matches_type(value: Any, expected: str) -> bool:
     if not expected:
         return True
@@ -158,6 +177,7 @@ def _safe_error_code(exc: Exception) -> str:
         "payload_type_invalid",
         "payload_required_field_missing",
         "payload_field_type_invalid",
+        "tool_output_schema_invalid",
     }:
         return str(exc)
     if isinstance(exc, KeyError):
@@ -170,6 +190,7 @@ def _safe_error_message(error_code: str) -> str:
         "payload_type_invalid": "Tool payload must be an object.",
         "payload_required_field_missing": "Tool payload is missing a required field.",
         "payload_field_type_invalid": "Tool payload field type is invalid.",
+        "tool_output_schema_invalid": "Tool output did not match the declared schema.",
         "tool_scope_denied": "Tool execution scope is not granted.",
         "tool_not_found": "Requested tool is not registered.",
         "tool_execution_failed": "Tool execution failed with a sanitized internal error.",

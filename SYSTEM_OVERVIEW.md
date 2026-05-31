@@ -1,5 +1,23 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P9-1 단위 테스트 확장
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P9-1 단계를 완료했다. 이번 변경은 구조 보강이 특정 샘플에만 맞춰진 임시 수정이 되지 않도록 Agent 계약, MCP tool executor, Specialist Agent result, Video input contract, Evidence routing, Fault ratio branch, 사용자 표시 sanitizer 단위 테스트를 확장한 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| Task/Plan schema | 실패 task는 blocking reason이 필요하고, plan execution order가 존재하지 않는 task id를 참조하면 validation error가 발생한다. |
+| MCP tool executor | 입력 schema뿐 아니라 출력 schema도 검증한다. tool 출력이 선언 schema와 맞지 않으면 raw output을 반환하지 않고 안전한 failure packet을 반환한다. |
+| Specialist Agent result | `decision_ready` 결과는 근거 없이 확정될 수 없고, uncertainty가 남아 있으면 확정 상태가 될 수 없다. |
+| Video input contract | `failure_observations`는 영상 fact로 승격되지 않는다. 실패 관찰값은 진단/관측성 metadata이지 사고 물리 fact가 아니다. |
+| Evidence routing | 순수 차대차 직접 근거는 primary로 유지되고, 보행자·횡단보도 같은 환경축 오염 방지 정책은 기존대로 유지한다. |
+| Fault ratio branch | 조건부 분기가 있는 50:50 값은 지원 가능한 확정 범위처럼 표시하지 않고 조건별 범위 확인 필요로 남긴다. |
+| Presentation sanitization | `failure_observations`, error type, fallback reason 같은 진단 키는 사용자 리포트 sanitizer에서 제거한다. |
+
+검증은 Agent 컨테이너에서 `python -m pytest tests/test_agent_contracts.py tests/test_agent_task_packets.py tests/test_mcp_tool_registry.py tests/test_mcp_tool_executor.py tests/test_specialist_agent_runners.py tests/test_video_input_contract.py tests/test_evidence_axis_router.py tests/test_fault_ratio_result_contract.py -q`, Gateway에서 `npm test -- --run report-composer.test.ts`로 완료했다. 이후 build/compile 및 diff 검증을 함께 수행한다.
+
+P9-1은 계약 단위 테스트를 보강한 단계다. 다음 P9-2에서는 텍스트만, 영상만, 텍스트+영상, 보완 답변 후 재분석, KNIA 존재/누락, OpenAI/YOLO ON/OFF fallback E2E 테스트를 확장한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P8-3 실패 관찰값 표준화
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P8-3 단계를 완료했다. 이번 변경은 OpenAI 프레임 분석, YOLO 보조 관찰, Agent LLM 정책에서 실패·비활성·설정 누락·JSON parse 실패가 조용한 성공처럼 보이지 않도록 `failure_observations` 안전 관찰값을 남기는 작업이다.

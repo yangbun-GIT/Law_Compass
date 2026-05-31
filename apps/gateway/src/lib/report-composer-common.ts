@@ -17,7 +17,8 @@ export const TECHNICAL_KEYS = new Set([
   "pending_video_confirmations", "confirmation_fields", "conflicts", "requires_confirmation",
   "agent_trace", "reflection_loop", "trace_policy", "packet", "step_count", "requery_attempted",
   "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "initial_query_terms", "final_missing_requirements", "next_action",
-  "expert_guidance_sections", "source_blocked_reason", "retrieval_id", "trace_id", "raw_trace_id", "raw_prompt"
+  "expert_guidance_sections", "source_blocked_reason", "retrieval_id", "trace_id", "raw_trace_id", "raw_prompt",
+  "failure_observations", "failure_observation", "failure_observation_count", "safe_error_message", "error_type", "fallback_reason"
 ]);
 
 export const BAD_VALUE_PATTERNS = [

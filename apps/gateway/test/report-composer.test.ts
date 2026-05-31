@@ -45,6 +45,32 @@ describe("report composer", () => {
     expect(text).not.toContain("정차 중 후미추돌 사고 정차 중 후미추돌 사고");
   });
 
+  it("removes failure observation diagnostics from user-facing reports", () => {
+    const report = sanitizeEasyReport({
+      headline: "영상 분석 참고 결과",
+      failure_observations: [
+        {
+          code: "openai_frame_analysis_json_parse_failed",
+          safe_message: "프레임 분석 결과를 구조화하지 못했습니다.",
+          error_type: "ProviderSecretStack",
+        },
+      ],
+      failure_observation_count: 1,
+      safe_error_message: "Tool output did not match the declared schema.",
+      error_type: "RuntimeError",
+      fallback_reason: "api_key_missing",
+      raw_prompt: "secret prompt must not be visible",
+    });
+
+    const text = JSON.stringify(report);
+    expect(report.headline).toBe("영상 분석 참고 결과");
+    expect(text).not.toContain("failure_observations");
+    expect(text).not.toContain("openai_frame_analysis_json_parse_failed");
+    expect(text).not.toContain("ProviderSecretStack");
+    expect(text).not.toContain("api_key_missing");
+    expect(text).not.toContain("secret prompt");
+  });
+
   it("keeps detailed report fields and adds compact display metadata in user-friendly mode", () => {
     const enriched: any = enrichEasyReport(
       sanitizeEasyReport({

@@ -63,6 +63,59 @@ def test_agent_packet_contract_is_additive_and_ordered():
     assert result.finality == "decision_ready"
 
 
+def test_agent_plan_rejects_unknown_execution_order_and_failed_task_without_reason():
+    with pytest.raises(ValidationError):
+        AgentTask(
+            task_id="fault_ratio",
+            task_type="fault_ratio",
+            goal="과실비율 참고 범위를 산정한다.",
+            status="failed",
+        )
+
+    task = AgentTask(
+        task_id="evidence_retrieval",
+        task_type="evidence_retrieval",
+        goal="사고축과 맞는 근거를 찾는다.",
+        status="succeeded",
+    )
+    with pytest.raises(ValidationError):
+        AgentPlan(
+            plan_id="plan-bad-order",
+            case_id="case-1",
+            trace_id="trace-1",
+            tasks=[task],
+            execution_order=["missing_task"],
+        )
+
+
+def test_goal_and_specialist_decision_ready_require_evidence_without_uncertainty():
+    with pytest.raises(ValidationError):
+        AgentGoalResult(
+            goal="근거 없이 확정하지 않는다.",
+            status="succeeded",
+            claims=[AgentClaim(claim_type="fault", text="확정처럼 보이는 주장")],
+            finality="decision_ready",
+        )
+
+    evidence_ref = AgentInputRef(ref_type="evidence", ref_id="knia-1", visibility="internal")
+    with pytest.raises(ValidationError):
+        SpecialistAgentResult(
+            role_id="fault_ratio_agent",
+            goal="과실비율 참고 범위를 제시한다.",
+            evidence_used=[evidence_ref],
+            claims=[
+                AgentClaim(
+                    claim_type="fault_ratio_reference",
+                    text="KNIA 기준에 따른 참고 범위입니다.",
+                    evidence_refs=[evidence_ref],
+                    support_level="direct",
+                )
+            ],
+            uncertainties=["상대 신호 확인 필요"],
+            finality="decision_ready",
+        )
+
+
 def test_agent_packet_blocks_public_raw_text_or_secret_reference():
     with pytest.raises(ValidationError):
         AgentInputRef(

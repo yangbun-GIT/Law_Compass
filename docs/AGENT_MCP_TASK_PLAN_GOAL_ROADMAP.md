@@ -1162,16 +1162,16 @@ P5-1 완료 기록:
 | P6 | 완료 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약, P6-4 근거 표시 품질 강화 완료 |
 | P7 | 완료 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리, P7-3 결과 표시 finality 정리 완료 |
 | P8 | 완료 | P8-1 Trace id 통합, P8-2 LLM/vision 사용량 기록, P8-3 실패 관찰값 표준화 완료 |
-| P9 | 대기 | 다음은 P9-1 단위 테스트 확장 |
+| P9 | 진행 중 | P9-1 단위 테스트 확장 완료. 다음은 P9-2 E2E 테스트 확장 |
 | P10 | 대기 | 표준 MCP 도입 판단 |
 | P11 | 대기 | 문서/인수인계/발표 정합성 |
 | P12 | 대기 | 최종 구조 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P9-1. 단위 테스트 확장**부터 진행한다.
+다음 개발은 **P9-2. E2E 테스트 확장**부터 진행한다.
 
-P9-1을 시작할 때는 Task/Plan schema, MCP tool schema/executor, Specialist Agent result schema, Video input contract, Evidence routing, Fault ratio branch, Presentation sanitization 단위 테스트의 부족한 지점을 확인하고 확장한다.
+P9-2를 시작할 때는 텍스트만, 영상만, 텍스트+영상, 보완 답변 후 재분석, KNIA 존재/누락, OpenAI/YOLO ON, OpenAI/YOLO OFF fallback 흐름이 반복 가능한 E2E 또는 route/service 통합 테스트로 검증되는지 확인하고 확장한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1284,3 +1284,12 @@ P9-1을 시작할 때는 Task/Plan schema, MCP tool schema/executor, Specialist 
 - 일반 사용자 결과 화면에 raw error, provider stack, token, API key, 내부 prompt가 노출되지 않도록 사용자 payload와 관리자 진단 payload 경계를 유지한다.
 - 검증은 Worker frame/yolo contract tests, Gateway diagnostics tests/build, Agent llm/mcp Docker tests, Worker/Agent compile, `git diff --check`로 완료했다.
 - 다음 개발은 **P9-1 단위 테스트 확장**이다.
+
+### 2026-05-31 P9-1 진행 기록
+
+- P9-1 단위 테스트 확장 완료: Task/Plan schema, MCP tool schema/executor, Specialist Agent result schema, Video input contract, Evidence routing, Fault ratio branch, Presentation sanitization 테스트를 보강했다.
+- MCP tool executor는 tool 출력이 선언 output schema와 맞지 않으면 raw output을 반환하지 않고 안전한 failure packet을 반환한다.
+- 영상 `failure_observations`는 Agent 영상 fact로 승격되지 않고, 사용자 리포트 sanitizer는 실패 관찰값과 error/fallback 진단 키를 제거한다.
+- 조건부 과실 분기가 있는 50:50 값은 지원 가능한 확정 범위가 아니라 조건별 범위 확인 필요 상태로 남는 것을 테스트로 고정했다.
+- 검증은 Agent 계약/도구/영상/evidence/fault 테스트 64개, Gateway report composer 테스트 49개로 완료했다.
+- 다음 개발은 **P9-2 E2E 테스트 확장**이다.

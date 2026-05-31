@@ -76,3 +76,31 @@ def test_execute_tool_returns_timeout_packet_when_elapsed_exceeds_spec():
         assert result["retryable"] is True
     finally:
         unregister_tool("_test_slow_tool")
+
+
+def test_execute_tool_rejects_output_schema_mismatch_as_safe_failure_packet():
+    def bad_output_tool(payload):
+        return ["raw secret output should not be returned"]
+
+    try:
+        register_tool(
+            "_test_bad_output_tool",
+            bad_output_tool,
+            spec=MCPToolSpec(
+                name="_test_bad_output_tool",
+                description="test only",
+                input_schema={"type": "object", "properties": {}},
+                output_schema={"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]},
+                required_scopes=["legal.read"],
+                timeout_ms=5000,
+            ),
+        )
+
+        result = execute_tool("_test_bad_output_tool", {}, granted_scopes=["legal.read"])
+
+        assert result["status"] == "failed"
+        assert result["error_code"] == "tool_output_schema_invalid"
+        assert result["metadata"]["safe_metadata_only"] is True
+        assert "raw secret output" not in str(result)
+    finally:
+        unregister_tool("_test_bad_output_tool")

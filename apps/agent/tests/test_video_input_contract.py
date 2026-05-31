@@ -208,6 +208,30 @@ def test_frame_rich_zero_observation_analysis_gets_limited_visual_fallback():
     assert contract["observation_quality_summary"]["recovery_actions"]
 
 
+def test_failure_observations_stay_out_of_video_fact_contract():
+    contract = normalize_video_input_contract(
+        {
+            "metadata": {
+                "representative_frames": ["frame_001.jpg", "frame_002.jpg"],
+                "failure_observations": [
+                    {
+                        "version": "failure-observation-v1",
+                        "code": "openai_frame_analysis_json_parse_failed",
+                        "source": "frame_analysis:openai",
+                        "stage": "openai_frame_analysis",
+                        "safe_message": "프레임 분석 결과를 구조화하지 못했습니다.",
+                    }
+                ],
+            }
+        }
+    )
+
+    assert contract["fact_patch"] == {}
+    assert contract["accepted_observations"] == []
+    assert contract["uncertain_observations"] == []
+    assert "openai_frame_analysis_json_parse_failed" not in str(contract["observation_states"])
+
+
 def test_frame_rich_video_without_analysis_gets_recovery_actions_without_fallback_fact():
     contract = normalize_video_input_contract(
         {

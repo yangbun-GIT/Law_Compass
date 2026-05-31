@@ -73,3 +73,26 @@ def test_flat_default_result_contract_is_labeled_as_evidence_fallback():
     assert contract["display_status"] == FALLBACK_NEEDS_EVIDENCE
     assert contract["is_fallback"] is True
     assert contract["fallback_reason"] == "direct_evidence_missing"
+
+
+def test_conditional_branch_contract_does_not_present_flat_ratio_as_supported():
+    contract = build_fault_ratio_result_contract(
+        {
+            "my": 50,
+            "other": 50,
+            "fault_estimate_source": "scenario_default",
+            "conditional_required_facts": ["opponent_signal"],
+            "conditional_outcomes": [
+                {"label": "상대 정상 신호", "my_range": "60~80%", "other_range": "20~40%"},
+                {"label": "상대 신호위반", "my_range": "20~40%", "other_range": "60~80%"},
+            ],
+        },
+        scenario_type="intersection_signal_violation",
+        facts={"opponent_signal_visible": False},
+        evidence=[{"title": "신호 준수 의무"}],
+    )
+
+    assert contract["display_status"] == CONDITIONAL_RANGE
+    assert contract["is_fallback"] is False
+    assert contract["primary_range"]["label"] == "조건별 범위 확인 필요"
+    assert contract["needs_confirmation_fields"] == ["opponent_signal"]

@@ -45,6 +45,31 @@ def test_car_vs_car_crosswalk_context_is_secondary_not_direct_primary():
     assert routed["summary"]["secondary_count"] == 1
 
 
+def test_car_vs_car_vehicle_rear_end_evidence_stays_primary():
+    item = {
+        "chunk_id": "static:fault-guide:rear-end-vehicle",
+        "accident_party_type": "car_vs_car",
+        "chart_no": "차41-1",
+        "scenario_tags": ["rear_end", "safe_distance"],
+        "title": "정차 또는 감속 차량을 뒤에서 추돌한 사고",
+    }
+
+    routed = route_evidence_by_accident_axis(
+        [item],
+        facts={
+            "accident_party_type": "car_vs_car",
+            "direct_collision_partner_type": "vehicle",
+            "collision_partner_type": "vehicle",
+        },
+        accident_party_type="car_vs_car",
+        scenario_type="rear_end_collision",
+    )
+
+    assert routed["primary"][0]["evidence_axis"]["status"] == "primary"
+    assert routed["secondary"] == []
+    assert routed["excluded"] == []
+
+
 def test_pedestrian_direct_collision_keeps_pedestrian_evidence_primary():
     item = {
         "chunk_id": "static:fault-guide:pedestrian-crosswalk",
