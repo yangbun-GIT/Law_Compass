@@ -1,5 +1,5 @@
 ﻿<template>
-  <section class="knia-chart-page">
+  <section class="knia-chart-page knia-detail-page">
     <div class="btn-row top-actions">
       <RouterLink class="btn secondary" to="/knia/ranking">검색순위로 돌아가기</RouterLink>
       <button v-if="canCollectDetail" class="btn" :disabled="collectingDetail" @click="collectDetail">
@@ -81,35 +81,52 @@
             </div>
             <span class="kv">{{ adjustmentFactors.length }}개 수집</span>
           </div>
+          <div v-if="adjustmentFactors.length" class="mobile-adjustment-summary">
+            <strong>가감기준 선택</strong>
+            <span>{{ selectedAdjustmentCount }} / {{ adjustmentFactors.length }}개 선택</span>
+          </div>
           <div v-if="adjustmentFactors.length" class="factor-table" role="list">
             <div class="factor-head"><span>적용</span><span>가감요소</span><span>A</span><span>B</span><span>근거</span></div>
-            <label
+            <article
               v-for="factor in adjustmentFactors"
               :key="factorKey(factor)"
-              class="factor-row"
-              :class="{ selected: isFactorSelected(factor) }"
+              class="factor-row adjustment-card"
+              :class="{ selected: isFactorSelected(factor), 'is-selected': isFactorSelected(factor) }"
               role="listitem"
             >
               <span class="factor-check">
-                <input type="checkbox" :value="factorKey(factor)" v-model="manualSelected" />
+                <input type="checkbox" :checked="isFactorSelected(factor)" @change="toggleFactor(factor)" />
               </span>
               <span class="factor-main">
-                <span class="factor-label">{{ text(factor.label) }}</span>
-                <span v-if="factor.description || factor.condition_text" class="factor-description">
+                <span class="factor-title-row">
+                  <strong class="factor-title factor-label">{{ text(factor.label) }}</strong>
+                  <span class="selection-status" :class="isFactorSelected(factor) ? 'is-on' : 'is-off'">
+                    {{ isFactorSelected(factor) ? '선택됨' : '미선택' }}
+                  </span>
+                </span>
+                <span v-if="factor.description || factor.condition_text" class="factor-desc factor-description">
                   {{ text(factor.description || factor.condition_text) }}
                 </span>
                 <span class="factor-mobile-meta">
                   <span :class="deltaClass(factor.delta_a)">A {{ formatDelta(factor.delta_a) }}</span>
                   <span :class="deltaClass(factor.delta_b)">B {{ formatDelta(factor.delta_b) }}</span>
-                  <span class="factor-state" :class="{ selected: isFactorSelected(factor) }">
+                  <span class="factor-state selection-status" :class="isFactorSelected(factor) ? 'is-on selected' : 'is-off'">
                     {{ isFactorSelected(factor) ? '선택됨' : '미선택' }}
                   </span>
                 </span>
               </span>
               <span :class="deltaClass(factor.delta_a)">{{ formatDelta(factor.delta_a) }}</span>
               <span :class="deltaClass(factor.delta_b)">{{ formatDelta(factor.delta_b) }}</span>
-              <span class="factor-source">{{ isFactorSelected(factor) ? '선택됨' : '미선택' }}</span>
-            </label>
+              <span class="factor-source">KNIA 기준</span>
+              <button
+                type="button"
+                class="factor-toggle"
+                :class="{ 'is-selected': isFactorSelected(factor) }"
+                @click="toggleFactor(factor)"
+              >
+                {{ isFactorSelected(factor) ? '선택 해제' : '적용 선택' }}
+              </button>
+            </article>
           </div>
           <p v-else class="empty-note">{{ missingDetailText('가감요소') }}</p>
         </div>
@@ -213,6 +230,7 @@ const accidentSituationLines = computed(() => dedupeAccidentSituationLines(
 ));
 const isAdmin = computed(() => session.user?.role === "admin");
 const canCollectDetail = computed(() => Boolean(chart.value?.chart_no) && isAdmin.value && !chart.value?.detail_collected_at);
+const selectedAdjustmentCount = computed(() => manualSelected.value.length);
 const manualFault = computed(() => {
   if (!hasBaseFault.value) return { A: 0, B: 0 };
   let a = baseAForBar.value;
@@ -328,6 +346,14 @@ function factorKey(factor: any) { return `${factor.factor_order ?? factor.label}
 function isFactorSelected(factor: any) {
   return manualSelected.value.includes(factorKey(factor));
 }
+function toggleFactor(factor: any) {
+  const key = factorKey(factor);
+  if (manualSelected.value.includes(key)) {
+    manualSelected.value = manualSelected.value.filter((item) => item !== key);
+  } else {
+    manualSelected.value = [...manualSelected.value, key];
+  }
+}
 function formatDelta(value: any) {
   const n = Number(value || 0);
   return n > 0 ? `+${n}` : String(n);
@@ -359,38 +385,43 @@ onMounted(load);
 .detail-ok { background: rgba(167, 193, 122, 0.14); color: #d7e7b7; }
 .detail-needed { background: rgba(251, 191, 36, 0.13); color: #fde68a; }
 .tab-card { display: grid; gap: 18px; overflow: hidden; }
-.knia-tabs { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px; border-radius: 18px; background: rgba(28, 23, 20, 0.58); border: 1px solid rgba(201, 169, 98, 0.28); box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.06); }
+.knia-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; border-radius: 18px; background: rgba(28, 23, 20, 0.72); border: 1px solid rgba(201, 169, 98, 0.28); box-shadow: inset 0 1px 0 rgba(232, 223, 212, 0.06); }
 .tab-button { box-sizing: border-box; min-height: 44px; border: 1px solid rgba(201, 169, 98, 0.28); background: rgba(232, 223, 212, 0.08); color: var(--text-sub); border-radius: 999px; padding: 11px 16px; font-weight: 900; font-size: 0.96rem; cursor: pointer; transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease; }
 .tab-button:hover { transform: translateY(-1px); border-color: rgba(201, 169, 98, 0.48); color: var(--text-main); }
-.tab-button.active { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); border-color: rgba(201, 169, 98, 0.78); color: var(--accent-foreground); box-shadow: 0 10px 24px rgba(201, 169, 98, 0.20); }
+.tab-button.active, .tab-button[aria-selected="true"] { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); border-color: rgba(201, 169, 98, 0.92); color: var(--accent-foreground); box-shadow: 0 10px 24px rgba(201, 169, 98, 0.22); }
 .tab-panel { display: grid; gap: 16px; }
 .fault-grid { display: grid; grid-template-columns: minmax(260px, 0.95fr) repeat(2, minmax(300px, 1fr)); gap: 14px; align-items: stretch; }
 .fault-grid > .glass-box { min-width: 0; }
-.glass-box, .reference-card { border: 1px solid rgba(201, 169, 98, 0.28); background: linear-gradient(145deg, rgba(61, 51, 43, 0.84), rgba(37, 30, 25, 0.92)); border-radius: 18px; padding: 18px; box-shadow: 0 18px 42px rgba(0,0,0,0.22); }
-.glass-box.emphasis { border-color: rgba(201, 169, 98, 0.48); background: linear-gradient(145deg, rgba(201, 169, 98, 0.15), rgba(37, 30, 25, 0.92)); }
+.glass-box, .reference-card { border: 1px solid rgba(201, 169, 98, 0.28); background: linear-gradient(145deg, rgba(61, 51, 43, 0.92), rgba(37, 30, 25, 0.96)); border-radius: 20px; padding: 18px; box-shadow: 0 16px 36px rgba(0,0,0,0.24); color: var(--text-main); }
+.glass-box.emphasis { border-color: rgba(201, 169, 98, 0.48); background: linear-gradient(145deg, rgba(72, 59, 45, 0.96), rgba(42, 33, 26, 0.98)); }
 .plain-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
 .factor-box { display: grid; gap: 14px; }
 .factor-table { display: grid; gap: 10px; width: 100%; overflow: hidden; }
-.factor-head, .factor-row { display: grid; grid-template-columns: 56px minmax(220px, 1fr) 74px 74px 112px; gap: 10px; align-items: center; }
+.factor-head, .factor-row { display: grid; grid-template-columns: 64px minmax(220px, 1fr) 72px 72px 128px 118px; gap: 10px; align-items: center; }
 .factor-head { color: var(--text-faint); font-size: 0.84rem; font-weight: 950; padding: 0 12px; }
-.factor-row { box-sizing: border-box; min-width: 0; padding: 14px 12px; border-radius: 16px; background: rgba(37, 30, 25, 0.72); border: 1px solid rgba(201, 169, 98, 0.20); cursor: pointer; transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease; }
+.factor-row { box-sizing: border-box; min-width: 0; padding: 14px 12px; border-radius: 16px; background: rgba(232, 223, 212, 0.065); border: 1px solid rgba(201, 169, 98, 0.24); color: var(--text-main); cursor: pointer; transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease; }
 .factor-row:hover { transform: translateY(-1px); border-color: rgba(201, 169, 98, 0.42); background: rgba(61, 51, 43, 0.86); }
-.factor-row.selected { border-color: rgba(201, 169, 98, 0.64); background: linear-gradient(145deg, rgba(201, 169, 98, 0.18), rgba(61, 51, 43, 0.90)); box-shadow: 0 12px 28px rgba(201, 169, 98, 0.12); }
+.factor-row.selected, .factor-row.is-selected, .adjustment-card.is-selected { border-color: rgba(201, 169, 98, 0.68); background: linear-gradient(145deg, rgba(201, 169, 98, 0.18), rgba(61, 51, 43, 0.92)); box-shadow: 0 10px 26px rgba(201, 169, 98, 0.12); }
 .factor-check { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
 .factor-row input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; }
-.factor-main { display: grid; gap: 5px; min-width: 0; }
-.factor-label { color: var(--text-main); font-size: 0.98rem; font-weight: 900; line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; }
-.factor-description { color: var(--text-sub); font-size: 0.9rem; line-height: 1.45; }
+.factor-main { display: grid; gap: 6px; min-width: 0; }
+.factor-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.factor-title, .factor-label { color: var(--text-main); font-size: 0.98rem; font-weight: 900; line-height: 1.35; word-break: keep-all; overflow-wrap: anywhere; }
+.factor-desc, .factor-description { color: var(--text-sub); font-size: 0.94rem; line-height: 1.55; }
 .factor-mobile-meta { display: none; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
-.delta { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; width: fit-content; min-width: 5ch; padding: 5px 10px; border-radius: 999px; font-weight: 950; font-size: 0.92rem; border: 1px solid rgba(232, 223, 212, 0.12); font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.delta, .factor-value, .factor-source, .mini-badge, .selection-status, .factor-state { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 30px; min-width: 5ch; padding: 5px 10px; border-radius: 999px; background: rgba(28, 23, 20, 0.42); border: 1px solid rgba(201, 169, 98, 0.26); color: var(--text-sub); font-size: 0.84rem; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 .delta.plus { color: #FFD3C9; background: rgba(139, 38, 53, 0.28); border-color: rgba(213, 137, 137, 0.32); }
-.delta.minus { color: #BDEEDB; background: rgba(127, 231, 200, 0.12); border-color: rgba(127, 231, 200, 0.28); }
-.factor-source, .mini-badge, .factor-state { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 30px; padding: 5px 10px; border-radius: 999px; background: rgba(232, 223, 212, 0.08); border: 1px solid rgba(201, 169, 98, 0.24); color: var(--text-sub); font-size: 0.84rem; font-weight: 900; }
-.factor-row.selected .factor-source, .factor-state.selected { background: var(--accent-soft); border-color: rgba(201, 169, 98, 0.48); color: var(--accent-strong); }
+.delta.minus { color: #F1D99A; background: rgba(215, 181, 109, 0.14); border-color: rgba(215, 181, 109, 0.38); }
+.selection-status.is-on, .factor-state.is-on { color: var(--accent-foreground); background: linear-gradient(135deg, var(--accent), var(--accent-strong)); border-color: rgba(201, 169, 98, 0.78); }
+.selection-status.is-off, .factor-state.is-off { color: var(--text-faint); background: rgba(232, 223, 212, 0.05); border-color: rgba(201, 169, 98, 0.18); }
+.factor-toggle { min-height: 38px; border-radius: 12px; border: 1px solid rgba(201, 169, 98, 0.34); background: rgba(232, 223, 212, 0.07); color: var(--text-main); font-weight: 900; cursor: pointer; }
+.factor-toggle.is-selected { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: var(--accent-foreground); }
+.mobile-adjustment-summary { display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(201, 169, 98, 0.32); background: rgba(201, 169, 98, 0.10); color: var(--text-main); }
+.mobile-adjustment-summary span { color: var(--accent-strong); font-weight: 900; }
 .cards-panel { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .reference-card h3 { margin: 10px 0 8px; font-size: 1.08rem; }
 .reference-card p { white-space: pre-line; line-height: 1.75; }
-.law-card { border-color: rgba(96, 165, 250, 0.24); }
+.law-card { border-color: rgba(201, 169, 98, 0.30); }
 .case-card { border-color: rgba(251, 191, 36, 0.24); }
 .decision { color: #fde68a; }
 .empty-note { color: var(--text-sub); padding: 16px; border-radius: 16px; border: 1px dashed rgba(201, 169, 98, 0.28); background: rgba(28, 23, 20, 0.34); }
@@ -404,22 +435,29 @@ onMounted(load);
   .fault-grid > .glass-box:first-child { grid-column: 1 / -1; }
 }
 @media (max-width: 900px) {
+  .fault-grid { grid-template-columns: 1fr; }
+  .knia-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 8px; }
+  .tab-button { width: 100%; min-height: 46px; padding: 10px 12px; justify-content: center; text-align: center; font-size: 0.94rem; }
   .factor-head { display: none; }
   .factor-table { gap: 12px; }
-  .factor-row { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; align-items: flex-start; padding: 16px; }
+  .factor-row { grid-template-columns: 1fr; gap: 12px; align-items: stretch; padding: 15px; }
+  .factor-check { display: none; }
   .factor-row > .delta, .factor-row > .factor-source { display: none; }
   .factor-mobile-meta { display: flex; }
   .factor-label { font-size: 1rem; }
   .factor-description { font-size: 0.92rem; }
+  .factor-mobile-meta .delta, .factor-mobile-meta .selection-status { flex: 1 1 120px; width: 100%; }
+  .factor-toggle { min-height: 46px; width: 100%; }
+  .mobile-adjustment-summary { display: flex; }
 }
 @media (max-width: 640px) {
-  .knia-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
-  .tab-button { flex: 0 0 auto; scroll-snap-align: start; min-height: 46px; padding: 12px 15px; font-size: 0.95rem; white-space: nowrap; }
+  .knia-tabs { grid-template-columns: 1fr; }
+  .glass-box, .reference-card { padding: 15px; border-radius: 16px; }
   .fault-grid { grid-template-columns: 1fr; }
   .fault-grid > .glass-box:first-child { grid-column: auto; }
+  .factor-mobile-meta { display: grid; grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
   .factor-row { padding: 15px 14px; border-radius: 15px; }
-  .factor-check { min-width: 42px; min-height: 42px; }
 }
 </style>
