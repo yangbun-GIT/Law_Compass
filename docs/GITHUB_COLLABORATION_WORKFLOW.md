@@ -72,13 +72,35 @@ git merge main
 예상 완료 시점: 오늘 밤
 ```
 
+현재 역할 분리 기준:
+
+| 담당 범위 | 주 작업 경로 | 주의할 점 |
+| --- | --- | --- |
+| 영상/Agent 정확도 고도화 | `apps/agent`, `apps/worker`, `apps/gateway/src/lib/report-composer.ts`, Agent/영상 관련 tests, `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` | 웹 디자인 변경을 덮어쓰지 않도록 `apps/frontend` 수정은 최소화한다. |
+| 웹 디자인/사용자 화면 | `apps/frontend`, 사용자 화면 CSS/component, 필요한 Gateway 표시 조립 | Agent/Worker 판단 로직과 DTO를 임의로 바꾸지 않는다. |
+| KNIA/근거 데이터 | `apps/agent/app/services/knia`, KNIA scripts, 근거 fixture, 관련 docs | 근거 데이터가 사용자 결과에 확정처럼 표시되지 않도록 finality 계약을 확인한다. |
+| 공통 문서/협업 | `SYSTEM_OVERVIEW.md`, `DEVELOPMENT_PROMPT.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md` | 동시에 수정하기 쉬우므로 작업 전 범위를 먼저 말한다. |
+
+팀원 변경을 받을 때는 프로젝트 폴더 전체를 복사해서 덮어쓰지 않는다. 아래처럼 `git pull` 또는 작업 브랜치에서 `git merge main`으로 반영한다. 폴더 덮어쓰기는 팀원이 수정한 웹 디자인이나 Agent 변경을 로컬 파일로 되돌릴 수 있다.
+
 동시에 수정하면 충돌 가능성이 큰 범위:
 
 - `apps/gateway/src/lib/report-composer.ts`
+- `apps/gateway/src/lib/followup-normalizer.ts`
+- `apps/frontend/src/components/easy/*`
+- `apps/frontend/src/composables/useCaseWorkspace.ts`
+- `apps/frontend/src/composables/caseWorkspace*`
+- `apps/frontend/src/data/*`
 - `apps/agent/app/services/scenario_classifier.py`
 - `apps/agent/app/services/fact_arbitration.py`
+- `apps/agent/app/services/video_input_contract.py`
+- `apps/agent/app/services/evidence_axis_router.py`
 - `apps/agent/app/services/analysts/fault_ratio_analyst.py`
+- `apps/agent/app/services/agent_goal_aggregator.py`
 - `apps/worker/worker/frame_analysis.py`
+- `apps/worker/worker/yolo_frame_analysis.py`
+- `apps/worker/worker/job_processor.py`
+- `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`
 - `SYSTEM_OVERVIEW.md`
 - `DEVELOPMENT_PROMPT.md`
 
@@ -99,8 +121,10 @@ git diff --stat
 - API key, JWT secret, internal token
 - 사용자 비밀번호, refresh token
 - `storage/`, `logs/`
+- `.local/`
 - 사고 영상 원본, AI Hub 원본 데이터
 - YOLO 모델 가중치
+- OpenAI/AI-Hub/NAS 검증 산출물 중 원본 영상, 원천 ZIP, 추출 프레임, 대용량 JSON
 - `node_modules/`, `dist/`, `__pycache__/`
 
 실수로 들어갔는지 확인합니다.
@@ -223,10 +247,21 @@ PR을 `main`에 병합하기 전에는 반드시 팀원에게 알립니다.
 팀원이 같은 파일을 작업 중이면 바로 병합하지 말고 먼저 조율합니다. 특히 아래 파일은 충돌 가능성이 높습니다.
 
 - `apps/gateway/src/lib/report-composer.ts`
+- `apps/gateway/src/lib/followup-normalizer.ts`
+- `apps/frontend/src/components/easy/*`
+- `apps/frontend/src/composables/useCaseWorkspace.ts`
+- `apps/frontend/src/composables/caseWorkspace*`
+- `apps/frontend/src/data/*`
 - `apps/agent/app/services/scenario_classifier.py`
 - `apps/agent/app/services/fact_arbitration.py`
+- `apps/agent/app/services/video_input_contract.py`
+- `apps/agent/app/services/evidence_axis_router.py`
 - `apps/agent/app/services/analysts/fault_ratio_analyst.py`
+- `apps/agent/app/services/agent_goal_aggregator.py`
 - `apps/worker/worker/frame_analysis.py`
+- `apps/worker/worker/yolo_frame_analysis.py`
+- `apps/worker/worker/job_processor.py`
+- `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`
 - `SYSTEM_OVERVIEW.md`
 - `DEVELOPMENT_PROMPT.md`
 

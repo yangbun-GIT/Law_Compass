@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P11-3 팀원 인수인계
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P11-3 단계를 완료했다. 팀원 동시 작업에서 웹 디자인 변경과 영상/Agent 변경이 서로 롤백되지 않도록 `docs/GITHUB_COLLABORATION_WORKFLOW.md`의 역할 분리와 충돌 위험 경로를 보강했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 역할 분리 | 영상/Agent 정확도, 웹 디자인/사용자 화면, KNIA/근거 데이터, 공통 문서 작업 범위를 분리했다. |
+| 충돌 위험 경로 | Gateway report/follow-up composer, Frontend easy/component/composable/data, Agent scenario/fact/video/evidence/fault/goal, Worker frame/yolo/job processor, 주요 문서를 충돌 주의 경로로 명시했다. |
+| 덮어쓰기 방지 | 팀원 변경을 받을 때 프로젝트 폴더 전체 복사/덮어쓰기가 아니라 `git pull` 또는 `git merge main`으로 반영하도록 명시했다. |
+| 제외 기준 | `.env`, secret, storage/logs/.local, 사고 원본 영상, AI-Hub 원천 데이터, YOLO 가중치, 원본 ZIP/추출 프레임/대용량 JSON 제외 기준을 다시 정리했다. |
+| 비변경 범위 | 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
+
+검증은 협업 문서 검색과 `.gitignore` 제외 기준 확인, 문서 diff 검증으로 완료했다. 다음 P12 단계에서는 문서와 실제 코드 구조가 일치하는지 최종 점검한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P11-2 발표 설명 정리
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P11-2 단계를 완료했다. 발표와 팀원 설명에서 현재 구현을 과장하지 않도록 `docs/PRESENTATION_ARCHITECTURE_NOTES.md`를 추가했다.

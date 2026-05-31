@@ -1164,14 +1164,14 @@ P5-1 완료 기록:
 | P8 | 완료 | P8-1 Trace id 통합, P8-2 LLM/vision 사용량 기록, P8-3 실패 관찰값 표준화 완료 |
 | P9 | 완료 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장, P9-3 Reference 평가 확장, P9-4 CI/검증 명령 정리 완료 |
 | P10 | 완료 | P10-1 표준 MCP 요구사항 재평가, P10-2 표준 MCP pilot 설계, P10-3 도입 보류 결정 완료 |
-| P11 | 진행 중 | P11-1 문서 동기화, P11-2 발표 설명 정리 완료. 다음은 P11-3 팀원 인수인계 |
-| P12 | 대기 | 최종 구조 점검 |
+| P11 | 완료 | P11-1 문서 동기화, P11-2 발표 설명 정리, P11-3 팀원 인수인계 완료 |
+| P12 | 진행 중 | 다음은 P12-1 문서와 코드 일치 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P11-3. 팀원 인수인계**부터 진행한다.
+다음 개발은 **P12-1. 문서와 코드 일치 점검**부터 진행한다.
 
-P11-3을 시작할 때는 어떤 파일을 건드리면 충돌 위험이 큰지, 팀원이 웹 디자인을 수정할 때 Agent/Worker 변경과 충돌하지 않게 하는 branch/merge 기준, 민감 파일과 대용량 파일 제외 기준을 다시 확인한다.
+P12-1을 시작할 때는 문서에 적힌 구조가 실제 코드와 맞는지 확인하고, 존재하지 않는 파일, 사라진 endpoint, 오래된 실행 명령이 없는지 점검한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1367,3 +1367,13 @@ P11-3을 시작할 때는 어떤 파일을 건드리면 충돌 위험이 큰지,
 - 이번 단계는 발표/인수인계 설명 문서화이며 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 발표 금지 표현 검색, `git diff --check`, 표준 MCP pilot/gate 테스트로 완료한다.
 - 다음 개발은 **P11-3 팀원 인수인계**다.
+
+### 2026-05-31 P11-3 진행 기록
+
+- P11-3 팀원 인수인계 완료: `docs/GITHUB_COLLABORATION_WORKFLOW.md`에 영상/Agent 정확도, 웹 디자인/사용자 화면, KNIA/근거 데이터, 공통 문서 작업 범위를 분리해 기록했다.
+- Gateway report/follow-up composer, Frontend easy/component/composable/data, Agent scenario/fact/video/evidence/fault/goal, Worker frame/yolo/job processor, Agent/MCP roadmap과 주요 문서를 충돌 위험 경로로 명시했다.
+- 팀원 변경을 받을 때 프로젝트 폴더 전체를 복사해 덮어쓰지 않고, `git pull` 또는 작업 브랜치의 `git merge main`으로 반영하도록 명시했다.
+- `.env`, secret, storage/logs/.local, 사고 원본 영상, AI-Hub 원천 데이터, YOLO 모델 가중치, 원본 ZIP/추출 프레임/대용량 JSON 제외 기준을 다시 정리했다.
+- 이번 단계는 협업/인수인계 문서화이며 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
+- 검증은 협업 문서 검색, `.gitignore` 제외 기준 확인, `git diff --check`로 완료한다.
+- 다음 개발은 **P12-1 문서와 코드 일치 점검**이다.
