@@ -1155,11 +1155,11 @@ P5-1 완료 기록:
 | --- | --- | --- |
 | P0 | 완료 | P0-1 용어/성공 기준, P0-2 구현 inventory, P0-3 회귀 기준선, P0-4 작업 문서 연결 완료. 이후 단계는 기존 동작과 결과 품질 비회귀 기준을 유지해야 함 |
 | P1 | 완료 | Agent 실행 packet, Specialist Agent/persona, MCP Tool 계약을 additive schema와 단위 테스트로 고정 |
-| P2 | 준비 완료 | Task-Plan-Goal 런타임 연결 |
+| P2 | 완료 | P2-1 planner 실사용 전환, P2-2 stage별 task packet, P2-3 Goal 병합, P2-4 제한적 재계획 metadata 연결 완료 |
 | P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
 | P4 | 완료 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter, P4-3 persona/prompt version registry, P4-4 Agent consensus/conflict packet 완료 |
-| P5 | 진행 중 | P5-1 사고 기점 탐지 강화 완료. 다음은 P5-2 직접 사고대상 추출 강화 |
-| P6 | 대기 | 근거 검색/판단 계약 고도화 |
+| P5 | 완료 | P5-1 사고 기점 탐지, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 완료 |
+| P6 | 진행 중 | P6-1 사고축 기반 evidence routing 완료. 다음은 P6-2 조건부 판단 강화 |
 | P7 | 대기 | Gateway/Frontend 표시 계약 |
 | P8 | 대기 | 관측성/비용/운영 리스크 |
 | P9 | 대기 | 테스트/평가 체계 |
@@ -1169,9 +1169,9 @@ P5-1 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P5-2. 직접 사고대상 추출 강화**부터 진행한다.
+다음 개발은 **P6-2. 조건부 판단 강화**부터 진행한다.
 
-P5-2를 시작할 때는 `vehicle`, `pedestrian`, `bicycle`, `motorcycle`, `object`, `unknown`을 구분하고, 단순 화면 등장과 직접 충돌 대상을 분리한다. 차대차 영상에 보행자가 보이거나 횡단보도가 있어도 직접 사고대상이 아니면 차대사람 근거로 오염되지 않아야 한다.
+P6-2를 시작할 때는 상대 신호 미확인, 중앙선 침범 사유 미확인, 정차 사유 미확인, 과속·무등화 정차차량·2차 충돌·비접촉 유발처럼 결론이 조건에 따라 갈리는 사고를 단일 50:50 fallback으로 처리하지 않는다. 확인된 사실로 가능한 범위를 제시하고, 결론이 달라지는 핵심 조건은 시나리오별 예상 과실과 확인 질문으로 분리한다.
 
 ## 2026-05-31 진행 기록 보강
 

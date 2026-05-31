@@ -1,5 +1,11 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 P6 진행 상태 문서 정합성 보강
+
+Agent/MCP/Task-Plan-Goal 로드맵의 진행 상태 표와 바로 다음 작업 문구를 실제 완료 상태에 맞게 갱신했다. 기존 표에는 P5가 진행 중, P6가 대기로 남아 있었지만 현재 유효 상태는 P5 완료, P6-1 완료, 다음 작업 P6-2 조건부 판단 강화다.
+
+이번 변경은 코드 동작, API route, DB schema, Redis key, storage path, 외부 API, 환경변수 키를 변경하지 않는 문서 정합성 보강이다. 이후 작업자는 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`의 진행 상태 표와 하단 완료 기록을 함께 기준으로 삼아 P6-2부터 이어가면 된다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P6-1 사고축 기반 Evidence Routing
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P6-1 단계를 완료했다. 이번 변경은 법령/KNIA/정적 fallback 근거가 현재 사고 대분류와 직접 사고대상에 맞는지 먼저 분류하고, 보행자·횡단보도·자전거·신호·차선 같은 환경축 근거가 1차 직접 근거로 섞이지 않도록 만든 작업이다.
