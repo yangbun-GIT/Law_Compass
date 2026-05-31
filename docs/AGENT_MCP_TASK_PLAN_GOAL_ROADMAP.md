@@ -1160,8 +1160,8 @@ P5-1 완료 기록:
 | P4 | 완료 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter, P4-3 persona/prompt version registry, P4-4 Agent consensus/conflict packet 완료 |
 | P5 | 완료 | P5-1 사고 기점 탐지, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 완료 |
 | P6 | 완료 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약, P6-4 근거 표시 품질 강화 완료 |
-| P7 | 진행 중 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리 완료. 다음은 P7-3 결과 표시 finality 정리 |
-| P8 | 대기 | 관측성/비용/운영 리스크 |
+| P7 | 완료 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리, P7-3 결과 표시 finality 정리 완료 |
+| P8 | 진행 중 | 다음은 P8-1 trace id 통합 |
 | P9 | 대기 | 테스트/평가 체계 |
 | P10 | 대기 | 표준 MCP 도입 판단 |
 | P11 | 대기 | 문서/인수인계/발표 정합성 |
@@ -1169,9 +1169,9 @@ P5-1 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P7-3. 결과 표시 finality 정리**부터 진행한다.
+다음 개발은 **P8-1. Trace id 통합**부터 진행한다.
 
-P7-3을 시작할 때는 확정, 참고, 조건부, 추가 확인 필요 상태가 UI에서 명확히 구분되는지 확인하고, 과실비율이 참고 범위인지 조건부 결과인지 근거 부족 fallback인지 사용자가 이해할 수 있게 정리한다.
+P8-1을 시작할 때는 Gateway 요청, Worker job, Agent analysis, MCP tool call, DB report가 같은 trace id로 연결되는지 확인하고, 관리자 화면 또는 진단 payload에서 분석 경로를 추적할 수 있게 정리한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1250,3 +1250,12 @@ P7-3을 시작할 때는 확정, 참고, 조건부, 추가 확인 필요 상태�
 - Frontend의 `MissingInfoCard`, `CaseResultView`, `caseWorkspaceFactMapping`도 같은 answer key 규칙을 사용한다.
 - 검증은 Gateway에서 `npm test -- --run report-composer.test.ts followup-normalizer.test.ts`, Gateway `npm run build`, Frontend `npm run build`로 완료했다.
 - 다음 개발은 **P7-3 결과 표시 finality 정리**다. 확정, 참고, 조건부, 추가 확인 필요 상태와 과실비율의 근거 수준을 사용자 화면에서 일관되게 구분한다.
+
+### 2026-05-31 P7-3 진행 기록
+
+- P7-3 결과 표시 finality 정리 완료: Gateway가 `finality_display_card`를 생성해 과실비율 결과를 `근거 기반 참고`, `조건부 결과`, `참고용`, `추가 확인 필요`로 구분한다.
+- `fault_result_contract.display_status`를 사용자 표시용 `fault_status_label`로 변환해 `근거 기반 참고 범위`, `조건별 과실 범위`, `근거 부족 fallback`, `참고용 과실 추정`을 명확히 표시한다.
+- Frontend `EasyReportView`는 일반 사용자 모드와 전문 모드 모두에서 판단 상태 카드를 표시하고, 확인된 사실과 더 확인할 사실을 분리해 보여준다.
+- 이번 단계는 표시 계약만 보강했으며 Agent 판단값, Worker 영상 처리, DB schema, Redis key, storage path, 외부 API 종류는 변경하지 않았다.
+- 검증은 Gateway에서 `npm test -- --run report-composer.test.ts`, Gateway `npm run build`, Frontend `npm run build`로 완료했다.
+- 다음 개발은 **P8-1 Trace id 통합**이다. Gateway 요청, Worker job, Agent analysis, MCP tool call, DB report가 같은 trace id로 연결되도록 관측성을 보강한다.

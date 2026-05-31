@@ -1794,6 +1794,7 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
         reportWithConditionalOutcome,
         kniaLinkCards.related_knia_video_card,
     );
+    const finalityDisplayCard = composeFinalityDisplayCard(result, reportWithConditionalOutcome);
 
     const enrichedReport: AnyRecord = {
         ...reportWithoutDuplicateKniaVideo,
@@ -1804,6 +1805,7 @@ export function enrichEasyReport(report: AnyRecord = {}, result: AnyRecord = {})
         ...(expertGuidanceCard ? { expert_guidance_card: expertGuidanceCard } : {}),
         ...kniaAdjustmentCards,
         ...(conditionalOutcomeCard ? { conditional_outcome_card: conditionalOutcomeCard } : {}),
+        ...(finalityDisplayCard ? { finality_display_card: finalityDisplayCard } : {}),
         ...(result.guided_questionnaire ? { guided_questionnaire: sanitizeGuidedQuestionnaire(result.guided_questionnaire) } : {}),
     };
 
@@ -1865,7 +1867,154 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
             candidates: kniaCandidates.slice(0, 3),
         },
         video_summary: videoSummary,
+        finality: report.finality_display_card ?? composeFinalityDisplayCard(result, report),
     };
+}
+
+function composeFinalityDisplayCard(result: AnyRecord = {}, report: AnyRecord = {}) {
+    const fault = result.fault_ratio || report.fault_ratio || report.fault_explanation || {};
+    const contract = fault.fault_result_contract || result.fault_result_contract || report.fault_result_contract || {};
+    const conditionalCard = report.conditional_outcome_card;
+    const status = finalityDisplayStatus({ result, report, fault, contract, conditionalCard });
+    const missingFacts = finalityMissingFactLabels(result, report, contract);
+    const confirmedFacts = confirmedFactLabels(result, report);
+    const faultStatusLabel = faultDisplayStatusLabel(contract, status);
+    const statusLabels: AnyRecord = {
+        supported: "근거 기반 참고",
+        conditional: "조건부 결과",
+        reference_only: "참고용",
+        needs_more_facts: "추가 확인 필요",
+    };
+    const summaries: AnyRecord = {
+        supported: "현재 입력과 연결된 근거로 참고 가능한 과실 범위를 표시합니다.",
+        conditional: "핵심 사실에 따라 과실 방향이 달라질 수 있어 조건별 결과를 함께 봐야 합니다.",
+        reference_only: "직접 기준이 충분하지 않아 확정처럼 보지 말고 참고 자료로만 확인해야 합니다.",
+        needs_more_facts: "현재 입력만으로는 직접 근거가 부족해 먼저 보완할 사실을 확인해야 합니다.",
+    };
+    return {
+        status,
+        status_label: statusLabels[status],
+        fault_status_label: faultStatusLabel,
+        summary: summaries[status],
+        confirmed_facts: confirmedFacts,
+        missing_facts: missingFacts,
+        notice: "이 표시는 확정 판결이 아니라 입력 사실과 근거 연결 수준을 구분한 참고 안내입니다.",
+    };
+}
+
+function finalityDisplayStatus(input: AnyRecord = {}) {
+    const result = input.result || {};
+    const report = input.report || {};
+    const fault = input.fault || {};
+    const contract = input.contract || {};
+    const policyFinality = result.presentation_policy?.finality || result.agent_goal_result?.goal?.finality || result.agent_judgment?.finality;
+    const hasConditional = Boolean(
+        input.conditionalCard ||
+        contract.display_status === "conditional_range" ||
+        fault.fault_result_contract?.display_status === "conditional_range" ||
+        asArray(fault.conditional_outcomes).length ||
+        asArray(fault.conditional_required_facts).length
+    );
+    if (hasConditional) return "conditional";
+    if (
+        contract.display_status === "fallback_needs_evidence" ||
+        fault.fault_estimate_source === "scenario_default" ||
+        result.judgment_status === "needs_review" ||
+        report.judgment_status === "needs_review"
+    ) {
+        return "needs_more_facts";
+    }
+    if (
+        policyFinality === "reference_only" ||
+        result.presentation_status === "reference_only" ||
+        fault.presentation_status === "reference_only" ||
+        fault.reference_only === true ||
+        fault.knia_reference_only === true
+    ) {
+        return "reference_only";
+    }
+    if (
+        contract.display_status === "supported_range" ||
+        policyFinality === "decision_ready" ||
+        policyFinality === "supported" ||
+        fault.evidence_support_level === "direct" ||
+        fault.knia_reference_fault
+    ) {
+        return "supported";
+    }
+    return asArray(report.missing_info?.questions).length || asArray(report.missing_info?.items).length
+        ? "needs_more_facts"
+        : "reference_only";
+}
+
+function faultDisplayStatusLabel(contract: AnyRecord = {}, status = "") {
+    if (contract.display_status === "conditional_range" || status === "conditional") return "조건별 과실 범위";
+    if (contract.display_status === "fallback_needs_evidence" || status === "needs_more_facts") return "근거 부족 fallback";
+    if (status === "reference_only") return "참고용 과실 추정";
+    return "근거 기반 참고 범위";
+}
+
+function finalityMissingFactLabels(result: AnyRecord = {}, report: AnyRecord = {}, contract: AnyRecord = {}) {
+    const raw = [
+        ...asArray(contract.needs_confirmation_fields),
+        ...asArray(result.fault_ratio?.conditional_required_facts),
+        ...asArray(result.required_facts),
+        ...asArray(result.input_requirements?.blocking_fields),
+        ...asArray(report.missing_info?.priority_items).map((item: AnyRecord) => item.label || item.question),
+        ...asArray(report.missing_info?.questions).map((item: AnyRecord) => item.label || item.field),
+    ];
+    return unique(raw.map((item) => safeFactDisplayLabel(item)).filter(Boolean)).slice(0, 5);
+}
+
+function confirmedFactLabels(result: AnyRecord = {}, report: AnyRecord = {}) {
+    const facts = result.structured_facts || report.structured_facts || {};
+    const labels: string[] = [];
+    const add = (field: string, value: any) => {
+        if (value === undefined || value === null || value === "" || value === "unknown") return;
+        labels.push(`${videoFactLabel(field)}: ${factValueLabel(value)}`);
+    };
+    add("accident_party_type", facts.accident_party_type);
+    add("accident_type", facts.accident_type);
+    add("collision_partner_type", facts.collision_partner_type || facts.direct_collision_partner_type);
+    add("stopped", facts.stopped);
+    add("intersection", facts.intersection);
+    add("centerline_crossed", facts.centerline_crossed);
+    add("centerline_cross_reason", facts.centerline_cross_reason);
+    add("user_signal", facts.user_signal || facts.signal_state);
+    add("opponent_signal", facts.opponent_signal);
+    add("rear_vehicle_collision", facts.rear_vehicle_collision);
+    return unique(labels).slice(0, 5);
+}
+
+function safeFactDisplayLabel(value: any) {
+    const raw = String(value ?? "").trim();
+    if (raw && videoFactLabel(raw) !== raw) return videoFactLabel(raw);
+    const text = cleanText(value, "");
+    if (!text) return "";
+    return videoFactLabel(text) !== text ? videoFactLabel(text) : replaceRawFieldTokens(text);
+}
+
+function factValueLabel(value: any) {
+    if (typeof value === "boolean") return value ? "예" : "아니오";
+    const labels: AnyRecord = {
+        car_vs_car: "차 대 차",
+        car_vs_person: "차 대 사람",
+        car_vs_bicycle: "차 대 자전거",
+        car_vs_motorcycle: "차 대 이륜차",
+        vehicle: "차량",
+        pedestrian: "보행자",
+        bicycle: "자전거",
+        motorcycle: "이륜차",
+        object: "물체",
+        centerline_obstacle_collision: "중앙선/장애물 회피 중 충돌",
+        intersection_collision: "교차로 충돌",
+        rear_end_collision: "후방 추돌",
+        obstacle_avoidance: "장애물 회피",
+        yellow: "황색",
+        red: "적색",
+        green: "녹색",
+    };
+    return labels[String(value)] ?? replaceRawFieldTokens(value);
 }
 
 function composeSimpleSituationTitle(report: AnyRecord = {}, result: AnyRecord = {}): string {

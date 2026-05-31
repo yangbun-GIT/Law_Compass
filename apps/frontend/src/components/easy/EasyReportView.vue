@@ -7,6 +7,34 @@
         <p v-if="simpleSituationDetail" class="big-text">{{ simpleSituationDetail }}</p>
       </section>
 
+      <section v-if="finalityCard" class="card easy-card simple-section finality-status-card">
+        <div class="section-head-row">
+          <div>
+            <p class="eyebrow">판단 상태</p>
+            <h2>{{ text(finalityCard.status_label || "참고용") }}</h2>
+          </div>
+          <span class="chip selected">{{ text(finalityCard.fault_status_label || "참고 범위") }}</span>
+        </div>
+        <p class="easy-summary">{{ text(finalityCard.summary) }}</p>
+        <div class="basis-grid compact-grid">
+          <div class="basis-card">
+            <h3>확인된 사실</h3>
+            <ul v-if="finalityCard.confirmed_facts?.length" class="check-list">
+              <li v-for="item in finalityCard.confirmed_facts" :key="item">{{ text(item) }}</li>
+            </ul>
+            <p v-else class="kv">현재 입력에서 바로 확정한 핵심 사실은 제한적입니다.</p>
+          </div>
+          <div class="basis-card">
+            <h3>더 확인할 사실</h3>
+            <ul v-if="finalityCard.missing_facts?.length" class="check-list">
+              <li v-for="item in finalityCard.missing_facts" :key="item">{{ text(item) }}</li>
+            </ul>
+            <p v-else class="kv">추가로 우선 확인할 사실은 따로 표시되지 않았습니다.</p>
+          </div>
+        </div>
+        <p class="soft-warning">{{ text(finalityCard.notice) }}</p>
+      </section>
+
       <section class="card easy-card simple-section corner-flourish">
         <p class="eyebrow">과실비율산정</p>
         <h2>예상 과실비율</h2>
@@ -113,6 +141,33 @@
 
     <section v-else class="expert-report">
       <TopConclusionCard :report="safeReport" />
+      <article v-if="finalityCard" class="card easy-card wide-card finality-status-card">
+        <div class="section-head-row">
+          <div>
+            <p class="eyebrow">판단 상태</p>
+            <h2>{{ text(finalityCard.status_label || "참고용") }}</h2>
+          </div>
+          <span class="chip selected">{{ text(finalityCard.fault_status_label || "참고 범위") }}</span>
+        </div>
+        <p class="easy-summary">{{ text(finalityCard.summary) }}</p>
+        <div class="basis-grid compact-grid">
+          <div class="basis-card">
+            <h3>확인된 사실</h3>
+            <ul v-if="finalityCard.confirmed_facts?.length" class="check-list">
+              <li v-for="item in finalityCard.confirmed_facts" :key="item">{{ text(item) }}</li>
+            </ul>
+            <p v-else class="kv">현재 입력에서 바로 확정한 핵심 사실은 제한적입니다.</p>
+          </div>
+          <div class="basis-card">
+            <h3>더 확인할 사실</h3>
+            <ul v-if="finalityCard.missing_facts?.length" class="check-list">
+              <li v-for="item in finalityCard.missing_facts" :key="item">{{ text(item) }}</li>
+            </ul>
+            <p v-else class="kv">추가로 우선 확인할 사실은 따로 표시되지 않았습니다.</p>
+          </div>
+        </div>
+        <p class="soft-warning">{{ text(finalityCard.notice) }}</p>
+      </article>
       <AccidentPartyTypeActionCard v-if="safeReport.accident_party_type_card" :card="safeReport.accident_party_type_card" />
       <EasyFaultRatioCard :fault="safeReport.fault_explanation || {}" />
       <RelatedKniaStandardCard v-if="visibleRelatedFaultStandard" :standard="visibleRelatedFaultStandard" />
@@ -328,6 +383,7 @@ const basisCards = computed<any[]>(() => safeReport.value?.legal_basis_cards || 
 const visibleBasisCards = computed(() => (showAllBasis.value ? basisCards.value : basisCards.value.slice(0, 3)));
 const actionItems = computed(() => Array.isArray(safeReport.value?.top_actions) ? safeReport.value.top_actions : []);
 const displayMissingInfo = computed(() => safeReport.value?.missing_info || {});
+const finalityCard = computed(() => safeReport.value?.finality_display_card || safeReport.value?.simple_report?.finality || null);
 const partyText = computed(() => [
   safeReport.value?.summary_for_user?.accident_type_label,
   safeReport.value?.accident_party_type_card?.label,
@@ -625,3 +681,30 @@ function signed(value: unknown) {
   return n > 0 ? `+${n}` : String(n);
 }
 </script>
+
+<style scoped>
+.section-head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-head-row h2 {
+  margin: 0;
+}
+
+.compact-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.finality-status-card .basis-card {
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .section-head-row {
+    display: grid;
+  }
+}
+</style>

@@ -1,5 +1,20 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P7-3 결과 표시 Finality 정리
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P7-3 단계를 완료했다. 이번 변경은 Agent 내부 finality와 과실비율 결과 계약을 사용자 화면에서 `근거 기반 참고`, `조건부 결과`, `참고용`, `추가 확인 필요`로 구분해 보여주는 표시 계약 보강이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 표시 payload | Gateway `report-composer`가 `finality_display_card`를 생성한다. 카드에는 `status`, `status_label`, `fault_status_label`, `summary`, `confirmed_facts`, `missing_facts`, `notice`가 포함된다. |
+| 과실비율 상태 | Agent의 `fault_result_contract.display_status`를 기준으로 `근거 기반 참고 범위`, `조건별 과실 범위`, `근거 부족 fallback`, `참고용 과실 추정`을 구분한다. |
+| 사용자 화면 | `EasyReportView.vue`가 일반 사용자 모드와 전문 모드 모두에서 판단 상태 카드를 표시한다. 확인된 사실과 더 확인할 사실을 분리해 “확인 필요”가 무의미한 결론처럼 보이지 않게 한다. |
+| 비변경 범위 | Agent 판단값, Worker 영상 처리, DB schema, Redis key, storage path, 외부 API 종류는 변경하지 않았다. |
+
+검증은 `apps/gateway`에서 `npm test -- --run report-composer.test.ts`, `apps/gateway`에서 `npm run build`, `apps/frontend`에서 `npm run build`로 완료했다.
+
+P7-3은 사용자 표시 계약을 정리하는 단계다. 다음 P8-1에서는 Gateway 요청, Worker job, Agent analysis, MCP tool call, DB report가 같은 trace id로 연결되는지 관측성 경계를 보강한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P7-2 보완 질문 Payload 정리
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P7-2 단계를 완료했다. 이번 변경은 보완 질문의 `field`와 실제 답변 저장 key를 분리해, 같은 field를 쓰는 여러 질문이 서로의 선택값을 덮어쓰지 않도록 정리한 작업이다.

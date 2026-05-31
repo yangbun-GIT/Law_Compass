@@ -1477,6 +1477,61 @@ describe("report composer", () => {
     expect(JSON.stringify(card)).not.toContain("opponent_signal_visible");
   });
 
+  it("adds a user-safe finality card for supported, conditional, and fallback fault results", () => {
+    const supported = enrichEasyReport(sanitizeEasyReport({ headline: "차대차 사고" }), {
+      structured_facts: { accident_party_type: "car_vs_car", collision_partner_type: "vehicle" },
+      fault_ratio: {
+        my: 30,
+        other: 70,
+        evidence_support_level: "direct",
+        fault_result_contract: { display_status: "supported_range", needs_confirmation_fields: [] },
+      },
+    });
+    expect((supported as any).finality_display_card).toMatchObject({
+      status: "supported",
+      status_label: "근거 기반 참고",
+      fault_status_label: "근거 기반 참고 범위",
+    });
+    expect((supported as any).simple_report.finality.status).toBe("supported");
+    expect((supported as any).finality_display_card.confirmed_facts).toContain("사고 대분류: 차 대 차");
+
+    const conditional = enrichEasyReport(sanitizeEasyReport({ headline: "교차로 사고" }), {
+      scenario_type: "intersection_signal_violation",
+      structured_facts: { intersection: true, opponent_signal_visible: false },
+      fault_ratio: {
+        my: 50,
+        other: 50,
+        conditional_required_facts: ["opponent_signal"],
+        conditional_outcomes: [
+          { label: "상대 정상 신호", my_range: "60~80%", other_range: "20~40%" },
+        ],
+        fault_result_contract: { display_status: "conditional_range", needs_confirmation_fields: ["opponent_signal"] },
+      },
+    });
+    expect((conditional as any).finality_display_card.status).toBe("conditional");
+    expect((conditional as any).finality_display_card.fault_status_label).toBe("조건별 과실 범위");
+    expect((conditional as any).finality_display_card.missing_facts).toContain("상대 차량 신호");
+
+    const fallback = enrichEasyReport(sanitizeEasyReport({ headline: "근거 부족 사고" }), {
+      fault_ratio: {
+        my: 50,
+        other: 50,
+        fault_estimate_source: "scenario_default",
+        fault_result_contract: {
+          display_status: "fallback_needs_evidence",
+          needs_confirmation_fields: ["accident_type", "injury"],
+        },
+      },
+    });
+    expect((fallback as any).finality_display_card).toMatchObject({
+      status: "needs_more_facts",
+      status_label: "추가 확인 필요",
+      fault_status_label: "근거 부족 fallback",
+    });
+    expect((fallback as any).finality_display_card.missing_facts).toContain("사고 유형");
+    expect(JSON.stringify((fallback as any).finality_display_card)).not.toContain("fallback_needs_evidence");
+  });
+
   it("derives signal-condition branches from structured facts and reprioritizes follow-up questions", () => {
     const enriched = enrichEasyReport(
       sanitizeEasyReport({
