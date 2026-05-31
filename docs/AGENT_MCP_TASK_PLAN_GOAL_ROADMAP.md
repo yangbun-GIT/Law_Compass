@@ -1159,7 +1159,7 @@ P5-1 완료 기록:
 | P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
 | P4 | 완료 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter, P4-3 persona/prompt version registry, P4-4 Agent consensus/conflict packet 완료 |
 | P5 | 완료 | P5-1 사고 기점 탐지, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 완료 |
-| P6 | 진행 중 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화 완료. 다음은 P6-3 과실비율 결과 계약 강화 |
+| P6 | 진행 중 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약 강화 완료. 다음은 P6-4 근거 표시 품질 강화 |
 | P7 | 대기 | Gateway/Frontend 표시 계약 |
 | P8 | 대기 | 관측성/비용/운영 리스크 |
 | P9 | 대기 | 테스트/평가 체계 |
@@ -1169,9 +1169,9 @@ P5-1 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P6-3. 과실비율 결과 계약 강화**부터 진행한다.
+다음 개발은 **P6-4. 근거 표시 품질 강화**부터 진행한다.
 
-P6-3을 시작할 때는 과실비율 결과가 단일 숫자만 앞세우지 않도록 기본 범위, 조정 가능성, 확인 필요 요소, 근거 부족 fallback 여부를 같은 계약으로 정리한다. 근거가 충분한 사고는 사고축 기준 범위를 제시하고, 근거가 부족한 경우에만 일반 50:50 fallback으로 남긴다.
+P6-4를 시작할 때는 사용자와 관리자 화면의 근거 카드가 사고축과 일치하는지 확인한다. 한국어 법령/KNIA/판례 카드만 기본 표시하고, 영어 fallback title이나 technical label이 노출되지 않도록 정리한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1218,3 +1218,10 @@ P6-3을 시작할 때는 과실비율 결과가 단일 숫자만 앞세우지 �
 - 특정 사고 영상에 맞춘 hard-coded 결과가 아니라, 사고축과 미확인 fact 조합에 따라 범용적으로 조건부 결과를 만든다.
 - 검증은 `tests/test_conditional_judgment.py`, `tests/test_fault_knia_axis_generalization.py`, `tests/test_orchestrator.py`, `tests/test_judgment_contract.py`와 compileall로 완료했다.
 - 다음 개발은 **P6-3 과실비율 결과 계약 강화**다. 단일 숫자보다 기본 범위, 조정 가능성, 확인 필요 요소, 근거 부족 fallback 여부가 일관되게 표시되도록 결과 계약을 정리한다.
+### 2026-05-31 P6-3 진행 기록
+
+- P6-3 과실비율 결과 계약 강화 완료: `fault_ratio_result_contract`를 추가해 과실 결과를 `supported_range`, `conditional_range`, `fallback_needs_evidence`로 구분한다.
+- Agent 분석 stage는 KNIA 기본과실과 가감요소 registry 적용 이후 `fault_result_contract`를 붙인다. 기존 `my`, `other`, `fault_range`, `conditional_outcomes` 필드는 유지한다.
+- 중앙선 장애물 회피처럼 사고축 기준 범위가 잡힌 복합 사고는 일반 50:50 fallback으로 접히지 않고 `supported_range`로 남는다. 상대 신호 미확인처럼 결론 자체가 갈리는 사고는 `conditional_range`로 표시한다.
+- 검증은 `tests/test_fault_ratio_result_contract.py`, `tests/test_conditional_judgment.py`, `tests/test_fault_knia_axis_generalization.py`, `tests/test_orchestrator.py`, `tests/test_judgment_contract.py`와 compileall로 완료했다.
+- 다음 개발은 **P6-4 근거 표시 품질 강화**다. 사용자/관리자 화면에 한국어 근거, fallback 상태, 썸네일 실패 처리가 사고축과 맞게 표시되는지 정리한다.

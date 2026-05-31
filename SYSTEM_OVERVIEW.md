@@ -3639,3 +3639,20 @@ P1-2c에서 직접 사고대상 후보를 확정 fact로 승격하지 않는 안
 | 검증 | Agent fact arbitration/video input contract 테스트, Gateway report composer 테스트, Gateway build, Python compile을 통과했다. broader orchestrator 회귀 확인에서 기존 분류/과실 범위 테스트 2건이 실패했지만, 이번 P1-2d 변경 경로와는 별도 이슈로 분리했다. |
 
 이 변경은 public route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다. 다음 단계는 후보 확인 답변이 들어왔을 때 과실비율과 KNIA/법률 근거가 같은 사고축으로 좁혀지는지 확인하는 P1-3 과실비율/KNIA 근거 싱크 점검이다.
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P6-3 과실비율 결과 계약 강화
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P6-3 단계를 완료했다. 이번 변경은 과실비율을 단일 숫자만으로 전달하지 않고, 지원 가능한 기준 범위인지, 조건부 결과인지, 근거 부족 fallback인지 구분하는 additive 결과 계약을 붙이는 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 결과 계약 모듈 | `apps/agent/app/services/fault_ratio_result_contract.py`를 추가했다. `fault_result_contract`는 `display_status`, `range_basis`, `primary_range`, `reference_ratio`, `needs_confirmation_fields`, `adjustment_summary`를 제공한다. |
+| 표시 상태 | 과실 결과는 `supported_range`, `conditional_range`, `fallback_needs_evidence` 중 하나로 분류된다. |
+| 조건부와 기준 범위 분리 | 상대 신호 미확인처럼 결론 자체가 갈리는 경우는 조건부 범위로 표시하고, 중앙선 장애물 회피처럼 기준 범위가 잡힌 복합 사고는 조건부 메모가 있어도 지원 가능한 기준 범위로 유지한다. |
+| fallback 제한 | `내 책임 50 / 상대 50`은 직접 근거와 사고축 범위가 부족한 경우에만 `fallback_needs_evidence`로 표시한다. |
+| 연결 위치 | `orchestration_analysis.py`가 KNIA 기본과실과 가감요소 registry 적용 이후 과실 결과 계약을 붙인다. 기존 public field는 유지한다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API, 환경변수 키를 변경하지 않는다. Agent payload에 `fault_result_contract`가 추가되는 additive contract이며, 기존 `fault_ratio.my`, `fault_ratio.other`, `fault_range`, `conditional_outcomes`는 유지된다.
+
+검증은 `docker compose exec -T agent python -m pytest tests/test_fault_ratio_result_contract.py tests/test_conditional_judgment.py tests/test_fault_knia_axis_generalization.py tests/test_orchestrator.py tests/test_judgment_contract.py`와 `docker compose exec -T agent python -m compileall app/services/fault_ratio_result_contract.py app/services/orchestration_analysis.py`로 완료했다.
+
+P6-3은 과실 산정의 표현 계약을 강화하는 단계다. 다음 P6-4에서는 사용자와 관리자 화면의 근거 카드 표시 품질을 점검해 한국어 근거, fallback 표시, 썸네일 실패 처리를 정리한다.

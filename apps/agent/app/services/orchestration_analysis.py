@@ -15,6 +15,7 @@ from app.services.analysts.insurance_analyst import analyze_insurance
 from app.services.analysts.traffic_law_analyst import analyze_traffic_law
 from app.services.claim_evidence_validator import apply_claim_evidence_audit, validate_claim_evidence
 from app.services.evidence_axis_router import route_evidence_by_accident_axis
+from app.services.fault_ratio_result_contract import attach_fault_ratio_result_contract
 from app.services.orchestration_context import CaseContext
 from app.services.orchestration_evidence import (
     EvidenceBundle,
@@ -76,6 +77,12 @@ def run_analysis_stage(context: CaseContext, evidence_bundle: EvidenceBundle) ->
         scenario=scenario,
         normalized=normalized,
         knia_result=evidence_bundle.knia_result,
+    )
+    attach_fault_ratio_result_contract(
+        fault_ratio,
+        scenario_type=scenario["scenario_type"],
+        facts=normalized["structured_facts"],
+        evidence=evidence,
     )
     legal_liability = analyze_criminal_liability(
         scenario_type=scenario["scenario_type"],
