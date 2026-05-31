@@ -132,8 +132,8 @@ function normalizeKniaCandidate(item: AnyRecord = {}) {
     chart_no: cleanText(item.chart_no, ""),
     subchart_no: cleanText(item.subchart_no, ""),
     chart_type: cleanText(item.chart_type, ""),
-    title: cleanText(item.title ?? item.chart_title ?? item.article_title, ""),
-    summary: cleanUserFacingCopy(cleanText(item.summary ?? item.description ?? item.accident_situation, "")),
+    title: userFacingKniaTitle(item),
+    summary: userFacingKniaSummary(item),
     menu_path: asArray(item.menu_path).map((part) => cleanText(part, "")).filter(Boolean),
     match_reason: cleanUserFacingCopy(cleanText(item.match_reason ?? item.why_matched, "")),
     base_fault: item.base_fault ?? item.knia_reference_fault?.base_fault,
@@ -199,6 +199,42 @@ function deriveScenarioKniaCandidate(result: AnyRecord = {}, report: AnyRecord =
     reference_only: true,
     score: 0.5,
   };
+}
+
+function userFacingKniaTitle(item: AnyRecord = {}) {
+  const title = cleanText(item.title ?? item.chart_title ?? item.article_title, "");
+  if (title && !looksLikeEnglishFallback(title)) return title;
+  if (item.chart_no) return "과실비율 인정기준";
+  return "";
+}
+
+function userFacingKniaSummary(item: AnyRecord = {}) {
+  const summary = cleanUserFacingCopy(cleanText(item.summary ?? item.description ?? item.accident_situation, ""));
+  if (summary && !looksLikeEnglishFallback(summary)) return summary;
+  if (item.source_url_is_fallback === true || item.reference_only === true) {
+    return "현재 사고와 가까운 과실비율 기준 후보입니다. 실제 적용 전 세부 사실 확인이 필요합니다.";
+  }
+  return "";
+}
+
+function looksLikeEnglishFallback(value: any) {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  if (/[가-힣]/.test(text)) return false;
+  const lower = text.toLowerCase();
+  if ([
+    "fault ratio guide",
+    "road traffic act",
+    "rear-end",
+    "intersection fault",
+    "safe driving",
+    "vehicle fault",
+    "centerline",
+    "collision",
+    "traffic law",
+  ].some((term) => lower.includes(term))) return true;
+  const letters = (text.match(/[A-Za-z]/g) || []).length;
+  return letters >= 12 && letters / Math.max(text.length, 1) > 0.55;
 }
 
 function canonicalPartyType(value: any) {

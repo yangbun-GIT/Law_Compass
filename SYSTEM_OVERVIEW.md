@@ -3656,3 +3656,20 @@ Agent/MCP/Task-Plan-Goal 구조 보강의 P6-3 단계를 완료했다. 이번 �
 검증은 `docker compose exec -T agent python -m pytest tests/test_fault_ratio_result_contract.py tests/test_conditional_judgment.py tests/test_fault_knia_axis_generalization.py tests/test_orchestrator.py tests/test_judgment_contract.py`와 `docker compose exec -T agent python -m compileall app/services/fault_ratio_result_contract.py app/services/orchestration_analysis.py`로 완료했다.
 
 P6-3은 과실 산정의 표현 계약을 강화하는 단계다. 다음 P6-4에서는 사용자와 관리자 화면의 근거 카드 표시 품질을 점검해 한국어 근거, fallback 표시, 썸네일 실패 처리를 정리한다.
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P6-4 근거 표시 품질 강화
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P6-4 단계를 완료했다. 이번 변경은 사용자 화면과 관리자 요약에서 근거 카드가 영어 fallback title, raw technical label, 깨진 썸네일을 그대로 표시하지 않도록 Gateway 표시 계약을 보강한 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 법률/KNIA 근거 제목 | `report-composer.ts`가 `Road Traffic Act`, `Fault Ratio Guide` 같은 영어 fallback title을 사용자 카드에서 안전한 한국어 제목으로 대체한다. |
+| 근거 요약 | 영어 fallback summary/reason은 사용자 카드에서 제거하고, 사고 판단에 참고할 수 있는 한국어 설명으로 대체한다. |
+| 근거 family 판별 | `source_type: legal`도 법률 근거로 분류해 `도로교통법 관련 기준` 같은 한국어 label을 사용한다. |
+| KNIA 링크 카드 | `report-knia-links.ts`가 영어 KNIA fallback title/summary를 `과실비율 인정기준`과 한국어 후보 설명으로 대체한다. |
+| 썸네일 처리 | 기존 `safeKniaThumbnailUrl`와 `KniaVideoLinkCard` 정책을 유지해 기본 로고/깨진 썸네일 대신 링크 버튼 중심으로 표시한다. |
+
+이 변경은 public route, DB schema, Redis key, storage path, 외부 API, 환경변수 키를 변경하지 않는다. 사용자-facing Gateway report composition과 관련 테스트만 변경했다.
+
+검증은 `npm test -- --run report-composer.test.ts knia-link-card-composer.test.ts`와 `npm run build`를 `apps/gateway`에서 실행해 완료했다.
+
+P6-4로 P6 근거 검증/판단 결과 품질 단계는 완료했다. 다음 P7-1에서는 사용자 payload와 관리자 payload를 더 명확히 분리해 일반 화면에 raw diagnostic이 노출되지 않도록 정리한다.

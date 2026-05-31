@@ -457,6 +457,43 @@ describe("report composer", () => {
     expect(JSON.stringify(enriched.legal_basis_cards)).not.toContain("보행자 보호");
   });
 
+  it("replaces English fallback evidence titles with Korean user-facing labels", () => {
+    const enriched: any = composeEasyFallback({
+      scenario_type: "centerline_obstacle_collision",
+      accident_summary: "중앙선 장애물 회피 중 대향 차량과 충돌한 사고",
+      structured_facts: {
+        accident_party_type: "car_vs_car",
+        collision_partner_type: "vehicle",
+        centerline_crossed: true,
+        road_obstruction: true,
+        opposing_vehicle_present: true,
+      },
+      fault_ratio: { my: 30, other: 70 },
+      evidence: [
+        {
+          source_type: "legal",
+          title: "Road Traffic Act (safe driving duty)",
+          plain_summary: "Check safe following distance and possible sudden braking duty-of-care issues",
+          related_reason: "centerline obstacle avoidance and oncoming collision require separate fault assessment",
+        },
+        {
+          source_type: "knia_fault_standard",
+          title: "Fault Ratio Guide (rear-end collision into stopped vehicle)",
+          summary: "Rear-end collisions into stopped vehicles often imply following-vehicle fault",
+          source_url_is_fallback: true,
+        },
+      ],
+    }, {});
+
+    const text = JSON.stringify(enriched.legal_basis_cards);
+    expect(text).toContain("도로교통법 관련 기준");
+    expect(text).toContain("과실비율 인정기준");
+    expect(text).not.toContain("Road Traffic Act");
+    expect(text).not.toContain("Fault Ratio Guide");
+    expect(text).not.toContain("safe following distance");
+    expect(text).not.toContain("centerline obstacle avoidance");
+  });
+
   it("removes raw field tokens from missing-info priority text", () => {
     const enriched = enrichEasyReport(sanitizeEasyReport({
       headline: "report",

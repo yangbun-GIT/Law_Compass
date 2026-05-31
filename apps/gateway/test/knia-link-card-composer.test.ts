@@ -110,4 +110,27 @@ describe("KNIA link card composition", () => {
     expect(text).not.toContain("차43");
     expect(text).not.toContain("거1");
   });
+
+  it("localizes English KNIA fallback titles and summaries for user cards", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      knia_major_party_type: "car_vs_car",
+      knia_matches: [
+        {
+          chart_no: "차41-1",
+          major_party_type: "car_vs_car",
+          title: "Fault Ratio Guide (rear-end collision into stopped vehicle)",
+          summary: "Rear-end collisions into stopped vehicles often imply following-vehicle fault",
+          source_url: "https://accident.knia.or.kr/myaccident-content?chartNo=%EC%B0%A841-1",
+          source_url_is_fallback: true,
+        },
+      ],
+    });
+
+    const card = (enriched as any).related_knia_video_card;
+    const text = JSON.stringify(card);
+    expect(card.title).toBe("과실비율 인정기준");
+    expect(card.summary).toContain("과실비율 기준 후보");
+    expect(text).not.toContain("Fault Ratio Guide");
+    expect(text).not.toContain("Rear-end collisions");
+  });
 });

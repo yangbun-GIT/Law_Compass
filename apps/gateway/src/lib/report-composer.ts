@@ -30,7 +30,7 @@ function detectMissingFields(facts: AnyRecord = {}) {
   return missing;
 }
 function safeEvidenceSummaries(evidence: any[]) {
-  return evidence.slice(0, 5).map((ev: AnyRecord) => cleanText(ev.related_reason ?? ev.plain_summary ?? ev.used_for ?? ev.title, "이 사고 판단에 참고할 수 있는 근거입니다."));
+  return evidence.slice(0, 5).map((ev: AnyRecord) => userEvidenceSummary(ev, "이 사고 판단에 참고할 수 있는 근거입니다."));
 }
 function requiredQuestionTexts(result: AnyRecord = {}) {
   return asArray(result.required_input_questions ?? result.input_requirements?.questions)
@@ -102,6 +102,7 @@ function evidenceFamily(item: AnyRecord = {}) {
     item.law_name,
   ].map((value) => String(value ?? "").toLowerCase()).join(" ");
   if (sourceType.startsWith("knia") || source.includes("knia") || source.includes("과실비율")) return "knia";
+  if (sourceType === "legal" || sourceType.startsWith("legal_") || sourceType.startsWith("law")) return "legal";
   if (item.chunk_id || item.law_name || source.includes("law.go.kr") || source.includes("법")) return "legal";
   return "general";
 }
@@ -171,11 +172,8 @@ function evidenceFamilyLabel(family: string) {
 }
 function evidenceDisplayItem(item: AnyRecord = {}) {
   const family = evidenceFamily(item);
-  const title = cleanText(
-    item.title ?? item.article_title ?? item.law_name ?? item.chunk_summary ?? item.plain_summary ?? item.snippet,
-    "교통사고 관련 근거"
-  );
-  const source = cleanText(item.source ?? item.law_name ?? item.attribution ?? evidenceFamilyLabel(family), evidenceFamilyLabel(family));
+  const title = userEvidenceTitle(item, family);
+  const source = userEvidenceSourceLabel(item, family);
   return {
     key: evidenceKey(item, title),
     title,
@@ -217,6 +215,64 @@ function stripEvidenceKey(item: ReturnType<typeof evidenceDisplayItem>) {
     source_label: item.source_label,
     family_label: item.family_label,
   };
+}
+function userEvidenceTitle(item: AnyRecord = {}, family = evidenceFamily(item)) {
+  const rawTitle = item.title ?? item.article_title ?? item.law_name ?? item.chunk_summary ?? item.plain_summary ?? item.snippet;
+  const title = cleanText(rawTitle, "");
+  if (title && !looksLikeEnglishFallback(title)) return title;
+  const lawName = cleanText(item.law_name, "");
+  if (lawName && !looksLikeEnglishFallback(lawName)) return lawName;
+  if (family === "knia") return "과실비율 인정기준";
+  if (family === "legal") return "도로교통법 관련 기준";
+  return "교통사고 관련 근거";
+}
+function userEvidenceSourceLabel(item: AnyRecord = {}, family = evidenceFamily(item)) {
+  const source = cleanText(item.source ?? item.law_name ?? item.attribution, "");
+  if (source && !looksLikeEnglishFallback(source)) return source;
+  return evidenceFamilyLabel(family);
+}
+function userEvidenceSummary(item: AnyRecord = {}, fallback = "이 사고와 관련해 함께 확인할 수 있는 기준입니다.") {
+  const candidates = [
+    item.plain_summary,
+    item.summary,
+    item.snippet,
+    item.chunk_summary,
+    item.description,
+    item.used_for,
+    item.related_reason,
+  ];
+  for (const candidate of candidates) {
+    const text = cleanText(candidate, "");
+    if (text && !looksLikeEnglishFallback(text)) return text;
+  }
+  return fallback;
+}
+function userEvidenceRelatedReason(item: AnyRecord = {}, fallback = "이번 사고와 관련해 함께 검토할 수 있는 근거입니다.") {
+  for (const candidate of [item.related_reason, item.used_for, item.match_reason, item.why_matched]) {
+    const text = cleanText(candidate, "");
+    if (text && !looksLikeEnglishFallback(text)) return text;
+  }
+  return fallback;
+}
+function looksLikeEnglishFallback(value: any) {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  if (/[가-힣]/.test(text)) return false;
+  const lower = text.toLowerCase();
+  if (hasAny(lower, [
+    "fault ratio guide",
+    "road traffic act",
+    "safe driving",
+    "rear-end",
+    "intersection fault",
+    "vehicle fault",
+    "pedestrian",
+    "centerline",
+    "collision",
+    "traffic law",
+  ])) return true;
+  const letters = (text.match(/[A-Za-z]/g) || []).length;
+  return letters >= 12 && letters / Math.max(text.length, 1) > 0.55;
 }
 function questionCountOf(result: AnyRecord = {}) {
   return asArray(result.required_input_questions ?? result.input_requirements?.questions).length;
@@ -2410,7 +2466,17 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
     fault_explanation: { title: "과실비율 참고 추정", my_label: "내 책임", other_label: "상대방 책임", my_percent: my, other_percent: other, easy_explanation: faultEasyExplanation, why: faultWhy, caution: centerlineContext ? "중앙선을 넘은 사유, 정차 위치, 상대 차량의 시야와 감속 가능성, 후속 추돌의 원인 분리에 따라 비율이 조정될 수 있습니다." : signalUncertaintyContext ? "상대 차량 신호, CCTV, 신호 주기표가 확인되면 조건별 과실 범위 중 어느 쪽에 가까운지 다시 좁혀야 합니다." : "급정거 여부, 충돌 직전 움직임, 도로 상황이 확인되면 비율이 조정될 수 있습니다." },
     insurance_explanation: { title: "보험 처리 안내", simple_summary: cleanText(insurance.summary, "대물 접수와 대인 접수 여부를 확인해야 합니다."), steps: asArray(insurance.steps).map((x) => cleanText(x)).slice(0, 6), documents: asArray(insurance.required_documents).map((x) => cleanText(x)).slice(0, 8) },
     legal_explanation: { title: "법률상 확인할 점", simple_summary: legal.reporting_required ? "신고나 형사 문제를 확인해 볼 필요가 있습니다." : "인명피해가 있거나 큰 위반이 의심되면 신고 여부를 확인해야 합니다.", risk_label: legal.criminal_risk_level === "high" ? "높음" : legal.criminal_risk_level === "low" ? "낮음" : "보통", checklist: asArray(legal.checklist).map((x) => cleanText(x)).slice(0, 7), caution: "형사책임 여부는 경찰이나 법원의 판단이 필요합니다." },
-    legal_basis_cards: displayEvidence.slice(0, 6).map((ev: AnyRecord) => ({ law_name: cleanText(ev.law_name ?? "법률 근거"), easy_title: cleanText(ev.article_title ?? ev.chunk_summary ?? "교통사고 관련 확인 사항"), easy_explanation: cleanText(ev.plain_summary ?? ev.snippet, "이 사고에서 확인해야 할 법률상 기준입니다."), related_to_this_case: cleanText(ev.related_reason ?? ev.used_for, "이번 사고와 관련해 함께 검토할 수 있는 법률 근거입니다."), confidence_label: "근거용", source_label: cleanText(ev.source ?? "법률 근거") })),
+    legal_basis_cards: displayEvidence.slice(0, 6).map((ev: AnyRecord) => {
+      const family = evidenceFamily(ev);
+      return {
+        law_name: userEvidenceSourceLabel(ev, family),
+        easy_title: userEvidenceTitle(ev, family),
+        easy_explanation: userEvidenceSummary(ev, "이 사고에서 확인해야 할 기준입니다."),
+        related_to_this_case: userEvidenceRelatedReason(ev, "이번 사고와 관련해 함께 검토할 수 있는 근거입니다."),
+        confidence_label: ev.source_url_is_fallback === true || ev.reference_only === true ? "참고 기준" : "근거용",
+        source_label: userEvidenceSourceLabel(ev, family),
+      };
+    }),
     missing_info: { title: "더 정확한 분석을 위해 필요한 정보", items: Array.from(new Set([...requiredQuestions, ...(requiredQuestions.length ? [] : detectMissingFields(facts)), ...asArray(result.suggested_next_inputs).map((x) => cleanText(x)), ...asArray(result.followup_questions).map((x) => cleanText(x))])).slice(0, 6), questions: missingQuestions },
     detail_sections: { evidence_summaries: safeEvidenceSummaries(displayEvidence) }
   }), result);

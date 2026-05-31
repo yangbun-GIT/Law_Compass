@@ -1159,8 +1159,8 @@ P5-1 완료 기록:
 | P3 | 완료 | 내부 MCP tool registry schema, executor 권한/검증, route boundary, 표준 MCP 도입 판단 gate 완료 |
 | P4 | 완료 | P4-0 role inventory, P4-1 role profile, P4-2 Specialist Agent 실행 adapter, P4-3 persona/prompt version registry, P4-4 Agent consensus/conflict packet 완료 |
 | P5 | 완료 | P5-1 사고 기점 탐지, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 완료 |
-| P6 | 진행 중 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약 강화 완료. 다음은 P6-4 근거 표시 품질 강화 |
-| P7 | 대기 | Gateway/Frontend 표시 계약 |
+| P6 | 완료 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약, P6-4 근거 표시 품질 강화 완료 |
+| P7 | 진행 중 | 다음은 P7-1 사용자 payload와 관리자 payload 분리 |
 | P8 | 대기 | 관측성/비용/운영 리스크 |
 | P9 | 대기 | 테스트/평가 체계 |
 | P10 | 대기 | 표준 MCP 도입 판단 |
@@ -1169,9 +1169,9 @@ P5-1 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P6-4. 근거 표시 품질 강화**부터 진행한다.
+다음 개발은 **P7-1. 사용자 payload와 관리자 payload 분리**부터 진행한다.
 
-P6-4를 시작할 때는 사용자와 관리자 화면의 근거 카드가 사고축과 일치하는지 확인한다. 한국어 법령/KNIA/판례 카드만 기본 표시하고, 영어 fallback title이나 technical label이 노출되지 않도록 정리한다.
+P7-1을 시작할 때는 사용자 payload는 쉬운 설명, 조건부 결과, 확인 필요 항목, 근거 카드 중심으로 제한하고, 관리자 payload는 trace, task, tool call, 영상 관찰값, candidate 상태를 볼 수 있게 분리한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1225,3 +1225,11 @@ P6-4를 시작할 때는 사용자와 관리자 화면의 근거 카드가 사�
 - 중앙선 장애물 회피처럼 사고축 기준 범위가 잡힌 복합 사고는 일반 50:50 fallback으로 접히지 않고 `supported_range`로 남는다. 상대 신호 미확인처럼 결론 자체가 갈리는 사고는 `conditional_range`로 표시한다.
 - 검증은 `tests/test_fault_ratio_result_contract.py`, `tests/test_conditional_judgment.py`, `tests/test_fault_knia_axis_generalization.py`, `tests/test_orchestrator.py`, `tests/test_judgment_contract.py`와 compileall로 완료했다.
 - 다음 개발은 **P6-4 근거 표시 품질 강화**다. 사용자/관리자 화면에 한국어 근거, fallback 상태, 썸네일 실패 처리가 사고축과 맞게 표시되는지 정리한다.
+
+### 2026-05-31 P6-4 진행 기록
+
+- P6-4 근거 표시 품질 강화 완료: 사용자 보고서의 법률/KNIA 근거 카드에서 `Road Traffic Act`, `Fault Ratio Guide` 같은 영어 fallback title과 영어 summary/reason이 그대로 나오지 않도록 Gateway 표시 계약을 보강했다.
+- `source_type: legal` 근거를 법률 family로 분류하고, 한국어 제목이 없으면 `도로교통법 관련 기준`, `과실비율 인정기준` 같은 안전한 label로 대체한다.
+- KNIA 링크 카드도 영어 fallback 제목/요약을 한국어 후보 설명으로 대체하고, 기존 기본 로고/깨진 썸네일 제거 정책을 유지한다.
+- 검증은 Gateway에서 `npm test -- --run report-composer.test.ts knia-link-card-composer.test.ts`와 `npm run build`로 완료했다.
+- 다음 개발은 **P7-1 사용자 payload와 관리자 payload 분리**다. 일반 사용자 화면에는 raw JSON, internal key, English technical label이 보이지 않고, 관리자 테스트 화면에서는 진단 정보를 볼 수 있도록 경계를 정리한다.
