@@ -1164,14 +1164,14 @@ P5-1 완료 기록:
 | P8 | 완료 | P8-1 Trace id 통합, P8-2 LLM/vision 사용량 기록, P8-3 실패 관찰값 표준화 완료 |
 | P9 | 완료 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장, P9-3 Reference 평가 확장, P9-4 CI/검증 명령 정리 완료 |
 | P10 | 완료 | P10-1 표준 MCP 요구사항 재평가, P10-2 표준 MCP pilot 설계, P10-3 도입 보류 결정 완료 |
-| P11 | 진행 중 | P11-1 문서 동기화 완료. 다음은 P11-2 발표 설명 정리 |
+| P11 | 진행 중 | P11-1 문서 동기화, P11-2 발표 설명 정리 완료. 다음은 P11-3 팀원 인수인계 |
 | P12 | 대기 | 최종 구조 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P11-2. 발표 설명 정리**부터 진행한다.
+다음 개발은 **P11-3. 팀원 인수인계**부터 진행한다.
 
-P11-2를 시작할 때는 현재 구현된 것과 추후 적용할 것을 구분하고, 표준 MCP 구현 완료처럼 과장된 표현 없이 MSA 서비스 분리, Agent 판단 계약, 영상 관찰값 오염 방지, 근거 기반 finality, 내부 MCP-like tool registry, Task-Plan-Goal trace/packet 구조를 발표용으로 정리한다.
+P11-3을 시작할 때는 어떤 파일을 건드리면 충돌 위험이 큰지, 팀원이 웹 디자인을 수정할 때 Agent/Worker 변경과 충돌하지 않게 하는 branch/merge 기준, 민감 파일과 대용량 파일 제외 기준을 다시 확인한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1358,3 +1358,12 @@ P11-2를 시작할 때는 현재 구현된 것과 추후 적용할 것을 구분
 - 이번 단계는 문서 정합성 보강이며 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 문서 검색, `git diff --check`, 표준 MCP pilot/gate 테스트로 완료한다.
 - 다음 개발은 **P11-2 발표 설명 정리**다.
+
+### 2026-05-31 P11-2 진행 기록
+
+- P11-2 발표 설명 정리 완료: `docs/PRESENTATION_ARCHITECTURE_NOTES.md`를 추가해 현재 구현, 부분 구현, 추후 적용, 발표에서 강조할 강점, 피해야 할 표현, 권장 발표 문장을 분리했다.
+- 발표 기준은 표준 MCP 구현 완료가 아니라 Agent 내부 MCP-like tool registry/executor, 표준 MCP 도입 gate와 pilot 설계, 현재 보류 결정으로 설명하도록 고정했다.
+- 현재 강점은 MSA 서비스 분리, Gateway/Worker/Agent 책임 분리, 영상 관찰값 오염 방지, 사고축 근거 routing, finality 표시, Task-Plan-Goal trace/packet 구조로 정리했다.
+- 이번 단계는 발표/인수인계 설명 문서화이며 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
+- 검증은 발표 금지 표현 검색, `git diff --check`, 표준 MCP pilot/gate 테스트로 완료한다.
+- 다음 개발은 **P11-3 팀원 인수인계**다.

@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P11-2 발표 설명 정리
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P11-2 단계를 완료했다. 발표와 팀원 설명에서 현재 구현을 과장하지 않도록 `docs/PRESENTATION_ARCHITECTURE_NOTES.md`를 추가했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 발표 기준 문서 | `docs/PRESENTATION_ARCHITECTURE_NOTES.md`에 현재 구현, 부분 구현, 추후 적용, 피해야 할 표현, 권장 발표 표현을 정리했다. |
+| 핵심 표현 | 표준 MCP 구현 완료가 아니라 Agent 내부 MCP-like tool registry/executor와 도입 gate/pilot 설계 완료, 현재 보류로 설명한다. |
+| 현재 강점 | MSA 서비스 분리, Agent 판단 계약, 영상 관찰값 오염 방지, 근거 기반 finality, 내부 tool registry, Task-Plan-Goal trace/packet 구조로 설명한다. |
+| 비변경 범위 | 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
+
+검증은 발표 금지 표현 검색과 문서 diff 검증으로 완료했다. 다음 P11-3에서는 팀원 인수인계 관점에서 충돌 위험 파일, branch/merge 기준, 민감/대용량 파일 제외 기준을 정리한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P10-3 표준 MCP 도입/보류 결정
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P10-3 단계를 완료했다. P10-1 요구사항 재평가와 P10-2 pilot 설계를 기준으로, 현재는 표준 MCP Host/Client/Server를 즉시 도입하지 않고 Agent 내부 MCP-like tool registry/executor를 유지하기로 결정했다.
