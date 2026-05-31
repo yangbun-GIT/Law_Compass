@@ -81,6 +81,8 @@ Gateway 테스트/빌드, Frontend 빌드/표시 안전 테스트, Docker 기반
 
 GitHub에서는 `.github/workflows/ci.yml`이 push/PR마다 Frontend, Gateway, Worker 계약, Agent 계약/회귀 검증을 실행합니다. 실제 외부 API 키나 Docker E2E가 필요한 검증은 아직 CI에 포함하지 않았습니다.
 
+검증 명령을 변경 범위별로 고를 때는 `docs/VERIFICATION_COMMANDS.md`를 우선 확인합니다. 문서만 변경, 로컬 빠른 검증, Docker 기반 검증, OpenAI/YOLO ON 실제 영상 검증, 비용 발생 검증, GitHub CI 확인 기준을 그 문서에서 관리합니다.
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/verify_core.ps1
 ```

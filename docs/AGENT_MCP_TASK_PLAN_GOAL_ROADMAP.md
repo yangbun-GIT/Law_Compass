@@ -1162,16 +1162,16 @@ P5-1 완료 기록:
 | P6 | 완료 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약, P6-4 근거 표시 품질 강화 완료 |
 | P7 | 완료 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리, P7-3 결과 표시 finality 정리 완료 |
 | P8 | 완료 | P8-1 Trace id 통합, P8-2 LLM/vision 사용량 기록, P8-3 실패 관찰값 표준화 완료 |
-| P9 | 진행 중 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장, P9-3 Reference 평가 확장 완료. 다음은 P9-4 CI/검증 명령 정리 |
-| P10 | 대기 | 표준 MCP 도입 판단 |
+| P9 | 완료 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장, P9-3 Reference 평가 확장, P9-4 CI/검증 명령 정리 완료 |
+| P10 | 진행 중 | 다음은 P10-1 표준 MCP 요구사항 재평가 |
 | P11 | 대기 | 문서/인수인계/발표 정합성 |
 | P12 | 대기 | 최종 구조 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P9-4. CI/검증 명령 정리**부터 진행한다.
+다음 개발은 **P10-1. 표준 MCP 요구사항 재평가**부터 진행한다.
 
-P9-4를 시작할 때는 로컬 빠른 검증, Docker 기반 검증, OpenAI/YOLO ON 실제 검증, 비용 발생 검증, 문서만 변경 검증 명령을 한곳에서 확인할 수 있도록 정리한다.
+P10-1을 시작할 때는 외부 tool 수, 보안 격리 필요성, 다중 host 필요성, 팀 개발 복잡도, 배포/운영 비용, 현재 내부 executor로 해결 가능한 범위를 기준으로 표준 MCP 도입 필요성을 다시 평가한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1312,3 +1312,11 @@ P9-4를 시작할 때는 로컬 빠른 검증, Docker 기반 검증, OpenAI/YOLO
 - reference fixture는 Agent 입력 payload를 포함하지 않고, AI-Hub 원천 라벨/영상과 공개 영상 원본은 Git에 올리지 않는다.
 - 검증은 reference manifest preflight, video reference metrics threshold, 관련 pytest 7개로 완료했다.
 - 다음 개발은 **P9-4 CI/검증 명령 정리**다.
+
+### 2026-05-31 P9-4 진행 기록
+
+- P9-4 CI/검증 명령 정리 완료: `docs/VERIFICATION_COMMANDS.md`를 추가해 문서만 변경, 로컬 빠른 검증, Docker 기반 검증, OpenAI/YOLO ON 실제 영상 검증, 비용 발생 검증, GitHub CI 확인, 실패 기록 기준을 한곳에 정리했다.
+- `DEVELOPMENT_PROMPT.md`의 verification policy, `docs/OPERATIONS.md`, `docs/BUILD_AND_RUN_GUIDE.md`, `SYSTEM_OVERVIEW.md`에서 새 검증 명령 기준 문서를 참조하도록 연결했다.
+- 이번 단계는 검증 명령과 운영 기준 문서화 작업이며 애플리케이션 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API, Docker Compose 서비스 정의는 변경하지 않았다.
+- 검증은 `git diff --check`, reference manifest preflight, video reference metrics threshold, reference metrics 관련 pytest로 완료했다.
+- 다음 개발은 **P10-1 표준 MCP 요구사항 재평가**다.

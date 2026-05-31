@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P9-4 CI/검증 명령 정리
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P9-4 단계를 완료했다. 이번 변경은 로컬 빠른 검증, Docker 기반 검증, OpenAI/YOLO ON 실제 영상 검증, 비용 발생 검증, 문서만 변경 검증, GitHub CI 확인 기준을 `docs/VERIFICATION_COMMANDS.md`로 모은 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 검증 기준 문서 | `docs/VERIFICATION_COMMANDS.md`를 추가했다. 문서만 변경, 로컬 빠른 검증, Docker 기반 검증, OpenAI/YOLO ON 실제 영상 검증, 비용 발생 검증, GitHub CI 확인, 실패 기록 기준을 한곳에서 관리한다. |
+| 기존 운영 문서 연결 | `docs/OPERATIONS.md`와 `docs/BUILD_AND_RUN_GUIDE.md`에서 새 검증 명령 기준 문서를 참조한다. |
+| 개발 프롬프트 연결 | `DEVELOPMENT_PROMPT.md`의 verification policy에 `docs/VERIFICATION_COMMANDS.md` 우선 참조 규칙을 추가했다. |
+| 비변경 범위 | 애플리케이션 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API, Docker Compose 서비스 정의는 변경하지 않았다. |
+
+검증은 `git diff --check`와 reference manifest/metrics fixture 검증으로 완료했다. P9-4는 검증 명령 정리 단계이며, 다음 P10-1에서는 표준 MCP 요구사항을 외부 tool 수, 보안 격리, 다중 host, 팀 개발 복잡도, 배포/운영 비용, 내부 executor로 해결 가능한 범위 기준으로 재평가한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P9-3 Reference 평가 확장
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P9-3 단계를 완료했다. 이번 변경은 영상·입력 사실 추출이 특정 테스트 영상에 맞춰지는 것을 막기 위해 reference 평가 fixture를 사고 1~5 축, AI-Hub 라벨 축, 공개 reference metadata 축, synthetic contamination 축으로 확장한 작업이다.

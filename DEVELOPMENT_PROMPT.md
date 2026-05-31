@@ -268,6 +268,7 @@
 
   <verification_policy>
     변경 후 영향 범위에 맞는 검증을 수행하십시오.
+    단계별 검증 명령의 상세 기준은 `docs/VERIFICATION_COMMANDS.md`를 우선 참조하십시오.
 
     <frontend>
       npm run build

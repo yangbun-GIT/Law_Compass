@@ -21,6 +21,7 @@
 2. `SYSTEM_OVERVIEW.md`
 3. `docs/HANDOFF_CHANGE_SUMMARY_2026-05-25.md`
 4. `docs/OPERATIONS.md`
+5. `docs/VERIFICATION_COMMANDS.md`
 
 ## 3. 환경 파일 준비
 
@@ -190,6 +191,8 @@ python -m worker.main
 로컬 개발 실행은 Docker의 PostgreSQL/Redis와 연결되도록 `.env` 값을 맞춘 뒤 사용합니다.
 
 ## 7. 기본 검증
+
+변경 범위별 검증 명령 선택 기준은 `docs/VERIFICATION_COMMANDS.md`를 먼저 확인합니다.
 
 빠른 핵심 검증:
 
