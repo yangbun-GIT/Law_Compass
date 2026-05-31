@@ -1162,16 +1162,16 @@ P5-1 완료 기록:
 | P6 | 완료 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약, P6-4 근거 표시 품질 강화 완료 |
 | P7 | 완료 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리, P7-3 결과 표시 finality 정리 완료 |
 | P8 | 완료 | P8-1 Trace id 통합, P8-2 LLM/vision 사용량 기록, P8-3 실패 관찰값 표준화 완료 |
-| P9 | 진행 중 | P9-1 단위 테스트 확장 완료. 다음은 P9-2 E2E 테스트 확장 |
+| P9 | 진행 중 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장 완료. 다음은 P9-3 Reference 평가 확장 |
 | P10 | 대기 | 표준 MCP 도입 판단 |
 | P11 | 대기 | 문서/인수인계/발표 정합성 |
 | P12 | 대기 | 최종 구조 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P9-2. E2E 테스트 확장**부터 진행한다.
+다음 개발은 **P9-3. Reference 평가 확장**부터 진행한다.
 
-P9-2를 시작할 때는 텍스트만, 영상만, 텍스트+영상, 보완 답변 후 재분석, KNIA 존재/누락, OpenAI/YOLO ON, OpenAI/YOLO OFF fallback 흐름이 반복 가능한 E2E 또는 route/service 통합 테스트로 검증되는지 확인하고 확장한다.
+P9-3을 시작할 때는 사고 1~5, AI-Hub label reference, 공개 영상 metadata reference, synthetic contamination fixture, 보행자 배경 오염, 신호 불확실성, 중앙선 장애물 회피, 자전거/이륜차 작은 대상, 무등화 정차차량 reference 평가가 반복 가능한 명령으로 실행되는지 확인하고 확장한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1293,3 +1293,13 @@ P9-2를 시작할 때는 텍스트만, 영상만, 텍스트+영상, 보완 답�
 - 조건부 과실 분기가 있는 50:50 값은 지원 가능한 확정 범위가 아니라 조건별 범위 확인 필요 상태로 남는 것을 테스트로 고정했다.
 - 검증은 Agent 계약/도구/영상/evidence/fault 테스트 64개, Gateway report composer 테스트 49개로 완료했다.
 - 다음 개발은 **P9-2 E2E 테스트 확장**이다.
+
+### 2026-05-31 P9-2 진행 기록
+
+- P9-2 E2E 테스트 확장 완료: Agent orchestration 경로에서 텍스트만, 영상만, 텍스트+영상, 보완 답변 후 재분석, KNIA 기준 존재/누락, OpenAI/YOLO ON, OpenAI/YOLO OFF fallback 흐름을 고정했다.
+- 텍스트만 입력은 video task 없이 기존 사고축과 과실 참고 범위를 유지한다. 영상만 입력은 `video_observation`과 `fact_arbitration` task를 실행한다.
+- 텍스트+영상 입력은 정차 여부 같은 물리 fact 충돌에서 고신뢰 영상 관찰값을 우선하고, 보완 답변 후 재분석은 `followup_reanalysis`와 `bounded_on_blocker` 정책을 유지한다.
+- KNIA 기준이 잡히는 차대차 차선변경 입력은 `knia_primary_match`, `knia_reference_fault`, `supported_range`를 유지하고, KNIA 기준이 누락된 일반 입력은 `fallback_needs_evidence`와 `must_not_present_as_final` 상태로 남는다.
+- OpenAI/YOLO가 꺼진 영상 입력은 확정 fact를 만들지 않고 `frame_rich_no_actionable_observation` 복구 계획을 제공한다.
+- 검증은 Agent 컨테이너에서 `python -m pytest tests/test_orchestrator_e2e_modes.py -q`로 완료했다.
+- 다음 개발은 **P9-3 Reference 평가 확장**이다.

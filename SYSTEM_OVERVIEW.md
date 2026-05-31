@@ -1,5 +1,23 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P9-2 E2E 테스트 확장
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P9-2 단계를 완료했다. 이번 변경은 개별 단위 계약이 실제 Agent orchestration 경로에서도 유지되는지 확인하기 위해 텍스트만, 영상만, 텍스트+영상, 보완 답변 후 재분석, KNIA 기준 존재/누락, OpenAI/YOLO ON/OFF fallback 흐름을 E2E 테스트로 고정한 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 텍스트만 입력 | `analyze_case` 경로가 `text_only` plan을 만들고 video task를 추가하지 않으며, 후방 추돌 같은 명확한 텍스트 입력은 기존 사고축과 과실 참고 범위를 유지한다. |
+| 영상만 입력 | `analyze_video_case` 경로가 `video_only` plan을 만들고 `video_observation`, `fact_arbitration` task를 실행한다. OpenAI/YOLO 관찰값이 충분하면 video input contract의 accepted observation으로 반영된다. |
+| 텍스트+영상 입력 | 사용자 입력과 영상 관찰값이 같이 들어오면 `text_and_video` plan으로 처리하고, 정차 여부 같은 물리 fact 충돌은 기존 arbitration 규칙에 따라 고신뢰 영상 관찰값을 우선한다. |
+| 보완 답변 후 재분석 | `_followup_*` marker가 있는 재분석 입력은 `followup_reanalysis` plan과 `bounded_on_blocker` replan policy를 사용한다. 영상 metadata가 함께 있으면 questionnaire answer와 video observation task가 같이 유지된다. |
+| KNIA 기준 존재 | 차대차 차선변경처럼 KNIA 기준 후보가 잡히는 입력은 `knia_primary_match`, `knia_reference_fault`, `supported_range` 표시 계약을 유지한다. |
+| KNIA 기준 누락 | 사고축·충돌대상·정차·신호 정보가 부족한 입력은 KNIA chart match를 비운 채 `fallback_needs_evidence`와 `must_not_present_as_final` 상태로 남긴다. |
+| OpenAI/YOLO OFF fallback | 대표 프레임은 충분하지만 OpenAI/YOLO가 꺼진 영상 입력은 확정 fact를 만들지 않고 `frame_rich_no_actionable_observation` 복구 계획을 제공한다. |
+
+검증은 Agent 컨테이너에서 `python -m pytest tests/test_orchestrator_e2e_modes.py -q`로 완료했다. 이후 기존 Orchestrator/Gateway route 테스트, build/compile 및 diff 검증을 함께 수행한다.
+
+P9-2는 통합 흐름 테스트를 보강한 단계다. 다음 P9-3에서는 사고 1~5, AI-Hub label reference, 공개 영상 metadata reference, synthetic contamination fixture, 보행자 배경 오염, 신호 불확실성, 중앙선 장애물 회피, 자전거/이륜차 작은 대상, 무등화 정차차량 reference 평가를 확장한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P9-1 단위 테스트 확장
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P9-1 단계를 완료했다. 이번 변경은 구조 보강이 특정 샘플에만 맞춰진 임시 수정이 되지 않도록 Agent 계약, MCP tool executor, Specialist Agent result, Video input contract, Evidence routing, Fault ratio branch, 사용자 표시 sanitizer 단위 테스트를 확장한 작업이다.
