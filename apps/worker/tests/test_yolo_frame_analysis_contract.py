@@ -65,6 +65,10 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(result["available_frame_count"], 3)
         self.assertEqual(result["selected_frame_count"], 3)
         self.assertEqual(result["frame_selection_strategy"], yolo_frame_analysis.YOLO_FRAME_SELECTION_STRATEGY)
+        self.assertEqual(result["ai_usage_event"]["provider"], "ultralytics-yolo")
+        self.assertFalse(result["ai_usage_event"]["enabled"])
+        self.assertFalse(result["ai_usage_event"]["success"])
+        self.assertEqual(result["ai_usage_event"]["fallback_reason"], "disabled")
 
     def test_enabled_without_model_path_returns_configuration_reason(self):
         yolo_frame_analysis.ENABLE_YOLO_FRAME_ANALYSIS = True
@@ -80,6 +84,7 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
 
         self.assertFalse(result["enabled"])
         self.assertEqual(result["reason"], "YOLO_MODEL_PATH is empty")
+        self.assertEqual(result["ai_usage_event"]["fallback_reason"], "model_path_missing")
 
     def test_yolo_candidates_are_capped_below_agent_fact_threshold(self):
         observations = yolo_frame_analysis._observation_candidates(
@@ -121,6 +126,19 @@ class YoloFrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(payload["summary"]["total_detections"], 1)
         self.assertEqual(payload["detections"][0]["frame_ref"], "source_frame_001.jpg")
         self.assertEqual(payload["observations"][0]["frame_refs"], ["source_frame_001.jpg"])
+        payload = yolo_frame_analysis._with_yolo_usage_event(
+            payload,
+            enabled=True,
+            success=True,
+            frame_details=selected_frames,
+            selected_frames=selected_frames,
+            started=0.0,
+        )
+        self.assertEqual(payload["ai_usage_event"]["provider"], "ultralytics-yolo")
+        self.assertTrue(payload["ai_usage_event"]["enabled"])
+        self.assertTrue(payload["ai_usage_event"]["success"])
+        self.assertEqual(payload["ai_usage_event"]["detection_count"], 1)
+        self.assertNotIn("api_key", str(payload["ai_usage_event"]).lower())
 
     def test_yolo_event_candidate_summary_ranks_vehicle_dense_window(self):
         with tempfile.TemporaryDirectory() as tmp:

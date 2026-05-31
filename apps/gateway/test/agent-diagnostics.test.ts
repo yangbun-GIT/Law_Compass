@@ -92,6 +92,39 @@ describe("agent diagnostics", () => {
           restricted_sections: ["fault_ratio"],
         },
       },
+      model_info: {
+        llm_policy: {
+          version: "llm-policy-v1",
+          provider_enabled: true,
+          used_sections: [],
+          blocked_sections: ["fault_ratio_analysis"],
+          failed_sections: [],
+          cost_metadata: {
+            used_section_count: 0,
+            blocked_section_count: 1,
+            failed_section_count: 0,
+            token_usage_available: false,
+            usage_event_version: "ai-usage-event-v1",
+          },
+          sections: {
+            fault_ratio_analysis: {
+              ai_usage_event: {
+                version: "ai-usage-event-v1",
+                provider: "openai",
+                endpoint: "chat.completions",
+                model: "gpt-4.1-mini",
+                enabled: true,
+                allowed: false,
+                used: false,
+                success: false,
+                reason: "required_knia_evidence_missing",
+                token_usage_available: false,
+                timeout_sec: 18,
+              },
+            },
+          },
+        },
+      },
     });
 
     expect(diagnostic.diagnostic_version).toBe("agent-trace-diagnostic-v1");
@@ -106,6 +139,10 @@ describe("agent diagnostics", () => {
     expect(diagnostic.video_input.observation_quality.uncertain_reason_counts.missing_frame_reference).toBe(1);
     expect(diagnostic.fact_arbitration.conflict_count).toBe(1);
     expect(diagnostic.evidence.family_counts).toEqual({ legal: 2, knia: 0, general: 1 });
+    expect(diagnostic.usage.usage_event_version).toBe("ai-usage-event-v1");
+    expect(diagnostic.usage.blocked_section_count).toBe(1);
+    expect(diagnostic.usage.section_events[0].model).toBe("gpt-4.1-mini");
+    expect(diagnostic.usage.section_events[0].token_usage_available).toBe(false);
     expect(JSON.stringify(diagnostic)).not.toContain("driver@example.com");
     expect(JSON.stringify(diagnostic)).not.toContain("secret-token");
     expect(JSON.stringify(diagnostic)).not.toContain("law-1");

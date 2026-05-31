@@ -658,6 +658,9 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertEqual(result["ai_usage_event"]["endpoint"], "responses")
         self.assertEqual(result["ai_usage_event"]["model"], "gpt-5-nano")
         self.assertEqual(result["ai_usage_event"]["selected_frame_count"], 1)
+        self.assertEqual(result["ai_usage_event"]["attempt_count"], 1)
+        self.assertGreaterEqual(result["ai_usage_event"]["latency_ms"], 0)
+        self.assertEqual(result["ai_usage_event"]["timeout_sec"], frame_analysis.OPENAI_TIMEOUT_SEC)
         self.assertEqual(result["ai_usage_event"]["usage"]["total_tokens"], 165)
         self.assertNotIn("api_key", json.dumps(result["ai_usage_event"]).lower())
 

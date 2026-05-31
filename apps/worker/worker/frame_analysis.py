@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -965,12 +966,14 @@ def _fallback_limited_visual_observations(selected_frames: list[dict[str, Any]],
 
 def _run_openai_analysis_attempt(label: str, payload: dict[str, Any], selected_frames: list[dict[str, Any]]) -> dict[str, Any]:
     model = str(payload.get("model") or OPENAI_VISION_MODEL)
+    started = time.perf_counter()
     data = _post_json(
         "https://api.openai.com/v1/responses",
         payload,
         headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
         timeout=OPENAI_TIMEOUT_SEC,
     )
+    latency_ms = int((time.perf_counter() - started) * 1000)
     parsed = _safe_json_loads(_openai_output_text(data)) or {}
     observations = _normalize_openai_observations(
         parsed.get("observations") or parsed.get("detected_events") or [],
@@ -984,11 +987,28 @@ def _run_openai_analysis_attempt(label: str, payload: dict[str, Any], selected_f
         "parsed": parsed,
         "observations": observations,
         "event_summary": event_summary,
-        "summary": _analysis_attempt_summary(label, data, observations, event_summary, model),
+        "summary": _analysis_attempt_summary(
+            label,
+            data,
+            observations,
+            event_summary,
+            model,
+            latency_ms=latency_ms,
+            selected_frame_count=len(selected_frames),
+        ),
     }
 
 
-def _analysis_attempt_summary(label: str, data: dict[str, Any], observations: list[dict[str, Any]], event_summary: dict[str, Any], model: str = "") -> dict[str, Any]:
+def _analysis_attempt_summary(
+    label: str,
+    data: dict[str, Any],
+    observations: list[dict[str, Any]],
+    event_summary: dict[str, Any],
+    model: str = "",
+    *,
+    latency_ms: int = 0,
+    selected_frame_count: int = 0,
+) -> dict[str, Any]:
     return {
         "label": label,
         "model": model,
@@ -996,6 +1016,9 @@ def _analysis_attempt_summary(label: str, data: dict[str, Any], observations: li
         "response_status": data.get("status"),
         "incomplete_details": data.get("incomplete_details"),
         "usage": _openai_usage(data),
+        "latency_ms": max(0, int(latency_ms or 0)),
+        "timeout_sec": OPENAI_TIMEOUT_SEC,
+        "selected_frame_count": max(0, int(selected_frame_count or 0)),
         "observation_count": len(observations),
         "event_frame_count": len(event_summary.get("event_frame_refs") or []) if isinstance(event_summary, dict) else 0,
         "impact_visible": event_summary.get("impact_visible") if isinstance(event_summary, dict) else None,
@@ -1038,6 +1061,7 @@ def _with_openai_usage_event(
         fallback_reason=fallback_reason,
         retry_count=retry_count,
         error=error,
+        timeout_sec=OPENAI_TIMEOUT_SEC,
     )
 
 

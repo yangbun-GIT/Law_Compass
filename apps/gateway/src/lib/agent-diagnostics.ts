@@ -98,6 +98,7 @@ export function composeAgentTraceDiagnostic(row: AnyRecord = {}) {
   const coverage = asRecord(evidenceAudit.scenario_evidence_coverage);
   const judgment = asRecord(result.agent_judgment);
   const presentation = asRecord(result.presentation_policy);
+  const llmPolicy = asRecord(modelInfo.llm_policy ?? result.llm_policy);
   const steps = safeTraceSteps(trace);
   const traceId = safeString(trace.trace_id ?? result.trace_id ?? modelInfo.trace_id ?? asRecord(result.agent_plan).trace_id);
 
@@ -169,6 +170,38 @@ export function composeAgentTraceDiagnostic(row: AnyRecord = {}) {
       user_reference_allowed: presentation.user_reference_allowed ?? null,
       restricted_section_count: asArray(presentation.restricted_sections).length,
     },
+    usage: summarizeUsage(llmPolicy),
+  };
+}
+
+function summarizeUsage(llmPolicy: AnyRecord = {}) {
+  const sections = asRecord(llmPolicy.sections);
+  const sectionEvents = Object.entries(sections).map(([section, value]) => {
+    const event = asRecord(asRecord(value).ai_usage_event);
+    return {
+      section: safeString(section) ?? "unknown",
+      provider: safeString(event.provider) ?? "unknown",
+      endpoint: safeString(event.endpoint) ?? "unknown",
+      model: safeString(event.model) ?? "unknown",
+      enabled: event.enabled ?? null,
+      allowed: event.allowed ?? null,
+      used: event.used ?? null,
+      success: event.success ?? null,
+      reason: safeString(event.reason) ?? "unknown",
+      token_usage_available: event.token_usage_available ?? null,
+      timeout_sec: event.timeout_sec ?? null,
+    };
+  }).slice(0, 12);
+  const costMetadata = asRecord(llmPolicy.cost_metadata);
+  return {
+    llm_policy_version: llmPolicy.version ?? "unknown",
+    provider_enabled: llmPolicy.provider_enabled ?? null,
+    used_section_count: toNumber(costMetadata.used_section_count, asArray(llmPolicy.used_sections).length),
+    blocked_section_count: toNumber(costMetadata.blocked_section_count, asArray(llmPolicy.blocked_sections).length),
+    failed_section_count: toNumber(costMetadata.failed_section_count, asArray(llmPolicy.failed_sections).length),
+    token_usage_available: costMetadata.token_usage_available ?? null,
+    usage_event_version: safeString(costMetadata.usage_event_version) ?? "unknown",
+    section_events: sectionEvents,
   };
 }
 

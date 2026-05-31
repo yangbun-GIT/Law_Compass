@@ -221,15 +221,26 @@ def _llm_usage_event(
         "version": AI_USAGE_EVENT_VERSION,
         "provider": "openai",
         "endpoint": "chat.completions",
+        "model": os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
         "section": section,
         "enabled": enabled,
         "allowed": allowed,
         "used": used,
         "success": success,
         "reason": reason,
+        "token_usage_available": False,
+        "token_usage_reason": "chat completion token counts are not captured by the current guarded analyst helper",
+        "timeout_sec": _float_env("OPENAI_TIMEOUT_SEC", 18.0),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     return event
+
+
+def _float_env(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
 
 
 def _provider_enabled() -> bool:

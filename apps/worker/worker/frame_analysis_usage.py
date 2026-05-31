@@ -47,8 +47,12 @@ def with_openai_usage_event(
     fallback_reason: str = "",
     retry_count: int = 0,
     error: str = "",
+    timeout_sec: float | int | None = None,
 ) -> dict[str, Any]:
     updated = dict(result)
+    attempts = result.get("analysis_attempts") if isinstance(result.get("analysis_attempts"), list) else []
+    attempt_count = len(attempts)
+    latency_ms = sum(usage_int(attempt.get("latency_ms")) for attempt in attempts if isinstance(attempt, dict))
     updated["ai_usage_event"] = openai_usage_event(
         event_version=event_version,
         model=model,
@@ -63,6 +67,9 @@ def with_openai_usage_event(
         fallback_reason=fallback_reason,
         retry_count=retry_count,
         error=error,
+        attempt_count=attempt_count,
+        latency_ms=latency_ms,
+        timeout_sec=timeout_sec,
     )
     return updated
 
@@ -82,6 +89,9 @@ def openai_usage_event(
     fallback_reason: str,
     retry_count: int,
     error: str,
+    attempt_count: int = 0,
+    latency_ms: int = 0,
+    timeout_sec: float | int | None = None,
 ) -> dict[str, Any]:
     event: dict[str, Any] = {
         "version": event_version,
@@ -94,8 +104,15 @@ def openai_usage_event(
         "selected_frame_count": len(selected_frames),
         "max_output_tokens": max_output_tokens,
         "retry_count": max(0, int(retry_count or 0)),
+        "attempt_count": max(0, int(attempt_count or 0)),
         "created_at": now(),
     }
+    event["latency_ms"] = usage_int(latency_ms)
+    if timeout_sec is not None:
+        try:
+            event["timeout_sec"] = float(timeout_sec)
+        except (TypeError, ValueError):
+            pass
     if response_status:
         event["response_status"] = str(response_status)
     safe_usage = {key: usage_int(usage.get(key)) for key in ("input_tokens", "output_tokens", "total_tokens") if usage_int(usage.get(key))}

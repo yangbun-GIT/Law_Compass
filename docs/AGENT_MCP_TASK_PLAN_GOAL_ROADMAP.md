@@ -1161,7 +1161,7 @@ P5-1 완료 기록:
 | P5 | 완료 | P5-1 사고 기점 탐지, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 완료 |
 | P6 | 완료 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약, P6-4 근거 표시 품질 강화 완료 |
 | P7 | 완료 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리, P7-3 결과 표시 finality 정리 완료 |
-| P8 | 진행 중 | P8-1 trace id 통합 완료. 다음은 P8-2 LLM/vision 사용량 기록 |
+| P8 | 진행 중 | P8-2 LLM/vision 사용량 기록 완료. 다음은 P8-3 실패 관찰값 표준화 |
 | P9 | 대기 | 테스트/평가 체계 |
 | P10 | 대기 | 표준 MCP 도입 판단 |
 | P11 | 대기 | 문서/인수인계/발표 정합성 |
@@ -1169,9 +1169,9 @@ P5-1 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P8-2. LLM/vision 사용량 기록**부터 진행한다.
+다음 개발은 **P8-3. 실패 관찰값 표준화**부터 진행한다.
 
-P8-2를 시작할 때는 OpenAI/vision/YOLO 경로가 모델명, 활성화 여부, 프레임 수, retry/cap/fallback reason, token/usage metadata를 안전하게 남기는지 확인하고, 비용 관련 raw secret이나 사용자 원문이 로그/진단 payload에 섞이지 않도록 정리한다.
+P8-3을 시작할 때는 OpenAI/YOLO/Agent tool 실패, timeout, fallback, retry exhausted 상태가 안전한 관찰값으로 남는지 확인하고, 일반 사용자 화면에는 raw error나 내부 세부 정보가 노출되지 않도록 정리한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1268,3 +1268,11 @@ P8-2를 시작할 때는 OpenAI/vision/YOLO 경로가 모델명, 활성화 여�
 - 관리자 Agent trace/video preprocess diagnostic은 raw prompt, 사용자 원문, secret 없이 `trace.trace_id`를 표시한다.
 - 검증은 Gateway `npm test -- --run analysis-routes.test.ts agent-diagnostics.test.ts`, Gateway `npm run build`, Agent 컨테이너 `python -m pytest tests/test_orchestrator.py -q`, Worker `python -m unittest discover -s tests -p "test_job_processor_contract.py"`, Agent/Worker compile, `git diff --check`로 완료했다. 로컬 Agent Python은 `pydantic` 미설치로 Docker Agent 컨테이너를 기준으로 검증했다.
 - 다음 개발은 **P8-2 LLM/vision 사용량 기록**이다. OpenAI/vision/YOLO 경로의 모델명, 활성화 여부, 프레임 수, retry/cap/fallback reason, token/usage metadata를 안전하게 남기고 비용 관련 raw secret이나 사용자 원문이 노출되지 않도록 정리한다.
+### 2026-05-31 P8-2 진행 기록
+
+- P8-2 LLM/vision 사용량 기록 완료: OpenAI frame analysis usage event에 attempt count, latency ms, timeout sec를 추가하고 token usage가 있을 때 집계되도록 유지했다.
+- YOLO frame analysis에도 `ai_usage_event`를 추가해 provider, local predict endpoint, model file name, enabled/success, frame count, frame cap, detection/observation count, fallback reason을 기록한다.
+- Agent LLM policy의 section usage event에는 model, timeout, token usage availability와 미수집 사유를 남긴다.
+- Gateway 관리자 진단은 Agent LLM usage 요약과 OpenAI/YOLO usage event 요약을 노출하되 raw prompt, API key, token, 사용자 원문은 포함하지 않는다.
+- 검증은 Worker frame/yolo contract tests, Gateway agent diagnostic test/build, Agent llm_policy/orchestrator Docker tests, Worker/Agent compile로 완료했다.
+- 다음 개발은 **P8-3 실패 관찰값 표준화**다. OpenAI/YOLO/Agent tool 실패, timeout, fallback, retry exhausted 상태를 안전한 관찰값으로 표준화한다.

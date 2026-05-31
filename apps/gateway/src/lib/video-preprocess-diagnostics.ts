@@ -271,7 +271,37 @@ function compactAnalysisPayload(payload: any) {
     zero_observation_retry_used: data.zero_observation_retry_used ?? null,
     has_error: Boolean(data.error || data.has_error),
     error: safeString(data.error ?? data.zero_observation_retry_error, 240),
+    ai_usage_event: compactUsageEvent(data.ai_usage_event),
     summary: Object.keys(summary).length ? summary : null,
+  };
+}
+
+function compactUsageEvent(value: any) {
+  const event = asRecord(value);
+  if (!Object.keys(event).length) return null;
+  const usage = asRecord(event.usage);
+  return {
+    version: safeString(event.version, 80),
+    provider: safeString(event.provider, 80),
+    endpoint: safeString(event.endpoint, 120),
+    model: basename(event.model),
+    enabled: event.enabled ?? null,
+    success: event.success ?? null,
+    frame_count: event.frame_count ?? null,
+    selected_frame_count: event.selected_frame_count ?? null,
+    max_frame_count: event.max_frame_count ?? null,
+    max_output_tokens: event.max_output_tokens ?? null,
+    retry_count: event.retry_count ?? null,
+    attempt_count: event.attempt_count ?? null,
+    latency_ms: event.latency_ms ?? null,
+    timeout_sec: event.timeout_sec ?? null,
+    fallback_reason: safeString(event.fallback_reason, 160),
+    response_status: safeString(event.response_status, 80),
+    usage: Object.keys(usage).length ? usage : null,
+    detection_count: event.detection_count ?? null,
+    observation_count: event.observation_count ?? null,
+    ignored_detection_count: event.ignored_detection_count ?? null,
+    error_type: safeString(event.error_type, 120),
   };
 }
 

@@ -1,5 +1,21 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P8-2 LLM/Vision 사용량 기록
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P8-2 단계를 완료했다. 이번 변경은 OpenAI 프레임 분석, YOLO 보조 관찰, Agent LLM 정책, 관리자 진단 payload가 비용과 운영 점검에 필요한 안전 사용량 metadata를 남기도록 보강한 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| OpenAI 프레임 분석 | `ai_usage_event`에 model, enabled/success, frame count, selected frame count, max output tokens, retry count, attempt count, latency ms, timeout sec, token usage when available, response status, fallback reason을 기록한다. |
+| YOLO 보조 관찰 | `yolo_frame_analysis` 결과에 `ai_usage_event`를 추가했다. provider, local predict endpoint, model file name, enabled/success, frame count, selected frame count, max frame cap, max detections, confidence threshold, device, latency ms, detection/observation count, fallback reason을 기록한다. |
+| Agent LLM 정책 | Analyst LLM 사용 정책의 section별 usage event에 model, timeout sec, token usage availability와 미수집 사유를 남긴다. 현재 Agent analyst token 수는 아직 직접 수집하지 않고 안전 호출 metadata만 남긴다. |
+| 관리자 진단 | Agent trace diagnostic은 section별 LLM usage event 요약을, video preprocess diagnostic은 OpenAI/YOLO usage event 요약을 제공한다. raw prompt, API key, token, 사용자 원문은 포함하지 않는다. |
+| 저장 경계 | 새 DB table이나 column은 추가하지 않았다. 기존 JSON metadata와 diagnostic payload 안에 additive로 보존한다. |
+
+검증은 Worker에서 `python -m unittest discover -s tests -p "test_frame_analysis_contract.py"`, `python -m unittest discover -s tests -p "test_yolo_frame_analysis_contract.py"`, `python -m py_compile worker/frame_analysis.py worker/frame_analysis_usage.py worker/yolo_frame_analysis.py`, Gateway에서 `npm test -- --run agent-diagnostics.test.ts`, `npm run build`, Agent 컨테이너에서 `python -m pytest tests/test_llm_policy.py tests/test_orchestrator.py -q`, `python -m compileall app/services/llm_policy.py`로 완료했다.
+
+P8-2는 비용 계산 UI가 아니라 사용량 관측성 계약을 보강한 단계다. 다음 P8-3에서는 OpenAI/YOLO/Agent tool 실패와 fallback이 안전한 관찰값으로 표준화되는지 정리한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P8-1 Trace ID 통합
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P8-1 단계를 완료했다. 이번 변경은 Gateway 요청, Worker job, Agent analysis, DB 저장 결과, 관리자 진단 payload가 같은 `trace_id`를 유지하도록 관측성 경계를 보강한 작업이다.

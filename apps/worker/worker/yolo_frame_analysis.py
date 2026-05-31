@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +24,7 @@ def _float_env(name: str, default: float) -> float:
 
 
 YOLO_FRAME_ANALYSIS_CONTRACT_VERSION = "yolo-frame-analysis-v1"
+AI_USAGE_EVENT_VERSION = "ai-usage-event-v1"
 YOLO_FRAME_SELECTION_STRATEGY = "ffmpeg-event-frames-object-inventory"
 ENABLE_YOLO_FRAME_ANALYSIS = os.getenv("ENABLE_YOLO_FRAME_ANALYSIS", "0") == "1"
 YOLO_MODEL_PATH = os.getenv("YOLO_MODEL_PATH", "").strip()
@@ -49,33 +51,34 @@ OVERLAY_NOISE_CLASSES = {"person"}
 
 
 def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[str, Any]) -> dict[str, Any]:
+    started = time.perf_counter()
     selected_frames = _select_yolo_frames(frame_details, YOLO_FRAME_ANALYSIS_MAX_FRAMES)
     selection_metadata = _frame_selection_metadata(frame_details, selected_frames)
     if not ENABLE_YOLO_FRAME_ANALYSIS:
-        return {
+        return _with_yolo_usage_event({
             "version": YOLO_FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": False,
             "reason": "ENABLE_YOLO_FRAME_ANALYSIS is not 1",
             **selection_metadata,
-        }
+        }, enabled=False, success=False, frame_details=frame_details, selected_frames=selected_frames, started=started, fallback_reason="disabled")
     if not selected_frames:
-        return {
+        return _with_yolo_usage_event({
             "version": YOLO_FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": False,
             "reason": "no frames extracted",
             **selection_metadata,
-        }
+        }, enabled=False, success=False, frame_details=frame_details, selected_frames=selected_frames, started=started, fallback_reason="no_frames_extracted")
     if not YOLO_MODEL_PATH:
-        return {
+        return _with_yolo_usage_event({
             "version": YOLO_FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": False,
             "reason": "YOLO_MODEL_PATH is empty",
             **selection_metadata,
-        }
+        }, enabled=False, success=False, frame_details=frame_details, selected_frames=selected_frames, started=started, fallback_reason="model_path_missing")
     try:
         from ultralytics import YOLO
     except ModuleNotFoundError as exc:
-        return {
+        return _with_yolo_usage_event({
             "version": YOLO_FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": True,
             "provider": "ultralytics-yolo",
@@ -85,7 +88,7 @@ def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "observations": [],
             "created_at": _now_iso(),
-        }
+        }, enabled=True, success=False, frame_details=frame_details, selected_frames=selected_frames, started=started, fallback_reason="module_missing", error=str(exc))
     try:
         model = YOLO(YOLO_MODEL_PATH)
         results = model.predict(
@@ -103,9 +106,9 @@ def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[
             "detections": (payload.get("summary") or {}).get("total_detections"),
             "observations": payload.get("observations") or [],
         }, ensure_ascii=False))
-        return payload
+        return _with_yolo_usage_event(payload, enabled=True, success=True, frame_details=frame_details, selected_frames=selected_frames, started=started)
     except Exception as exc:
-        return {
+        return _with_yolo_usage_event({
             "version": YOLO_FRAME_ANALYSIS_CONTRACT_VERSION,
             "enabled": True,
             "provider": "ultralytics-yolo",
@@ -116,7 +119,7 @@ def analyze_frames_with_yolo(frame_details: list[dict[str, Any]], context: dict[
             "analyzed_frames": [_public_frame_ref(frame) for frame in selected_frames],
             "observations": [],
             "created_at": _now_iso(),
-        }
+        }, enabled=True, success=False, frame_details=frame_details, selected_frames=selected_frames, started=started, fallback_reason="yolo_error", error=str(exc))
 
 
 def _build_yolo_payload(
@@ -919,6 +922,49 @@ def _frame_selection_metadata(frame_details: list[dict[str, Any]], selected_fram
         "selected_frame_count": len(selected_frames),
         "frame_selection_max_frames": YOLO_FRAME_ANALYSIS_MAX_FRAMES,
     }
+
+
+def _with_yolo_usage_event(
+    result: dict[str, Any],
+    *,
+    enabled: bool,
+    success: bool,
+    frame_details: list[dict[str, Any]],
+    selected_frames: list[dict[str, Any]],
+    started: float,
+    fallback_reason: str = "",
+    error: str = "",
+) -> dict[str, Any]:
+    updated = dict(result)
+    summary = updated.get("summary") if isinstance(updated.get("summary"), dict) else {}
+    latency_ms = int(max(0.0, time.perf_counter() - started) * 1000)
+    event: dict[str, Any] = {
+        "version": AI_USAGE_EVENT_VERSION,
+        "provider": "ultralytics-yolo",
+        "endpoint": "local.predict",
+        "model": Path(YOLO_MODEL_PATH).name if YOLO_MODEL_PATH else "",
+        "enabled": bool(enabled),
+        "success": bool(success),
+        "frame_count": len(frame_details),
+        "selected_frame_count": len(selected_frames),
+        "max_frame_count": YOLO_FRAME_ANALYSIS_MAX_FRAMES,
+        "max_detections": YOLO_MAX_DETECTIONS,
+        "confidence_threshold": YOLO_CONFIDENCE,
+        "device": YOLO_DEVICE,
+        "latency_ms": latency_ms,
+        "created_at": _now_iso(),
+    }
+    if summary:
+        event["detection_count"] = int(summary.get("total_detections") or 0)
+        event["observation_count"] = len(updated.get("observations") or [])
+        event["ignored_detection_count"] = int(summary.get("ignored_detection_count") or 0)
+        event["small_target_crop_hint_count"] = int(summary.get("small_target_crop_hint_count") or 0)
+    if fallback_reason:
+        event["fallback_reason"] = fallback_reason
+    if error:
+        event["error_type"] = "yolo_frame_analysis_error"
+    updated["ai_usage_event"] = event
+    return updated
 
 
 def _limited_frame_refs(frame_refs: set[str], limit: int) -> list[str]:
