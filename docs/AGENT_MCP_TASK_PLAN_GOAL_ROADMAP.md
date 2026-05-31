@@ -1164,14 +1164,14 @@ P5-1 완료 기록:
 | P8 | 완료 | P8-1 Trace id 통합, P8-2 LLM/vision 사용량 기록, P8-3 실패 관찰값 표준화 완료 |
 | P9 | 완료 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장, P9-3 Reference 평가 확장, P9-4 CI/검증 명령 정리 완료 |
 | P10 | 완료 | P10-1 표준 MCP 요구사항 재평가, P10-2 표준 MCP pilot 설계, P10-3 도입 보류 결정 완료 |
-| P11 | 진행 중 | 다음은 P11-1 문서 동기화 |
+| P11 | 진행 중 | P11-1 문서 동기화 완료. 다음은 P11-2 발표 설명 정리 |
 | P12 | 대기 | 최종 구조 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P11-1. 문서 동기화**부터 진행한다.
+다음 개발은 **P11-2. 발표 설명 정리**부터 진행한다.
 
-P11-1을 시작할 때는 P10-3의 표준 MCP 보류 결정이 `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/STACK_DECISION_REVIEW.md`, 발표/인수인계 문서와 충돌하지 않는지 확인한다.
+P11-2를 시작할 때는 현재 구현된 것과 추후 적용할 것을 구분하고, 표준 MCP 구현 완료처럼 과장된 표현 없이 MSA 서비스 분리, Agent 판단 계약, 영상 관찰값 오염 방지, 근거 기반 finality, 내부 MCP-like tool registry, Task-Plan-Goal trace/packet 구조를 발표용으로 정리한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1337,7 +1337,7 @@ P11-1을 시작할 때는 P10-3의 표준 MCP 보류 결정이 `DEVELOPMENT_PROM
 - `docs/STANDARD_MCP_PILOT_DESIGN.md`에 pilot 대상, 공존 설계, adapter mapping, 금지 범위, 완료 기준을 정리했다.
 - 이번 단계는 compatibility 설계이며 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, public API/DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 표준 MCP pilot/gate/registry/executor/route boundary 테스트와 compileall로 완료했다.
-- 다음 개발은 **P10-3 도입/보류 결정**이다.
+- 후속 작업은 **P10-3 도입/보류 결정**이었다.
 
 ### 2026-05-31 P10-3 진행 기록
 
@@ -1348,3 +1348,13 @@ P11-1을 시작할 때는 P10-3의 표준 MCP 보류 결정이 `DEVELOPMENT_PROM
 - 이번 단계는 결정 문서화이며 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, public API/DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 표준 MCP pilot/gate 테스트와 문서 diff 검증으로 완료한다.
 - 다음 개발은 **P11-1 문서 동기화**다.
+
+### 2026-05-31 P11-1 진행 기록
+
+- P11-1 문서 동기화 완료: `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/STACK_DECISION_REVIEW.md`, 팀원용 실행/운영 문서가 모두 현재 구조를 표준 MCP 서버/클라이언트가 아닌 Agent 내부 MCP-like tool registry/executor로 표현하도록 정리했다.
+- `docs/BUILD_AND_RUN_GUIDE.md`의 선행 확인 문서 목록에 `docs/GITHUB_COLLABORATION_WORKFLOW.md`, `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`, `docs/STANDARD_MCP_DECISION.md`, `docs/VERIFICATION_COMMANDS.md`를 포함했다.
+- `docs/OPERATIONS.md`에 Agent/MCP/Task-Plan-Goal 구조와 표준 MCP 보류 결정의 운영 참조 위치를 추가했다.
+- P10-2의 과거 진행 기록 중 현재 상태와 혼동될 수 있는 “다음 P10-3” 표현은 “후속 P10-3”으로 정리했다.
+- 이번 단계는 문서 정합성 보강이며 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
+- 검증은 문서 검색, `git diff --check`, 표준 MCP pilot/gate 테스트로 완료한다.
+- 다음 개발은 **P11-2 발표 설명 정리**다.

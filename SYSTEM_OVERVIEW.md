@@ -26,7 +26,7 @@ Agent/MCP/Task-Plan-Goal 구조 보강의 P10-2 단계를 완료했다. 이번 �
 | 문서 | `docs/STANDARD_MCP_PILOT_DESIGN.md`에 pilot 대상, 공존 설계, adapter mapping, 금지 범위, 완료 기준을 정리했다. |
 | 비변경 범위 | 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
 
-검증은 Agent 컨테이너에서 표준 MCP pilot/gate/registry/executor/route boundary 테스트와 compileall로 완료했다. 다음 P10-3에서는 pilot 설계가 내부 executor 대비 구체적인 이득을 주는지 평가하고 도입/보류 결정을 내린다.
+검증은 Agent 컨테이너에서 표준 MCP pilot/gate/registry/executor/route boundary 테스트와 compileall로 완료했다. 후속 P10-3에서는 pilot 설계가 내부 executor 대비 구체적인 이득을 주는지 평가하고 도입/보류 결정을 내렸다.
 
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P10-1 표준 MCP 요구사항 재평가
 

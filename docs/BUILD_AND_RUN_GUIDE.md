@@ -19,9 +19,14 @@
 
 1. `DEVELOPMENT_PROMPT.md`
 2. `SYSTEM_OVERVIEW.md`
-3. `docs/HANDOFF_CHANGE_SUMMARY_2026-05-25.md`
-4. `docs/OPERATIONS.md`
-5. `docs/VERIFICATION_COMMANDS.md`
+3. `docs/GITHUB_COLLABORATION_WORKFLOW.md`
+4. `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`
+5. `docs/STANDARD_MCP_DECISION.md`
+6. `docs/HANDOFF_CHANGE_SUMMARY_2026-05-25.md`
+7. `docs/OPERATIONS.md`
+8. `docs/VERIFICATION_COMMANDS.md`
+
+Agent/MCP/Task-Plan-Goal, 영상 관찰값, 근거 routing, 과실비율 판단, specialist persona, 내부 tool registry를 수정할 때는 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`를 우선 기준으로 삼습니다. 현재 구조는 표준 MCP 서버/클라이언트가 아니라 Agent 내부 MCP-like tool registry/executor이며, 표준 MCP 도입 여부는 `docs/STANDARD_MCP_DECISION.md`의 보류 결정과 trigger를 따릅니다.
 
 ## 3. 환경 파일 준비
 
