@@ -1,4 +1,4 @@
-import type { FastifyRequest } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 
 export type AnalysisRouteOptions = {
@@ -10,6 +10,7 @@ export type AnalysisRouteOptions = {
   analyzeTimeoutMs: number;
   retryCount: number;
   errorPayload: (code: string, message: string, traceId: string) => any;
+  requireAdmin?: (req: FastifyRequest & { user?: any }, reply: FastifyReply) => boolean;
 };
 
 export function trace(req: FastifyRequest) {
@@ -19,6 +20,16 @@ export function trace(req: FastifyRequest) {
 export function easyReportQuestionCount(report: any) {
   const questions = report?.missing_info?.questions;
   return Array.isArray(questions) ? questions.length : 0;
+}
+
+export function authorizeDebugPayload(
+  req: FastifyRequest & { user?: any },
+  reply: FastifyReply,
+  opts: Pick<AnalysisRouteOptions, "requireAdmin">
+) {
+  if (String((req.query as any)?.debug ?? "") !== "1") return false;
+  if (!opts.requireAdmin) return false;
+  return opts.requireAdmin(req, reply) ? true : null;
 }
 
 type AnyRecord = Record<string, any>;

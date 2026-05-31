@@ -15,6 +15,7 @@ import { requireUser } from "../lib/request-guards.js";
 import {
   buildReanalysisVideoMetadata,
   buildReportContext,
+  authorizeDebugPayload,
   composeGuidedProgressPayload,
   easyReportQuestionCount,
   insertAnalysisResult,
@@ -218,7 +219,8 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     const row = await opts.db.query(`SELECT * FROM analysis_results WHERE case_id=$1 AND owner_user_id=$2 ORDER BY version DESC LIMIT 1`, [caseId, (req as any).user.id]);
     if (!row.rowCount) return reply.code(404).send(opts.errorPayload("RESULT_NOT_FOUND", "분석 결과가 없습니다.", traceId));
     const context = await buildReportContext(opts, caseId, (req as any).user.id, row.rows[0]);
-    const debug = String((req.query as any)?.debug ?? "") === "1";
+    const debug = authorizeDebugPayload(req as any, reply as any, opts);
+    if (debug === null) return;
     const easyReport = enrichEasyReport(sanitizeEasyReport(row.rows[0].elderly_friendly_report && Object.keys(row.rows[0].elderly_friendly_report).length ? row.rows[0].elderly_friendly_report : composeEasyFallback(row.rows[0].result, context)), row.rows[0].result);
     return debug
       ? { result: easyReport, report: easyReport, debug: composeDebugReport(row.rows[0].result, context), trace_id: traceId }
@@ -232,7 +234,8 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     const row = await opts.db.query(`SELECT * FROM analysis_results WHERE case_id=$1 AND owner_user_id=$2 ORDER BY version DESC LIMIT 1`, [caseId, (req as any).user.id]);
     if (!row.rowCount) return reply.code(404).send(opts.errorPayload("RESULT_NOT_FOUND", "분석 결과가 없습니다.", traceId));
     const context = await buildReportContext(opts, caseId, (req as any).user.id, row.rows[0]);
-    const debug = String((req.query as any)?.debug ?? "") === "1";
+    const debug = authorizeDebugPayload(req as any, reply as any, opts);
+    if (debug === null) return;
     const report = enrichEasyReport(sanitizeEasyReport(row.rows[0].elderly_friendly_report && Object.keys(row.rows[0].elderly_friendly_report).length ? row.rows[0].elderly_friendly_report : composeClientReport(row.rows[0].result, context)), row.rows[0].result);
     await opts.db.query(`UPDATE analysis_results SET report_payload=$2 WHERE id=$1`, [row.rows[0].id, JSON.stringify(report)]).catch(() => undefined);
     return debug ? { report, debug: composeDebugReport(row.rows[0].result, context), trace_id: traceId } : { report, trace_id: traceId };
@@ -258,11 +261,13 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
       stored && Object.keys(stored).length
         ? stored
         : result.elderly_friendly_report && Object.keys(result.elderly_friendly_report).length
-          ? result.elderly_friendly_report
-          : composeEasyFallback(result, await buildReportContext(opts, caseId, (req as any).user.id, row.rows[0]))
+      ? result.elderly_friendly_report
+      : composeEasyFallback(result, await buildReportContext(opts, caseId, (req as any).user.id, row.rows[0]))
     ), result);
     await opts.db.query(`UPDATE analysis_results SET elderly_friendly_report=$2 WHERE id=$1`, [row.rows[0].id, JSON.stringify(easyReport)]).catch(() => undefined);
-    if (String((req.query as any)?.debug ?? "") === "1") {
+    const debug = authorizeDebugPayload(req as any, reply as any, opts);
+    if (debug === null) return;
+    if (debug) {
       const context = await buildReportContext(opts, caseId, (req as any).user.id, row.rows[0]);
       return { case_id: caseId, report_type: "elderly_friendly", ...easyReport, debug: composeDebugReport(result, context), trace_id: traceId };
     }

@@ -153,7 +153,8 @@ registerAnalysisRoutes(app, {
   internalToken: env.internalToken,
   analyzeTimeoutMs: env.analyzeTimeoutMs,
   retryCount: env.retryCount,
-  errorPayload
+  errorPayload,
+  requireAdmin
 });
 
 registerKniaRoutes(app, {

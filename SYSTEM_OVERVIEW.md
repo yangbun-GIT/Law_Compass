@@ -1,5 +1,22 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P7-1 사용자/Admin Payload 분리
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P7-1 단계를 완료했다. 이번 변경은 일반 사용자 API 응답에는 쉬운 리포트 중심 payload만 유지하고, raw diagnostic/debug payload는 관리자 권한이 확인된 요청에서만 접근할 수 있게 제한한 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 사용자 결과 payload | `/api/v1/cases/:caseId/result`, `/report`, `/easy-report`는 기본적으로 `easyReport` 기반의 사용자용 `result`/`report`만 반환한다. |
+| debug payload 권한 | 같은 공개 결과 route의 `debug=1` 요청은 `requireAdmin`을 통과한 관리자에게만 허용된다. 일반 사용자는 debug query를 붙여도 raw trace/debug payload를 받을 수 없다. |
+| 관리자 진단 payload | Agent trace와 영상 전처리 진단은 기존 관리자 전용 `/api/v1/admin/cases/:caseId/agent-trace`, `/api/v1/admin/uploads/:uploadId/video-preprocess` 경로에서 확인한다. |
+| 구현 위치 | `apps/gateway/src/services/analysisService.ts`의 `authorizeDebugPayload`가 debug payload 권한을 판정하고, `apps/gateway/src/routes/analysis.ts`가 이를 결과 route에 적용한다. |
+
+이 변경은 DB schema, Redis key, storage path, 외부 API, Agent/Worker 판단 로직을 변경하지 않는다. Gateway public route의 debug 노출 경계만 보강한 additive/guard 성격의 변경이다.
+
+검증은 `apps/gateway`에서 `npm test -- --run analysis-routes.test.ts agent-diagnostics.test.ts report-composer.test.ts`와 `npm run build`로 완료했다.
+
+P7-1은 사용자 payload와 관리자 payload의 접근 경계를 정리하는 단계다. 다음 P7-2에서는 보완 질문 payload를 정리해 각 질문의 field/answer key가 독립적으로 동작하고 사용자에게 raw key가 보이지 않도록 보강한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P6-2 조건부 판단 강화
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P6-2 단계를 완료했다. 이번 변경은 상대 신호, 중앙선 침범 사유, 정차 사유, 무등화·시야·속도, 비접촉 유발, 2차 충돌처럼 결론이 조건에 따라 갈리는 사고를 단일 50:50 fallback으로 접지 않고 조건부 결과와 확인 필요 fact로 분리하는 작업이다.
