@@ -294,7 +294,8 @@ export async function enqueueVideoPreprocessJob(
     uploadId: string,
     ownerId: string,
     upload: any,
-    autoAnalyzeAfterPreprocess = true
+    autoAnalyzeAfterPreprocess = true,
+    traceId?: string
 ) {
     const ref = storageReference(upload);
 
@@ -306,6 +307,7 @@ export async function enqueueVideoPreprocessJob(
             uploadId,
             ownerId,
             JSON.stringify({
+                trace_id: traceId,
                 upload_id: uploadId,
                 case_id: caseId,
                 ...ref,
@@ -531,6 +533,7 @@ export async function completeLocalUpload(
             sizeBytes,
             JSON.stringify({
                 completed_at: new Date().toISOString(),
+                trace_id: traceId,
                 storage_verified: true,
                 storage_key: ref.storage_key,
                 storage_driver: ref.storage_driver,
@@ -547,7 +550,7 @@ export async function completeLocalUpload(
 
     const jobId = existingJob.rowCount
         ? existingJob.rows[0].id
-        : await enqueueVideoPreprocessJob(opts, upload.case_id, uploadId, ownerId, upload, autoAnalyzeAfterPreprocess);
+        : await enqueueVideoPreprocessJob(opts, upload.case_id, uploadId, ownerId, upload, autoAnalyzeAfterPreprocess, traceId);
 
     return {
         upload_id: uploadId,

@@ -70,6 +70,33 @@ def requests_post_json(url: str, payload: dict, headers: dict[str, str] | None =
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _trace_id_from_payload(payload: dict[str, Any], row: tuple[Any, ...] | None = None, fallback: str | None = None) -> str:
+    for value in [
+        payload.get("trace_id"),
+        (payload.get("video_metadata") or {}).get("trace_id") if isinstance(payload.get("video_metadata"), dict) else None,
+        fallback,
+        row[0] if row else None,
+    ]:
+        text = str(value or "").strip()
+        if text:
+            return text[:120]
+    return "worker-trace"
+
+
+def attach_trace_to_agent_response(response: dict[str, Any], trace_id: str) -> dict[str, Any]:
+    if not isinstance(response, dict):
+        return response
+    model_info = response.get("model_info") if isinstance(response.get("model_info"), dict) else {}
+    agent_trace = response.get("agent_trace") if isinstance(response.get("agent_trace"), dict) else {}
+    agent_plan = response.get("agent_plan") if isinstance(response.get("agent_plan"), dict) else {}
+    response["trace_id"] = trace_id
+    response["model_info"] = {**model_info, "trace_id": trace_id}
+    response["agent_trace"] = {**agent_trace, "trace_id": trace_id}
+    if agent_plan:
+        response["agent_plan"] = {**agent_plan, "trace_id": trace_id}
+    return response
+
+
 @retry(stop=stop_after_attempt(5), wait=wait_exponential_jitter(initial=1, max=30))
 def process_job(job_id: str, job_type: str, redis_client: Any) -> None:
     import psycopg
@@ -92,6 +119,7 @@ def process_job(job_id: str, job_type: str, redis_client: Any) -> None:
 
 
 def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str, Any], redis_client: Any) -> None:
+    trace_id = _trace_id_from_payload(payload, row)
     storage_path = payload.get("storage_path")
     storage_key = payload.get("storage_key")
     storage_driver = payload.get("storage_driver") or payload.get("storage_provider")
@@ -119,7 +147,8 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
             (row[1],),
         )
         case_inputs = cur.fetchone()
-        frame_analysis_context = build_frame_analysis_context(row, metadata, case_inputs)
+        metadata["trace_id"] = trace_id
+        frame_analysis_context = build_frame_analysis_context(row, metadata, case_inputs, trace_id=trace_id)
         yolo_frame_analysis = analyze_frames_with_yolo(frame_details, frame_analysis_context)
         frame_analysis_context["vision_object_inventory"] = _compact_yolo_context(yolo_frame_analysis)
         frame_details = rank_frame_details_by_yolo(frame_details, yolo_frame_analysis)
@@ -143,6 +172,7 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
         )
         frame_dir = f"processed/frames/{row[1]}/{row[2]}"
         artifacts = {
+            "trace_id": trace_id,
             "user_facing_status": user_facing_job_status("video_preprocess", "succeeded"),
             "video_preprocess_contract_version": VIDEO_PREPROCESS_CONTRACT_VERSION,
             "storage_driver": storage_driver,
@@ -382,7 +412,7 @@ def _enqueue_video_analyze_job(
     redis_client.xadd(STREAM_KEY, {"job_id": analyze_job_id, "job_type": "video_analyze"}, maxlen=10000, approximate=True)
 
 
-def build_frame_analysis_context(row: tuple[Any, ...], metadata: dict[str, Any], case_inputs: tuple[Any, ...] | None) -> dict[str, Any]:
+def build_frame_analysis_context(row: tuple[Any, ...], metadata: dict[str, Any], case_inputs: tuple[Any, ...] | None, trace_id: str | None = None) -> dict[str, Any]:
     structured_facts = case_inputs[0] if case_inputs and isinstance(case_inputs[0], dict) else {}
     selected_keywords = list(case_inputs[1] if case_inputs and case_inputs[1] else [])
     safe_fact_keys = {
@@ -419,6 +449,7 @@ def build_frame_analysis_context(row: tuple[Any, ...], metadata: dict[str, Any],
     }
     visual_focus = {key: structured_facts.get(key) for key in safe_fact_keys if structured_facts.get(key) not in (None, "", [], {})}
     return {
+        "trace_id": trace_id or metadata.get("trace_id"),
         "case_id": str(row[1]),
         "upload_id": str(row[2]),
         "duration_sec": metadata.get("duration_sec"),
@@ -479,10 +510,13 @@ def _process_video_analyze(cur: Any, row: tuple[Any, ...], payload: dict[str, An
     cur.execute("SELECT metadata, file_name, status FROM uploads WHERE id=%s", (row[2],))
     upload_row = cur.fetchone()
     agent_payload = build_agent_video_request(row, payload, case_row, upload_row)
+    trace_id = _trace_id_from_payload(agent_payload, row, fallback=job_id)
     response = requests_post_json(
         f"{INTERNAL_AGENT_URL}/internal/v1/analyze/video",
         agent_payload,
+        headers={"x-correlation-id": trace_id},
     )
+    response = attach_trace_to_agent_response(response, trace_id)
     _insert_analysis_result(cur, row, response)
     cur.execute(
         "UPDATE jobs SET status='succeeded', artifacts=%s, finished_at=now() WHERE id=%s",
@@ -492,6 +526,7 @@ def _process_video_analyze(cur: Any, row: tuple[Any, ...], payload: dict[str, An
 
 def build_video_analyze_payload(row: tuple[Any, ...], payload: dict[str, Any], case_inputs: tuple[Any, ...] | None) -> dict[str, Any]:
     return {
+        "trace_id": payload.get("trace_id"),
         "case_id": str(row[1]),
         "upload_id": str(row[2]),
         "ai_profile": payload.get("ai_profile", "default_vehicle_collision"),
@@ -515,6 +550,7 @@ def build_agent_video_request(
     case_text = f"{case_row[0] or ''} {case_row[1] or ''}".strip() if case_row else ""
     metadata = upload_row[0] if upload_row and isinstance(upload_row[0], dict) else {}
     payload_video_metadata = payload.get("video_metadata") if isinstance(payload.get("video_metadata"), dict) else {}
+    trace_id = _trace_id_from_payload(payload, row)
     preprocessed_summary = metadata.get("preprocess_summary") or "Local video metadata is available for analysis."
     merged_summary = " ".join(
         x
@@ -528,6 +564,7 @@ def build_agent_video_request(
         if x
     )
     return {
+        "trace_id": trace_id,
         "case_id": str(row[1]),
         "user_id": str(row[3]),
         "upload_id": str(row[2]),
@@ -535,6 +572,7 @@ def build_agent_video_request(
         "ai_profile": payload.get("ai_profile", "default_vehicle_collision"),
         "specialist_roles": payload.get("specialist_roles", []),
         "video_metadata": {
+            "trace_id": trace_id,
             "preprocess_contract_version": VIDEO_PREPROCESS_CONTRACT_VERSION,
             "upload_status": upload_row[2] if upload_row else None,
             "file_name": upload_row[1] if upload_row else None,

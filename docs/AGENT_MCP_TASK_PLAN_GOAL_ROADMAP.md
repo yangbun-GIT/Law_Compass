@@ -1161,7 +1161,7 @@ P5-1 완료 기록:
 | P5 | 완료 | P5-1 사고 기점 탐지, P5-2 직접 사고대상 오염 방지, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 완료 |
 | P6 | 완료 | P6-1 사고축 기반 evidence routing, P6-2 조건부 판단 강화, P6-3 과실비율 결과 계약, P6-4 근거 표시 품질 강화 완료 |
 | P7 | 완료 | P7-1 사용자 payload와 관리자 payload 분리, P7-2 보완 질문 payload 정리, P7-3 결과 표시 finality 정리 완료 |
-| P8 | 진행 중 | 다음은 P8-1 trace id 통합 |
+| P8 | 진행 중 | P8-1 trace id 통합 완료. 다음은 P8-2 LLM/vision 사용량 기록 |
 | P9 | 대기 | 테스트/평가 체계 |
 | P10 | 대기 | 표준 MCP 도입 판단 |
 | P11 | 대기 | 문서/인수인계/발표 정합성 |
@@ -1169,9 +1169,9 @@ P5-1 완료 기록:
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P8-1. Trace id 통합**부터 진행한다.
+다음 개발은 **P8-2. LLM/vision 사용량 기록**부터 진행한다.
 
-P8-1을 시작할 때는 Gateway 요청, Worker job, Agent analysis, MCP tool call, DB report가 같은 trace id로 연결되는지 확인하고, 관리자 화면 또는 진단 payload에서 분석 경로를 추적할 수 있게 정리한다.
+P8-2를 시작할 때는 OpenAI/vision/YOLO 경로가 모델명, 활성화 여부, 프레임 수, retry/cap/fallback reason, token/usage metadata를 안전하게 남기는지 확인하고, 비용 관련 raw secret이나 사용자 원문이 로그/진단 payload에 섞이지 않도록 정리한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1259,3 +1259,12 @@ P8-1을 시작할 때는 Gateway 요청, Worker job, Agent analysis, MCP tool ca
 - 이번 단계는 표시 계약만 보강했으며 Agent 판단값, Worker 영상 처리, DB schema, Redis key, storage path, 외부 API 종류는 변경하지 않았다.
 - 검증은 Gateway에서 `npm test -- --run report-composer.test.ts`, Gateway `npm run build`, Frontend `npm run build`로 완료했다.
 - 다음 개발은 **P8-1 Trace id 통합**이다. Gateway 요청, Worker job, Agent analysis, MCP tool call, DB report가 같은 trace id로 연결되도록 관측성을 보강한다.
+### 2026-05-31 P8-1 진행 기록
+
+- P8-1 Trace id 통합 완료: Gateway 요청의 `x-correlation-id`를 `/analyze-text`, `/reanalyze`, `/analyze-video` Agent payload와 job payload에 전달하도록 정리했다.
+- 업로드 완료와 `video_preprocess` job payload, Worker metadata/artifacts, `video_analyze` Agent payload와 Agent 호출 header가 같은 `trace_id`를 유지하도록 연결했다.
+- Agent는 `AnalyzeTextRequest`, `AnalyzeVideoRequest`, `AnalysisOutput`, `agent_plan`, `agent_trace`, `model_info`에 안전 metadata로 `trace_id`를 보존한다.
+- Gateway의 `insertAnalysisResult`는 새 DB column 없이 기존 JSON result/model_info에 trace metadata를 붙여 저장한다.
+- 관리자 Agent trace/video preprocess diagnostic은 raw prompt, 사용자 원문, secret 없이 `trace.trace_id`를 표시한다.
+- 검증은 Gateway `npm test -- --run analysis-routes.test.ts agent-diagnostics.test.ts`, Gateway `npm run build`, Agent 컨테이너 `python -m pytest tests/test_orchestrator.py -q`, Worker `python -m unittest discover -s tests -p "test_job_processor_contract.py"`, Agent/Worker compile, `git diff --check`로 완료했다. 로컬 Agent Python은 `pydantic` 미설치로 Docker Agent 컨테이너를 기준으로 검증했다.
+- 다음 개발은 **P8-2 LLM/vision 사용량 기록**이다. OpenAI/vision/YOLO 경로의 모델명, 활성화 여부, 프레임 수, retry/cap/fallback reason, token/usage metadata를 안전하게 남기고 비용 관련 raw secret이나 사용자 원문이 노출되지 않도록 정리한다.

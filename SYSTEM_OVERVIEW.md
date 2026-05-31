@@ -1,5 +1,22 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P8-1 Trace ID 통합
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P8-1 단계를 완료했다. 이번 변경은 Gateway 요청, Worker job, Agent analysis, DB 저장 결과, 관리자 진단 payload가 같은 `trace_id`를 유지하도록 관측성 경계를 보강한 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| Gateway 요청 | `/analyze-text`, `/reanalyze`, `/analyze-video`가 `x-correlation-id`를 Agent payload 또는 job payload의 `trace_id`로 전달한다. |
+| 업로드/전처리 job | local upload 완료 시 upload metadata와 `video_preprocess` job payload에 `trace_id`를 보존한다. |
+| Worker 영상 분석 | `video_preprocess` metadata/artifacts, `video_analyze` Agent payload, Agent 호출 header에 같은 `trace_id`를 연결한다. |
+| Agent 분석 | `AnalyzeTextRequest`, `AnalyzeVideoRequest`, `AnalysisOutput`, `agent_plan`, `agent_trace`, `model_info`가 안전 metadata로 `trace_id`를 보존한다. |
+| 관리자 진단 | Agent trace diagnostic과 video preprocess diagnostic이 raw prompt나 민감값 없이 `trace.trace_id`를 표시한다. |
+| 저장 경계 | 새 DB column이나 migration은 추가하지 않았다. 기존 JSON payload(`model_info`, `agent_trace`, job payload, upload metadata`)에 additive로 보존한다. |
+
+검증은 `apps/gateway`에서 `npm test -- --run analysis-routes.test.ts agent-diagnostics.test.ts`, `npm run build`, Agent 컨테이너에서 `python -m pytest tests/test_orchestrator.py -q`, Worker에서 `python -m unittest discover -s tests -p "test_job_processor_contract.py"`, Agent/Worker compile, `git diff --check`로 완료했다. 로컬 Agent Python은 `pydantic`이 없어 직접 실행하지 않고 Docker Agent 컨테이너 기준으로 검증했다.
+
+P8-1은 분석 경로 추적성을 정리하는 단계다. 다음 P8-2에서는 LLM/vision 사용량 기록을 보강해 모델, 활성화 여부, 프레임 수, retry/cap/fallback reason 같은 비용 관련 metadata가 안전하게 남는지 정리한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P7-3 결과 표시 Finality 정리
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P7-3 단계를 완료했다. 이번 변경은 Agent 내부 finality와 과실비율 결과 계약을 사용자 화면에서 `근거 기반 참고`, `조건부 결과`, `참고용`, `추가 확인 필요`로 구분해 보여주는 표시 계약 보강이다.

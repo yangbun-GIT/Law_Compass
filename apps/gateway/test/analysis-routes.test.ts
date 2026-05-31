@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import { buildReanalysisVideoMetadata, composeGuidedProgressPayload, registerAnalysisRoutes } from "../src/routes/analysis.js";
 import { errorPayload } from "../src/lib/errors.js";
+import { attachTraceToAgentResponse } from "../src/services/analysisService.js";
 
 describe("analysis route helpers", () => {
   function createResultDb() {
@@ -195,5 +196,73 @@ describe("analysis route helpers", () => {
     expect(body.result).toBeTruthy();
     expect(body.debug).toBeTruthy();
     await app.close();
+  });
+
+  it("queues video analysis with the request trace id", async () => {
+    const app = Fastify({ logger: false });
+    let queuedPayload: any = null;
+    app.addHook("onRequest", async (req) => {
+      req.headers["x-correlation-id"] = "trace-video-route";
+      (req as any).user = { id: "user-1", role: "user" };
+    });
+    const db = {
+      async query(sql: string, params: any[] = []) {
+        if (sql.includes("SELECT id,title,description_text FROM cases")) {
+          return { rowCount: 1, rows: [{ id: "case-1", title: "case", description_text: "collision" }] };
+        }
+        if (sql.includes("SELECT id FROM uploads")) {
+          return { rowCount: 1, rows: [{ id: "upload-1" }] };
+        }
+        if (sql.includes("FROM analysis_results")) return { rowCount: 0, rows: [] };
+        if (sql.includes("FROM jobs")) return { rowCount: 0, rows: [] };
+        if (sql.includes("SELECT file_name, metadata FROM uploads")) {
+          return { rowCount: 1, rows: [{ file_name: "accident.mp4", metadata: {} }] };
+        }
+        if (sql.includes("INSERT INTO jobs")) {
+          queuedPayload = JSON.parse(params[3]);
+          return { rowCount: 1, rows: [{ id: "job-1" }] };
+        }
+        return { rowCount: 0, rows: [] };
+      },
+    };
+    const redis = { xadd: async () => "stream-id" };
+    registerAnalysisRoutes(app, {
+      apiPrefix: "/api/v1",
+      db,
+      redis,
+      agentUrl: "http://agent",
+      internalToken: "token",
+      analyzeTimeoutMs: 1000,
+      retryCount: 0,
+      errorPayload,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/cases/case-1/analyze-video",
+      payload: { upload_id: "upload-1", structured_facts: { accident_party_type: "car_vs_car" } },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().trace_id).toBe("trace-video-route");
+    expect(queuedPayload.trace_id).toBe("trace-video-route");
+    expect(queuedPayload.case_id).toBe("case-1");
+    await app.close();
+  });
+
+  it("stores trace id inside agent result metadata without exposing raw text", () => {
+    const result = attachTraceToAgentResponse(
+      {
+        agent_trace: { trace_policy: "safe_metadata_only_no_raw_user_text" },
+        model_info: { model: "local-test" },
+        agent_plan: { plan_id: "plan-1" },
+      },
+      "trace-store"
+    );
+
+    expect(result.trace_id).toBe("trace-store");
+    expect(result.model_info.trace_id).toBe("trace-store");
+    expect(result.agent_trace.trace_id).toBe("trace-store");
+    expect(result.agent_plan.trace_id).toBe("trace-store");
   });
 });

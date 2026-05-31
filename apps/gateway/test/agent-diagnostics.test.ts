@@ -12,6 +12,7 @@ describe("agent diagnostics", () => {
       result: {
         agent_trace: {
           version: "agent-execution-trace-v1",
+          trace_id: "trace-diagnostic",
           trace_policy: "safe_metadata_only_no_raw_user_text",
           overall_status: "needs_review",
           step_count: 2,
@@ -94,6 +95,7 @@ describe("agent diagnostics", () => {
     });
 
     expect(diagnostic.diagnostic_version).toBe("agent-trace-diagnostic-v1");
+    expect(diagnostic.trace.trace_id).toBe("trace-diagnostic");
     expect(diagnostic.pipeline.steps[0].packet_summary.fact_count).toBe(5);
     expect(diagnostic.pipeline.steps[0].packet_summary.raw_text).toBeUndefined();
     expect(diagnostic.reflection.next_action).toBe("present_reference_only");

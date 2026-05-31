@@ -255,8 +255,10 @@ export async function insertAnalysisResult(
   agentResp: any,
   reportPayload: any,
   elderlyFriendlyReport: any,
-  nextVersion: number
+  nextVersion: number,
+  traceId?: string
 ) {
+  const storedAgentResp = attachTraceToAgentResponse(agentResp, traceId);
   const inserted = await opts.db.query(
     `INSERT INTO analysis_results(
        case_id, owner_user_id, version, source_type, result, evidence, uncertainty, model_info,
@@ -269,26 +271,59 @@ export async function insertAnalysisResult(
       ownerId,
       nextVersion,
       sourceType,
-      JSON.stringify(agentResp),
-      JSON.stringify(agentResp.evidence ?? []),
-      JSON.stringify(agentResp.uncertainty ?? {}),
-      JSON.stringify(agentResp.model_info ?? {}),
-      JSON.stringify(agentResp.structured_facts ?? {}),
-      JSON.stringify(agentResp.recommended_keywords ?? []),
-      JSON.stringify(agentResp.suggested_next_inputs ?? []),
+      JSON.stringify(storedAgentResp),
+      JSON.stringify(storedAgentResp.evidence ?? []),
+      JSON.stringify(storedAgentResp.uncertainty ?? {}),
+      JSON.stringify(storedAgentResp.model_info ?? {}),
+      JSON.stringify(storedAgentResp.structured_facts ?? {}),
+      JSON.stringify(storedAgentResp.recommended_keywords ?? []),
+      JSON.stringify(storedAgentResp.suggested_next_inputs ?? []),
       JSON.stringify(reportPayload),
       JSON.stringify(elderlyFriendlyReport),
-      JSON.stringify(agentResp.legal_analysis ?? {}),
-      agentResp.scenario_type ?? null,
-      JSON.stringify((agentResp.evidence ?? []).map((x: any) => x.chunk_id).filter(Boolean)),
-      JSON.stringify(agentResp.legal_liability?.risk_flags ?? agentResp.legal_analysis?.risk_flags ?? []),
-      JSON.stringify({ analysts: agentResp.recommended_specialists ?? [] }),
-      JSON.stringify(agentResp.evidence_audit ?? {})
+      JSON.stringify(storedAgentResp.legal_analysis ?? {}),
+      storedAgentResp.scenario_type ?? null,
+      JSON.stringify((storedAgentResp.evidence ?? []).map((x: any) => x.chunk_id).filter(Boolean)),
+      JSON.stringify(storedAgentResp.legal_liability?.risk_flags ?? storedAgentResp.legal_analysis?.risk_flags ?? []),
+      JSON.stringify({ analysts: storedAgentResp.recommended_specialists ?? [] }),
+      JSON.stringify(storedAgentResp.evidence_audit ?? {})
     ]
   );
   await opts.db.query(
     `UPDATE analysis_results SET knia_matches=$2, knia_primary_match=$3 WHERE id=$1`,
-    [inserted.rows[0].id, JSON.stringify(agentResp.knia_matches ?? []), JSON.stringify(agentResp.knia_primary_match ?? null)]
+    [inserted.rows[0].id, JSON.stringify(storedAgentResp.knia_matches ?? []), JSON.stringify(storedAgentResp.knia_primary_match ?? null)]
   ).catch(() => undefined);
   return inserted.rows[0];
+}
+
+export function attachTraceToAgentResponse(agentResp: any, fallbackTraceId?: string) {
+  if (!agentResp || typeof agentResp !== "object" || Array.isArray(agentResp)) return agentResp;
+  const response = { ...agentResp };
+  const agentPlan = response.agent_plan && typeof response.agent_plan === "object" && !Array.isArray(response.agent_plan)
+    ? { ...response.agent_plan }
+    : undefined;
+  const modelInfo = response.model_info && typeof response.model_info === "object" && !Array.isArray(response.model_info)
+    ? { ...response.model_info }
+    : {};
+  const agentTrace = response.agent_trace && typeof response.agent_trace === "object" && !Array.isArray(response.agent_trace)
+    ? { ...response.agent_trace }
+    : {};
+  const traceId = safeTraceId(response.trace_id)
+    ?? safeTraceId(agentTrace.trace_id)
+    ?? safeTraceId(agentPlan?.trace_id)
+    ?? safeTraceId(modelInfo.trace_id)
+    ?? safeTraceId(fallbackTraceId);
+
+  if (!traceId) return response;
+  response.trace_id = traceId;
+  response.model_info = { ...modelInfo, trace_id: traceId };
+  response.agent_trace = { ...agentTrace, trace_id: traceId };
+  if (agentPlan) {
+    response.agent_plan = { ...agentPlan, trace_id: traceId };
+  }
+  return response;
+}
+
+function safeTraceId(value: any) {
+  const text = String(value ?? "").trim();
+  return text ? text.slice(0, 120) : undefined;
 }

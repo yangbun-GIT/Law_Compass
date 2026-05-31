@@ -10,8 +10,13 @@ router = APIRouter()
 
 
 @router.post("/analyze/text", response_model=AnalysisOutput)
-async def analyze_text(payload: AnalyzeTextRequest, x_internal_token: str | None = Header(default=None)):
+async def analyze_text(
+    payload: AnalyzeTextRequest,
+    x_internal_token: str | None = Header(default=None),
+    x_correlation_id: str | None = Header(default=None),
+):
     check_internal_token(x_internal_token)
+    trace_id = payload.trace_id or x_correlation_id
     return AnalysisOutput(
         **analyze_case(
             payload.description_text,
@@ -22,13 +27,19 @@ async def analyze_text(payload: AnalyzeTextRequest, x_internal_token: str | None
             ai_profile=payload.ai_profile,
             specialist_roles=payload.specialist_roles,
             case_id=payload.case_id,
+            trace_id=trace_id,
         )
     )
 
 
 @router.post("/analyze/video", response_model=AnalysisOutput)
-async def analyze_video(payload: AnalyzeVideoRequest, x_internal_token: str | None = Header(default=None)):
+async def analyze_video(
+    payload: AnalyzeVideoRequest,
+    x_internal_token: str | None = Header(default=None),
+    x_correlation_id: str | None = Header(default=None),
+):
     check_internal_token(x_internal_token)
+    trace_id = payload.trace_id or x_correlation_id
     base_text = payload.preprocessed_summary or "영상 분석 정보가 충분하지 않습니다. 사고 상황을 글로 조금 더 입력해 주세요."
     return AnalysisOutput(
         **analyze_video_case(
@@ -41,11 +52,18 @@ async def analyze_video(payload: AnalyzeVideoRequest, x_internal_token: str | No
             analysis_mode=payload.analysis_mode,
             case_id=payload.case_id,
             upload_id=payload.upload_id,
+            trace_id=trace_id,
         )
     )
 
 
 @router.post("/analyze/scenario", response_model=AnalysisOutput)
-async def analyze_scenario_endpoint(payload: dict, x_internal_token: str | None = Header(default=None)):
+async def analyze_scenario_endpoint(
+    payload: dict,
+    x_internal_token: str | None = Header(default=None),
+    x_correlation_id: str | None = Header(default=None),
+):
     check_internal_token(x_internal_token)
+    if x_correlation_id and not payload.get("trace_id"):
+        payload = {**payload, "trace_id": x_correlation_id}
     return AnalysisOutput(**analyze_scenario(payload))

@@ -28,6 +28,7 @@ def analyze_case(
     ai_profile: str | None = None,
     specialist_roles: list[str] | None = None,
     case_id: str | None = None,
+    trace_id: str | None = None,
 ) -> dict[str, Any]:
     input_mode = _input_mode_for_text(structured_facts, selected_keywords, video_metadata)
     return _analyze_core(
@@ -40,6 +41,7 @@ def analyze_case(
         video_metadata=video_metadata,
         input_mode=input_mode,
         case_id=case_id,
+        trace_id=trace_id,
     )
 
 
@@ -53,6 +55,7 @@ def analyze_video_case(
     analysis_mode: str | None = None,
     case_id: str | None = None,
     upload_id: str | None = None,
+    trace_id: str | None = None,
 ) -> dict[str, Any]:
     input_mode = _input_mode_for_video(structured_facts, selected_keywords, video_metadata)
     return _analyze_core(
@@ -66,6 +69,7 @@ def analyze_video_case(
         input_mode=input_mode,
         case_id=case_id,
         upload_id=upload_id,
+        trace_id=trace_id,
     )
 
 
@@ -81,6 +85,7 @@ def analyze_scenario(payload: dict[str, Any]) -> dict[str, Any]:
         input_mode="admin_diagnostic",
         case_id=payload.get("case_id"),
         upload_id=payload.get("upload_id"),
+        trace_id=payload.get("trace_id"),
     )
 
 
@@ -96,6 +101,7 @@ def _analyze_core(
     input_mode: str | None,
     case_id: str | None,
     upload_id: str | None = None,
+    trace_id: str | None = None,
 ) -> dict[str, Any]:
     agent_plan = _build_agent_plan_safe(
         description_text=description_text,
@@ -106,6 +112,7 @@ def _analyze_core(
         input_mode=input_mode,
         case_id=case_id,
         upload_id=upload_id,
+        trace_id=trace_id,
     )
     context = build_case_context(
         description_text=description_text,
@@ -183,6 +190,11 @@ def _analyze_core(
         ai_profile=profile,
     )
     output["agent_plan"] = agent_plan.model_dump()
+    trace_id = _safe_trace_id(trace_id) or output["agent_plan"].get("trace_id")
+    if trace_id:
+        output["trace_id"] = trace_id
+        output["agent_plan"]["trace_id"] = trace_id
+        output["model_info"]["trace_id"] = trace_id
     output["model_info"]["agent_plan_version"] = AGENT_PLAN_VERSION
     return enrich_analysis_output(
         output=output,
@@ -204,6 +216,7 @@ def _build_agent_plan_safe(
     input_mode: str | None,
     case_id: str | None,
     upload_id: str | None,
+    trace_id: str | None = None,
 ) -> Any:
     try:
         return build_task_plan(
@@ -215,12 +228,14 @@ def _build_agent_plan_safe(
             input_mode=input_mode,  # type: ignore[arg-type]
             case_id=case_id,
             upload_id=upload_id,
+            trace_id=trace_id,
         )
     except Exception as exc:  # pragma: no cover - defensive guard for production safety
         return build_safe_fallback_plan(
             error=exc,
             input_mode=input_mode if input_mode in {"text_only", "video_only", "text_and_video", "followup_reanalysis", "admin_diagnostic"} else None,  # type: ignore[arg-type]
             case_id=case_id,
+            trace_id=trace_id,
         )
 
 
@@ -237,6 +252,11 @@ def _input_mode_for_text(
     if selected_keywords:
         return "text_only"
     return "text_only"
+
+
+def _safe_trace_id(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text[:120] or None
 
 
 def _input_mode_for_video(

@@ -64,6 +64,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     let agentResp;
     try {
       agentResp = await callInternalAgent("/internal/v1/analyze/text", {
+        trace_id: traceId,
         case_id: caseId,
         user_id: (req as any).user.id,
         description_text: maskSensitive(body?.description_text ?? caseRow.rows[0].description_text ?? ""),
@@ -88,7 +89,8 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
       agentResp,
       reportPayload,
       agentResp.elderly_friendly_report ?? {},
-      nextVersion
+      nextVersion,
+      traceId
     );
     await opts.db.query(`UPDATE cases SET status='completed', latest_result_id=$2 WHERE id=$1`, [caseId, inserted.id]);
     const easyReport = enrichEasyReport(sanitizeEasyReport(agentResp.elderly_friendly_report ?? composeEasyFallback(agentResp, { case: caseRow.rows[0] })), agentResp);
@@ -157,6 +159,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
       `INSERT INTO jobs(case_id, upload_id, owner_user_id, type, status, payload)
        VALUES($1,$2,$3,'video_analyze','queued',$4) RETURNING id`,
       [caseId, body.upload_id, (req as any).user.id, JSON.stringify({
+        trace_id: traceId,
         case_id: caseId,
         upload_id: body.upload_id,
         ai_profile: route.aiProfile,
@@ -331,6 +334,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     let agentResp;
     try {
       agentResp = await callInternalAgent("/internal/v1/analyze/text", {
+        trace_id: traceId,
         case_id: caseId,
         user_id: (req as any).user.id,
         description_text: descriptionText,
@@ -357,7 +361,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
     const easyReport = reanalysisChangeCard ? { ...baseEasyReport, analysis_change_card: reanalysisChangeCard } : baseEasyReport;
     const ver = await opts.db.query(`SELECT COALESCE(MAX(version),0)+1 AS v FROM analysis_results WHERE case_id=$1`, [caseId]);
     const nextVersion = Number(ver.rows[0].v);
-    const inserted = await insertAnalysisResult(opts, caseId, (req as any).user.id, "text", agentResp, easyReport, easyReport, nextVersion);
+    const inserted = await insertAnalysisResult(opts, caseId, (req as any).user.id, "text", agentResp, easyReport, easyReport, nextVersion, traceId);
     await opts.db.query(`UPDATE cases SET status='completed', latest_result_id=$2 WHERE id=$1`, [caseId, inserted.id]);
     return {
       result_id: inserted.id,

@@ -105,6 +105,16 @@ def test_analyze_case_minimum_fields():
     AnalysisOutput(**result)
 
 
+def test_analyze_case_preserves_request_trace_id_in_safe_metadata():
+    result = analyze_case("신호대기 중 후방 차량 추돌", case_id="case-trace", trace_id="trace-agent-1")
+
+    assert result["trace_id"] == "trace-agent-1"
+    assert result["model_info"]["trace_id"] == "trace-agent-1"
+    assert result["agent_plan"]["trace_id"] == "trace-agent-1"
+    assert result["agent_trace"]["trace_id"] == "trace-agent-1"
+    assert AnalysisOutput(**result).trace_id == "trace-agent-1"
+
+
 def test_red_light_waiting_rear_end_analysis_keeps_front_vehicle_fault_and_filters_knia_links():
     text = "신호대기 중(빨간불) 뒷 차와 추돌사고가 발생했다. 내 차는 정차해있었고 뒷차가 갑자기 추돌하였다. 시간은 오후 2시 정도였으며 날씨는 흐림이었으나 어둡지는 않았다."
     result = analyze_case(text, analysis_mode="fault_ratio")

@@ -21,7 +21,7 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
         )
 
     def test_video_preprocess_enqueues_canonical_video_analyze_payload(self):
-        payload = {"ai_profile": "custom-profile", "specialist_roles": ["traffic_law"]}
+        payload = {"trace_id": "trace-worker", "ai_profile": "custom-profile", "specialist_roles": ["traffic_law"]}
         case_inputs = (
             {"accident_type": "rear_end_collision", "stopped": True},
             ["후방추돌", "안전거리"],
@@ -31,6 +31,7 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
         result = build_video_analyze_payload(self.row, payload, case_inputs)
 
         self.assertEqual(result["case_id"], "case-1")
+        self.assertEqual(result["trace_id"], "trace-worker")
         self.assertEqual(result["upload_id"], "upload-1")
         self.assertEqual(result["ai_profile"], "custom-profile")
         self.assertEqual(result["specialist_roles"], ["traffic_law"])
@@ -52,8 +53,9 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
             "fault_ratio",
         )
 
-        result = build_frame_analysis_context(self.row, metadata, case_inputs)
+        result = build_frame_analysis_context(self.row, metadata, case_inputs, trace_id="trace-frame")
 
+        self.assertEqual(result["trace_id"], "trace-frame")
         self.assertEqual(result["case_id"], "case-1")
         self.assertEqual(result["upload_id"], "upload-1")
         self.assertTrue(result["user_context_is_visual_focus_only"])
@@ -66,6 +68,7 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
     def test_agent_video_request_preserves_preprocess_contract_and_summary_inputs(self):
         payload = {
             "ai_profile": "default_vehicle_collision",
+            "trace_id": "trace-video-agent",
             "specialist_roles": ["fault_ratio"],
             "routing_reason": "auto_after_local_preprocess",
             "structured_facts": {"stopped": True, "opponent_behavior": "rear_collision"},
@@ -84,10 +87,12 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
         result = build_agent_video_request(self.row, payload, case_row, upload_row)
 
         self.assertEqual(result["case_id"], "case-1")
+        self.assertEqual(result["trace_id"], "trace-video-agent")
         self.assertEqual(result["user_id"], "user-1")
         self.assertEqual(result["upload_id"], "upload-1")
         self.assertEqual(result["analysis_mode"], "rear-end-focused")
         self.assertEqual(result["video_metadata"]["preprocess_contract_version"], VIDEO_PREPROCESS_CONTRACT_VERSION)
+        self.assertEqual(result["video_metadata"]["trace_id"], "trace-video-agent")
         self.assertEqual(result["video_metadata"]["upload_status"], "ready")
         self.assertEqual(result["video_metadata"]["file_name"], "accident.mp4")
         self.assertEqual(result["video_metadata"]["metadata"], upload_metadata)

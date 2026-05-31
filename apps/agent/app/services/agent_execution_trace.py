@@ -25,6 +25,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
     specialist_results = output.get("specialist_agent_results") or {}
     prompt_registry = output.get("specialist_prompt_registry") or {}
     specialist_consensus = output.get("specialist_consensus") or {}
+    trace_id = _safe_trace_id(output.get("trace_id")) or _safe_trace_id((output.get("model_info") or {}).get("trace_id")) or _safe_trace_id(agent_plan.get("trace_id"))
 
     steps = [
         _step(
@@ -164,6 +165,7 @@ def build_agent_execution_trace(output: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "version": VERSION,
+        "trace_id": trace_id,
         "pattern": "plan_observe_verify_trace",
         "overall_status": judgment.get("overall_status") or "unknown",
         "trace_policy": "safe_metadata_only_no_raw_user_text",
@@ -186,6 +188,11 @@ def _step(step_id: str, phase: str, status: str, packet: dict[str, Any]) -> dict
         "status": status,
         "packet": {key: value for key, value in packet.items() if value is not None},
     }
+
+
+def _safe_trace_id(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text[:120] or None
 
 
 def _stage_status(judgment: dict[str, Any], name: str, *, default: str) -> str:

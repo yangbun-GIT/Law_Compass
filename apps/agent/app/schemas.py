@@ -3,6 +3,7 @@ from typing import Any
 
 
 class AnalyzeTextRequest(BaseModel):
+    trace_id: str | None = None
     case_id: str
     user_id: str
     description_text: str = Field(min_length=1, max_length=10000)
@@ -15,6 +16,7 @@ class AnalyzeTextRequest(BaseModel):
 
 
 class AnalyzeVideoRequest(BaseModel):
+    trace_id: str | None = None
     case_id: str
     user_id: str
     upload_id: str
@@ -52,6 +54,7 @@ class EvidenceItem(BaseModel):
 
 
 class AnalysisOutput(BaseModel):
+    trace_id: str | None = None
     accident_summary: str
     scenario_type: str
     accident_party_type: str | None = None

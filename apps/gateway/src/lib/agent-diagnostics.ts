@@ -99,9 +99,14 @@ export function composeAgentTraceDiagnostic(row: AnyRecord = {}) {
   const judgment = asRecord(result.agent_judgment);
   const presentation = asRecord(result.presentation_policy);
   const steps = safeTraceSteps(trace);
+  const traceId = safeString(trace.trace_id ?? result.trace_id ?? modelInfo.trace_id ?? asRecord(result.agent_plan).trace_id);
 
   return {
     diagnostic_version: DIAGNOSTIC_VERSION,
+    trace: {
+      trace_id: traceId ?? null,
+      source: traceId ? "analysis_result_json" : "not_available",
+    },
     result: {
       id: row.id,
       case_id: row.case_id,

@@ -297,6 +297,10 @@ export function composeVideoPreprocessDiagnostic(upload: AnyRecord = {}) {
 
   return {
     diagnostic_version: DIAGNOSTIC_VERSION,
+    trace: {
+      trace_id: safeString(metadata.trace_id ?? upload.trace_id, 120),
+      source: metadata.trace_id ? "upload_metadata" : "not_available",
+    },
     upload: {
       id: upload.id,
       case_id: upload.case_id,
