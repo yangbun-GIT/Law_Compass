@@ -1,64 +1,82 @@
-from app.services.video_observation_summarizer import summarize_client_pre_observations
+from app.services.scenario_classifier import classify_scenario
+from app.services.video_input_contract_guards import apply_video_fact_guards
+from app.services.video_observation_summarizer import build_video_scene_summary
 
 
-def test_vehicle_tracks_create_car_vs_car_candidate_without_fault_or_chart():
-    result = summarize_client_pre_observations({
-        "source": "client_pre_observation",
-        "provider": "google_mlkit",
-        "observations": [
-            {"field": "object_candidate", "value": "vehicle", "confidence": 0.8, "frame_time_sec": 1.0, "track_id": 1, "bbox": [0.1, 0.1, 0.3, 0.3]},
-            {"field": "object_candidate", "value": "vehicle", "confidence": 0.82, "frame_time_sec": 2.0, "track_id": 1, "bbox": [0.2, 0.1, 0.4, 0.3]},
-            {"field": "object_candidate", "value": "vehicle", "confidence": 0.76, "frame_time_sec": 1.2, "track_id": 2, "bbox": [0.6, 0.2, 0.8, 0.4]},
+def test_video_scene_summary_uses_visual_facts_without_asserting_ambiguous_child_or_speed():
+    video_contract = {
+        "fact_patch": {
+            "ego_vehicle_type": "motorcycle",
+            "direct_collision_partner_type": "bicycle",
+            "school_zone": True,
+            "speed_limit_kmh": 30,
+            "oncoming_bicycle_present": True,
+            "child_candidate": True,
+        },
+        "accepted_observations": [
+            {"field": "ego_vehicle_type", "value": "motorcycle", "confidence": 0.9, "frame_refs": ["frame_001.jpg", "frame_002.jpg"]},
+            {"field": "direct_collision_partner_type", "value": "bicycle", "confidence": 0.88, "frame_refs": ["frame_003.jpg", "frame_004.jpg"]},
+            {"field": "school_zone", "value": True, "confidence": 0.86, "frame_refs": ["frame_001.jpg", "frame_002.jpg"]},
+            {"field": "speed_limit_kmh", "value": 30, "confidence": 0.87, "frame_refs": ["frame_001.jpg"]},
+            {"field": "oncoming_bicycle_present", "value": True, "confidence": 0.84, "frame_refs": ["frame_002.jpg", "frame_003.jpg"]},
         ],
-    })
-
-    assert result["candidate_accident_context"]["possible_party_type"] == "car_vs_car"
-    assert result["video_observation_summary"]["possible_context"]["possible_car_vs_car"] is True
-    assert result["fault_ratio_result"]["judgment_status"] == "needs_review"
-    assert result["fault_ratio_result"]["presentation_status"] == "reference_only"
-    assert "chart_no" not in result["fault_ratio_result"]
-
-
-def test_person_track_creates_person_candidate():
-    result = summarize_client_pre_observations({
-        "observations": [
-            {"field": "object_candidate", "value": "person", "confidence": 0.7, "frame_time_sec": 1.0, "track_id": "p1", "bbox": [0.2, 0.2, 0.3, 0.5]},
+        "uncertain_observations": [
+            {"field": "child_candidate", "value": True, "confidence": 0.65, "frame_refs": ["frame_003.jpg"]},
         ],
-    })
+    }
 
-    assert result["candidate_accident_context"]["possible_party_type"] == "car_vs_person"
-    assert result["video_observation_summary"]["possible_context"]["possible_car_vs_person"] is True
+    summary = build_video_scene_summary(video_contract)
 
-
-def test_motorcycle_track_is_not_collapsed_into_vehicle():
-    result = summarize_client_pre_observations({
-        "observations": [
-            {"field": "object_candidate", "value": "motorcycle", "confidence": 0.75, "frame_time_sec": 1.0, "track_id": "m1", "bbox": [0.2, 0.2, 0.3, 0.5]},
-        ],
-    })
-
-    assert result["observation_summary"]["motorcycles_detected"] == 1
-    assert result["observation_summary"]["vehicles_detected"] == 0
-    assert result["candidate_accident_context"]["possible_party_type"] == "car_vs_motorcycle"
-    assert result["video_observation_summary"]["possible_context"]["possible_car_vs_motorcycle"] is True
+    assert summary["available"] is True
+    assert summary["title"] == "영상에서 확인된 사고 개요"
+    assert "오토바이" in summary["summary_text"]
+    assert "자전거" in summary["summary_text"]
+    assert "30km" in summary["summary_text"]
+    assert any(item["field"] == "victim_is_child" for item in summary["needs_user_confirmation"])
+    assert any(item["field"] == "actual_speed_kmh" for item in summary["needs_user_confirmation"])
 
 
-def test_traffic_light_does_not_confirm_signal_violation():
-    result = summarize_client_pre_observations({
-        "observations": [
-            {"field": "object_candidate", "value": "traffic_light", "confidence": 0.65, "frame_time_sec": 0.5, "bbox": [0.1, 0.1, 0.2, 0.2]},
-        ],
-    })
+def test_bicycle_candidate_with_multiframe_contact_support_is_promoted_to_direct_partner():
+    fact_patch = {"impact_visible": True, "primary_collision_target": "bicycle_candidate"}
+    accepted = [
+        {
+            "field": "primary_collision_target",
+            "value": "bicycle_candidate",
+            "confidence": 0.87,
+            "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+            "reason": "cyclist wheels and handlebar visible near contact window",
+            "source": "frame_analysis:openai",
+        },
+        {
+            "field": "impact_visible",
+            "value": True,
+            "confidence": 0.82,
+            "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+            "source": "frame_analysis:openai",
+        },
+    ]
+    uncertain = []
 
-    assert result["video_observation_summary"]["possible_context"]["possible_signal_related"] is True
-    assert result["fault_ratio_result"]["judgment_status"] == "needs_review"
-    assert "signal_violation" not in result
+    apply_video_fact_guards(fact_patch, accepted, uncertain)
+
+    assert fact_patch["direct_collision_partner_type"] == "bicycle"
+    assert fact_patch["collision_partner_type"] == "bicycle"
 
 
-def test_empty_observations_are_insufficient_video_only():
-    result = summarize_client_pre_observations({"observations": []})
+def test_motorcycle_ego_and_bicycle_partner_routes_to_bicycle_knia_path():
+    scenario = classify_scenario(
+        "",
+        {
+            "ego_vehicle_type": "motorcycle",
+            "direct_collision_partner_type": "bicycle",
+            "school_zone": True,
+            "speed_limit_kmh": 30,
+            "oncoming_bicycle_present": True,
+        },
+        [],
+    )
 
-    assert result["analysis_readiness"]["can_infer_accident_context"] is False
-    assert result["analysis_readiness"]["can_estimate_fault_ratio"] is False
-    assert result["analysis_readiness"]["status"] == "insufficient_video_only"
-    assert "충분한 객체 후보" in result["candidate_accident_context"]["missing_facts"]
+    assert scenario["scenario_type"] == "motorcycle_bicycle_collision"
+    assert scenario["accident_party_type"] == "car_vs_bicycle"
+    assert "bicycle" in scenario["scenario_tags"]
+    assert "school_zone" in scenario["scenario_tags"]

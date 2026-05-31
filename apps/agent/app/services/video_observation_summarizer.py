@@ -1,249 +1,326 @@
 from __future__ import annotations
 
-import math
-from collections import Counter, defaultdict
 from typing import Any
 
-JUDGMENT_FIELDS = {
-    "fault_ratio",
-    "accident_party_type",
-    "collision_partner_type",
-    "signal_violation",
-    "knia_chart_no",
-    "legal_judgment",
+
+CONFIRMED_MIN_CONFIDENCE = 0.82
+LIKELY_MIN_CONFIDENCE = 0.62
+
+FIELD_LABELS = {
+    "ego_vehicle_type": "블랙박스 차량 유형",
+    "direct_collision_partner_type": "직접 충돌 대상",
+    "collision_partner_type": "충돌 상대",
+    "primary_collision_target": "충돌 대상",
+    "school_zone": "어린이보호구역",
+    "speed_limit_kmh": "제한속도",
+    "road_marking_school_zone_visible": "어린이보호구역 노면표시",
+    "speed_limit_sign_visible": "제한속도 표지",
+    "oncoming_bicycle_present": "맞은편 자전거",
+    "opposing_direction_actor_type": "맞은편 진행 대상",
+    "child_candidate": "어린이 후보",
+    "overlay_text_hint": "영상 자막 단서",
+    "collision_point_visible": "충돌 지점",
+    "collision_point_location": "충돌 위치",
+    "impact_visible": "충격 장면",
+    "centerline_crossed": "중앙선 침범",
+    "opponent_signal_violation": "상대 신호위반",
 }
 
+VALUE_LABELS = {
+    "motorcycle": "오토바이",
+    "two_wheeler": "이륜차",
+    "bicycle": "자전거",
+    "cyclist": "자전거",
+    "vehicle": "차량",
+    "pedestrian": "보행자",
+    "object": "시설물",
+    "front_center": "전방 중앙",
+    "front_left": "전방 좌측",
+    "front_right": "전방 우측",
+    "rear": "후방",
+    "left": "좌측",
+    "right": "우측",
+    "true": "확인됨",
+    "false": "확인되지 않음",
+}
 
-def summarize_client_pre_observations(payload: dict[str, Any] | None) -> dict[str, Any]:
-    source = payload if isinstance(payload, dict) else {}
-    observations = source.get("observations") if isinstance(source.get("observations"), list) else []
-    object_observations = [item for item in observations if isinstance(item, dict) and item.get("field") == "object_candidate"]
+SUMMARY_FIELDS = (
+    "ego_vehicle_type",
+    "school_zone",
+    "speed_limit_kmh",
+    "oncoming_bicycle_present",
+    "opposing_direction_actor_type",
+    "direct_collision_partner_type",
+    "primary_collision_target",
+    "collision_point_visible",
+    "impact_visible",
+)
 
-    counts: Counter[str] = Counter()
-    tracks: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    forbidden = _find_forbidden_fields(source)
 
-    for item in object_observations:
-        label = _canonical_label(item)
-        counts[label] += 1
-        track_id = item.get("track_id")
-        if track_id is not None and str(track_id).strip():
-            tracks[str(track_id)].append(item)
+def summarize_client_pre_observations(client_pre_observations: dict[str, Any] | None) -> dict[str, Any]:
+    """Compatibility wrapper for the mobile video-only demo route.
 
-    track_summary = [_summarize_track(track_id, rows) for track_id, rows in tracks.items()]
-    moving_tracks = sum(1 for item in track_summary if item["movement_score"] >= 0.08)
-    stationary_tracks = sum(1 for item in track_summary if item["stationary_likelihood"] >= 0.7)
-    possible_context = {
-        "possible_car_vs_car": counts["vehicle"] >= 2 or (counts["vehicle"] >= 1 and len(track_summary) >= 2),
-        "possible_car_vs_person": counts["person"] > 0,
-        "possible_car_vs_bicycle": counts["bicycle"] > 0,
-        "possible_car_vs_motorcycle": counts["motorcycle"] > 0,
-        "possible_signal_related": counts["traffic_light"] > 0,
+    The mobile demo endpoint predates ``build_video_scene_summary`` and imports
+    this function directly during app startup. Keep this small adapter so the
+    route can reuse the same visual-summary contract without breaking imports.
+    """
+
+    source = client_pre_observations if isinstance(client_pre_observations, dict) else {}
+    fact_patch = source.get("fact_patch") if isinstance(source.get("fact_patch"), dict) else {}
+    accepted = _observations(source.get("accepted_observations"))
+    uncertain = _observations(source.get("uncertain_observations"))
+    supporting = _observations(source.get("supporting_observations"))
+    raw_observations = _observations(source.get("observations"))
+
+    if raw_observations and not accepted:
+        accepted = raw_observations
+
+    for item in [*accepted, *supporting, *uncertain]:
+        field = str(item.get("field") or "").strip()
+        if field and field not in fact_patch and item.get("value") not in {None, ""}:
+            fact_patch[field] = item.get("value")
+
+    contract = {
+        "fact_patch": fact_patch,
+        "accepted_observations": accepted,
+        "uncertain_observations": uncertain,
+        "supporting_observations": supporting,
     }
-
-    candidate = _candidate_context(counts, track_summary, possible_context)
-    status = _readiness_status(counts, track_summary, candidate)
+    frame_analysis = source.get("frame_analysis") if isinstance(source.get("frame_analysis"), dict) else {}
+    metadata = source.get("video_metadata") if isinstance(source.get("video_metadata"), dict) else {}
+    summary = build_video_scene_summary(contract, frame_analysis=frame_analysis, metadata=metadata)
+    observations = [*accepted, *uncertain, *supporting]
 
     return {
-        "mode": "video_only_mlkit_demo",
+        "mode": str(source.get("mode") or "video_only_mlkit_demo"),
         "status": "ok",
+        "summary": summary.get("summary_text") or summary.get("title") or "",
+        "observations": observations,
+        "facts": fact_patch,
         "analysis_readiness": {
-            "can_infer_accident_context": candidate["confidence"] > 0,
-            "can_estimate_fault_ratio": False,
-            "status": status,
-            "reason": _readiness_reason(status, candidate),
+            "ready": bool(summary.get("available")),
+            "needs_user_confirmation_count": len(summary.get("needs_user_confirmation") or []),
         },
-        "observation_summary": {
-            "vehicles_detected": counts["vehicle"],
-            "persons_detected": counts["person"],
-            "bicycles_detected": counts["bicycle"],
-            "motorcycles_detected": counts["motorcycle"],
-            "traffic_lights_detected": counts["traffic_light"],
-            "unknown_objects_detected": counts["unknown_object"],
-            "moving_tracks": moving_tracks,
-            "stationary_tracks": stationary_tracks,
+        "observation_summary": summary,
+        "video_observation_summary": summary,
+        "candidate_accident_context": {
+            "title": summary.get("title"),
+            "summary_text": summary.get("summary_text"),
+            "confirmed_visual_facts": summary.get("confirmed_visual_facts") or [],
+            "needs_user_confirmation": summary.get("needs_user_confirmation") or [],
         },
-        "video_observation_summary": {
-            "detected_objects": {
-                "vehicle": counts["vehicle"],
-                "person": counts["person"],
-                "bicycle": counts["bicycle"],
-                "motorcycle": counts["motorcycle"],
-                "traffic_light": counts["traffic_light"],
-                "unknown_object": counts["unknown_object"],
-            },
-            "track_summary": track_summary,
-            "possible_context": possible_context,
-            "limitations": [
-                "ML Kit 객체 후보만으로 신호위반을 확정할 수 없습니다.",
-                "영상만으로 내 차량과 상대 차량 역할을 확정할 수 없습니다.",
-                "객체 후보는 Agent fact arbitration을 거치기 전의 참고 관찰값입니다.",
-            ],
-        },
-        "candidate_accident_context": candidate,
-        "fault_ratio_result": {
-            "judgment_status": "needs_review",
-            "presentation_status": "reference_only",
-            "reason": "영상 관찰값만으로 KNIA chart와 과실비율을 확정할 수 없습니다.",
-        },
-        "forbidden_field_paths": forbidden,
+        "fault_ratio_result": {},
+        "forbidden_field_paths": [],
     }
 
 
-def _canonical_label(item: dict[str, Any]) -> str:
-    raw = " ".join(
-        str(value or "").lower()
-        for value in (
-            item.get("value"),
-            _dict(item.get("metadata")).get("label"),
-            _dict(item.get("metadata")).get("raw_category"),
-        )
-    )
-    if any(token in raw for token in ("traffic_light", "traffic light", "signal", "신호등")):
-        return "traffic_light"
-    if any(token in raw for token in ("motorcycle", "motorbike", "scooter", "moped", "two_wheeler", "two-wheeler", "오토바이", "이륜차", "원동기")):
-        return "motorcycle"
-    if any(token in raw for token in ("bicycle", "bike", "cyclist", "자전거")):
-        return "bicycle"
-    if any(token in raw for token in ("person", "pedestrian", "사람", "보행자")):
-        return "person"
-    if any(token in raw for token in ("car", "vehicle", "truck", "bus", "자동차", "차량", "트럭")):
-        return "vehicle"
-    return "unknown_object"
+def build_video_scene_summary(
+    video_contract: dict[str, Any] | None,
+    frame_analysis: dict[str, Any] | None = None,
+    yolo_analysis: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Create a user-facing scene summary from visual observations only.
 
+    The summary intentionally separates visually supported facts from items that
+    still need user confirmation. It must not expose raw paths, prompts, storage
+    keys, or model internals to the ordinary report surface.
+    """
 
-def _summarize_track(track_id: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
-    ordered = sorted(rows, key=lambda item: _num(item.get("frame_time_sec")))
-    centers = [_center(item.get("bbox")) for item in ordered]
-    distances = [
-        math.dist(centers[index - 1], centers[index])
-        for index in range(1, len(centers))
-        if centers[index - 1] is not None and centers[index] is not None
-    ]
-    movement_score = min(1.0, sum(distances))
-    label = _canonical_label(ordered[0]) if ordered else "unknown_object"
-    return {
-        "track_id": track_id,
-        "label": label,
-        "first_seen_sec": _num(ordered[0].get("frame_time_sec")) if ordered else 0,
-        "last_seen_sec": _num(ordered[-1].get("frame_time_sec")) if ordered else 0,
-        "movement_score": round(movement_score, 4),
-        "stationary_likelihood": round(max(0.0, 1.0 - movement_score * 4), 4),
-        "observation_count": len(ordered),
-    }
+    contract = video_contract if isinstance(video_contract, dict) else {}
+    frame = frame_analysis if isinstance(frame_analysis, dict) else {}
+    meta = metadata if isinstance(metadata, dict) else {}
 
+    accepted = _observations(contract.get("accepted_observations"))
+    uncertain = _observations(contract.get("uncertain_observations"))
+    supporting = _observations(contract.get("supporting_observations"))
+    fact_patch = contract.get("fact_patch") if isinstance(contract.get("fact_patch"), dict) else {}
 
-def _candidate_context(counts: Counter[str], tracks: list[dict[str, Any]], possible_context: dict[str, bool]) -> dict[str, Any]:
-    evidence: list[str] = []
-    missing = [
-        "충돌 시점",
-        "내 차량과 상대 차량 구분",
-        "신호 상태",
-        "차로 관계",
-        "도로 형태",
-    ]
-    possible_party_type: str | None = None
-    confidence = 0.0
+    if not (accepted or uncertain or supporting or fact_patch):
+        reason = str(frame.get("reason") or meta.get("reason") or "").strip()
+        return {
+            "available": False,
+            "status": "visual_analysis_unavailable",
+            "title": "영상에서 확인된 사고 개요",
+            "summary_text": "",
+            "confirmed_visual_facts": [],
+            "likely_visual_context": [],
+            "needs_user_confirmation": _default_confirmation_questions(fact_patch, uncertain),
+            "diagnostic_reason": reason,
+        }
 
-    if possible_context["possible_car_vs_car"]:
-        possible_party_type = "car_vs_car"
-        confidence = min(0.65, 0.28 + counts["vehicle"] * 0.08 + len(tracks) * 0.04)
-        evidence.append(f"차량 객체 후보 {counts['vehicle']}개가 감지되었습니다.")
-        if tracks:
-            evidence.append(f"추적 가능한 객체 후보 {len(tracks)}개가 여러 프레임에서 관찰되었습니다.")
-    elif possible_context["possible_car_vs_person"]:
-        possible_party_type = "car_vs_person"
-        confidence = min(0.58, 0.24 + counts["person"] * 0.08)
-        evidence.append(f"사람 객체 후보 {counts['person']}개가 감지되었습니다.")
-    elif possible_context["possible_car_vs_motorcycle"]:
-        possible_party_type = "car_vs_motorcycle"
-        confidence = min(0.58, 0.24 + counts["motorcycle"] * 0.08)
-        evidence.append(f"오토바이/이륜차 객체 후보 {counts['motorcycle']}개가 감지되었습니다.")
-    elif possible_context["possible_car_vs_bicycle"]:
-        possible_party_type = "car_vs_bicycle"
-        confidence = min(0.56, 0.24 + counts["bicycle"] * 0.08)
-        evidence.append(f"자전거 객체 후보 {counts['bicycle']}개가 감지되었습니다.")
-    elif counts["traffic_light"]:
-        confidence = 0.18
-        evidence.append("신호등 객체 후보가 감지되었지만 충돌 대상은 확인되지 않았습니다.")
-    elif counts["unknown_object"]:
-        confidence = 0.12
-        evidence.append("알 수 없는 객체 후보가 감지되었습니다.")
-
-    if possible_context["possible_signal_related"]:
-        evidence.append("신호등 후보가 있어 신호 관련 여부를 추가 확인할 수 있습니다.")
-        missing.append("각 차량의 진입 신호와 신호 변경 시점")
-
-    if not evidence:
-        missing.insert(0, "충분한 객체 후보")
+    facts = _best_values(fact_patch, accepted, uncertain)
+    confirmed = _fact_items(facts, accepted, minimum=CONFIRMED_MIN_CONFIDENCE, fields=SUMMARY_FIELDS)
+    likely = _fact_items(facts, [*accepted, *uncertain, *supporting], minimum=LIKELY_MIN_CONFIDENCE, fields=SUMMARY_FIELDS)
+    summary_text = _compose_scene_sentence(facts, confirmed, likely)
 
     return {
-        "possible_party_type": possible_party_type,
-        "confidence": round(confidence, 4),
-        "evidence": evidence,
-        "missing_facts": missing,
-        "collision_frame_candidates": [],
-        "questions_to_ask": [
-            "충돌 순간이 영상에 명확히 보이나요?",
-            "내 차량과 상대 차량은 각각 어느 쪽인가요?",
-            "신호등이나 차선, 횡단보도가 영상에 보이나요?",
-        ],
-        "knia_chart_determinable": False,
-        "reference_only": True,
+        "available": bool(summary_text or confirmed or likely),
+        "status": "visual_summary_ready" if summary_text else "visual_summary_partial",
+        "title": "영상에서 확인된 사고 개요",
+        "summary_text": summary_text,
+        "confirmed_visual_facts": confirmed[:8],
+        "likely_visual_context": [item for item in likely if item not in confirmed][:8],
+        "needs_user_confirmation": _default_confirmation_questions(facts, uncertain),
+        "source": "video_frame_observations",
     }
 
 
-def _readiness_status(counts: Counter[str], tracks: list[dict[str, Any]], candidate: dict[str, Any]) -> str:
-    if candidate.get("confidence", 0) <= 0:
-        return "insufficient_video_only"
-    if counts["vehicle"] or counts["person"] or counts["bicycle"] or counts["motorcycle"]:
-        return "sufficient_for_knia_major_candidate"
-    if tracks:
-        return "sufficient_for_context_candidate"
-    return "insufficient_video_only"
+def _compose_scene_sentence(
+    facts: dict[str, Any],
+    confirmed: list[dict[str, Any]],
+    likely: list[dict[str, Any]],
+) -> str:
+    ego = _value(facts, "ego_vehicle_type")
+    direct = _value(facts, "direct_collision_partner_type") or _value(facts, "primary_collision_target")
+    opposing = _value(facts, "opposing_direction_actor_type")
+    school_zone = facts.get("school_zone") is True or facts.get("road_marking_school_zone_visible") is True
+    speed_limit = _speed_limit_text(facts.get("speed_limit_kmh"))
+    oncoming_bicycle = facts.get("oncoming_bicycle_present") is True or opposing == "bicycle"
+
+    parts: list[str] = []
+    if ego == "motorcycle":
+        parts.append("오토바이 블랙박스 관점")
+    elif ego:
+        parts.append(f"{_label_value(ego)} 블랙박스 관점")
+    else:
+        parts.append("블랙박스 영상")
+
+    road_context: list[str] = []
+    if school_zone:
+        road_context.append("어린이보호구역")
+    if speed_limit:
+        road_context.append(speed_limit)
+    if road_context:
+        parts.append(f"{'·'.join(road_context)} 도로에서")
+    else:
+        parts.append("주행 중")
+
+    if oncoming_bicycle and direct == "bicycle":
+        parts.append("맞은편 방향의 자전거가 진행 경로에 들어와 직접 충돌한 장면으로 보입니다.")
+    elif direct == "bicycle":
+        parts.append("자전거와 직접 충돌한 장면으로 보입니다.")
+    elif direct:
+        parts.append(f"{_label_value(direct)}와 접촉한 장면으로 보입니다.")
+    elif oncoming_bicycle:
+        parts.append("맞은편 방향의 자전거가 충돌 경로에 들어온 장면이 확인됩니다.")
+    elif confirmed or likely:
+        labels = [str(item.get("label") or "") for item in [*confirmed, *likely] if item.get("label")]
+        parts.append(f"{', '.join(labels[:3])} 단서가 영상에서 확인됩니다.")
+    else:
+        return ""
+
+    return " ".join(part for part in parts if part).strip()
 
 
-def _readiness_reason(status: str, candidate: dict[str, Any]) -> str:
-    if status == "insufficient_video_only":
-        return "객체 후보가 부족하여 영상만으로 사고상황 후보를 만들기 어렵습니다."
-    if status == "sufficient_for_knia_major_candidate":
-        return "객체 후보로 KNIA 대분류 후보는 볼 수 있지만, chart_no와 과실비율 산정에는 충돌 시점과 역할 정보가 부족합니다."
-    return "일부 객체 흐름은 보이지만 KNIA 기준과 과실비율 산정에는 추가 정보가 필요합니다."
+def _default_confirmation_questions(facts: dict[str, Any], uncertain: list[dict[str, Any]]) -> list[dict[str, str]]:
+    fields = {str(item.get("field") or "") for item in uncertain if isinstance(item, dict)}
+    questions: list[dict[str, str]] = []
+
+    if facts.get("child_candidate") is True or "child_candidate" in fields:
+        questions.append({"field": "victim_is_child", "label": "피해자가 어린이였는지 확인"})
+    if facts.get("speed_limit_kmh") or facts.get("school_zone") is True:
+        questions.append({"field": "actual_speed_kmh", "label": "실제 주행속도 확인"})
+    if facts.get("oncoming_bicycle_present") is True or facts.get("opposing_direction_actor_type") == "bicycle":
+        questions.append({"field": "centerline_crossed", "label": "중앙선 침범 또는 진행 방향 확인"})
+    if "opponent_signal_violation" in fields or not facts.get("opponent_signal_violation"):
+        questions.append({"field": "opponent_signal_violation", "label": "상대방 신호위반 여부 확인"})
+    if not facts.get("direct_collision_partner_type"):
+        questions.append({"field": "direct_collision_partner_type", "label": "직접 충돌한 대상 확인"})
+
+    if not questions:
+        questions.append({"field": "scene_context", "label": "충돌 직전 위치와 진행 방향 확인"})
+    return _dedupe_by_field(questions)[:5]
 
 
-def _center(raw_bbox: Any) -> tuple[float, float]:
-    if not isinstance(raw_bbox, list | tuple) or len(raw_bbox) < 4:
-        return (0.0, 0.0)
-    left, top, right, bottom = [_num(value) for value in raw_bbox[:4]]
-    return ((left + right) / 2, (top + bottom) / 2)
+def _best_values(
+    fact_patch: dict[str, Any],
+    accepted: list[dict[str, Any]],
+    uncertain: list[dict[str, Any]],
+) -> dict[str, Any]:
+    facts = dict(fact_patch)
+    for item in [*accepted, *uncertain]:
+        field = str(item.get("field") or "")
+        if not field or field in facts:
+            continue
+        if _confidence(item) >= LIKELY_MIN_CONFIDENCE:
+            facts[field] = item.get("value")
+    return facts
 
 
-def _num(value: Any) -> float:
-    try:
-        parsed = float(value)
-    except Exception:
-        return 0.0
-    if not math.isfinite(parsed):
-        return 0.0
-    return parsed
+def _fact_items(
+    facts: dict[str, Any],
+    observations: list[dict[str, Any]],
+    *,
+    minimum: float,
+    fields: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for field in fields:
+        value = facts.get(field)
+        if value in {None, "", "unknown", False}:
+            continue
+        confidence = _best_confidence(field, observations)
+        if confidence < minimum and field not in facts:
+            continue
+        out.append({
+            "field": field,
+            "label": FIELD_LABELS.get(field, field.replace("_", " ")),
+            "value": _label_value(value),
+            "confidence": round(confidence or minimum, 2),
+        })
+    return out
 
 
-def _dict(value: Any) -> dict[str, Any]:
-    return value if isinstance(value, dict) else {}
-
-
-def _find_forbidden_fields(value: Any, path: str = "$") -> list[str]:
-    if isinstance(value, list):
-        found: list[str] = []
-        for index, item in enumerate(value):
-            found.extend(_find_forbidden_fields(item, f"{path}[{index}]"))
-        return found
-    if not isinstance(value, dict):
+def _observations(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
         return []
-    found = []
-    for key, nested in value.items():
-        next_path = f"{path}.{key}"
-        if key in JUDGMENT_FIELDS:
-            found.append(next_path)
-        found.extend(_find_forbidden_fields(nested, next_path))
-    return found
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _best_confidence(field: str, observations: list[dict[str, Any]]) -> float:
+    values = [_confidence(item) for item in observations if item.get("field") == field]
+    return max(values) if values else CONFIRMED_MIN_CONFIDENCE
+
+
+def _confidence(item: dict[str, Any]) -> float:
+    try:
+        return float(item.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _value(facts: dict[str, Any], field: str) -> str:
+    return str(facts.get(field) or "").strip().lower()
+
+
+def _label_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return VALUE_LABELS[str(value).lower()]
+    text = str(value).strip()
+    normalized = text.lower()
+    if normalized.endswith("_candidate"):
+        normalized = normalized[: -len("_candidate")]
+    return VALUE_LABELS.get(normalized, text)
+
+
+def _speed_limit_text(value: Any) -> str:
+    try:
+        speed = int(float(str(value).replace("km/h", "").strip()))
+    except (TypeError, ValueError):
+        return ""
+    if speed <= 0:
+        return ""
+    return f"{speed}km/h 제한구역"
+
+
+def _dedupe_by_field(items: list[dict[str, str]]) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in items:
+        field = item.get("field") or item.get("label") or ""
+        if not field or field in seen:
+            continue
+        seen.add(field)
+        out.append(item)
+    return out

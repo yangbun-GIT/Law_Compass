@@ -163,6 +163,16 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         tags.update(["non_contact_trigger", "safe_distance", "rear_end", "bicycle"])
     elif (
             fixed_party_type in {"unknown", "car_vs_bicycle"}
+            and str(facts.get("ego_vehicle_type") or "").strip().lower() in {"motorcycle", "two_wheeler", "motorbike", "scooter", "moped"}
+            and str(facts.get("direct_collision_partner_type") or facts.get("collision_partner_type") or facts.get("primary_collision_target") or "").strip().lower() == "bicycle"
+    ):
+        scenario_type = "motorcycle_bicycle_collision"
+        accident_party_type = "car_vs_bicycle"
+        tags.update(["motorcycle", "two_wheeler", "bicycle", "vulnerable_road_user", "fault_ratio"])
+        if facts.get("school_zone") or facts.get("speed_limit_kmh") == 30:
+            tags.update(["school_zone", "speed_limit"])
+    elif (
+            fixed_party_type in {"unknown", "car_vs_bicycle"}
             and (collision_partner_type == "bicycle" or accident_type == "bicycle_collision" or ("자전거" in haystack and facts.get("non_contact_trigger") is not True))
     ):
         scenario_type = "bicycle_collision"
@@ -255,6 +265,16 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         tags.add("unlit_stopped_vehicle")
     if facts.get("highway_or_expressway"):
         tags.add("highway")
+    if facts.get("ego_vehicle_type") == "motorcycle":
+        tags.add("motorcycle")
+        tags.add("two_wheeler")
+    if facts.get("oncoming_bicycle_present") or facts.get("opposing_direction_actor_type") == "bicycle":
+        tags.add("bicycle")
+        tags.add("oncoming")
+    if facts.get("vulnerable_road_user") or facts.get("child_candidate"):
+        tags.add("vulnerable_road_user")
+    if facts.get("school_zone") or facts.get("speed_limit_kmh") == 30:
+        tags.add("school_zone")
     if facts.get("road_obstruction") or facts.get("illegal_parking_obstruction"):
         tags.add("road_obstruction")
     if facts.get("opposing_vehicle_present"):
@@ -498,7 +518,7 @@ def _coerce_scenario_to_party(scenario_type: str, party_type: str, facts: dict[s
             "pedestrian_construction_zone_accident",
             "school_zone_child_accident",
         },
-        "car_vs_bicycle": {"general_collision", "bicycle_collision"},
+        "car_vs_bicycle": {"general_collision", "bicycle_collision", "motorcycle_bicycle_collision"},
         "car_vs_motorcycle": {"general_collision", "motorcycle_collision"},
         "car_vs_object": {"general_collision", "object_collision"},
         "single_vehicle": {"general_collision", "single_vehicle_accident"},
@@ -522,7 +542,10 @@ def _coerce_scenario_to_party(scenario_type: str, party_type: str, facts: dict[s
     if party_type == "car_vs_person":
         return _person_scenario_from_context(str(facts.get("accident_type") or scenario_type), facts, haystack) or "pedestrian_crosswalk_accident"
     return {
-        "car_vs_bicycle": "bicycle_collision",
+        "car_vs_bicycle": "motorcycle_bicycle_collision"
+        if str(facts.get("ego_vehicle_type") or "").strip().lower() in {"motorcycle", "two_wheeler", "motorbike", "scooter", "moped"}
+        and str(facts.get("direct_collision_partner_type") or facts.get("collision_partner_type") or facts.get("primary_collision_target") or "").strip().lower() == "bicycle"
+        else "bicycle_collision",
         "car_vs_motorcycle": "motorcycle_collision",
         "car_vs_object": "object_collision",
         "single_vehicle": "single_vehicle_accident",

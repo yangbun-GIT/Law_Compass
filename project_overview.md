@@ -5,8 +5,8 @@
 ## 0. 생성 정보
 
 - Root: `C:\Users\shy\IdeaProjects\Law_Compass`
-- Generated at: `2026-05-30T15:16:44`
-- Included files: `508`
+- Generated at: `2026-05-31T09:03:16`
+- Included files: `523`
 - Max file size: `1,000,000` bytes
 - Max chars per file: `80,000` chars
 - Max total chars: `3,000,000` chars
@@ -22,6 +22,7 @@ Law_Compass/
     - docs/
     - hotfix_readme/
     - infra/
+    - presentation/
     - sample_data/
     - scripts/
     - tests/
@@ -98,7 +99,9 @@ Law_Compass/
                     - evidence_source_status.py
                     - expert_guidance_sections.py
                     - fact_arbitration.py
+                    - fact_source_weights.py
                     - fallback.py
+                    - initial_intake.py
                     - input_normalizer.py
                     - input_requirements.py
                     - judgment_contract.py
@@ -179,6 +182,7 @@ Law_Compass/
                 - test_evidence_source_status.py
                 - test_expert_guidance_sections.py
                 - test_fact_arbitration.py
+                - test_initial_intake_flow.py
                 - test_input_filter_knia_major_party.py
                 - test_input_requirements.py
                 - test_judgment_contract.py
@@ -189,7 +193,9 @@ Law_Compass/
                 - test_knia_fault_adjuster_structured_chart.py
                 - test_knia_json_import_backward_compatibility.py
                 - test_knia_json_import_charts.py
+                - test_knia_json_rag_cache.py
                 - test_knia_matcher_no_cross_party_leak.py
+                - test_knia_matcher_party_prefix.py
                 - test_knia_matcher_scoring.py
                 - test_knia_matcher_uses_structured_charts.py
                 - test_knia_party_guard_all_parties.py
@@ -197,8 +203,10 @@ Law_Compass/
                 - test_knia_report_integration.py
                 - test_knia_road_worker_matching.py
                 - test_knia_strict_party_matching.py
+                - test_knia_taxonomy_bicycle_prefix.py
                 - test_knia_tree_matching.py
                 - test_knia_user_perspective_mapping.py
+                - test_legal_rag_public_api_cache.py
                 - test_llm_policy.py
                 - test_orchestration_evidence_filter.py
                 - test_orchestrator.py
@@ -316,6 +324,7 @@ Law_Compass/
                     - report-knia-links.ts
                     - request-guards.ts
                     - security.ts
+                    - video-preprocess-diagnostics.ts
                     - agent-diagnostics.ts
                     - analysis.ts
                     - auth.ts
@@ -335,6 +344,7 @@ Law_Compass/
                 - error-format.test.ts
                 - followup-normalizer.test.ts
                 - knia-link-card-composer.test.ts
+                - knia-ranking-routes.test.ts
                 - mobile-demo.test.ts
                 - report-composer.test.ts
                 - report-knia-adjustment-cards.test.ts
@@ -380,6 +390,7 @@ Law_Compass/
         - AIHUB_597_LABEL_FILEKEYS.md
         - AIHUB_597_SOURCE_VIDEO_FILEKEYS.md
         - BUILD_AND_RUN_GUIDE.md
+        - DEADLINE_WORK_PLAN_2026-05-30.md
         - GITHUB_COLLABORATION_WORKFLOW.md
         - HANDOFF_CHANGE_SUMMARY_2026-05-25.md
         - MOBILE_APP_MODEL_SELECTION.md
@@ -391,6 +402,7 @@ Law_Compass/
         - STACK_DECISION_REVIEW.md
         - VIDEO_AGENT_WORK_PLAN.md
         - VIDEO_CONTAMINATION_RISK_MATRIX.md
+        - VIDEO_FIRST_INTAKE_FLOW.md
         - VIDEO_MODEL_OPTIONS.md
         - VIDEO_REFERENCE_DATA_POLICY.md
         - VIDEO_REFERENCE_METRICS.md
@@ -419,6 +431,10 @@ Law_Compass/
                 - 014_storage_adapter_metadata.sql
                 - 015_uploads_storage_adapter_compat.sql
                 - 016_knia_structured_2023_json.sql
+        - lawcompass_presentation.html
+        - run_log.md
+        - test_result_raw_sanitized.json
+        - test_result_summary.md
         - sample_accident.json
         - knia_fault_ratio/
         - aihub597_labels_to_manifest.py
@@ -530,6 +546,7 @@ Law_Compass/
 - `apps/gateway/src/lib/report-knia-links.ts`
 - `apps/gateway/src/lib/request-guards.ts`
 - `apps/gateway/src/lib/security.ts`
+- `apps/gateway/src/lib/video-preprocess-diagnostics.ts`
 - `apps/gateway/src/main.ts`
 - `apps/gateway/src/routes/agent-diagnostics.ts`
 - `apps/gateway/src/routes/analysis.ts`
@@ -550,6 +567,7 @@ Law_Compass/
 - `apps/gateway/test/analysis-routes.test.ts`
 - `apps/gateway/test/error-format.test.ts`
 - `apps/gateway/test/followup-normalizer.test.ts`
+- `apps/gateway/test/knia-ranking-routes.test.ts`
 - `apps/gateway/test/mobile-demo.test.ts`
 - `apps/gateway/test/report-knia-adjustment-cards.test.ts`
 - `apps/gateway/test/storage-adapter.test.ts`
@@ -708,6 +726,7 @@ Law_Compass/
 - `docs/AIHUB_597_LABEL_FILEKEYS.md`
 - `docs/AIHUB_597_SOURCE_VIDEO_FILEKEYS.md`
 - `docs/BUILD_AND_RUN_GUIDE.md`
+- `docs/DEADLINE_WORK_PLAN_2026-05-30.md`
 - `docs/GITHUB_COLLABORATION_WORKFLOW.md`
 - `docs/HANDOFF_CHANGE_SUMMARY_2026-05-25.md`
 - `docs/MOBILE_APP_MODEL_SELECTION.md`
@@ -719,6 +738,7 @@ Law_Compass/
 - `docs/STACK_DECISION_REVIEW.md`
 - `docs/VIDEO_AGENT_WORK_PLAN.md`
 - `docs/VIDEO_CONTAMINATION_RISK_MATRIX.md`
+- `docs/VIDEO_FIRST_INTAKE_FLOW.md`
 - `docs/VIDEO_MODEL_OPTIONS.md`
 - `docs/VIDEO_REFERENCE_DATA_POLICY.md`
 - `docs/VIDEO_REFERENCE_METRICS.md`
@@ -727,6 +747,8 @@ Law_Compass/
 - `hotfix_readme/README_APPLY.md`
 - `hotfix_readme/README_HOTFIX_V5.md`
 - `hotfix_readme/README_HOTFIX_V6.md`
+- `presentation/run_log.md`
+- `presentation/test_result_summary.md`
 - `tests/fixtures/video_accuracy/reference_hardening_minimal/README.md`
 
 ### 테스트
@@ -763,6 +785,7 @@ Law_Compass/
 - `apps/agent/tests/test_evidence_source_status.py`
 - `apps/agent/tests/test_expert_guidance_sections.py`
 - `apps/agent/tests/test_fact_arbitration.py`
+- `apps/agent/tests/test_initial_intake_flow.py`
 - `apps/agent/tests/test_input_filter_knia_major_party.py`
 - `apps/agent/tests/test_judgment_contract.py`
 - `apps/agent/tests/test_knia_adjustment_agent.py`
@@ -772,15 +795,19 @@ Law_Compass/
 - `apps/agent/tests/test_knia_fault_adjuster_structured_chart.py`
 - `apps/agent/tests/test_knia_json_import_backward_compatibility.py`
 - `apps/agent/tests/test_knia_json_import_charts.py`
+- `apps/agent/tests/test_knia_json_rag_cache.py`
 - `apps/agent/tests/test_knia_matcher_no_cross_party_leak.py`
+- `apps/agent/tests/test_knia_matcher_party_prefix.py`
 - `apps/agent/tests/test_knia_matcher_scoring.py`
 - `apps/agent/tests/test_knia_matcher_uses_structured_charts.py`
 - `apps/agent/tests/test_knia_party_guard_all_parties.py`
 - `apps/agent/tests/test_knia_rag_party_guard.py`
 - `apps/agent/tests/test_knia_report_integration.py`
 - `apps/agent/tests/test_knia_strict_party_matching.py`
+- `apps/agent/tests/test_knia_taxonomy_bicycle_prefix.py`
 - `apps/agent/tests/test_knia_tree_matching.py`
 - `apps/agent/tests/test_knia_user_perspective_mapping.py`
+- `apps/agent/tests/test_legal_rag_public_api_cache.py`
 - `apps/agent/tests/test_llm_policy.py`
 - `apps/agent/tests/test_orchestration_evidence_filter.py`
 - `apps/agent/tests/test_orchestrator.py`
@@ -794,6 +821,7 @@ Law_Compass/
 - `apps/agent/tests/test_video_input_contract_guards.py`
 - `apps/agent/tests/test_video_observation_summarizer.py`
 - `apps/agent/tests/test_video_scenario_classification.py`
+- `presentation/test_result_raw_sanitized.json`
 - `tests/conftest.py`
 - `tests/fixtures/video_accuracy/contamination_risk_matrix.json`
 - `tests/fixtures/video_accuracy/reference_case_manifest.example.json`
@@ -805,12 +833,6 @@ Law_Compass/
 - `tests/fixtures/video_accuracy/reference_metrics_batch_aggregate.json`
 - `tests/fixtures/video_accuracy/reference_metrics_manifest.json`
 - `tests/test_car_vs_car_adjustment_registry.py`
-- `tests/test_car_vs_car_knia_filtering.py`
-- `tests/test_input_filter_knia_major_party.py`
-- `tests/test_knia_adjustment_agent.py`
-- `tests/test_knia_matcher_scoring.py`
-- `tests/test_knia_party_guard.py`
-- `tests/test_party_agent_router.py`
 
 ## 3. Docker Compose 서비스 추정
 
@@ -984,6 +1006,7 @@ Law_Compass/
 | Method | Path | File |
 |---|---|---|
 | `GET` | `${opts.apiPrefix}/admin/cases/:caseId/agent-trace` | `apps/gateway/src/routes/agent-diagnostics.ts` |
+| `GET` | `${opts.apiPrefix}/admin/uploads/:uploadId/video-preprocess` | `apps/gateway/src/routes/agent-diagnostics.ts` |
 | `POST` | `${opts.apiPrefix}/cases/:caseId/analyze-text` | `apps/gateway/src/routes/analysis.ts` |
 | `POST` | `${opts.apiPrefix}/cases/:caseId/analyze-video` | `apps/gateway/src/routes/analysis.ts` |
 | `GET` | `${opts.apiPrefix}/cases/:caseId/jobs` | `apps/gateway/src/routes/analysis.ts` |
@@ -1510,7 +1533,7 @@ Resolved-conflict checks with `batch_aggregate_conflict_resolved.json`:
 
 ### File: `apps/agent/app/services/report_composer.py`
 
-- size: `8,078` bytes
+- size: `11,625` bytes
 
 ```python
 ﻿from __future__ import annotations
@@ -1563,7 +1586,24 @@ def compose_analysis_output(
     input_requirements = input_requirements or {}
     followup_loop = followup_loop or {}
     analysis_mode = normalize_analysis_mode(normalized_input.get("analysis_mode"))
+    guided_questions = (input_requirements.get("guided_questionnaire") or {}).get("questions") or []
+    uncertain_facts = _build_uncertain_facts(input_requirements, normalized_input)
+    followup_required = bool(uncertain_facts or guided_questions or input_requirements.get("blocking_fields"))
     technical = {
+        "analysis_status": "provisional" if followup_required else "final_or_review_required",
+        "followup_required": followup_required,
+        "confidence": _build_confidence_block(uncertainty_level, scenario, fault_ratio, knia_primary_match),
+        "initial_intake_summary": normalized_input.get("initial_intake_summary") or {},
+        "uncertain_facts": uncertain_facts,
+        "followup_questions_structured": guided_questions,
+        "provisional_result": {
+            "scenario_type": scenario.get("scenario_type"),
+            "fault_ratio": {
+                "my": fault_ratio.get("my"),
+                "other": fault_ratio.get("other"),
+            },
+            "knia_chart_no": (knia_primary_match or {}).get("chart_no") or (knia_primary_match or {}).get("aggregate_chart_no"),
+        },
         "analysis_mode": analysis_mode,
         "display_mode": analysis_mode,
         "accident_title": accident_title,
@@ -1582,6 +1622,8 @@ def compose_analysis_output(
             "_video_input_contract": normalized_input.get("video_input_contract") or {},
             "_fact_arbitration": normalized_input.get("fact_arbitration") or {},
             "_fact_sources": (normalized_input.get("fact_arbitration") or {}).get("fact_sources") or {},
+            "_fact_source_weights": normalized_input.get("fact_source_weights") or {},
+            "_initial_intake": normalized_input.get("initial_intake") or {},
             "missing_fields": normalized_input["missing_fields"],
             "required_input_fields": input_requirements.get("blocking_fields") or [],
             "optional_input_fields": input_requirements.get("optional_fields") or [],
@@ -1600,12 +1642,17 @@ def compose_analysis_output(
         "evidence_audit": evidence_audit,
         "uncertainty": {"level": uncertainty_level, "reason": "근거 문서와 입력 사실의 충분성에 따라 추정 신뢰도가 달라질 수 있습니다.", "confidence": {"low": 0.78, "medium": 0.55, "high": 0.35}.get(uncertainty_level, 0.5)},
         "disclaimers": ["본 결과는 법률/보험 자문이 아닌 AI 기반 참고 정보입니다.", "최종 과실비율, 보상금액, 형사책임은 수사기관, 보험사, 법원의 판단에 따릅니다.", "개인정보와 원본 영상은 필요한 범위에서만 보관하고, 민감정보 입력은 최소화해 주세요."],
-        "followup_questions": evidence_audit.get("followup_questions", []),
+        "followup_questions": evidence_audit.get("followup_questions", []) or [
+            str(item.get("plain_question") or item.get("question"))
+            for item in guided_questions
+            if isinstance(item, dict) and (item.get("plain_question") or item.get("question"))
+        ],
         "input_requirements": input_requirements,
         "guided_questionnaire": input_requirements.get("guided_questionnaire") or {},
         "followup_loop": followup_loop,
         "video_input_contract": normalized_input.get("video_input_contract") or {},
         "fact_arbitration": normalized_input.get("fact_arbitration") or {},
+        "fact_source_weights": normalized_input.get("fact_source_weights") or {},
         "required_input_questions": input_requirements.get("questions") or [],
         "recommended_keywords": recommended_keywords,
         "recommended_specialists": recommended_specialists,
@@ -1632,6 +1679,54 @@ def compose_analysis_output(
     }
     technical["elderly_friendly_report"] = build_elderly_friendly_report(technical)
     return technical
+
+
+def _build_uncertain_facts(input_requirements: dict[str, Any], normalized_input: dict[str, Any]) -> list[dict[str, Any]]:
+    questions = input_requirements.get("questions") or []
+    arbitration = normalized_input.get("fact_arbitration") or {}
+    conflict_fields = {
+        str(item.get("field"))
+        for item in (arbitration.get("requires_confirmation") or [])
+        if isinstance(item, dict) and item.get("field")
+    }
+    out: list[dict[str, Any]] = []
+    for question in questions[:6]:
+        if not isinstance(question, dict):
+            continue
+        field = str(question.get("field") or question.get("fact_key") or "").strip()
+        if not field:
+            continue
+        confidence = 0.35 if field in conflict_fields else 0.55
+        out.append({
+            "field": field,
+            "label": question.get("label") or field.replace("_", " "),
+            "reason": question.get("reason") or "과실비율 판단에 영향을 줄 수 있어 추가 확인이 필요합니다.",
+            "impact": "fault_adjustment" if question.get("blocks_decision") else "context",
+            "confidence": confidence,
+        })
+    return out
+
+
+def _build_confidence_block(
+    uncertainty_level: str,
+    scenario: dict[str, Any],
+    fault_ratio: dict[str, Any],
+    knia_primary_match: dict[str, Any] | None,
+) -> dict[str, Any]:
+    base = {"low": 0.42, "medium": 0.62, "high": 0.82}.get(str(uncertainty_level), 0.58)
+    return {
+        "overall": uncertainty_level,
+        "scenario_type": _as_confidence(scenario.get("confidence"), base),
+        "fault_ratio": _as_confidence(fault_ratio.get("confidence"), base),
+        "knia_match": _as_confidence((knia_primary_match or {}).get("confidence") or (knia_primary_match or {}).get("score"), base),
+    }
+
+
+def _as_confidence(value: Any, fallback: float) -> float:
+    try:
+        return round(max(0.0, min(1.0, float(value))), 2)
+    except (TypeError, ValueError):
+        return round(fallback, 2)
 
 
 def _fallback_summary(normalized_input: dict[str, Any], scenario: dict[str, Any], legal_analysis: dict[str, Any]) -> str:
@@ -1683,7 +1778,7 @@ def build_disclaimers() -> list[str]:
 
 ### File: `apps/gateway/src/lib/report-composer-common.ts`
 
-- size: `7,134` bytes
+- size: `10,480` bytes
 
 ```typescript
 export type AnyRecord = Record<string, any>;
@@ -1726,6 +1821,81 @@ export const BAD_VALUE_PATTERNS = [
   /,\s*=0/g,
 ];
 
+export const HIDDEN_USER_COPY_PATTERNS = [
+  /영상 파일은 LawCompass 서버에 저장하지 않고.*?(?:제공합니다\.?|$)/g,
+  /과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다\.?/g,
+  /참고용 분석입니다\.?/g,
+  /조건부 결과는 특정 테스트 영상에 맞춘 답이 아니라[\s\S]*?판단 구조입니다\.?/g,
+  /이 내용은 유사 근거와 입력 사실을 바탕으로 한 참고용 예상입니다\.[\s\S]*?달라질 수 있습니다\.?/g,
+  /실제 결과는 보험사, 분쟁심의, 수사기관, 법원의 판단에 따라 달라질 수 있습니다\.?/g,
+  /더 확인하면 좋은 사실/g,
+  /차량 파손 정도는 어느 정도인가요\??/g,
+  /인명피해 여부/g,
+  /신호 상태/g,
+  /사고 장소/g,
+  /상대방 행위/g,
+];
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function removeRawJsonFragments(value: string) {
+  return value
+    .replace(/\{["']?[A-Za-z_가-힣][^{}]{0,180}(?=$|\s)/g, " ")
+    .replace(/"\s*:\s*("[^"]*"|\d+|true|false|null)?/g, " ")
+    .trim();
+}
+
+export function collapseRepeatedPhrases(value: string) {
+  const phrases = ["정차 중 후미추돌 사고", "후미추돌 사고", "차대차 사고", "블랙박스 과실비율"];
+  let output = value.replace(/\s+/g, " ").trim();
+  for (const phrase of phrases) {
+    output = output.replace(new RegExp(`(?:${escapeRegExp(phrase)}\\s*){2,}`, "g"), `${phrase} `);
+  }
+  return output.replace(/\s{2,}/g, " ").trim();
+}
+
+export function cleanUserFacingCopy(value: any) {
+  let text = String(value ?? "");
+  for (const pattern of HIDDEN_USER_COPY_PATTERNS) text = text.replace(pattern, " ");
+  return collapseRepeatedPhrases(removeRawJsonFragments(text))
+    .replace(/\s+([,.])/g, "$1")
+    .replace(/^[\s,.;:·|-]+|[\s,.;:·|-]+$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+export function resolveAccidentPartyLabel(input: {
+  accident_party_label?: any;
+  accident_party_type?: any;
+  chart_no?: any;
+}) {
+  const existing = cleanText(input.accident_party_label, "");
+  if (existing && existing !== "확인이 필요합니다." && existing !== "확인이 필요합니다") return existing;
+  const type = String(input.accident_party_type || "").trim();
+  const byType: AnyRecord = {
+    car_vs_car: "차대차 사고",
+    vehicle_vs_vehicle: "차대차 사고",
+    car_vs_person: "차대보행자 사고",
+    pedestrian_crosswalk_accident: "차대보행자 사고",
+    car_vs_bicycle: "차대자전거 사고",
+    bicycle_collision: "차대자전거 사고",
+    single_vehicle: "단독 사고",
+    single_vehicle_accident: "단독 사고",
+    object_collision: "물체/시설물 사고",
+    car_vs_object: "물체/시설물 사고",
+  };
+  if (byType[type]) return byType[type];
+  const chartNo = cleanText(input.chart_no, "");
+  if (chartNo.startsWith("차")) return "차대차 사고";
+  if (chartNo.startsWith("보")) return "차대보행자 사고";
+  if (chartNo.startsWith("자") || chartNo.startsWith("거")) return "차대자전거 사고";
+  if (chartNo.startsWith("단")) return "단독 사고";
+  if (chartNo.startsWith("기") || chartNo.startsWith("물")) return "물체/시설물 사고";
+  return "확인이 필요합니다.";
+}
+
 export const SAFE_INPUT_FIELDS = new Set(["accident_party_type", "accident_type", "signal_state", "injury", "opponent_behavior", "damage_level", "stopped", "sudden_brake", "school_zone", "victim_is_child", "crosswalk_nearby", "pedestrian_visible", "lane_change_actor", "turn_signal", "user_signal", "opponent_signal", "opponent_signal_visible", "signal_transition", "pedestrian_signal", "bicycle_location", "bicycle_direction", "centerline_crossed", "centerline_cross_reason", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "non_contact_trigger", "trigger_actor_type", "trigger_actor_behavior", "direct_collision_partner_type", "rear_vehicle_collision", "collision_partner_type", "primary_collision_target", "collision_point_visible", "collision_point_location", "front_vehicle_stopped", "ego_turn_direction", "intersection", "stopped_vehicle_without_lights", "highway_or_expressway"]);
 
 export function asArray(value: any): any[] {
@@ -1760,6 +1930,7 @@ export function cleanText(value: any, fallback = "확인이 필요합니다.") {
   if (mapped) return mapped;
   let text = raw;
   for (const pattern of BAD_VALUE_PATTERNS) text = text.replace(pattern, "");
+  text = cleanUserFacingCopy(text);
   text = text
     .replace(/^\s*[,.]\s*/g, "")
     .replace(/\s*,\s*,\s*/g, ", ")
@@ -1819,7 +1990,7 @@ export function hasAny(text: string, terms: string[]) {
 
 ### File: `apps/gateway/src/lib/report-composer.ts`
 
-- size: `130,302` bytes
+- size: `131,321` bytes
 
 ```typescript
 import {
@@ -1828,9 +1999,11 @@ import {
   TECHNICAL_KEYS,
   asArray,
   cleanText,
+  cleanUserFacingCopy,
   compactDisplayItems,
   hasAny,
   isPlainObject,
+  resolveAccidentPartyLabel,
   safeHttpUrl,
   safeKniaUrl,
   scenarioLabel,
@@ -1866,7 +2039,7 @@ function requiredQuestionsForReport(result: AnyRecord = {}) {
       if (!item || typeof item !== "object") return undefined;
       const field = String(item.field ?? "");
       if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
-      const question = cleanText(item.question ?? item.label);
+      const question = replaceRawFieldTokens(item.question ?? item.label, { preserveUserCopy: true });
       if (!question) return undefined;
       return {
         field,
@@ -2793,7 +2966,7 @@ function prioritizeMissingInfo(report: AnyRecord = {}) {
     .map(({ priority_order: _priorityOrder, ...item }) => item);
   if (!questions.length) return report;
   const questionTexts = questions.map((item: AnyRecord) => item.question);
-  const items = compactDisplayItems(asArray(missing.items), questionTexts, 8);
+  const items = compactDisplayItems(asArray(missing.items), questionTexts, 8).map(ensureSentencePeriod);
   const priorityItems = questions.slice(0, 3).map((item: AnyRecord) => ({
     label: item.label,
     question: replaceRawFieldTokens(item.question),
@@ -2821,7 +2994,7 @@ function annotateMissingInfoQuestion(value: any, index = 0, contextText = "") {
   const field = String(value.field ?? "");
   if (!SAFE_INPUT_FIELDS.has(field)) return undefined;
   const label = safeInputQuestionLabel(field, value.label);
-  const question = replaceRawFieldTokens(cleanText(value.question ?? label, ""));
+  const question = replaceRawFieldTokens(value.question ?? label, { preserveUserCopy: true });
   if (!question) return undefined;
   const priority = missingInfoQuestionPriority(field, contextText);
   return {
@@ -3017,8 +3190,24 @@ function safeInputQuestionLabel(field: string, fallback: any = "") {
   return label && !containsBadValuePattern(label) ? label : "확인할 정보";
 }
 
-function replaceRawFieldTokens(value: any) {
-  let text = cleanText(value, "");
+function cleanQuestionText(value: any) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "boolean") return value ? "예" : "아니오";
+  const raw = String(value).trim();
+  if (!raw || raw === "unknown" || raw === "모름" || raw === "null") return "";
+  if ((raw.startsWith("{") && raw.endsWith("}")) || (raw.startsWith("[") && raw.endsWith("]"))) return "";
+  let text = raw;
+  for (const pattern of BAD_VALUE_PATTERNS) text = text.replace(pattern, "");
+  return text
+    .replace(/^\s*[,.]\s*/g, "")
+    .replace(/\s*,\s*,\s*/g, ", ")
+    .replace(/\s+\./g, ".")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function replaceRawFieldTokens(value: any, options: { preserveUserCopy?: boolean } = {}) {
+  let text = options.preserveUserCopy ? cleanQuestionText(value) : cleanText(value, "");
   if (!text) return text;
   for (const field of SAFE_INPUT_FIELDS) {
     const label = videoFactLabel(field);
@@ -3026,6 +3215,13 @@ function replaceRawFieldTokens(value: any) {
     text = text.split(field).join(label);
   }
   return text;
+}
+
+function ensureSentencePeriod(value: any) {
+  const text = String(value ?? "").trim();
+  if (!text) return text;
+  if (/[.!?。！？]$/.test(text)) return text;
+  return `${text}.`;
 }
 
 function containsBadValuePattern(value: string) {
@@ -3532,7 +3728,7 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
             range: faultRatio.fault_range ?? faultRatio.range ?? null,
             basis: cleanText(
                 faultRatio.basis || faultRatio.summary || faultRatio.simple_summary || "",
-                "입력한 사고 사실과 KNIA 기준을 함께 검토한 참고용 산정입니다.",
+                "입력한 사고 사실과 KNIA 기준을 함께 검토했습니다.",
             ),
             key_factors: keyFactors,
             reference_only:
@@ -3544,7 +3740,6 @@ function composeSimpleReport(report: AnyRecord = {}, result: AnyRecord = {}): An
         knia_and_video: {
             primary: knia,
             candidates: kniaCandidates.slice(0, 3),
-            source_notice: "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.",
         },
         video_summary: videoSummary,
     };
@@ -3637,7 +3832,7 @@ function rawSituationText(value: any): string {
     const raw = String(value).replace(/\u0000/g, "").trim();
     if (!raw || raw === "unknown" || raw === "null") return "";
     if ((raw.startsWith("{") && raw.endsWith("}")) || (raw.startsWith("[") && raw.endsWith("]"))) return "";
-    return raw
+    return cleanUserFacingCopy(raw)
         .replace(/(?:^|,\s*)=\d+(?:\s*,\s*=\d+)+(?:\.)?/g, " ")
         .replace(/(?:^|[\s,])=\d+(?=$|[\s,.;])/g, " ")
         .replace(/\s+\./g, ".")
@@ -3655,38 +3850,15 @@ function collectSimpleKniaCandidates(report: AnyRecord = {}, result: AnyRecord =
         result.normalized?.structured_facts?.knia_major_party_type,
     );
     const rawCandidates = [
-        report.related_knia_video_card,
-        report.related_video,
-        report.simple_report?.knia_and_video?.primary,
-        report.simple_report?.knia_video_evidence,
-        report.knia_match_summary,
-        result.knia_match_summary,
-        result.knia_primary_match,
-        result.knia_reference,
-        asArray(report.knia_basis_cards)[0],
-        asArray(result.knia_basis_cards)[0],
-        asArray(result.knia_matches)[0],
-        report.related_fault_standard,
-        result.related_fault_standard,
-        asArray(result.elderly_friendly_report?.knia_basis_cards)[0],
-        result.fault_ratio?.knia_match,
-        result.fault_ratio?.knia_reference_fault?.source_chart,
-        result.fault_ratio?.knia_reference_fault,
-    ];
+        report.related_kn
 
-    const output: AnyRecord[] = [];
-    const byKey = new Map<string, AnyRecord>();
-    for (const candidate of rawCandidates
-        .map(normalizeSimpleKniaCandidate)
-        .filter((candidate): candidate is AnyRecord => Boolean(candidat
-
-... [TRUNCATED: 28,645 chars omitted] ...
+... [TRUNCATED: 29,820 chars omitted] ...
 
 ```
 
 ### File: `apps/gateway/test/knia-link-card-composer.test.ts`
 
-- size: `4,930` bytes
+- size: `5,672` bytes
 
 ```typescript
 import { describe, expect, it } from "vitest";
@@ -3707,9 +3879,26 @@ describe("KNIA link card composition", () => {
       },
     });
 
-    expect((enriched as any).related_knia_video_card.title).toBe("KNIA 원문 기준 및 관련 영상");
+    expect((enriched as any).related_knia_video_card.title).toBe("임의 KNIA 기준");
     expect((enriched as any).related_knia_video_card.button_label).toBe("KNIA 원문 기준 보기");
     expect((enriched as any).related_knia_video_card.source_url).toContain("https://accident.knia.or.kr");
+    expect((enriched as any).related_knia_video_card.notice).toBeUndefined();
+    expect((enriched as any).related_knia_video_card.accident_party_label).toBe("확인이 필요합니다.");
+  });
+
+  it("falls back to a public accident party label from KNIA chart prefixes", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "report" }), {
+      knia_basis_cards: [
+        {
+          chart_no: "차41-1",
+          title: "양 차량 주행 중 후방 추돌",
+          source_url: "https://accident.knia.or.kr/myaccident-content?chartNo=%EC%B0%A841-1",
+        },
+      ],
+    });
+
+    expect((enriched as any).related_knia_video_card.accident_party_label).toBe("차대차 사고");
+    expect(JSON.stringify(enriched)).not.toContain("대분류: 확인이 필요합니다");
   });
 
   it("prefers KNIA video urls and drops default logo thumbnails", () => {
@@ -3730,7 +3919,7 @@ describe("KNIA link card composition", () => {
     expect(card.source_url).toBe("https://accident.knia.or.kr/video/generic-2.mp4");
     expect(card.thumbnail_url).toBeUndefined();
     expect(card.display_mode).toBe("external_link");
-    expect(card.notice).toContain("LawCompass 서버에 저장하지 않고");
+    expect(card.notice).toBeUndefined();
     expect((enriched as any).simple_report.knia_and_video.primary.button_label).toBe("KNIA 관련 영상 보기");
   });
 
@@ -3750,7 +3939,7 @@ describe("KNIA link card composition", () => {
     const card = (enriched as any).related_knia_video_card;
     expect(card.source_url).toBeUndefined();
     expect(card.missing_source_notice).toContain("상세 기준 수집 필요");
-    expect(card.missing_source_notice).toContain("수집된 KNIA 원문 링크가 없습니다");
+    expect(card.missing_source_notice).not.toContain("수집된 KNIA 원문 링크가 없습니다");
     expect(text).not.toContain("javascript:");
     expect(text).not.toContain("data:text");
     expect(text).not.toContain("file://");
@@ -3790,7 +3979,7 @@ describe("KNIA link card composition", () => {
 
 ### File: `apps/gateway/test/report-composer.test.ts`
 
-- size: `71,271` bytes
+- size: `72,064` bytes
 
 ```typescript
 import { describe, expect, it } from "vitest";
@@ -3820,6 +4009,24 @@ describe("report composer", () => {
     );
     expect(enriched.simple_report.situation_summary).not.toContain("교통법규");
     expect(enriched.simple_report.situation_summary).not.toContain("적용 가능 법규");
+  });
+
+  it("removes raw JSON fragments and duplicate phrases from user-friendly summaries", () => {
+    const enriched: any = enrichEasyReport(
+      {
+        simple_report: {
+          situation_summary:
+            '정차 중 후미추돌 사고 정차 중 후미추돌 사고 블랙박스 과실비율 {"injury": null',
+        },
+      },
+      {
+        analysis_mode: "user_friendly",
+      },
+    );
+
+    const text = JSON.stringify(enriched.simple_report);
+    expect(text).not.toContain('{"inj');
+    expect(text).not.toContain("정차 중 후미추돌 사고 정차 중 후미추돌 사고");
   });
 
   it("keeps detailed report fields and adds compact display metadata in user-friendly mode", () => {
@@ -3886,6 +4093,8 @@ describe("report composer", () => {
     const text = JSON.stringify(enriched.simple_report);
     expect(text).not.toContain("chunk_id");
     expect(text).not.toContain("internal-knia-chunk");
+    expect(text).not.toContain("영상 파일은 LawCompass 서버에 저장하지 않고");
+    expect(text).not.toContain("과실비율정보포털에서 제공하는 유사 사고 기준");
   });
 
   it("adds a user-safe evidence reliability card without raw claim internals", () => {
@@ -5412,7 +5621,7 @@ describe("report composer", () => {
 
 ### File: `compose.yaml`
 
-- size: `11,252` bytes
+- size: `11,274` bytes
 
 ```yaml
 services:
@@ -5655,8 +5864,8 @@ services:
       [
         "bash",
         "-lc",
-        "set -e; export PGPASSWORD=\"$$POSTGRES_PASSWORD\"; echo '[db-migrate] applying migrations...'; for file in /migrations/002_*.sql /migrations/003_*.sql /migrations/004_*.sql /migrations/005_*.sql /migrations/006_*.sql /migrations/007_*.sql /migrations/008_*.sql /migrations/010_*.sql /migrations/011_*.sql /migrations/012_*.sql /migrations/013_*.sql /migrations/014_*.sql /migrations/015_*.sql; do echo \"[db-migrate] applying $$file\"; psql -v ON_ERROR_STOP=1 -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -f \"$$file\"; done; echo '[db-migrate] done';"
-      ]
+        "set -e; export PGPASSWORD=\"$$POSTGRES_PASSWORD\"; echo '[db-migrate] applying migrations...'; for file in /migrations/002_*.sql /migrations/003_*.sql /migrations/004_*.sql /migrations/005_*.sql /migrations/006_*.sql /migrations/007_*.sql /migrations/008_*.sql /migrations/010_*.sql /migrations/011_*.sql /migrations/012_*.sql /migrations/013_*.sql /migrations/014_*.sql /migrations/015_*.sql /migrations/016_*.sql; do echo \"[db-migrate] applying $$file\"; psql -v ON_ERROR_STOP=1 -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -f \"$$file\"; done; echo '[db-migrate] done';"
+        ]
     networks:
       - app_net
 
@@ -5927,7 +6136,7 @@ CMD ["python", "-m", "worker.main"]
 
 ### File: `apps/agent/app/services/input_requirements.py`
 
-- size: `20,535` bytes
+- size: `20,439` bytes
 
 ```python
 from __future__ import annotations
@@ -6263,8 +6472,6 @@ def _skip_base_missing_field(
     scenario_type: str,
     accident_party_type: str | None,
 ) -> bool:
-    if field == "injury" and accident_party_type == "car_vs_car":
-        return True
     if field == "signal_state" and scenario_type not in SIGNAL_RELEVANT_SCENARIOS:
         return True
     if field == "signal_state" and scenario_type == "intersection_signal_violation":
@@ -6792,7 +6999,7 @@ __all__ = [
 
 ### File: `apps/agent/app/routers/internal_routes/analysis.py`
 
-- size: `2,100` bytes
+- size: `2,195` bytes
 
 ```python
 from __future__ import annotations
@@ -6816,6 +7023,7 @@ async def analyze_text(payload: AnalyzeTextRequest, x_internal_token: str | None
             selected_keywords=payload.selected_keywords,
             video_metadata=payload.video_metadata,
             analysis_mode=payload.analysis_mode,
+            initial_intake=payload.initial_intake,
             ai_profile=payload.ai_profile,
             specialist_roles=payload.specialist_roles,
         )
@@ -6835,6 +7043,7 @@ async def analyze_video(payload: AnalyzeVideoRequest, x_internal_token: str | No
             structured_facts=payload.structured_facts,
             selected_keywords=payload.selected_keywords,
             analysis_mode=payload.analysis_mode,
+            initial_intake=payload.initial_intake,
         )
     )
 
@@ -7227,12 +7436,13 @@ if __name__ == "__main__":
 
 ### File: `apps/gateway/src/routes/agent-diagnostics.ts`
 
-- size: `2,061` bytes
+- size: `3,083` bytes
 
 ```typescript
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import { composeAgentTraceDiagnostic } from "../lib/agent-diagnostics.js";
+import { composeVideoPreprocessDiagnostic } from "../lib/video-preprocess-diagnostics.js";
 import { requireUser } from "../lib/request-guards.js";
 
 export type AgentDiagnosticsRouteOptions = {
@@ -7279,13 +7489,36 @@ export function registerAgentDiagnosticsRoutes(app: FastifyInstance, opts: Agent
       trace_id: traceId,
     };
   });
+
+  app.get(`${opts.apiPrefix}/admin/uploads/:uploadId/video-preprocess`, async (req, reply) => {
+    if (!requireUser(req as any, reply)) return;
+    if (!opts.requireAdmin(req as any, reply)) return;
+    const traceId = trace(req);
+    const uploadId = String((req.params as any).uploadId ?? "");
+    const row = await opts.db.query(
+      `SELECT id, case_id, owner_user_id, file_name, content_type, file_size_bytes,
+              status, metadata, preprocess_summary, created_at, updated_at
+       FROM uploads
+       WHERE id=$1 AND deleted_at IS NULL
+       LIMIT 1`,
+      [uploadId]
+    );
+    if (!row.rowCount) {
+      return reply.code(404).send(opts.errorPayload("UPLOAD_NOT_FOUND", "Video preprocess diagnostic upload was not found.", traceId));
+    }
+    return {
+      upload_id: uploadId,
+      diagnostic: composeVideoPreprocessDiagnostic(row.rows[0]),
+      trace_id: traceId,
+    };
+  });
 }
 
 ```
 
 ### File: `apps/gateway/src/routes/analysis.ts`
 
-- size: `22,232` bytes
+- size: `25,543` bytes
 
 ```typescript
 import type { FastifyInstance } from "fastify";
@@ -7339,6 +7572,70 @@ function normalizeAnalysisMode(mode: any) {
 }
 
 const ACTIVE_ANALYSIS_JOB_STATUSES = ["queued", "running", "retrying", "processing", "analyzing"];
+const INITIAL_INTAKE_DESCRIPTION_LIMIT = 1200;
+
+function normalizeInitialMajorCategory(value: any) {
+  const raw = String(value || "").trim();
+  if (!raw) return "unknown";
+  if (raw === "car_vs_motorcycle") return "car_vs_two_wheeler";
+  if (raw === "car_vs_object") return "single_vehicle";
+  return raw;
+}
+
+function canonicalInitialPartyType(value: any) {
+  const raw = normalizeInitialMajorCategory(value);
+  if (raw === "car_vs_two_wheeler") return "car_vs_motorcycle";
+  if (raw === "parking_or_stationary") return "car_vs_car";
+  return raw;
+}
+
+function normalizeInitialIntake(raw: any, facts: any, uploadId?: string) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const factMap = facts && typeof facts === "object" ? facts : {};
+  const majorCategory = normalizeInitialMajorCategory(
+    source.accident_major_category ??
+    factMap.initial_accident_major_category ??
+    factMap.selected_major_category ??
+    factMap.accident_party_type ??
+    factMap.knia_major_party_type
+  );
+  const preliminary = String(
+    source.preliminary_accident_type ??
+    factMap.initial_preliminary_accident_type ??
+    factMap.selected_preliminary_accident_type ??
+    factMap.accident_type ??
+    "unknown"
+  ).trim() || "unknown";
+  const natural = String(source.natural_language_description ?? "").trim().slice(0, INITIAL_INTAKE_DESCRIPTION_LIMIT);
+
+  return {
+    accident_major_category: majorCategory,
+    preliminary_accident_type: preliminary || "unknown",
+    ...(uploadId || source.video_upload_id ? { video_upload_id: String(uploadId || source.video_upload_id) } : {}),
+    ...(natural ? { natural_language_description: maskSensitive(natural) } : {}),
+    natural_language_policy: {
+      weight: "low",
+      source_type: "subjective_user_claim",
+      can_override_video: false,
+      can_override_structured_followup: false,
+    },
+  };
+}
+
+function mergeInitialIntakeFacts(facts: any, initialIntake: any) {
+  const base = facts && typeof facts === "object" ? facts : {};
+  const major = normalizeInitialMajorCategory(initialIntake?.accident_major_category);
+  const partyType = canonicalInitialPartyType(major);
+  return {
+    ...base,
+    initial_accident_major_category: major,
+    selected_major_category: major,
+    initial_preliminary_accident_type: initialIntake?.preliminary_accident_type || "unknown",
+    selected_preliminary_accident_type: initialIntake?.preliminary_accident_type || "unknown",
+    ...(partyType !== "unknown" ? { accident_party_type: partyType, knia_major_party_type: partyType } : {}),
+    ...(major === "parking_or_stationary" ? { is_parked_vehicle_collision: true } : {}),
+  };
+}
 
 export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRouteOptions) {
   app.post(`${opts.apiPrefix}/cases/:caseId/analyze-text`, async (req, reply) => {
@@ -7349,6 +7646,8 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
 
     const caseRow = await opts.db.query(`SELECT * FROM cases WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`, [caseId, (req as any).user.id]);
     if (!caseRow.rowCount) return reply.code(404).send(opts.errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
+    const initialIntake = normalizeInitialIntake(body?.initial_intake, body?.structured_facts ?? caseRow.rows[0].structured_facts ?? {});
+    const structuredFacts = mergeInitialIntakeFacts(body?.structured_facts ?? caseRow.rows[0].structured_facts ?? {}, initialIntake);
 
     let agentResp;
     try {
@@ -7356,9 +7655,10 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
         case_id: caseId,
         user_id: (req as any).user.id,
         description_text: maskSensitive(body?.description_text ?? caseRow.rows[0].description_text ?? ""),
-        structured_facts: body?.structured_facts ?? caseRow.rows[0].structured_facts ?? {},
+        structured_facts: structuredFacts,
         selected_keywords: body?.selected_keywords ?? caseRow.rows[0].selected_keywords ?? [],
         analysis_mode: normalizeAnalysisMode(body?.analysis_mode ?? caseRow.rows[0].analysis_mode ?? "user_friendly"),
+        initial_intake: initialIntake,
         ai_profile: body?.ai_profile,
         specialist_roles: body?.specialist_roles
       }, traceId, { baseUrl: opts.agentUrl, internalToken: opts.internalToken, timeoutMs: opts.analyzeTimeoutMs, retryCount: opts.retryCount });
@@ -7436,9 +7736,11 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
       };
     }
     const uploadFull = await opts.db.query(`SELECT file_name, metadata FROM uploads WHERE id=$1`, [body.upload_id]);
+    const initialIntake = normalizeInitialIntake(body?.initial_intake, body?.structured_facts ?? {}, body.upload_id);
+    const structuredFacts = mergeInitialIntakeFacts(body?.structured_facts ?? {}, initialIntake);
     const route = selectVideoAiRoute({
       caseTitle: caseRow.rows[0].title ?? "",
-      caseDescription: `${caseRow.rows[0].description_text ?? ""} ${JSON.stringify(body.structured_facts ?? {})} ${(body.selected_keywords ?? []).join(" ")}`,
+      caseDescription: `${caseRow.rows[0].description_text ?? ""} ${JSON.stringify(structuredFacts)} ${(body.selected_keywords ?? []).join(" ")}`,
       fileName: uploadFull.rows[0]?.file_name ?? "",
       uploadMetadata: uploadFull.rows[0]?.metadata ?? {}
     });
@@ -7452,7 +7754,8 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
         specialist_roles: route.specialistRoles,
         routing_reason: route.reason,
         video_metadata: body.video_metadata ?? {},
-        structured_facts: body.structured_facts ?? {},
+        structured_facts: structuredFacts,
+        initial_intake: initialIntake,
         selected_keywords: body.selected_keywords ?? [],
         analysis_mode: normalizeAnalysisMode(body.analysis_mode ?? "user_friendly")
       })]
@@ -7585,11 +7888,13 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
       previousResult
     );
     const normalizedFollowup = normalizeFollowupAnswers(body?.followup_answers ?? body?.followupAnswers ?? {}, currentCase.structured_facts ?? {});
-    const structuredFacts = {
+    const baseStructuredFacts = {
       ...(currentCase.structured_facts ?? {}),
       ...(body?.structured_facts ?? {}),
       ...normalizedFollowup.patch
     };
+    const initialIntake = normalizeInitialIntake(body?.initial_intake, baseStructuredFacts);
+    const structuredFacts = mergeInitialIntakeFacts(baseStructuredFacts, initialIntake);
     const descriptionText = maskSensitive(body?.description_text ?? currentCase.description_text ?? "");
     const selectedKeywords = body?.selected_keywords ?? currentCase.selected_keywords ?? [];
     const analysisMode = normalizeAnalysisMode(body?.analysis_mode ?? currentCase.analysis_mode ?? "user_friendly");
@@ -7623,6 +7928,7 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
         selected_keywords: selectedKeywords,
         video_metadata: videoMetadata,
         analysis_mode: analysisMode,
+        initial_intake: initialIntake,
         ai_profile: body?.ai_profile,
         specialist_roles: body?.specialist_roles
       }, traceId, { baseUrl: opts.agentUrl, internalToken: opts.internalToken, timeoutMs: opts.analyzeTimeoutMs, retryCount: opts.retryCount });
@@ -8239,7 +8545,7 @@ export function registerKniaAdminRoutes(app: FastifyInstance, opts: KniaRouteOpt
 
 ### File: `apps/gateway/src/routes/knia.ts`
 
-- size: `22,509` bytes
+- size: `32,136` bytes
 
 ```typescript
 import type { FastifyInstance } from "fastify";
@@ -8281,6 +8587,177 @@ function publicKniaThumbnail(value: any) {
   return text;
 }
 
+const KNIA_RANKING_CATEGORIES = [
+  { label: "전체", value: "all", source_value: "전체" },
+  { label: "차대차", value: "car_vs_car", source_value: "차대차" },
+  { label: "차대사람", value: "car_vs_person", source_value: "차대사람" },
+  { label: "차대자전거", value: "car_vs_bicycle", source_value: "차대자전거" }
+];
+
+const KNIA_PARTY_LABELS: Record<string, string> = {
+  car_vs_car: "차대차 사고",
+  car_vs_person: "차대보행자 사고",
+  car_vs_bicycle: "차대자전거 사고",
+  single_vehicle: "단독 사고",
+  car_vs_object: "물체/시설물 사고",
+  unknown: "확인이 필요합니다."
+};
+
+function normalizeKniaRankingQuery(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  try {
+    return decodeURIComponent(raw).replace(/\s+/g, " ").trim().slice(0, 120);
+  } catch {
+    return raw.replace(/\s+/g, " ").trim().slice(0, 120);
+  }
+}
+
+function parameter(params: any[], value: any) {
+  params.push(value);
+  return `$${params.length}`;
+}
+
+function kniaPartyFromChartNo(value: unknown) {
+  const chartNo = String(value ?? "").trim();
+  if (chartNo.startsWith("차")) return "car_vs_car";
+  if (chartNo.startsWith("보")) return "car_vs_person";
+  if (chartNo.startsWith("자") || chartNo.startsWith("거")) return "car_vs_bicycle";
+  if (chartNo.startsWith("단")) return "single_vehicle";
+  if (chartNo.startsWith("기") || chartNo.startsWith("물")) return "car_vs_object";
+  return "";
+}
+
+function normalizeKniaRankingParty(input: { accident_party_type?: any; chart_no?: any; source_category?: any }) {
+  const byPrefix = kniaPartyFromChartNo(input.chart_no);
+  if (byPrefix) return byPrefix;
+  const raw = String(input.accident_party_type ?? "").trim();
+  if (raw && raw !== "unknown") return raw;
+  const source = String(input.source_category ?? "").trim();
+  if (source.includes("차대자전거") || source.includes("자전거")) return "car_vs_bicycle";
+  if (source.includes("차대사람") || source.includes("보행")) return "car_vs_person";
+  if (source.includes("차대차")) return "car_vs_car";
+  return raw || "unknown";
+}
+
+function kniaRankingPartyLabel(input: { accident_party_label?: any; accident_party_type?: any; chart_no?: any; source_category?: any }) {
+  const byPrefix = kniaPartyFromChartNo(input.chart_no);
+  if (byPrefix) return KNIA_PARTY_LABELS[byPrefix] ?? KNIA_PARTY_LABELS.unknown;
+  const existing = String(input.accident_party_label ?? "").trim();
+  if (existing && existing !== "확인이 필요합니다." && existing !== "사고유형 확인 필요") return existing;
+  const party = normalizeKniaRankingParty(input);
+  return KNIA_PARTY_LABELS[party] ?? KNIA_PARTY_LABELS.unknown;
+}
+
+function rankingSourceCategoryForParty(party: string) {
+  return KNIA_RANKING_CATEGORIES.find((item) => item.value === party)?.source_value ?? "";
+}
+
+function buildKniaRankingPartyClause(alias: string, params: any[], accidentPartyType: string, sourceAlias?: string) {
+  if (!accidentPartyType || accidentPartyType === "all") return "";
+  const partyParam = parameter(params, accidentPartyType);
+  const sourceLabel = rankingSourceCategoryForParty(accidentPartyType);
+  const sourceClause = sourceAlias && sourceLabel ? ` OR ${sourceAlias}.source_category=${parameter(params, sourceLabel)}` : "";
+
+  if (accidentPartyType === "car_vs_car") {
+    return ` AND (${alias}.accident_party_type=${partyParam} OR ${alias}.chart_no LIKE '차%'${sourceClause})`;
+  }
+  if (accidentPartyType === "car_vs_person") {
+    return ` AND (${alias}.accident_party_type=${partyParam} OR ${alias}.chart_no LIKE '보%'${sourceClause})`;
+  }
+  if (accidentPartyType === "car_vs_bicycle") {
+    return ` AND (${alias}.accident_party_type=${partyParam} OR ${alias}.chart_no LIKE '자%' OR ${alias}.chart_no LIKE '거%'${sourceClause})`;
+  }
+  if (accidentPartyType === "single_vehicle") {
+    return ` AND (${alias}.accident_party_type=${partyParam} OR ${alias}.chart_no LIKE '단%'${sourceClause})`;
+  }
+  return ` AND (${alias}.accident_party_type=${partyParam}${sourceClause})`;
+}
+
+function rankingSearchTerms(q: string, accidentPartyType: string) {
+  const terms = [q].filter(Boolean);
+  const isBicycleQuery = accidentPartyType === "car_vs_bicycle" || /자전거|차대자전거|bike|bicycle/i.test(q);
+  if (isBicycleQuery) {
+    for (const term of ["자전거", "차대자전거", "자전거도로", "자전거 사고"]) {
+      if (!terms.includes(term)) terms.push(term);
+    }
+  }
+  return terms;
+}
+
+function buildKniaRankingSearchClause(params: any[], q: string, accidentPartyType: string) {
+  if (!q) return "";
+  const includesBicyclePrefix = accidentPartyType === "car_vs_bicycle" && /자전거|차대자전거|bike|bicycle/i.test(q);
+  const clauses = rankingSearchTerms(q, accidentPartyType).map((term) => {
+    const like = parameter(params, `%${term}%`);
+    return `(
+      r.chart_no ILIKE ${like}
+      OR r.title ILIKE ${like}
+      OR COALESCE(r.source_category, '') ILIKE ${like}
+      OR COALESCE(r.source_url, '') ILIKE ${like}
+      OR COALESCE(r.source_detail_url, '') ILIKE ${like}
+      OR COALESCE(c.accident_summary, '') ILIKE ${like}
+      OR COALESCE(c.basic_fault_text, '') ILIKE ${like}
+      OR COALESCE(c.display_tags::text, '') ILIKE ${like}
+      OR COALESCE(c.category_path::text, '') ILIKE ${like}
+    )`;
+  });
+  const prefixFallback = includesBicyclePrefix ? " OR r.chart_no LIKE '자%' OR r.chart_no LIKE '거%'" : "";
+  return ` AND (${clauses.join(" OR ")}${prefixFallback})`;
+}
+
+function buildKniaChartFallbackSearchClause(params: any[], q: string, accidentPartyType: string) {
+  if (!q) return "";
+  const includesBicyclePrefix = accidentPartyType === "car_vs_bicycle" && /자전거|차대자전거|bike|bicycle/i.test(q);
+  const clauses = rankingSearchTerms(q, accidentPartyType).map((term) => {
+    const like = parameter(params, `%${term}%`);
+    return `(
+      c.chart_no ILIKE ${like}
+      OR c.title ILIKE ${like}
+      OR COALESCE(c.accident_summary, '') ILIKE ${like}
+      OR COALESCE(c.basic_fault_text, '') ILIKE ${like}
+      OR COALESCE(c.display_tags::text, '') ILIKE ${like}
+      OR COALESCE(c.category_path::text, '') ILIKE ${like}
+      OR COALESCE(c.source_url, '') ILIKE ${like}
+      OR COALESCE(c.source_detail_url, '') ILIKE ${like}
+    )`;
+  });
+  const prefixFallback = includesBicyclePrefix ? " OR c.chart_no LIKE '자%' OR c.chart_no LIKE '거%'" : "";
+  return ` AND (${clauses.join(" OR ")}${prefixFallback})`;
+}
+
+function normalizeKniaRankingRow(row: any) {
+  const party = normalizeKniaRankingParty(row);
+  const chartType = row.chart_type ?? "1";
+  const chartNo = row.chart_no;
+  const localUrl = row.local_chart_url ?? row.chart_url ?? `/knia/charts/${encodeURIComponent(chartNo)}?chartType=${encodeURIComponent(chartType)}`;
+  return {
+    rank: row.rank == null ? null : Number(row.rank),
+    rank_no: row.rank == null ? null : Number(row.rank),
+    chart_no: chartNo,
+    chart_type: chartType,
+    title: row.title || `KNIA 과실비율 인정기준 ${chartNo}`,
+    search_count: row.search_count == null ? null : Number(row.search_count),
+    percentage: row.percentage == null ? null : Number(row.percentage),
+    source_category: row.source_category || rankingSourceCategoryForParty(party) || "전체",
+    accident_party_type: party,
+    accident_party_label: kniaRankingPartyLabel(row),
+    source_url: row.source_url,
+    source_detail_url: row.source_detail_url,
+    local_chart_url: localUrl,
+    source_onclick: row.source_onclick,
+    chart_url: localUrl,
+    has_detail: !!row.has_detail,
+    base_fault_a: row.base_fault_a == null ? null : Number(row.base_fault_a),
+    base_fault_b: row.base_fault_b == null ? null : Number(row.base_fault_b),
+    adjustment_factor_count: Number(row.adjustment_factor_count ?? 0),
+    reference_section_count: Number(row.reference_section_count ?? 0),
+    collected_at: row.collected_at,
+    summary: row.summary ?? row.accident_summary ?? row.basic_fault_text ?? null,
+    matched_by: row.matched_by ?? "ranking",
+  };
+}
+
 export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions) {
   const { env, db, errorPayload } = opts;
 
@@ -8297,77 +8774,122 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
   }
 
   app.get(`${env.apiPrefix}/knia/ranking`, async (req, reply) => {
-    const traceId = req.headers["x-correlation-id"] as string;
-    const limit = Math.min(Number((req.query as any)?.limit ?? 20), 50);
+    const traceId = (req.headers["x-correlation-id"] as string) || "";
+    const limit = Math.max(1, Math.min(Number((req.query as any)?.limit ?? 20) || 20, 50));
     const rawType = String((req.query as any)?.accidentPartyType ?? "all").trim() || "all";
-    const q = String((req.query as any)?.q ?? "").trim();
-    const categories = [
-      { label: "\uC804\uCCB4", value: "all", source_value: "\uC804\uCCB4" },
-      { label: "\uCC28\uB300\uCC28", value: "car_vs_car", source_value: "\uCC28\uB300\uCC28" },
-      { label: "\uCC28\uB300\uC0AC\uB78C", value: "car_vs_person", source_value: "\uCC28\uB300\uC0AC\uB78C" },
-      { label: "\uCC28\uB300\uC790\uC804\uAC70", value: "car_vs_bicycle", source_value: "\uCC28\uB300\uC790\uC804\uAC70" }
-    ];
+    const q = normalizeKniaRankingQuery((req.query as any)?.q);
     const typeMap: Record<string, { value: string; source: string }> = {};
-    for (const category of categories) {
+    for (const category of KNIA_RANKING_CATEGORIES) {
       typeMap[category.value] = { value: category.value, source: category.source_value };
       typeMap[category.source_value] = { value: category.value, source: category.source_value };
     }
     const selected = typeMap[rawType] ?? typeMap.all;
-    const params: any[] = [selected.source];
-    let where = `source_category=$1`;
-    if (q) {
-      params.push(`%${q}%`);
-      where += ` AND (title ILIKE $${params.length} OR chart_no ILIKE $${params.length})`;
+
+    let rankingError: unknown = null;
+    let rows: any = { rowCount: 0, rows: [] };
+    try {
+      const params: any[] = [];
+      const where = [
+        "1=1",
+        buildKniaRankingPartyClause("r", params, selected.value, "r"),
+        buildKniaRankingSearchClause(params, q, selected.value),
+      ].join(" ");
+      const limitParam = parameter(params, limit);
+      const orderBy =
+        selected.value === "car_vs_bicycle"
+          ? "CASE WHEN (r.chart_no LIKE '자%' OR r.chart_no LIKE '거%') THEN 0 ELSE 1 END, r.rank ASC, r.chart_no ASC"
+          : "r.rank ASC, r.chart_no ASC";
+      rows = await db.query(
+        `SELECT r.rank, r.chart_no, r.chart_type, r.title,
+                r.search_count, r.percentage, r.source_category,
+                r.accident_party_type, r.source_url, r.source_detail_url,
+                r.local_chart_url, r.source_onclick, r.chart_url,
+                r.collected_at,
+                c.accident_party_label, c.accident_summary, c.basic_fault_text,
+                c.base_fault_a, c.base_fault_b,
+                CASE WHEN c.detail_collected_at IS NOT NULL THEN true ELSE false END AS has_detail,
+                (SELECT COUNT(*)::int FROM knia_adjustment_factors af
+                  WHERE af.chart_no=r.chart_no AND af.chart_type=COALESCE(r.chart_type, '1')) AS adjustment_factor_count,
+                (SELECT COUNT(*)::int FROM knia_chart_reference_sections rs
+                  WHERE rs.chart_no=r.chart_no AND rs.chart_type=COALESCE(r.chart_type, '1')) AS reference_section_count,
+                'ranking' AS matched_by
+         FROM knia_ranking_items r
+         LEFT JOIN knia_fault_charts c
+           ON c.chart_no=r.chart_no AND c.chart_type=COALESCE(r.chart_type, '1')
+         WHERE ${where}
+         ORDER BY ${orderBy}
+         LIMIT ${limitParam}`,
+        params,
+      );
+    } catch (err) {
+      rankingError = err;
+      req.log?.error?.({ err, trace_id: traceId, q, accidentPartyType: selected.value }, "KNIA ranking query failed");
     }
-    params.push(limit);
-    const rows = await db.query(
-      `SELECT knia_ranking_items.rank, knia_ranking_items.chart_no, knia_ranking_items.chart_type, knia_ranking_items.title,
-              knia_ranking_items.search_count, knia_ranking_items.percentage, knia_ranking_items.source_category,
-              knia_ranking_items.accident_party_type, knia_ranking_items.source_url, knia_ranking_items.source_detail_url,
-              knia_ranking_items.local_chart_url, knia_ranking_items.source_onclick, knia_ranking_items.chart_url,
-              knia_ranking_items.collected_at,
-              c.base_fault_a, c.base_fault_b,
-              CASE WHEN c.detail_collected_at IS NOT NULL THEN true ELSE false END AS has_detail,
-              (SELECT COUNT(*)::int FROM knia_adjustment_factors af
-                WHERE af.chart_no=knia_ranking_items.chart_no AND af.chart_type=COALESCE(knia_ranking_items.chart_type, '1')) AS adjustment_factor_count,
-              (SELECT COUNT(*)::int FROM knia_chart_reference_sections rs
-                WHERE rs.chart_no=knia_ranking_items.chart_no AND rs.chart_type=COALESCE(knia_ranking_items.chart_type, '1')) AS reference_section_count
-       FROM knia_ranking_items
-       LEFT JOIN knia_fault_charts c
-         ON c.chart_no=knia_ranking_items.chart_no AND c.chart_type=COALESCE(knia_ranking_items.chart_type, '1')
-       WHERE ${where}
-       ORDER BY rank ASC
-       LIMIT $${params.length}`,
-      params,
-    );
-    const items = rows.rows.map((row: any) => ({
-        rank: Number(row.rank),
-        rank_no: Number(row.rank),
-        chart_no: row.chart_no,
-        chart_type: row.chart_type ?? "1",
-        title: row.title,
-        search_count: row.search_count == null ? null : Number(row.search_count),
-        percentage: row.percentage == null ? null : Number(row.percentage),
-        source_category: row.source_category,
-        accident_party_type: row.accident_party_type,
-        source_url: row.source_url,
-        source_detail_url: row.source_detail_url,
-        local_chart_url: row.local_chart_url ?? row.chart_url ?? `/knia/charts/${encodeURIComponent(row.chart_no)}?chartType=${encodeURIComponent(row.chart_type ?? "1")}`,
-        source_onclick: row.source_onclick,
-        chart_url: row.chart_url ?? row.local_chart_url ?? `/knia/charts/${encodeURIComponent(row.chart_no)}?chartType=${encodeURIComponent(row.chart_type ?? "1")}`,
-        has_detail: !!row.has_detail,
-        base_fault_a: row.base_fault_a == null ? null : Number(row.base_fault_a),
-        base_fault_b: row.base_fault_b == null ? null : Number(row.base_fault_b),
-        adjustment_factor_count: Number(row.adjustment_factor_count ?? 0),
-        reference_section_count: Number(row.reference_section_count ?? 0),
-        collected_at: row.collected_at,
-      }));
+
+    let items = (rows.rows ?? []).map(normalizeKniaRankingRow);
+
+    if (!items.length) {
+      try {
+        const params: any[] = [];
+        const where = [
+          "1=1",
+          buildKniaRankingPartyClause("c", params, selected.value),
+          buildKniaChartFallbackSearchClause(params, q, selected.value),
+        ].join(" ");
+        const limitParam = parameter(params, limit);
+        const orderBy =
+          selected.value === "car_vs_bicycle"
+            ? "CASE WHEN (c.chart_no LIKE '자%' OR c.chart_no LIKE '거%') THEN 0 ELSE 1 END, c.detail_collected_at DESC NULLS LAST, c.updated_at DESC NULLS LAST, c.chart_no ASC"
+            : "c.detail_collected_at DESC NULLS LAST, c.updated_at DESC NULLS LAST, c.chart_no ASC";
+        const fallbackRows = await db.query(
+          `SELECT NULL::int AS rank,
+                  c.chart_no, c.chart_type, c.title,
+                  NULL::int AS search_count, NULL::numeric AS percentage,
+                  c.accident_party_type, c.accident_party_label,
+                  c.source_url, c.source_detail_url,
+                  NULL::text AS local_chart_url, NULL::text AS source_onclick, NULL::text AS chart_url,
+                  c.updated_at AS collected_at,
+                  c.accident_summary, c.basic_fault_text,
+                  c.base_fault_a, c.base_fault_b,
+                  CASE WHEN c.detail_collected_at IS NOT NULL THEN true ELSE false END AS has_detail,
+                  (SELECT COUNT(*)::int FROM knia_adjustment_factors af
+                    WHERE af.chart_no=c.chart_no AND af.chart_type=COALESCE(c.chart_type, '1')) AS adjustment_factor_count,
+                  (SELECT COUNT(*)::int FROM knia_chart_reference_sections rs
+                    WHERE rs.chart_no=c.chart_no AND rs.chart_type=COALESCE(c.chart_type, '1')) AS reference_section_count,
+                  'chart_fallback' AS matched_by
+           FROM knia_fault_charts c
+           WHERE ${where}
+           ORDER BY ${orderBy}
+           LIMIT ${limitParam}`,
+          params,
+        );
+        items = (fallbackRows.rows ?? []).map(normalizeKniaRankingRow);
+      } catch (err) {
+        req.log?.error?.({ err, rankingError, trace_id: traceId, q, accidentPartyType: selected.value }, "KNIA ranking fallback query failed");
+        return reply.send({
+          items: [],
+          categories: KNIA_RANKING_CATEGORIES,
+          total: 0,
+          query: q,
+          accident_party_type: selected.value,
+          detail_summary: summarizeRankingDetailStatus([]),
+          trace_id: traceId,
+          empty_message: "관련 기준을 찾지 못했습니다. 검색어를 바꿔 다시 시도해 주세요.",
+          error: errorPayload("KNIA_RANKING_UNAVAILABLE", "검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", traceId).error,
+        });
+      }
+    }
+
     return reply.send({
       items,
-      categories,
-      detail_summary: summarizeRankingDetailStatus(rows.rows),
+      categories: KNIA_RANKING_CATEGORIES,
+      total: items.length,
+      query: q,
+      accident_party_type: selected.value,
+      detail_summary: summarizeRankingDetailStatus(items),
       trace_id: traceId,
-      empty_message: rows.rowCount === 0 ? "\uC544\uC9C1 \uC218\uC9D1\uB41C \uAC80\uC0C9\uC21C\uC704\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uAD00\uB9AC\uC790 \uC218\uC9D1\uC744 \uBA3C\uC800 \uC2E4\uD589\uD558\uC138\uC694." : undefined,
+      empty_message: items.length === 0 ? "관련 기준을 찾지 못했습니다. 검색어를 바꿔 다시 시도해 주세요." : undefined,
+      ...(rankingError && items.length ? { warning: { code: "KNIA_RANKING_FALLBACK_USED", message: "검색순위 대신 상세 기준에서 결과를 찾았습니다." } } : {}),
     });
   });
 
@@ -9343,6 +9865,188 @@ describe("analysis route helpers", () => {
 
 ```
 
+### File: `apps/gateway/test/knia-ranking-routes.test.ts`
+
+- size: `5,815` bytes
+
+```typescript
+import Fastify from "fastify";
+import { describe, expect, it } from "vitest";
+import { errorPayload } from "../src/lib/errors.js";
+import { registerKniaRoutes } from "../src/routes/knia.js";
+
+function buildApp(db: { query: (sql: string, params?: any[]) => Promise<any> }) {
+  const app = Fastify({ logger: false });
+  registerKniaRoutes(app, {
+    env: {
+      apiPrefix: "/api/v1",
+      agentUrl: "http://agent",
+      internalToken: "internal",
+      timeoutMs: 1000,
+      retryCount: 0,
+    },
+    db,
+    requireAdmin: async () => undefined,
+    errorPayload,
+  });
+  return app;
+}
+
+describe("KNIA ranking route", () => {
+  it("returns bicycle ranking rows and normalizes 자/거 chart prefixes even when stored party is wrong", async () => {
+    const queries: Array<{ sql: string; params?: any[] }> = [];
+    const app = buildApp({
+      async query(sql: string, params?: any[]) {
+        queries.push({ sql, params });
+        return {
+          rowCount: 1,
+          rows: [
+            {
+              rank: 3,
+              chart_no: "거33-1",
+              chart_type: "1",
+              title: "자전거도로 사고",
+              source_category: "차대사람",
+              accident_party_type: "car_vs_person",
+              accident_party_label: "차대사람 사고",
+              search_count: 120,
+              percentage: 2.4,
+              source_url: "https://accident.knia.or.kr/ranking",
+              source_detail_url: "https://accident.knia.or.kr/myaccident-content?chartNo=거33-1&chartType=1",
+              has_detail: true,
+            },
+          ],
+        };
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/knia/ranking?limit=20&accidentPartyType=car_vs_bicycle&q=%EC%9E%90%EC%A0%84%EA%B1%B0",
+      headers: { "x-correlation-id": "trace-bike" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0]).toMatchObject({
+      chart_no: "거33-1",
+      accident_party_type: "car_vs_bicycle",
+      accident_party_label: "차대자전거 사고",
+    });
+    expect(queries[0].sql).toContain("r.chart_no LIKE '자%'");
+    expect(queries[0].sql).toContain("r.chart_no LIKE '거%'");
+    expect(queries[0].params).toEqual(expect.arrayContaining(["%자전거%"]));
+    await app.close();
+  });
+
+  it("falls back to fault charts when ranking rows are empty", async () => {
+    let callCount = 0;
+    const app = buildApp({
+      async query() {
+        callCount += 1;
+        if (callCount === 1) return { rowCount: 0, rows: [] };
+        return {
+          rowCount: 1,
+          rows: [
+            {
+              chart_no: "자2",
+              chart_type: "1",
+              title: "차대자전거 사고",
+              accident_party_type: "unknown",
+              accident_summary: "자전거와 차량 충돌",
+              source_url: "https://accident.knia.or.kr/",
+              source_detail_url: "https://accident.knia.or.kr/myaccident-content?chartNo=자2&chartType=1",
+              has_detail: false,
+              matched_by: "chart_fallback",
+            },
+          ],
+        };
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/knia/ranking?accidentPartyType=car_vs_bicycle&q=%EC%9E%90%EC%A0%84%EA%B1%B0",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().items[0]).toMatchObject({
+      chart_no: "자2",
+      accident_party_type: "car_vs_bicycle",
+      matched_by: "chart_fallback",
+    });
+    await app.close();
+  });
+
+  it("returns a friendly empty response instead of an error when no bicycle result exists", async () => {
+    const app = buildApp({
+      async query() {
+        return { rowCount: 0, rows: [] };
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/knia/ranking?accidentPartyType=car_vs_bicycle&q=%EC%97%86%EB%8A%94%EA%B2%80%EC%83%89%EC%96%B4",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      items: [],
+      empty_message: "관련 기준을 찾지 못했습니다. 검색어를 바꿔 다시 시도해 주세요.",
+    });
+    await app.close();
+  });
+
+  it("wraps database failures in a safe 200 payload so search UI does not show a raw 500", async () => {
+    const app = buildApp({
+      async query() {
+        throw new Error("missing column source_detail_url");
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/knia/ranking?accidentPartyType=car_vs_bicycle&q=%EC%9E%90%EC%A0%84%EA%B1%B0",
+      headers: { "x-correlation-id": "trace-safe" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.items).toEqual([]);
+    expect(body.error).toMatchObject({
+      code: "KNIA_RANKING_UNAVAILABLE",
+      trace_id: "trace-safe",
+    });
+    expect(JSON.stringify(body)).not.toContain("missing column");
+    await app.close();
+  });
+
+  it("keeps existing car-vs-car prefix filtering behavior", async () => {
+    const queries: Array<{ sql: string; params?: any[] }> = [];
+    const app = buildApp({
+      async query(sql: string, params?: any[]) {
+        queries.push({ sql, params });
+        return { rowCount: 0, rows: [] };
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/knia/ranking?accidentPartyType=car_vs_car&q=%ED%9B%84%EB%AF%B8%EC%B6%94%EB%8F%8C",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(queries[0].sql).toContain("r.chart_no LIKE '차%'");
+    expect(queries[0].sql).not.toContain("r.chart_no LIKE '거%'");
+    expect(queries[0].sql).not.toContain("r.chart_no LIKE '자%'");
+    await app.close();
+  });
+});
+
+```
+
 ### File: `apps/agent/app/routers/__init__.py`
 
 - size: `7` bytes
@@ -9407,7 +10111,7 @@ def check_internal_token(token: str | None):
 
 ### File: `apps/agent/app/services/party_agents/router.py`
 
-- size: `20,102` bytes
+- size: `20,591` bytes
 
 ```python
 from __future__ import annotations
@@ -9740,7 +10444,7 @@ def _scenario_hint_for_party(
     patch: dict[str, Any] = {}
     tags: list[str] = []
     if party == "car_vs_car":
-        if _has_any(haystack, ("스텔스", "무등화", "등화 없이", "교량 밑", "교량 아래")) and _has_any(haystack, ("주차", "정차", "트럭", "화물차")):
+        if _has_any(haystack, ("스텔스", "무등화", "등화 없이", "교량 밑", "교량 아래")) and _has_any(haystack, ("주차", "정차", "트럭", "화물차")) and _has_strong_stealth_context(haystack, facts):
             patch.update({"is_stealth_parked_vehicle_collision": True, "is_parked_vehicle_collision": True})
             return "stealth_illegal_parked_vehicle_collision", "night_unlit_illegal_parked_vehicle_collision", ["parking", "stopped_vehicle", "unlit_stopped_vehicle", "visibility", "night"], patch
         if _has_any(haystack, ("차선변경", "진로변경", "끼어들", "깜빡이", "방향지시등")):
@@ -9801,6 +10505,15 @@ def _compact_text(value: str) -> str:
 
 def _has_any(text: str, tokens: tuple[str, ...]) -> bool:
     return any(token.lower() in text for token in tokens)
+
+
+def _has_strong_stealth_context(haystack: str, facts: dict[str, Any]) -> bool:
+    return (
+        "스텔스" in haystack
+        or _has_any(haystack, ("교량 밑", "교량 아래", "화단", "중앙분리대", "갓길", "통행 공간", "음주", "음주운전", "만취", "술"))
+        or facts.get("abnormal_parking") is True
+        or str(facts.get("opponent_impairment") or "") in {"drunk_driving_confirmed", "suspected_drunk"}
+    )
 
 
 def _environment_context(haystack: str) -> dict[str, bool]:
@@ -10044,13 +10757,14 @@ def test_user_party_wins_but_high_confidence_video_conflict_is_marked():
 
 ### File: `apps/agent/app/services/legal_api_clients.py`
 
-- size: `7,197` bytes
+- size: `7,630` bytes
 
 ```python
 ﻿from __future__ import annotations
 
 import os
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -10117,11 +10831,17 @@ def fetch_law_search(query: str, limit: int = 5) -> list[dict[str, Any]]:
                     or title
                 )
                 source_name = "국가법령정보센터 OPEN API(법령)" if target == "law" else "국가법령정보센터 OPEN API(판례)"
+                source_uri = node.get("source_uri") or node.get("source_url")
+                if not source_uri:
+                    path = "법령" if target == "law" else "판례"
+                    source_uri = f"https://www.law.go.kr/{path}/{quote(title)}"
                 rows.append(
                     {
                         "chunk_id": f"law:{target}:{item_id}",
                         "title": title,
                         "source": source_name,
+                        "source_uri": source_uri,
+                        "source_url": source_uri,
                         "snippet": snippet,
                         "score": 0.46 if target == "law" else 0.44,
                     }
@@ -10154,6 +10874,7 @@ def fetch_law_search(query: str, limit: int = 5) -> list[dict[str, Any]]:
         if isinstance(data, dict) and data.get("result") and str(data.get("result")).strip().lower() != "success":
             last_error = str(data.get("msg") or data.get("result"))
             continue
+        last_error = "정상 응답이나 검색 결과 0건"
         walk(data, target)
 
     dedup: dict[str, dict[str, Any]] = {}
@@ -10380,6 +11101,66 @@ if __name__ == "__main__":
 
 ```
 
+### File: `apps/agent/tests/test_legal_rag_public_api_cache.py`
+
+- size: `1,763` bytes
+
+```python
+from app.services.legal import legal_evidence_retriever as retriever
+
+
+class FakeRedis:
+    def __init__(self):
+        self.store: dict[str, str] = {}
+
+    def get(self, key: str):
+        return self.store.get(key)
+
+    def setex(self, key: str, _ttl: int, value: str):
+        self.store[key] = value
+
+
+def test_legal_rag_uses_law_api_fallback_and_redis_cache(monkeypatch):
+    fake_redis = FakeRedis()
+
+    monkeypatch.setattr(retriever, "DB_URL", "")
+    monkeypatch.setattr(retriever, "_redis_client", lambda: fake_redis)
+    monkeypatch.setattr(
+        retriever,
+        "fetch_law_search",
+        lambda query, limit=5: [
+            {
+                "chunk_id": "law:law:road-traffic",
+                "title": "도로교통법",
+                "source": "국가법령정보센터 OPEN API(법령)",
+                "source_uri": "https://www.law.go.kr/법령/도로교통법",
+                "snippet": "운전자는 안전거리를 확보해야 합니다.",
+                "score": 0.46,
+            }
+        ],
+    )
+
+    first = retriever.retrieve_legal_evidence(
+        scenario_type="rear_end_collision",
+        scenario_tags=["rear_end", "safe_distance"],
+        query="후미추돌 안전거리",
+        limit=3,
+    )
+    second = retriever.retrieve_legal_evidence(
+        scenario_type="rear_end_collision",
+        scenario_tags=["rear_end", "safe_distance"],
+        query="후미추돌 안전거리",
+        limit=3,
+    )
+
+    assert first["fallback_source"] == "law_api"
+    assert first["items"][0]["retrieval_note"] == "law_api_fallback"
+    assert first["items"][0]["source"] == "국가법령정보센터 OPEN API(법령)"
+    assert second["cache_hit"] is True
+    assert second["items"][0]["title"] == "도로교통법"
+
+```
+
 ### File: `apps/frontend/src/api/chat.ts`
 
 - size: `2,909` bytes
@@ -10461,7 +11242,7 @@ export const chatApi = {
 
 ### File: `apps/frontend/src/api/client.ts`
 
-- size: `17,403` bytes
+- size: `18,164` bytes
 
 ```typescript
 export type User = {
@@ -10472,6 +11253,10 @@ export type User = {
 };
 
 export type AccidentFacts = {
+  initial_accident_major_category?: string;
+  initial_preliminary_accident_type?: string;
+  selected_major_category?: string;
+  selected_preliminary_accident_type?: string;
   accident_type?: string;
   accident_party_type?: string;
   scenario_hint?: string;
@@ -10529,6 +11314,19 @@ export type AccidentFacts = {
   possible_trigger_vehicle?: string;
   bicycle_location?: string;
   bicycle_direction?: string;
+};
+
+export type InitialIntakePayload = {
+  accident_major_category: string;
+  preliminary_accident_type: string;
+  video_upload_id?: string;
+  natural_language_description?: string;
+  natural_language_policy?: {
+    weight: "low";
+    source_type: "subjective_user_claim";
+    can_override_video: false;
+    can_override_structured_followup: false;
+  };
 };
 
 export type CaseItem = {
@@ -10759,11 +11557,11 @@ export const api = {
   getViewUrl: (uploadId: string) => request<{ view_url: string; expires_in_sec: number }>(`/api/v1/uploads/${uploadId}/view-url`),
   getDownloadUrl: (uploadId: string) => request<{ download_url: string; expires_in_sec: number }>(`/api/v1/uploads/${uploadId}/download-url`),
 
-  analyzeText: (caseId: string, payload: { description_text: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; ai_profile?: string; specialist_roles?: string[] }) =>
+  analyzeText: (caseId: string, payload: { description_text: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; initial_intake?: InitialIntakePayload; ai_profile?: string; specialist_roles?: string[] }) =>
     request<any>(`/api/v1/cases/${caseId}/analyze-text`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
-  reanalyzeText: (caseId: string, payload: { description_text?: string; structured_facts?: AccidentFacts; followup_answers?: Record<string, string>; selected_keywords?: string[]; analysis_mode?: string; ai_profile?: string; specialist_roles?: string[] }) =>
+  reanalyzeText: (caseId: string, payload: { description_text?: string; structured_facts?: AccidentFacts; followup_answers?: Record<string, string>; selected_keywords?: string[]; analysis_mode?: string; initial_intake?: InitialIntakePayload; ai_profile?: string; specialist_roles?: string[] }) =>
     request<any>(`/api/v1/cases/${caseId}/reanalyze`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
-  analyzeVideo: (caseId: string, payload: { upload_id: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; specialist_roles?: string[] }) =>
+  analyzeVideo: (caseId: string, payload: { upload_id: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; initial_intake?: InitialIntakePayload; specialist_roles?: string[] }) =>
     request<any>(`/api/v1/cases/${caseId}/analyze-video`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),
 
   getJobs: (caseId: string) => request<{ items: any[]; trace_id: string }>(`/api/v1/cases/${caseId}/jobs`),
@@ -10774,6 +11572,7 @@ export const api = {
   getEvidence: (caseId: string) => request<{ evidence: any[]; trace_id: string }>(`/api/v1/cases/${caseId}/evidence`),
   getEvidenceChunk: (chunkId: string) => request<{ chunk: any; trace_id: string }>(`/api/v1/legal/evidence/${chunkId}`),
   adminGetAgentTrace: (caseId: string) => request<any>(`/api/v1/admin/cases/${caseId}/agent-trace`),
+  adminGetVideoPreprocessDiagnostic: (uploadId: string) => request<any>(`/api/v1/admin/uploads/${uploadId}/video-preprocess`),
 
   adminLegalIngest: () => request<any>("/api/v1/admin/legal/ingest", { method: "POST", headers: idempo() }),
   adminRebuildLegalEmbeddings: () => request<any>("/api/v1/admin/legal/rebuild-embeddings", { method: "POST", headers: idempo() }),
@@ -12178,20 +12977,21 @@ function expertGuidanceStatusLabel(value: any) {
 
 ### File: `apps/gateway/src/lib/report-knia-links.ts`
 
-- size: `15,174` bytes
+- size: `15,059` bytes
 
 ```typescript
 import {
   asArray,
   cleanText,
+  cleanUserFacingCopy,
+  resolveAccidentPartyLabel,
   safeKniaThumbnailUrl,
   safeKniaUrl,
   toNumber,
   type AnyRecord,
 } from "./report-composer-common.js";
 
-const KNIA_SOURCE_LINK_NOTICE = "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.";
-const KNIA_MISSING_SOURCE_NOTICE = "상세 기준 수집 필요: 수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.";
+const KNIA_MISSING_SOURCE_NOTICE = "상세 기준 수집 필요";
 
 export function composeKniaLinkCards(result: AnyRecord = {}, report: AnyRecord = {}): AnyRecord {
   const candidates = collectKniaDisplayCandidates(result, report);
@@ -12315,9 +13115,9 @@ function normalizeKniaCandidate(item: AnyRecord = {}) {
     subchart_no: cleanText(item.subchart_no, ""),
     chart_type: cleanText(item.chart_type, ""),
     title: cleanText(item.title ?? item.chart_title ?? item.article_title, ""),
-    summary: cleanText(item.summary ?? item.description ?? item.accident_situation, ""),
+    summary: cleanUserFacingCopy(cleanText(item.summary ?? item.description ?? item.accident_situation, "")),
     menu_path: asArray(item.menu_path).map((part) => cleanText(part, "")).filter(Boolean),
-    match_reason: cleanText(item.match_reason ?? item.why_matched, ""),
+    match_reason: cleanUserFacingCopy(cleanText(item.match_reason ?? item.why_matched, "")),
     base_fault: item.base_fault ?? item.knia_reference_fault?.base_fault,
     final_fault: item.final_fault ?? item.adjusted_fault ?? item.knia_reference_fault?.final_fault,
     fault_range: item.fault_range ?? item.knia_reference_fault?.fault_range,
@@ -12325,7 +13125,11 @@ function normalizeKniaCandidate(item: AnyRecord = {}) {
     source_url_is_fallback: item.source_url_is_fallback === true,
     accident_party_type: cleanText(item.accident_party_type ?? item.major_party_type, ""),
     major_party_type: cleanText(item.major_party_type ?? item.accident_party_type, ""),
-    accident_party_label: cleanText(item.accident_party_label, ""),
+    accident_party_label: resolveAccidentPartyLabel({
+      accident_party_label: item.accident_party_label,
+      accident_party_type: item.accident_party_type ?? item.major_party_type,
+      chart_no: item.chart_no ?? item.subchart_no,
+    }),
     video_url: videoUrl,
     source_detail_url: sourceDetailUrl,
     source_page_url: sourcePageUrl,
@@ -12411,8 +13215,7 @@ function isVideoUrl(value: string) {
 function buildKniaLinkCard(item: AnyRecord = {}) {
   const hasUrl = Boolean(item.source_url || item.button_url);
   return {
-    title: "KNIA 원문 기준 및 관련 영상",
-    description: "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
+    title: item.title || undefined,
     chart_no: item.chart_no || undefined,
     subchart_no: item.subchart_no || undefined,
     chart_type: item.chart_type || undefined,
@@ -12425,7 +13228,11 @@ function buildKniaLinkCard(item: AnyRecord = {}) {
     fault_range: item.fault_range || undefined,
     reference_only: item.reference_only === true,
     source_url_is_fallback: item.source_url_is_fallback === true,
-    accident_party_label: item.accident_party_label || undefined,
+    accident_party_label: resolveAccidentPartyLabel({
+      accident_party_label: item.accident_party_label,
+      accident_party_type: item.accident_party_type ?? item.major_party_type,
+      chart_no: item.chart_no ?? item.subchart_no,
+    }),
     display_mode: "external_link",
     button_url: item.source_url || undefined,
     source_url: item.source_url || undefined,
@@ -12434,10 +13241,8 @@ function buildKniaLinkCard(item: AnyRecord = {}) {
     source_page_url: item.source_page_url || undefined,
     thumbnail_url: item.thumbnail_url || undefined,
     button_label: item.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기",
-    notice: hasUrl ? KNIA_SOURCE_LINK_NOTICE : KNIA_MISSING_SOURCE_NOTICE,
     missing_source_notice: hasUrl ? undefined : KNIA_MISSING_SOURCE_NOTICE,
     has_knia_candidate: true,
-    source_label: "자료 출처: 과실비율정보포털",
   };
 }
 
@@ -12550,6 +13355,344 @@ export function maskSensitive(text: string) {
     out = out.replace(re, "[REDACTED]");
   }
   return out;
+}
+
+```
+
+### File: `apps/gateway/src/lib/video-preprocess-diagnostics.ts`
+
+- size: `12,978` bytes
+
+```typescript
+type AnyRecord = Record<string, any>;
+
+const DIAGNOSTIC_VERSION = "video-preprocess-diagnostic-v1";
+const OBSERVATION_LIMIT = 80;
+const FRAME_REF_LIMIT = 12;
+
+function asRecord(value: any): AnyRecord {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function asArray(value: any): any[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function toNumber(value: any, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function safeString(value: any, maxLength = 240) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
+}
+
+function basename(value: any) {
+  const text = safeString(value, 260);
+  if (!text) return null;
+  const normalized = text.replace(/\\/g, "/");
+  return normalized.split("/").filter(Boolean).at(-1) ?? text;
+}
+
+function countBy(items: any[], field: string) {
+  return items.reduce((acc: AnyRecord, item) => {
+    const key = safeString(asRecord(item)[field], 80) ?? "unknown";
+    acc[key] = toNumber(acc[key]) + 1;
+    return acc;
+  }, {});
+}
+
+function compactObservation(item: any) {
+  const source = safeString(item?.source, 120);
+  return {
+    field: safeString(item?.field, 120) ?? "unknown",
+    value: item?.value,
+    confidence: item?.confidence ?? null,
+    source,
+    source_family: source?.includes("yolo")
+      ? "YOLO"
+      : source?.includes("openai") || source?.includes("frame_analysis")
+        ? "OpenAI frame"
+        : "merged",
+    frame_refs: asArray(item?.frame_refs).map(basename).filter(Boolean).slice(0, FRAME_REF_LIMIT),
+    frame_ref_count: asArray(item?.frame_refs).length,
+    reason: safeString(item?.reason, 260),
+  };
+}
+
+function valueKey(value: any) {
+  if (value === null || value === undefined) return "unknown";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function isAffirmative(value: any) {
+  const key = valueKey(value).toLowerCase();
+  return key === "true" || key === "yes" || key === "present" || key === "visible";
+}
+
+function isNegative(value: any) {
+  const key = valueKey(value).toLowerCase();
+  return key === "false" || key === "no" || key === "absent" || key === "not_visible";
+}
+
+function maxConfidence(items: any[]) {
+  const values = items.map((item) => Number(item.confidence)).filter(Number.isFinite);
+  if (!values.length) return null;
+  return Math.max(...values);
+}
+
+function sumFrameRefs(items: any[]) {
+  return items.reduce((acc, item) => acc + toNumber(item.frame_ref_count), 0);
+}
+
+function uniqueStrings(items: Array<string | null | undefined>) {
+  return Array.from(new Set(items.filter(Boolean) as string[]));
+}
+
+function candidateLabel(value: any) {
+  const labels: AnyRecord = {
+    vehicle: "차량",
+    vehicle_candidate: "차량 후보",
+    pedestrian: "보행자",
+    pedestrian_candidate: "보행자 후보",
+    bicycle: "자전거",
+    bicycle_candidate: "자전거 후보",
+    motorcycle: "이륜차",
+    motorcycle_candidate: "이륜차 후보",
+    object: "물체",
+    object_candidate: "물체 후보",
+  };
+  return labels[valueKey(value)] ?? valueKey(value);
+}
+
+function defaultDisplayValue(field: string, value: any) {
+  if (typeof value === "boolean") return value ? "예" : "아니오";
+  if (field === "primary_collision_target" || field === "direct_collision_partner_type") {
+    return `${candidateLabel(value)}입니다. 확정 사실이 아니라 Agent 판단 전 확인 후보입니다.`;
+  }
+  return valueKey(value);
+}
+
+function makeHumanObservation(params: {
+  field: string;
+  value: any;
+  displayLabel?: string;
+  displayValue: string;
+  status: string;
+  statusLabel: string;
+  items: any[];
+  reason?: string | null;
+}) {
+  return {
+    field: params.field,
+    value: params.value,
+    display_label: params.displayLabel ?? params.field,
+    display_value: params.displayValue,
+    status: params.status,
+    status_label: params.statusLabel,
+    confidence: maxConfidence(params.items),
+    source_families: uniqueStrings(params.items.map((item) => item.source_family)),
+    frame_ref_count: sumFrameRefs(params.items),
+    evidence_count: params.items.length,
+    reason: params.reason ?? null,
+  };
+}
+
+function groupHumanObservations(observations: any[]) {
+  const compacted = observations.map(compactObservation);
+  const groups = new Map<string, any[]>();
+  for (const item of compacted) {
+    const current = groups.get(item.field) ?? [];
+    current.push(item);
+    groups.set(item.field, current);
+  }
+
+  const rows: any[] = [];
+  for (const [field, items] of groups.entries()) {
+    const valueKeys = uniqueStrings(items.map((item) => valueKey(item.value)));
+    const strongest = items.reduce((best, item) => {
+      const bestConfidence = Number(best?.confidence ?? -1);
+      const itemConfidence = Number(item.confidence ?? -1);
+      return itemConfidence > bestConfidence ? item : best;
+    }, items[0]);
+
+    if (field === "pedestrian_visible") {
+      const hasYes = items.some((item) => isAffirmative(item.value));
+      const hasNo = items.some((item) => isNegative(item.value));
+      if (hasYes && hasNo) {
+        rows.push(makeHumanObservation({
+          field: "pedestrian_context",
+          value: "object_candidate_not_collision_target",
+          displayLabel: "보행자 관련 관찰",
+          displayValue:
+            "충돌 경로의 보행자는 확인되지 않았고, 화면 안의 사람 객체 후보만 감지됐습니다. 보행자 사고로 확정하지 말고 주변 환경 후보로만 봐야 합니다.",
+          status: "conflict",
+          statusLabel: "확인 필요",
+          items,
+          reason: "OpenAI의 충돌 경로 관찰과 YOLO의 객체 재고 관찰은 의미가 다르므로 하나의 확정 사실로 합치지 않습니다.",
+        }));
+      } else if (hasYes) {
+        rows.push(makeHumanObservation({
+          field,
+          value: true,
+          displayLabel: "보행자 관련 관찰",
+          displayValue: "화면 안에 보행자 후보가 보입니다. 직접 충돌 대상인지는 별도 확인이 필요합니다.",
+          status: "candidate",
+          statusLabel: "후보",
+          items,
+        }));
+      } else {
+        rows.push(makeHumanObservation({
+          field,
+          value: false,
+          displayLabel: "보행자 관련 관찰",
+          displayValue: "충돌 경로 또는 사고 직후 주변에서 보행자는 확인되지 않았습니다.",
+          status: "confirmed",
+          statusLabel: "확인",
+          items,
+        }));
+      }
+      continue;
+    }
+
+    if (field === "primary_collision_target") {
+      const candidateValues = uniqueStrings(items.map((item) => valueKey(item.value)));
+      rows.push(makeHumanObservation({
+        field,
+        value: candidateValues,
+        displayLabel: "주 충돌 대상 후보",
+        displayValue:
+          candidateValues.length > 1
+            ? `여러 사고 대상 후보가 함께 감지됐습니다: ${candidateValues.map(candidateLabel).join(", ")}. 직접 충돌 대상은 Agent 판단 전 확인이 필요합니다.`
+            : `${candidateLabel(candidateValues[0])}가 주 충돌 대상 후보입니다. 확정 사실이 아니라 Agent 판단 전 확인 후보입니다.`,
+        status: candidateValues.length > 1 ? "conflict" : "candidate",
+        statusLabel: candidateValues.length > 1 ? "확인 필요" : "후보",
+        items,
+      }));
+      continue;
+    }
+
+    if (valueKeys.length > 1) {
+      rows.push(makeHumanObservation({
+        field,
+        value: valueKeys,
+        displayValue: `출처별 관찰값이 다릅니다: ${valueKeys.join(", ")}. Agent 판단 전 확인이 필요합니다.`,
+        status: "conflict",
+        statusLabel: "확인 필요",
+        items,
+      }));
+      continue;
+    }
+
+    rows.push(makeHumanObservation({
+      field,
+      value: strongest.value,
+      displayValue: defaultDisplayValue(field, strongest.value),
+      status: field.endsWith("_candidate") || field === "accident_event_candidate" ? "candidate" : "confirmed",
+      statusLabel: field.endsWith("_candidate") || field === "accident_event_candidate" ? "후보" : "확인",
+      items,
+      reason: strongest.reason,
+    }));
+  }
+
+  const priority: AnyRecord = {
+    conflict: 0,
+    candidate: 1,
+    confirmed: 2,
+  };
+  return rows.sort((a, b) => {
+    const priorityDiff = toNumber(priority[a.status], 9) - toNumber(priority[b.status], 9);
+    if (priorityDiff) return priorityDiff;
+    return String(a.display_label).localeCompare(String(b.display_label), "ko");
+  }).slice(0, OBSERVATION_LIMIT);
+}
+
+function compactAnalysisPayload(payload: any) {
+  const data = asRecord(payload);
+  const observations = asArray(data.observations);
+  const attempts = asArray(data.analysis_attempts);
+  const summary = asRecord(data.summary);
+  return {
+    enabled: Boolean(data.enabled),
+    provider: safeString(data.provider, 80),
+    model: basename(data.model ?? data.detector ?? data.model_path ?? data.modelPath),
+    detail: safeString(data.detail, 80),
+    frame_selection_strategy: safeString(data.frame_selection_strategy, 120),
+    available_frame_count: data.available_frame_count ?? null,
+    selected_frame_count: data.selected_frame_count ?? null,
+    analyzed_frame_count: data.analyzed_frame_count ?? null,
+    observation_count: observations.length,
+    observation_fields: countBy(observations, "field"),
+    observations: observations.map(compactObservation).slice(0, OBSERVATION_LIMIT),
+    attempt_count: attempts.length,
+    zero_observation_retry_used: data.zero_observation_retry_used ?? null,
+    has_error: Boolean(data.error || data.has_error),
+    error: safeString(data.error ?? data.zero_observation_retry_error, 240),
+    summary: Object.keys(summary).length ? summary : null,
+  };
+}
+
+function compactFrameSelection(metadata: AnyRecord) {
+  const frameDetails = asArray(metadata.representative_frame_details);
+  const selectionSummary = asRecord(metadata.frame_selection_summary);
+  return {
+    representative_frame_count: asArray(metadata.representative_frames).length || frameDetails.length,
+    event_candidate_count: frameDetails.filter((item) => Boolean(asRecord(item).is_event_candidate)).length,
+    pre_event_count: frameDetails.filter((item) => String(asRecord(item).event_phase) === "pre").length,
+    event_count: frameDetails.filter((item) => String(asRecord(item).event_phase) === "event").length,
+    post_event_count: frameDetails.filter((item) => String(asRecord(item).event_phase) === "post").length,
+    selection_summary: Object.keys(selectionSummary).length ? selectionSummary : null,
+  };
+}
+
+export function composeVideoPreprocessDiagnostic(upload: AnyRecord = {}) {
+  const metadata = asRecord(upload.metadata);
+  const mergedObservations = asArray(metadata.observations);
+  const humanObservations = groupHumanObservations(mergedObservations);
+  const openai = compactAnalysisPayload(metadata.openai_frame_analysis);
+  const yolo = compactAnalysisPayload(metadata.yolo_frame_analysis);
+
+  return {
+    diagnostic_version: DIAGNOSTIC_VERSION,
+    upload: {
+      id: upload.id,
+      case_id: upload.case_id,
+      file_name: safeString(upload.file_name ?? metadata.original_filename, 180),
+      status: safeString(upload.status, 80),
+      content_type: safeString(upload.content_type ?? metadata.mime_type, 80),
+      file_size_bytes: upload.file_size_bytes ?? metadata.size_bytes ?? null,
+      preprocess_summary: safeString(upload.preprocess_summary ?? metadata.preprocess_summary, 360),
+      created_at: upload.created_at,
+      updated_at: upload.updated_at,
+    },
+    video_metadata: {
+      duration_sec: metadata.duration_sec ?? null,
+      width: metadata.width ?? null,
+      height: metadata.height ?? null,
+      fps: metadata.fps ?? null,
+      codec: safeString(metadata.codec, 80),
+    },
+    frame_selection: compactFrameSelection(metadata),
+    openai_frame_analysis: openai,
+    yolo_frame_analysis: yolo,
+    merged_observations: {
+      observation_count: mergedObservations.length,
+      observation_fields: countBy(mergedObservations, "field"),
+      source_families: countBy(mergedObservations.map(compactObservation), "source_family"),
+      human_observation_count: humanObservations.length,
+      human_observations: humanObservations,
+      observations: mergedObservations.map(compactObservation).slice(0, OBSERVATION_LIMIT),
+    },
+  };
 }
 
 ```
@@ -15097,7 +16240,7 @@ def vector_literal(values: list[float]) -> str:
 
 ### File: `apps/agent/app/schemas.py`
 
-- size: `4,972` bytes
+- size: `5,565` bytes
 
 ```python
 ﻿from pydantic import BaseModel, Field
@@ -15112,6 +16255,7 @@ class AnalyzeTextRequest(BaseModel):
     selected_keywords: list[str] | None = None
     video_metadata: dict[str, Any] | None = None
     analysis_mode: str | None = None
+    initial_intake: dict[str, Any] | None = None
     ai_profile: str | None = None
     specialist_roles: list[str] | None = None
 
@@ -15127,6 +16271,7 @@ class AnalyzeVideoRequest(BaseModel):
     structured_facts: dict[str, Any] | None = None
     selected_keywords: list[str] | None = None
     analysis_mode: str | None = None
+    initial_intake: dict[str, Any] | None = None
 
 
 class EvidenceItem(BaseModel):
@@ -15154,6 +16299,13 @@ class EvidenceItem(BaseModel):
 
 
 class AnalysisOutput(BaseModel):
+    analysis_status: str | None = None
+    followup_required: bool = False
+    confidence: dict[str, Any] = Field(default_factory=dict)
+    initial_intake_summary: dict[str, Any] = Field(default_factory=dict)
+    uncertain_facts: list[dict[str, Any]] = Field(default_factory=list)
+    followup_questions_structured: list[dict[str, Any]] = Field(default_factory=list)
+    provisional_result: dict[str, Any] = Field(default_factory=dict)
     accident_summary: str
     scenario_type: str
     accident_party_type: str | None = None
@@ -15185,6 +16337,7 @@ class AnalysisOutput(BaseModel):
     followup_loop: dict[str, Any] = Field(default_factory=dict)
     video_input_contract: dict[str, Any] = Field(default_factory=dict)
     fact_arbitration: dict[str, Any] = Field(default_factory=dict)
+    fact_source_weights: dict[str, Any] = Field(default_factory=dict)
     required_input_questions: list[dict[str, Any]] = Field(default_factory=list)
     uncertainty: dict[str, Any]
     disclaimers: list[str]
@@ -15334,7 +16487,7 @@ def build_party_type_action_guide(accident_party_type: str, facts: dict[str, Any
 
 ### File: `apps/agent/app/services/accident_perspective.py`
 
-- size: `16,055` bytes
+- size: `16,052` bytes
 
 ```python
 from __future__ import annotations
@@ -15521,8 +16674,8 @@ def _user_knia_party(scenario_type: str, role: str) -> str:
         # KNIA 신호위반 교차로 기준은 일반적으로
         # A = 신호위반 차량, B = 정상 신호 차량으로 해석한다.
         if role == SIGNAL_VIOLATION_VEHICLE:
-            return "A"
-        return "B"
+            return "B"
+        return "A"
 
     if scenario_type in {"pedestrian_crosswalk_accident", "school_zone_child_accident"}:
         if role == PEDESTRIAN:
@@ -16759,7 +17912,7 @@ def _followups(
 
 ### File: `apps/agent/app/services/analysts/fault_ratio_analyst.py`
 
-- size: `21,757` bytes
+- size: `21,883` bytes
 
 ```python
 ﻿from __future__ import annotations
@@ -17109,10 +18262,12 @@ def _centerline_obstacle_context(facts: dict[str, Any], text: str = "") -> dict[
     if not (centerline and obstruction and oncoming):
         return None
     stopped_or_nearly_stopped = facts.get("stopped") is True or any(
-        token in haystack for token in ("멈췄", "멈춘", "정차", "정지", "거의 멈", "감속")
+        token in haystack
+        for token in ("멈췄", "멈춰", "멈춘", "정차", "정지", "거의 멈", "감속", "stopped", "nearly stopped", "slowed")
     )
     opposing_non_stop = facts.get("opposing_vehicle_did_not_stop") is True or any(
-        token in haystack for token in ("그대로", "달려", "못봤", "못 봤", "멈추지", "감속하지")
+        token in haystack
+        for token in ("그대로", "달려", "못봤", "못 봤", "못보", "보지 못", "멈추지", "감속하지", "did not stop", "without slowing")
     ) or facts.get("accident_type") == "centerline_obstacle_collision"
     return {
         "stopped_or_nearly_stopped": stopped_or_nearly_stopped,
@@ -18029,7 +19184,7 @@ def _claim_id(claim_type: str, text: str) -> str:
 
 ### File: `apps/agent/app/services/dynamic_questionnaire.py`
 
-- size: `30,508` bytes
+- size: `31,181` bytes
 
 ```python
 from __future__ import annotations
@@ -18380,7 +19535,7 @@ for _pedestrian_scenario in (
 
 MODE_QUESTION_LIMITS = {
     "user_friendly": 6,
-    "expert": 12,
+    "expert": 6,
 }
 
 USER_FRIENDLY_REQUIRED_MODE_ALIASES = {
@@ -18420,10 +19575,16 @@ def build_dynamic_questionnaire(
     matched_knia_chart: dict[str, Any] | None = None,
     knia_adjustment_factors: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    raw_mode = str(analysis_mode or "").strip()
     mode = normalize_analysis_mode(analysis_mode)
     questions = list(SCENARIO_QUESTIONS.get(scenario_type) or [])
     questions.extend(_questions_from_knia_factors(knia_adjustment_factors or [], existing_ids={q["question_id"] for q in questions}))
-    filtered = [q for q in questions if _question_applies_to_mode(q, mode)]
+    fact_map = structured_facts or {}
+    skip_answered = raw_mode not in {"fault_ratio_focused"}
+    filtered = [
+        q for q in questions
+        if _question_applies_to_mode(q, mode) and (not skip_answered or not _question_already_answered(q, fact_map))
+    ]
     filtered.sort(key=lambda item: (int(item.get("priority", 9)), item.get("question_id", "")))
     limit = MODE_QUESTION_LIMITS.get(mode, 6)
     selected = filtered[:limit]
@@ -18446,6 +19607,18 @@ def build_dynamic_questionnaire(
             "matched_knia_chart_no": (matched_knia_chart or {}).get("chart_no"),
         },
     }
+
+
+def _question_already_answered(question: dict[str, Any], facts: dict[str, Any]) -> bool:
+    fact_key = str(question.get("fact_key") or question.get("knia_factor_key") or "").strip()
+    if not fact_key:
+        return False
+    value = facts.get(fact_key)
+    if value in (None, "", "unknown", "모름", "None", "null"):
+        return False
+    if isinstance(value, (list, tuple, set, dict)) and not value:
+        return False
+    return True
 
 
 def _questions_from_knia_factors(factors: list[dict[str, Any]], existing_ids: set[str]) -> list[dict[str, Any]]:
@@ -19721,7 +20894,7 @@ def _drop_none(value: dict[str, Any]) -> dict[str, Any]:
 
 ### File: `apps/agent/app/services/expert_guidance_sections.py`
 
-- size: `29,381` bytes
+- size: `29,667` bytes
 
 ```python
 from __future__ import annotations
@@ -19890,11 +21063,14 @@ def _basis_summary(evidence: list[dict[str, Any]], *, context_text: str = "") ->
             continue
         seen.add(key)
         content_text = f"{title} {reason} {item.get('source') or ''} {item.get('law_name') or ''}"
+        relevance_score = _relevance_score(content_text, context_text)
+        if relevance_score <= -10:
+            continue
         source_quality = _source_quality(item, family_key)
         candidates.append(
             {
                 "_family_key": family_key,
-                "_relevance_score": str(_relevance_score(content_text, context_text)),
+                "_relevance_score": str(relevance_score),
                 "family_label": family,
                 "title": title,
                 "reason": reason,
@@ -20201,6 +21377,8 @@ def _fact_context_values(facts: dict[str, Any]) -> list[str]:
     output: list[str] = []
     vehicle_collision_context = _is_vehicle_collision_context(facts)
     for key, value in facts.items():
+        if key in _FACT_CONTEXT_SKIP_KEYS:
+            continue
         if value is None:
             continue
         if isinstance(value, bool):
@@ -20235,6 +21413,19 @@ def _fact_context_values(facts: dict[str, Any]) -> list[str]:
         output.append(str(key))
         output.append(str(value))
     return output
+
+
+_FACT_CONTEXT_SKIP_KEYS = {
+    "_fact_arbitration",
+    "_fact_sources",
+    "_video_input_contract",
+    "accident_party_label",
+    "excluded_knia_party_types",
+    "missing_fields",
+    "optional_input_fields",
+    "required_input_fields",
+    "video_context",
+}
 
 
 def _relevance_score(content_text: str, context_text: str) -> int:
@@ -20274,8 +21465,7 @@ def _context_excludes_pedestrian_target(context: str) -> bool:
 
 def _content_is_pedestrian_target_basis(content: str) -> bool:
     pedestrian_terms = ("pedestrian", "보행자", "횡단보도 보행자", "어린이보호구역", "school zone")
-    vehicle_terms = ("vehicle", "차량", "front vehicle", "intersection", "signal", "rear", "centerline")
-    return any(term in content for term in pedestrian_terms) and not any(term in content for term in vehicle_terms)
+    return any(term in content for term in pedestrian_terms)
 
 
 def _topic_groups() -> tuple[tuple[str, ...], ...]:
@@ -20390,7 +21580,7 @@ def _number(value: Any) -> int | None:
 
 ### File: `apps/agent/app/services/fact_arbitration.py`
 
-- size: `16,227` bytes
+- size: `16,377` bytes
 
 ```python
 from __future__ import annotations
@@ -20450,6 +21640,10 @@ USER_PRIMARY_FIELDS = {
     "insurance_status",
     "driver_role",
     "accident_party_type",
+    "initial_accident_major_category",
+    "selected_major_category",
+    "initial_preliminary_accident_type",
+    "selected_preliminary_accident_type",
 }
 
 EMPTY_VALUES = {None, "", "unknown", "모름", "None", "null"}
@@ -20804,6 +21998,74 @@ def _as_bool(value: Any) -> bool | None:
 
 ```
 
+### File: `apps/agent/app/services/fact_source_weights.py`
+
+- size: `2,440` bytes
+
+```python
+from __future__ import annotations
+
+from typing import Any
+
+
+VERSION = "agent-fact-source-weights-v1"
+
+SOURCE_WEIGHTS = {
+    "selected_major_category": 0.85,
+    "selected_preliminary_accident_type": 0.70,
+    "video_observation": 0.90,
+    "structured_followup_answer": 0.85,
+    "natural_language_claim": 0.30,
+    "knia_evidence": 0.55,
+    "legal_evidence": 0.50,
+}
+
+
+def build_fact_source_weight_contract(initial_intake: dict[str, Any] | None, facts: dict[str, Any] | None) -> dict[str, Any]:
+    intake = initial_intake if isinstance(initial_intake, dict) else {}
+    fact_map = facts if isinstance(facts, dict) else {}
+    sources: dict[str, dict[str, Any]] = {}
+    if intake.get("accident_major_category") and intake.get("accident_major_category") != "unknown":
+        sources["accident_party_type"] = {
+            "source_type": "selected_major_category",
+            "weight": SOURCE_WEIGHTS["selected_major_category"],
+            "can_be_overridden_by": ["high_confidence_video_observation", "structured_followup_answer"],
+        }
+    if intake.get("preliminary_accident_type") and intake.get("preliminary_accident_type") != "unknown":
+        sources["accident_type"] = {
+            "source_type": "selected_preliminary_accident_type",
+            "weight": SOURCE_WEIGHTS["selected_preliminary_accident_type"],
+            "can_be_overridden_by": ["high_confidence_video_observation", "structured_followup_answer"],
+        }
+    for key in _string_list(fact_map.get("_followup_answered_fields")):
+        sources[key] = {
+            "source_type": "structured_followup_answer",
+            "weight": SOURCE_WEIGHTS["structured_followup_answer"],
+            "can_be_overridden_by": ["verified_video_observation"],
+        }
+    if intake.get("natural_language_description"):
+        sources["natural_language_description"] = {
+            "source_type": "natural_language_claim",
+            "weight": SOURCE_WEIGHTS["natural_language_claim"],
+            "can_override_video": False,
+            "can_override_structured_followup": False,
+        }
+    return {
+        "version": VERSION,
+        "weights": SOURCE_WEIGHTS,
+        "field_sources": sources,
+    }
+
+
+def _string_list(value: Any) -> list[str]:
+    if isinstance(value, (list, tuple, set)):
+        return [str(item) for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    return []
+
+```
+
 ### File: `apps/agent/app/services/fallback.py`
 
 - size: `1,124` bytes
@@ -20830,9 +22092,195 @@ def build_fallback(facts: dict[str, Any]) -> dict[str, Any]:
 
 ```
 
+### File: `apps/agent/app/services/initial_intake.py`
+
+- size: `6,829` bytes
+
+```python
+from __future__ import annotations
+
+from typing import Any
+
+
+VERSION = "agent-initial-intake-v1"
+DESCRIPTION_LIMIT = 1200
+
+PARTY_ALIASES = {
+    "car_vs_motorcycle": "car_vs_two_wheeler",
+    "car_vs_two_wheeler": "car_vs_two_wheeler",
+    "car_vs_object": "single_vehicle",
+}
+
+CANONICAL_PARTY = {
+    "car_vs_two_wheeler": "car_vs_motorcycle",
+    "parking_or_stationary": "car_vs_car",
+}
+
+PARTY_DEFAULTS = {
+    "car_vs_car": {
+        "collision_partner_type": "vehicle",
+        "direct_collision_partner_type": "vehicle",
+        "excluded_knia_party_types": ["car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+    },
+    "car_vs_person": {
+        "collision_partner_type": "pedestrian",
+        "direct_collision_partner_type": "pedestrian",
+        "excluded_knia_party_types": ["car_vs_car", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+    },
+    "car_vs_bicycle": {
+        "collision_partner_type": "bicycle",
+        "direct_collision_partner_type": "bicycle",
+        "excluded_knia_party_types": ["car_vs_car", "car_vs_person", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+    },
+    "car_vs_motorcycle": {
+        "collision_partner_type": "motorcycle",
+        "direct_collision_partner_type": "motorcycle",
+        "excluded_knia_party_types": ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_object", "single_vehicle"],
+    },
+    "single_vehicle": {
+        "collision_partner_type": "none",
+        "excluded_knia_party_types": ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object"],
+    },
+}
+
+
+def normalize_initial_intake(
+    payload: dict[str, Any] | None,
+    *,
+    structured_facts: dict[str, Any] | None = None,
+    video_upload_id: str | None = None,
+) -> dict[str, Any]:
+    source = payload if isinstance(payload, dict) else {}
+    facts = structured_facts if isinstance(structured_facts, dict) else {}
+    provided = _has_initial_intake_payload(source, facts, video_upload_id)
+    major = normalize_major_category(
+        source.get("accident_major_category")
+        or facts.get("initial_accident_major_category")
+        or facts.get("selected_major_category")
+    )
+    preliminary = _safe_text(
+        source.get("preliminary_accident_type")
+        or facts.get("initial_preliminary_accident_type")
+        or facts.get("selected_preliminary_accident_type")
+        or "unknown"
+    ) or "unknown"
+    natural = _safe_text(source.get("natural_language_description") or "")[:DESCRIPTION_LIMIT]
+    upload_id = _safe_text(video_upload_id or source.get("video_upload_id") or "")
+    return {
+        "version": VERSION,
+        "provided": provided,
+        "accident_major_category": major,
+        "canonical_party_type": canonical_party_type(major),
+        "preliminary_accident_type": preliminary if preliminary != "" else "unknown",
+        **({"video_upload_id": upload_id} if upload_id else {}),
+        **({"natural_language_description": natural} if natural else {}),
+        "natural_language_policy": {
+            "weight": "low",
+            "source_type": "subjective_user_claim",
+            "can_override_video": False,
+            "can_override_structured_followup": False,
+        },
+    }
+
+
+def build_fact_candidates_from_initial_intake(initial_intake: dict[str, Any] | None) -> dict[str, Any]:
+    intake = initial_intake if isinstance(initial_intake, dict) else {}
+    if not intake.get("provided"):
+        return {}
+    major = normalize_major_category(intake.get("accident_major_category"))
+    party = canonical_party_type(major)
+    preliminary = _safe_text(intake.get("preliminary_accident_type") or "unknown") or "unknown"
+    patch: dict[str, Any] = {}
+    if major != "unknown":
+        patch["initial_accident_major_category"] = major
+        patch["selected_major_category"] = major
+    if party != "unknown":
+        patch["accident_party_type"] = party
+        patch["knia_major_party_type"] = party
+        patch.update(PARTY_DEFAULTS.get(party, {}))
+    if preliminary and preliminary != "unknown":
+        patch["initial_preliminary_accident_type"] = preliminary
+        patch["selected_preliminary_accident_type"] = preliminary
+        patch["accident_type"] = preliminary
+    if major == "parking_or_stationary":
+        patch["accident_party_type"] = "car_vs_car"
+        patch["knia_major_party_type"] = "car_vs_car"
+        patch["is_parked_vehicle_collision"] = True
+        patch.setdefault("accident_type", "parking_or_stopped_vehicle_accident")
+        patch.update(PARTY_DEFAULTS["car_vs_car"])
+    return patch
+
+
+def enforce_initial_intake_priority(facts: dict[str, Any], initial_intake: dict[str, Any] | None) -> dict[str, Any]:
+    intake = initial_intake if isinstance(initial_intake, dict) else {}
+    if not intake.get("provided"):
+        return facts
+    major = normalize_major_category(intake.get("accident_major_category"))
+    if major == "unknown":
+        return facts
+    patch = build_fact_candidates_from_initial_intake(intake)
+    protected = {
+        "initial_accident_major_category",
+        "selected_major_category",
+        "initial_preliminary_accident_type",
+        "selected_preliminary_accident_type",
+        "accident_party_type",
+        "knia_major_party_type",
+        "collision_partner_type",
+        "direct_collision_partner_type",
+        "excluded_knia_party_types",
+    }
+    merged = dict(facts)
+    for key in protected:
+        if key in patch:
+            merged[key] = patch[key]
+    if patch.get("accident_type") and patch.get("accident_type") != "unknown":
+        merged.setdefault("accident_type", patch["accident_type"])
+    if major == "parking_or_stationary":
+        merged["is_parked_vehicle_collision"] = True
+    return merged
+
+
+def normalize_major_category(value: Any) -> str:
+    raw = _safe_text(value)
+    if not raw:
+        return "unknown"
+    return PARTY_ALIASES.get(raw, raw)
+
+
+def canonical_party_type(value: Any) -> str:
+    major = normalize_major_category(value)
+    return CANONICAL_PARTY.get(major, major)
+
+
+def _safe_text(value: Any) -> str:
+    return str(value or "").replace("\x00", "").strip()
+
+
+def _has_initial_intake_payload(
+    source: dict[str, Any],
+    facts: dict[str, Any],
+    video_upload_id: str | None = None,
+) -> bool:
+    keys = (
+        "accident_major_category",
+        "preliminary_accident_type",
+        "natural_language_description",
+        "video_upload_id",
+    )
+    fact_keys = (
+        "initial_accident_major_category",
+        "selected_major_category",
+        "initial_preliminary_accident_type",
+        "selected_preliminary_accident_type",
+    )
+    return any(_safe_text(source.get(key)) for key in keys) or any(_safe_text(facts.get(key)) for key in fact_keys) or bool(_safe_text(video_upload_id))
+
+```
+
 ### File: `apps/agent/app/services/input_normalizer.py`
 
-- size: `37,056` bytes
+- size: `42,209` bytes
 
 ```python
 ﻿from __future__ import annotations
@@ -20840,7 +22288,13 @@ def build_fallback(facts: dict[str, Any]) -> dict[str, Any]:
 import json
 from typing import Any
 from app.services.analysis_modes import normalize_analysis_mode
+from app.services.fact_source_weights import build_fact_source_weight_contract
 from app.services.fact_arbitration import arbitrate_facts
+from app.services.initial_intake import (
+    build_fact_candidates_from_initial_intake,
+    enforce_initial_intake_priority,
+    normalize_initial_intake,
+)
 from app.services.llm_client import generate_accident_input_filter
 from app.services.party_agents.router import route_party_agent
 from app.services.security_filter import sanitize_input
@@ -20984,10 +22438,10 @@ def _enrich_road_worker_pedestrian_facts(facts: dict[str, Any], text: str) -> di
             "accident_party_type": "car_vs_person",
             "knia_major_party_type": "car_vs_person",
             "major_party_type": "car_vs_person",
-            "collision_partner_type": "person",
-            "direct_collision_partner_type": "person",
+            "collision_partner_type": "pedestrian",
+            "direct_collision_partner_type": "pedestrian",
             "direct_collision_target": "road_work_worker",
-            "scenario_type": "pedestrian_accident",
+            "scenario_type": "pedestrian_road_work_worker_accident",
             "accident_type": "pedestrian_roadway_worker_accident",
             "accident_subtype": "pedestrian_roadway_or_work_zone",
             "scenario_subtype": "pedestrian_roadway_or_work_zone",
@@ -21064,8 +22518,10 @@ def _has_stealth_illegal_parked_vehicle_context(text: str) -> bool:
             "갓길",
         ),
     )
+    explicit_stealth = _contains_any(hay, ("스텔스",))
+    abnormal_position = _contains_any(hay, ("교량 밑", "교량밑", "교량 아래", "화단", "중앙분리대", "갓길", "통행 공간"))
     impairment = _contains_any(hay, ("음주", "술", "만취", "음주운전"))
-    return collision and parked_vehicle and (visibility_or_place or impairment)
+    return collision and parked_vehicle and visibility_or_place and (explicit_stealth or abnormal_position or impairment)
 
 
 def _enrich_stealth_illegal_parked_vehicle_facts(facts: dict[str, Any], text: str) -> dict[str, Any]:
@@ -21169,8 +22625,10 @@ def _deterministic_accident_input_filter(text: str, facts: dict[str, Any] | None
             "음주운전",
         ),
     )
+    explicit_stealth = _contains_any(hay, ("스텔스",))
+    abnormal_or_drunk = _contains_any(hay, ("교량 밑", "교량 아래", "교량밑", "화단", "중앙분리대", "갓길", "통행 공간", "음주", "음주운전", "만취", "술"))
 
-    if not (collision and vehicle and parked and risk):
+    if not (collision and vehicle and parked and risk and (explicit_stealth or abnormal_or_drunk)):
         return {
             "matched": False,
             "confidence": 0.0,
@@ -21310,8 +22768,8 @@ def _apply_party_guard_facts(
                 guarded.pop(key, None)
     elif party == "car_vs_person":
         if guarded.get("road_worker") or guarded.get("accident_type") == "pedestrian_roadway_worker_accident":
-            guarded["collision_partner_type"] = "person"
-            guarded["direct_collision_partner_type"] = "person"
+            guarded["collision_partner_type"] = "pedestrian"
+            guarded["direct_collision_partner_type"] = "pedestrian"
             guarded.setdefault("direct_collision_target", "road_work_worker")
         else:
             guarded["collision_partner_type"] = "pedestrian"
@@ -21429,6 +22887,74 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
     elif _contains_any(hay, ("우회전", "right turn", "right-turn")):
         _set_if_empty(enriched, "ego_turn_direction", "right")
 
+    centerline_text = _contains_any(
+        hay,
+        ("중앙선", "황색 실선", "황색실선", "센터라인", "centerline", "yellow line"),
+    )
+    centerline_obstruction_text = _contains_any(
+        hay,
+        (
+            "불법주정차",
+            "불법 주정차",
+            "주정차량",
+            "주차 차량",
+            "주차된",
+            "정차 차량",
+            "도로를 점유",
+            "도로 점유",
+            "막고 있어",
+            "막혀",
+            "장애물",
+            "가구",
+            "사물",
+            "적재물",
+            "obstacle",
+            "parked vehicle",
+        ),
+    )
+    oncoming_text = _contains_any(
+        hay,
+        (
+            "마주오",
+            "마주 오",
+            "대향",
+            "반대편",
+            "상대차",
+            "상대 차량",
+            "오던 차",
+            "오는 차",
+            "역방향",
+            "oncoming",
+            "opposite direction",
+        ),
+    )
+    if centerline_text and (centerline_obstruction_text or oncoming_text or enriched.get("centerline_crossed") is True):
+        _set_if_empty(enriched, "accident_party_type", "car_vs_car")
+        _set_if_empty(enriched, "knia_major_party_type", "car_vs_car")
+        _set_if_empty(enriched, "collision_partner_type", "vehicle")
+        _set_if_empty(enriched, "direct_collision_partner_type", "vehicle")
+        if _is_empty(enriched.get("accident_type")) or str(enriched.get("accident_type")) in {
+            "general_collision",
+            "general_vehicle_collision",
+            "parking_or_stopped_vehicle_accident",
+        }:
+            enriched["accident_type"] = "centerline_obstacle_collision"
+        enriched["centerline_crossed"] = True
+        if centerline_obstruction_text:
+            enriched["road_obstruction"] = True
+            if _contains_any(hay, ("불법주정차", "불법 주정차", "주정차량", "주차 차량", "주차된", "정차 차량", "parked vehicle")):
+                enriched["illegal_parking_obstruction"] = True
+                _set_if_empty(enriched, "centerline_cross_reason", "parked_vehicle_obstruction")
+            else:
+                _set_if_empty(enriched, "centerline_cross_reason", "road_obstruction")
+        if oncoming_text:
+            enriched["opposing_vehicle_present"] = True
+        if _contains_any(hay, ("멈췄", "멈췄는데", "멈춰", "멈춘", "거의 멈", "정차", "정지", "감속")):
+            enriched["stopped"] = True
+        if _contains_any(hay, ("못봤", "못 봤", "보지 못", "못보", "그대로", "달려", "멈추지", "감속하지")):
+            enriched["opposing_vehicle_did_not_stop"] = True
+            _set_if_empty(enriched, "opponent_behavior", "oncoming_vehicle_did_not_stop")
+
     left_turn = enriched.get("ego_turn_direction") == "left"
     straight_opponent = _contains_any(hay, ("직진", "straight"))
     signal_text = _contains_any(hay, ("신호", "황색", "노란불", "적색", "빨간불", "yellow", "red", "signal"))
@@ -21496,16 +23022,22 @@ def _enrich_textual_traffic_facts(facts: dict[str, Any], text: str) -> dict[str,
         _set_if_empty(enriched, "direct_collision_partner_type", "vehicle")
         _set_if_empty(enriched, "accident_party_type", "car_vs_car")
         _set_if_empty(enriched, "opponent_behavior", "rear_collision")
-        _set_if_empty(enriched, "accident_type", "rear_end_collision")
+        if (
+            _is_empty(enriched.get("accident_type"))
+            or str(enriched.get("accident_type")) in {"general_collision", "general_vehicle_collision", "intersection_signal_violation"}
+        ) and not enriched.get("user_signal_violation") and not enriched.get("opponent_signal_violation"):
+            enriched["accident_type"] = "rear_end_collision"
         _set_if_empty(enriched, "rear_end_context", True)
     return enriched
 
-def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None) -> dict[str, Any]:
+def normalize_analysis_input(description_text: str, structured_facts: dict[str, Any] | None = None, selected_keywords: list[str] | None = None, video_metadata: dict[str, Any] | None = None, analysis_mode: str | None = None, initial_intake: dict[str, Any] | None = None) -> dict[str, Any]:
     clean_text, security_flags = sanitize_input(description_text or "")
     clean_text = _normalize_accident_typos(clean_text)
     keywords = [str(x).strip() for x in (selected_keywords or []) if str(x).strip()]
     video_contract = normalize_video_input_contract(video_metadata, preprocessed_summary=clean_text)
     user_facts = _normalize_fact_aliases(_compact_for_analysis(structured_facts or {}))
+    normalized_initial_intake = normalize_initial_intake(initial_intake, structured_facts=user_facts)
+    user_facts = _compact_for_analysis({**user_facts, **build_fact_candidates_from_initial_intake(normalized_initial_intake)})
     party_agent_result = route_party_agent(
         description_text=clean_text,
         structured_facts=user_facts,
@@ -21539,6 +23071,8 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
     facts = _apply_accident_input_filter_result(facts, selected_filter)
     facts = _apply_party_agent_result(facts, party_agent_result)
     facts = _apply_party_guard_facts(facts, party_agent_result)
+    facts = enforce_initial_intake_priority(facts, normalized_initial_intake)
+    fact_source_weights = build_fact_source_weight_contract(normalized_initial_intake, facts)
     missing_fields = [field for field in REQUIRED_FACTS if _is_empty(facts.get(field))]
     facts_display = clean_structured_facts_for_display(facts)
     user_visible_summary_text = clean_text or format_facts_as_korean_sentences(facts)
@@ -21561,14 +23095,17 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "pending_video_confirmations": fact_arbitration.get("pending_video_confirmations"),
     })
     party_agent_for_text = _compact_for_analysis(party_agent_result)
-    merged_text = "\n".join([
-        clean_text,
+    analysis_lines = [clean_text]
+    if normalized_initial_intake.get("provided"):
+        analysis_lines.append("분석용 초기 입력: " + json.dumps(normalized_initial_intake, ensure_ascii=False, separators=(",", ":")))
+    analysis_lines.extend([
         "분석용 KNIA 대분류 라우터: " + json.dumps(party_agent_for_text, ensure_ascii=False, separators=(",", ":")),
         "분석용 사고 사실: " + json.dumps(facts, ensure_ascii=False, separators=(",", ":")),
         "분석용 선택 키워드: " + ", ".join(keywords),
         "분석용 영상 입력 계약: " + json.dumps(video_contract_for_text, ensure_ascii=False, separators=(",", ":")),
         "분석용 사실 중재 계약: " + json.dumps(arbitration_for_text, ensure_ascii=False, separators=(",", ":")),
-        ])
+    ])
+    merged_text = "\n".join(analysis_lines)
     canonical_analysis_mode = normalize_analysis_mode(analysis_mode)
     return {
         "description_text": clean_text,
@@ -21579,6 +23116,13 @@ def normalize_analysis_input(description_text: str, structured_facts: dict[str, 
         "video_metadata": video_metadata or {},
         "video_input_contract": video_contract,
         "fact_arbitration": fact_arbitration,
+        "fact_source_weights": fact_source_weights,
+        "initial_intake": normalized_initial_intake,
+        "initial_intake_summary": {
+            "accident_major_category": normalized_initial_intake.get("accident_major_category", "unknown"),
+            "preliminary_accident_type": normalized_initial_intake.get("preliminary_accident_type", "unknown"),
+            "natural_language_used_as": "low_weight_supporting_claim" if normalized_initial_intake.get("natural_language_description") else "not_provided",
+        },
         "party_agent_result": party_agent_result,
         "knia_major_party_type": facts.get("knia_major_party_type") or (party_agent_result or {}).get("major_party_type") or "unknown",
         "excluded_knia_party_types": facts.get("excluded_knia_party_types") or (party_agent_result or {}).get("excluded_party_types") or [],
@@ -24945,7 +26489,7 @@ def _scenario_tags(doc: dict[str, Any], keywords: list[str]) -> list[str]:
 
 ### File: `apps/agent/app/services/knia/knia_json_repository.py`
 
-- size: `44,510` bytes
+- size: `45,262` bytes
 
 ```python
 ﻿from __future__ import annotations
@@ -25217,8 +26761,11 @@ def search_knia_fault_charts(
         where = ["chart_no IS NOT NULL"]
         params: list[Any] = []
         if party != "unknown":
-            where.append("(major_party_type=%s OR accident_party_type=%s)")
-            params.extend([party, party])
+            prefixes = _party_prefix_patterns(party)
+            prefix_clause = " OR ".join(["chart_no LIKE %s"] * len(prefixes))
+            prefix_sql = f" OR {prefix_clause}" if prefix_clause else ""
+            where.append(f"(major_party_type=%s OR accident_party_type=%s{prefix_sql})")
+            params.extend([party, party, *prefixes])
         if scenario_type:
             where.append("(scenario_type=%s OR %s='')")
             params.extend([scenario_type, scenario_type])
@@ -25260,16 +26807,20 @@ def list_knia_fault_charts_by_party(party_type: str | None, limit: int = 20) -> 
     party = canonicalize_party_type(party_type)
     capped = max(1, min(int(limit or 20), 200))
     try:
+        prefixes = _party_prefix_patterns(party)
+        prefix_clause = " OR ".join(["chart_no LIKE %s"] * len(prefixes))
+        prefix_sql = f" OR {prefix_clause}" if prefix_clause else ""
+        party_clause = f"(%s='unknown' OR major_party_type=%s OR accident_party_type=%s{prefix_sql})"
         with psycopg.connect(_db_url()) as conn, conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
             cur.execute(
-                """
+                f"""
                 SELECT *
                 FROM knia_fault_charts
-                WHERE (%s='unknown' OR major_party_type=%s OR accident_party_type=%s)
+                WHERE {party_clause}
                 ORDER BY review_required ASC NULLS LAST, parsing_confidence DESC NULLS LAST, chart_no ASC
                 LIMIT %s
                 """,
-                (party, party, party, capped),
+                (party, party, party, *prefixes, capped),
             )
             return [_normalize_chart_row(dict(row)) for row in cur.fetchall()]
     except Exception:
@@ -25499,6 +27050,16 @@ def _normalize_chart_row(row: dict[str, Any]) -> dict[str, Any]:
 
 def normalize_text(value: Any) -> str:
     return " ".join(re.sub(r"[^0-9A-Za-z가-힣\-\s]", " ", str(value or "")).split()).lower()
+
+
+def _party_prefix_patterns(party: str | None) -> list[str]:
+    return {
+        "car_vs_car": ["차%"],
+        "car_vs_person": ["보%"],
+        "car_vs_bicycle": ["자%", "거%"],
+        "car_vs_object": ["기%"],
+        "single_vehicle": ["단%"],
+    }.get(canonicalize_party_type(party), [])
 
 
 def tokenize(value: Any) -> list[str]:
@@ -25909,7 +27470,7 @@ def rebuild_knia_json_embeddings(limit: int | None = None, force: bool = False) 
 
 ### File: `apps/agent/app/services/knia/knia_matcher.py`
 
-- size: `52,558` bytes
+- size: `52,569` bytes
 
 ```python
 ﻿from __future__ import annotations
@@ -26059,7 +27620,7 @@ def match_knia_charts(
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         q = " ".join(_strip_bicycle_pollution([q]))
     direct_lookup_text = normalize_query(" ".join([description_text or "", " ".join(keywords)]))
-    chart_direct = re.search(r"[차보자기단]\d{1,3}(?:-\d+)?", direct_lookup_text)
+    chart_direct = re.search(r"[차보거자기단물]\d{1,3}(?:-\d+)?", direct_lookup_text)
     tags = filter_tags_by_party(list(dict.fromkeys([*(SCENARIO_TO_TAGS.get(scenario_type or "", [])), *_tags_from_text(q, party)])), party, facts)
     if scenario_type == "stealth_illegal_parked_vehicle_collision":
         tags = [tag for tag in tags if tag != "bicycle"]
@@ -26110,7 +27671,7 @@ def match_knia_charts(
             "excluded_items": structured_rejected,
         }
 
-    cache_key = "knia:match:v10:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+    cache_key = "knia:match:v12:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
     cache = _redis_client()
     if cache:
         cached = cache.get(cache_key)
@@ -26275,7 +27836,7 @@ def _structured_chart_to_match(
             "aggregate_chart_no": aggregate_chart_no if aggregate_chart_no != display_chart_no else None,
             "subchart_no": (selected_candidate or {}).get("subchart_no") or row.get("subchart_no"),
             "display_chart_no": display_chart_no,
-            "major_party_type": row.get("major_party_type") or row.get("accident_party_type"),
+            "major_party_type": _party_from_chart_no(display_chart_no) or row.get("major_party_type") or row.get("accident_party_type"),
             "scenario_type": row.get("scenario_type"),
             "scenario_subtype": row.get("scenario_subtype"),
             "menu_path": row.get("menu_path") or metadata.get("menu_path") or [],
@@ -26839,7 +28400,7 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
         "match_label": "관련성이 높은 기준입니다." if score >= 0.35 else "참고할 수 있는 기준입니다.",
         "match_reason": reason,
         "accident_party_type": party,
-        "major_party_type": row.get("major_party_type") or party,
+        "major_party_type": party,
         "accident_party_label": party_label(party),
         "base_fault_a": base_a,
         "base_fault_b": base_b,
@@ -26861,7 +28422,7 @@ def _to_match(row: dict[str, Any], score: float, reason: str) -> dict[str, Any]:
 
 
 def _row_party_type(row: dict[str, Any]) -> str:
-    return row.get("major_party_type") or _party_from_chart_no(row.get("chart_no")) or row.get("accident_party_type") or "unknown"
+    return _party_from_chart_no(row.get("chart_no")) or row.get("major_party_type") or row.get("accident_party_type") or "unknown"
 
 
 def _base_fault_pair(base_fault: dict[str, Any]) -> tuple[int | None, int | None]:
@@ -28865,7 +30426,7 @@ def rebuild_knia_embeddings(limit: int = 1000) -> dict[str, int | str]:
 
 ### File: `apps/agent/app/services/knia/party_guard.py`
 
-- size: `9,952` bytes
+- size: `9,951` bytes
 
 ```python
 from __future__ import annotations
@@ -29085,7 +30646,7 @@ def reject_mismatched_knia_items(items: Iterable[dict[str, Any]], party_type: An
     kept: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     for item in items or []:
-        item_party = canonicalize_party_type(item.get("major_party_type") or item.get("accident_party_type") or _party_from_chart_no(item.get("chart_no")))
+        item_party = canonicalize_party_type(_party_from_chart_no(item.get("chart_no")) or item.get("major_party_type") or item.get("accident_party_type"))
         chart_no = str(item.get("chart_no") or "")
         text = _item_text(item)
         allowed = True
@@ -29155,7 +30716,7 @@ def _dedupe(values: Iterable[str]) -> list[str]:
 
 ### File: `apps/agent/app/services/knia/taxonomy.py`
 
-- size: `12,591` bytes
+- size: `13,178` bytes
 
 ```python
 ﻿from __future__ import annotations
@@ -29273,6 +30834,9 @@ def classify_knia_accident_party_type(chart_data: dict[str, Any]) -> dict[str, A
 def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -> str:
     facts = facts or {}
     hay = " ".join([text or "", str(facts)]).lower()
+    prefix_party = _party_from_chart_no(facts.get("chart_no"))
+    if prefix_party:
+        return prefix_party
     declared_party = str(facts.get("accident_party_type") or "").strip().lower()
     if declared_party in {"car_vs_parked_vehicle", "vehicle", "car", "truck", "parked_vehicle", "stopped_vehicle"}:
         return "car_vs_car"
@@ -29313,7 +30877,7 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         return "car_vs_car"
     checks = [
         ("car_vs_person", ["차대사람", "보행자", "무단횡단", "어린이보호구역", "민식이", "사람을", "사람과", "아이와", "인명피해"]),
-        ("car_vs_bicycle", ["차대자전거", "자전거와 충돌", "자전거를 쳤", "자전거 추돌", "자전거 운전자"]),
+        ("car_vs_bicycle", ["차대자전거", "자전거", "자전거도로", "자전거 사고", "자전거와 충돌", "자전거를 쳤", "자전거 추돌", "자전거 운전자"]),
         ("car_vs_motorcycle", ["차대오토바이", "차대이륜차", "오토바이", "이륜차", "원동기장치자전거", "바이크"]),
         ("car_vs_object", ["차대기물", "기물", "시설물", "가드레일", "전봇대", "중앙분리대", "주차장 기둥", "벽", "낙하물", "물체"]),
         ("single_vehicle", ["차량단독", "단독사고", "혼자", "미끄러", "빗길", "눈길", "졸음운전", "운전미숙", "전복", "도로 이탈"]),
@@ -29324,6 +30888,21 @@ def infer_party_type_from_text(text: str, facts: dict[str, Any] | None = None) -
         if any(word.lower() in hay for word in words):
             return party
     return "unknown"
+
+
+def _party_from_chart_no(chart_no: Any) -> str | None:
+    value = str(chart_no or "").strip()
+    if value.startswith("차"):
+        return "car_vs_car"
+    if value.startswith("보"):
+        return "car_vs_person"
+    if value.startswith(("자", "거")):
+        return "car_vs_bicycle"
+    if value.startswith("기"):
+        return "car_vs_object"
+    if value.startswith("단"):
+        return "single_vehicle"
+    return None
 
 def _vehicle_role_a(party: str) -> str | None:
     return {
@@ -29375,7 +30954,7 @@ def _object_type(text: str) -> str | None:
 
 ### File: `apps/agent/app/services/legal/legal_chunker.py`
 
-- size: `1,525` bytes
+- size: `1,556` bytes
 
 ```python
 from __future__ import annotations
@@ -29390,7 +30969,7 @@ def chunk_legal_document(doc: NormalizedLegalDocument, max_chars: int = 900) -> 
     if not text:
         return []
 
-    article_splits = re.split(r"(?=(?:제\s*\d+\s*조|제\d+조|\d+\.\s))", text)
+    article_splits = re.split(r"(?=(?:제\s*\d+\s*조(?:의\d+)?\s*\(?[^\s)]*\)?))", text)
     units = [x.strip() for x in article_splits if x.strip()] or [text]
 
     chunks: list[dict] = []
@@ -29408,9 +30987,9 @@ def chunk_legal_document(doc: NormalizedLegalDocument, max_chars: int = 900) -> 
 
 def _build_chunk(doc: NormalizedLegalDocument, text: str, index: int) -> dict:
     article_no = None
-    match = re.search(r"제\s*(\d+)\s*조", text)
+    match = re.search(r"제\s*(\d+)\s*조(?:의(\d+))?", text)
     if match:
-        article_no = f"제{match.group(1)}조"
+        article_no = f"제{match.group(1)}조" + (f"의{match.group(2)}" if match.group(2) else "")
     tags = sorted(set(doc.scenario_tags + infer_tags(text, doc.keywords)))
     return {
         "chunk_index": index,
@@ -29427,7 +31006,7 @@ def _build_chunk(doc: NormalizedLegalDocument, text: str, index: int) -> dict:
 
 ### File: `apps/agent/app/services/legal/legal_evidence_retriever.py`
 
-- size: `9,831` bytes
+- size: `12,269` bytes
 
 ```python
 from __future__ import annotations
@@ -29444,6 +31023,7 @@ import redis
 
 from app.services.elderly_friendly.ui_text_mapper import evidence_confidence_label
 from app.services.legal.legal_vectorizer import vectorize_text
+from app.services.legal_api_clients import fetch_law_search
 
 DB_URL = os.getenv("DATABASE_URL", "")
 REDIS_URL = os.getenv("REDIS_URL", "")
@@ -29451,15 +31031,13 @@ REDIS_URL = os.getenv("REDIS_URL", "")
 
 def normalize_query(query: str) -> str:
     lowered = (query or "").lower()
-    lowered = re.sub(r"[^\w?-?\s]", " ", lowered)
+    lowered = re.sub(r"[^\w가-힣\-\s]", " ", lowered)
     replacements = {
-        "???": "??",
-        "??": "??",
-        "??": "??",
-        "???": "?? ??",
-        "???": "?? ??",
-        "??": "????",
-        "???": "???? ???????",
+        "후방추돌": "후미추돌",
+        "뒤에서 충돌": "후미추돌",
+        "안전 거리": "안전거리",
+        "교통 사고": "교통사고",
+        "자전거 사고": "자전거",
     }
     for old, new in replacements.items():
         lowered = lowered.replace(old, new)
@@ -29468,7 +31046,7 @@ def normalize_query(query: str) -> str:
 
 def _cache_key(query: str, tags: list[str], limit: int) -> str:
     raw = json.dumps({"q": normalize_query(query), "tags": sorted(tags), "limit": limit}, ensure_ascii=False)
-    return "rag:v2:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+    return "rag:v3:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
 
 
 def _redis_client():
@@ -29516,11 +31094,69 @@ def retrieve_legal_evidence(
             except Exception:
                 pass
 
-    items = _retrieve_from_postgres(query=query, scenario_type=scenario_type, scenario_tags=scenario_tags, limit=limit)
+    retrieval_error: dict[str, str] | None = None
+    fallback_source: str | None = None
+    try:
+        items = _retrieve_from_postgres(query=query, scenario_type=scenario_type, scenario_tags=scenario_tags, limit=limit)
+    except Exception as exc:
+        items = []
+        retrieval_error = {"type": exc.__class__.__name__, "message": "postgres legal retrieval failed"}
+
+    if not items:
+        api_items = _retrieve_from_public_law_api(query, scenario_type=scenario_type, scenario_tags=scenario_tags, limit=limit)
+        if api_items:
+            items = api_items
+            fallback_source = "law_api"
+
     if cache:
         # Cache only display metadata/result ids. No vectors or full legal corpus are stored in Redis.
         cache.setex(key, 900 + random.randint(0, 180), json.dumps(items, ensure_ascii=False))
-    return {"items": items, "cache_hit": False, "cache_key": key}
+    return {
+        "items": items,
+        "cache_hit": False,
+        "cache_key": key,
+        "fallback_source": fallback_source,
+        "retrieval_error": retrieval_error,
+    }
+
+
+def _retrieve_from_public_law_api(query: str, *, scenario_type: str, scenario_tags: list[str], limit: int) -> list[dict[str, Any]]:
+    rows = fetch_law_search(query, limit=limit)
+    items: list[dict[str, Any]] = []
+    for index, row in enumerate(rows):
+        title = str(row.get("title") or "국가법령정보센터 검색 결과")
+        snippet = str(row.get("snippet") or title)
+        source_uri = row.get("source_uri") or row.get("source_url")
+        tags = sorted(set(scenario_tags or []))
+        score = float(row.get("score") or 0.36)
+        items.append(
+            {
+                "chunk_id": row.get("chunk_id") or f"law_api:{index}",
+                "document_id": None,
+                "title": title,
+                "doc_type": "law_api",
+                "document_metadata": {"provider": "law_api"},
+                "source": row.get("source") or "국가법령정보센터 OPEN API",
+                "source_uri": source_uri,
+                "snippet": snippet,
+                "chunk_summary": snippet,
+                "article_no": None,
+                "clause_no": None,
+                "scenario_tags": tags,
+                "keywords": [normalize_query(query), title, *tags],
+                "plain_summary": snippet,
+                "related_reason": "입력한 사고 쟁점과 연결되는 법령·판례 검색 결과입니다.",
+                "display_priority": 60 + index,
+                "source_url": source_uri,
+                "law_name": title,
+                "article_title": title,
+                "score": score,
+                "confidence_label": evidence_confidence_label(score),
+                "used_for": _infer_used_for(scenario_type, tags, [title, normalize_query(query)]),
+                "retrieval_note": "law_api_fallback",
+            }
+        )
+    return items
 
 
 def _retrieve_from_postgres(query: str, scenario_type: str, scenario_tags: list[str], limit: int) -> list[dict[str, Any]]:
@@ -29640,7 +31276,7 @@ def _retrieve_from_postgres(query: str, scenario_type: str, scenario_tags: list[
 
 
 def _infer_used_for(scenario_type: str, tags: list[str], keywords: list[str]) -> str:
-    joined = " ".join([scenario_type, *tags, *keywords])
+    joined = " ".join([scenario_type, *tags, *keywords]).lower()
     if "school_zone" in joined or "child" in joined:
         return "어린이보호구역 사고의 주의의무 판단 근거"
     if "signal" in joined:
@@ -29653,13 +31289,15 @@ def _infer_used_for(scenario_type: str, tags: list[str], keywords: list[str]) ->
         return "사고 후 조치와 신고 필요 여부 판단 근거"
     if "insurance" in joined:
         return "보험 처리와 필요 서류 안내 근거"
-    return "교통사고 분석에 참고할 수 있는 근거"
+    if "bicycle" in joined:
+        return "자전거 사고 주의의무 판단 근거"
+    return "교통사고 분석에 참고할 수 있는 법률 근거"
 
 ```
 
 ### File: `apps/agent/app/services/legal/legal_ingestion_service.py`
 
-- size: `11,357` bytes
+- size: `11,850` bytes
 
 ```python
 from __future__ import annotations
@@ -29692,6 +31330,7 @@ TRAFFIC_LAW_QUERIES = [
     "음주운전",
     "무면허운전",
     "뺑소니",
+    "자전거 교통사고",
 ]
 
 LOCAL_SEED_DOCUMENTS: list[dict[str, Any]] = [
@@ -29706,7 +31345,7 @@ LOCAL_SEED_DOCUMENTS: list[dict[str, Any]] = [
     {
         "title": "교통사고처리 특례법 12대 중과실 개요",
         "doc_type": "law_seed",
-        "summary": "신호위반, 중앙선 침범, 횡단보도 보행자 보호의무 위반 등 중대 과실 검토",
+        "summary": "신호위반, 중앙선 침범, 횡단보도 보행자 보호의무 위반 등 중대한 과실 검토",
         "raw_text": "교통사고처리 특례법상 신호위반, 중앙선 침범, 제한속도 중대한 초과, 횡단보도 보행자 보호의무 위반, 음주운전, 무면허운전 등은 12대 중과실로 검토될 수 있다. 부상이나 사망이 있는 경우 형사책임 가능성을 별도로 확인해야 한다.",
         "keywords": ["12대 중과실", "신호위반", "중앙선 침범", "횡단보도", "음주운전", "무면허운전"],
         "scenario_tags": ["twelve_gross_negligence", "signal_violation", "center_line", "crosswalk", "drunk_driving", "unlicensed"],
@@ -29714,7 +31353,7 @@ LOCAL_SEED_DOCUMENTS: list[dict[str, Any]] = [
     {
         "title": "어린이보호구역 사고 및 민식이법 검토",
         "doc_type": "law_seed",
-        "summary": "어린이보호구역에서 어린이 상해 사고가 발생한 경우 특정범죄 가중처벌법 검토",
+        "summary": "어린이보호구역에서 어린이 상해 사고가 발생한 경우 가중처벌 위험 검토",
         "raw_text": "어린이보호구역에서 운전자가 제한속도와 어린이 안전에 유의할 의무를 위반하여 어린이에게 상해를 입힌 경우 특정범죄 가중처벌 등에 관한 법률상 가중처벌 위험을 검토해야 한다. 어린이 여부, 보호구역 여부, 제한속도, 감속 여부, 상해 발생 여부가 핵심 사실이다.",
         "keywords": ["어린이보호구역", "민식이법", "어린이", "상해", "제한속도"],
         "scenario_tags": ["school_zone", "child_protection", "speed_limit", "injury"],
@@ -29722,8 +31361,8 @@ LOCAL_SEED_DOCUMENTS: list[dict[str, Any]] = [
     {
         "title": "횡단보도 보행자 보호의무",
         "doc_type": "law_seed",
-        "summary": "횡단보도와 보행자 사고에서 운전자 주의의무 검토",
-        "raw_text": "횡단보도 또는 보행자가 통행 중인 구간에서는 운전자의 일시정지 및 보행자 보호의무가 중요하다. 보행자 충돌, 횡단보도 인근, 신호 상태, 시야 확보 여부, 감속 여부를 확인해야 한다.",
+        "summary": "횡단보도와 보행자 사고에서 운전자의 주의의무 검토",
+        "raw_text": "횡단보도 또는 보행자가 통행 중인 구간에서는 운전자의 일시정지 및 보행자 보호의무가 중요하다. 보행자 충돌, 횡단보도 접근, 신호 상태, 시야 확보 여부, 감속 여부를 확인해야 한다.",
         "keywords": ["횡단보도", "보행자", "보행자 보호의무", "일시정지"],
         "scenario_tags": ["crosswalk", "pedestrian", "injury"],
     },
@@ -29731,17 +31370,25 @@ LOCAL_SEED_DOCUMENTS: list[dict[str, Any]] = [
         "title": "차선변경 및 진로변경 주의의무",
         "doc_type": "law_seed",
         "summary": "차선변경 사고에서 방향지시등, 안전거리, 사각지대 확인",
-        "raw_text": "진로를 변경하려는 차량은 다른 차량의 정상 진행을 방해하지 않도록 방향지시등을 켜고 안전거리와 사각지대를 확인해야 한다. 급차선 변경, 방향지시등 미사용, 측면충돌은 과실 조정 요소가 된다.",
+        "raw_text": "진로를 변경하려는 차량은 다른 차량의 정상 진행을 방해하지 않도록 방향지시등을 켜고 안전거리와 사각지대를 확인해야 한다. 급격한 변경, 방향지시등 미사용, 측면충돌은 과실 조정 요소가 된다.",
         "keywords": ["차선변경", "진로변경", "방향지시등", "사각지대", "측면충돌"],
         "scenario_tags": ["lane_change", "turn_signal", "blind_spot"],
     },
     {
         "title": "사고 후 조치 및 신고 의무",
         "doc_type": "law_seed",
-        "summary": "사고 발생 시 구호, 위험방지, 신고 필요성",
-        "raw_text": "교통사고가 발생하면 운전자는 사상자 구호와 위험 방지 조치를 해야 하며, 인명피해가 있거나 필요한 경우 경찰 신고를 검토해야 한다. 사고 현장을 이탈하거나 구호조치를 하지 않은 경우 뺑소니 또는 사고 후 미조치 리스크가 있다.",
+        "summary": "사고 발생 후 구호, 위험방지, 신고 필요성",
+        "raw_text": "교통사고가 발생하면 운전자는 사상자 구호와 위험 방지 조치를 해야 하며, 인명피해가 있거나 필요한 경우 경찰 신고를 검토해야 한다. 사고 현장을 이탈하거나 구호조치를 하지 않은 경우 도주 또는 사고 후 미조치 리스크가 있다.",
         "keywords": ["사고 후 조치", "신고의무", "구호조치", "뺑소니", "인명피해"],
         "scenario_tags": ["reporting_duty", "hit_and_run", "injury"],
+    },
+    {
+        "title": "자전거 교통사고 주의의무",
+        "doc_type": "law_seed",
+        "summary": "자동차와 자전거 사고에서 취약 교통참여자 보호 및 통행 위치 검토",
+        "raw_text": "자동차와 자전거가 관련된 사고에서는 자전거의 통행 위치, 자전거도로 또는 교차로 진입 방식, 자동차의 전방주시와 안전거리, 취약 교통참여자 보호 필요성을 함께 검토해야 한다.",
+        "keywords": ["자전거", "자전거도로", "차대자전거", "전방주시", "취약 교통참여자"],
+        "scenario_tags": ["bicycle", "vulnerable_road_user", "safe_distance"],
     },
 ]
 
@@ -29871,7 +31518,7 @@ def ingest_traffic_law_documents() -> dict[str, Any]:
 
 ### File: `apps/agent/app/services/legal/legal_normalizer.py`
 
-- size: `3,462` bytes
+- size: `4,069` bytes
 
 ```python
 from __future__ import annotations
@@ -29897,32 +31544,32 @@ class NormalizedLegalDocument:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+TAG_KEYWORDS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("어린이보호구역", "민식이", "스쿨존"), "school_zone"),
+    (("제한속도", "속도위반", "과속"), "speed_limit"),
+    (("12대 중과실", "중과실"), "twelve_gross_negligence"),
+    (("신호", "적색", "녹색", "황색"), "signal_violation"),
+    (("중앙선", "중앙선 침범"), "center_line"),
+    (("횡단보도", "보행자 보호"), "crosswalk"),
+    (("보행자", "사람", "도로 작업자"), "pedestrian"),
+    (("음주", "음주운전"), "drunk_driving"),
+    (("무면허",), "unlicensed"),
+    (("도주", "뺑소니", "구호조치"), "hit_and_run"),
+    (("후미", "후방", "추돌"), "rear_end"),
+    (("안전거리", "전방주시"), "safe_distance"),
+    (("차선변경", "진로변경", "끼어들기"), "lane_change"),
+    (("사고 후 조치", "신고의무", "보험 접수"), "reporting_duty"),
+    (("부상", "상해", "인명피해"), "injury"),
+    (("자전거", "자전거도로"), "bicycle"),
+    (("정차", "주차", "비상등", "스텔스"), "stopped_vehicle"),
+)
+
+
 def infer_tags(text: str, keywords: list[str] | None = None) -> list[str]:
-    haystack = f"{text} {' '.join(keywords or [])}"
+    haystack = f"{text} {' '.join(keywords or [])}".lower()
     tags: set[str] = set()
-    mapping = {
-        "어린이보호구역": "school_zone",
-        "민식이": "child_protection",
-        "제한속도": "speed_limit",
-        "12대": "twelve_gross_negligence",
-        "중과실": "twelve_gross_negligence",
-        "신호": "signal_violation",
-        "중앙선": "center_line",
-        "횡단보도": "crosswalk",
-        "보행자": "pedestrian",
-        "음주": "drunk_driving",
-        "무면허": "unlicensed",
-        "뺑소니": "hit_and_run",
-        "도주": "hit_and_run",
-        "후미": "rear_end",
-        "안전거리": "safe_distance",
-        "차선": "lane_change",
-        "진로변경": "lane_change",
-        "사고 후 조치": "reporting_duty",
-        "부상": "injury",
-    }
-    for word, tag in mapping.items():
-        if word in haystack:
+    for words, tag in TAG_KEYWORDS:
+        if any(word.lower() in haystack for word in words):
             tags.add(tag)
     return sorted(tags)
 
@@ -29949,16 +31596,32 @@ def normalize_seed_document(item: dict[str, Any]) -> NormalizedLegalDocument:
 
 
 def normalize_law_api_item(item: dict[str, Any], query: str) -> NormalizedLegalDocument:
-    title = str(item.get("title") or item.get("법령명한글") or item.get("판례명") or query)
-    snippet = str(item.get("snippet") or item.get("조문내용") or item.get("판시사항") or title)
+    title = str(
+        item.get("title")
+        or item.get("법령명한글")
+        or item.get("법령명")
+        or item.get("판례명")
+        or item.get("사건명")
+        or query
+    )
+    snippet = str(
+        item.get("snippet")
+        or item.get("조문내용")
+        or item.get("판시사항")
+        or item.get("제개정구분명")
+        or item.get("법령구분명")
+        or title
+    )
+    source_name = str(item.get("source", "국가법령정보센터 OPEN API"))
+    source_uri = item.get("source_uri") or item.get("source_url")
     keywords = [query, title]
     return NormalizedLegalDocument(
         title=title,
         doc_type=str(item.get("doc_type", "law_api")),
         raw_text=snippet,
-        source_name=str(item.get("source", "국가법령정보센터 OPEN API")),
+        source_name=source_name,
         source_type="law_api",
-        source_uri=item.get("source_uri"),
+        source_uri=source_uri,
         provider="law_api",
         summary=snippet[:240],
         keywords=keywords,
@@ -30485,7 +32148,7 @@ def _family(item: dict[str, Any]) -> str:
 
 ### File: `apps/agent/app/services/orchestration_analysis.py`
 
-- size: `12,641` bytes
+- size: `14,034` bytes
 
 ```python
 from __future__ import annotations
@@ -30505,7 +32168,13 @@ from app.services.analysts.insurance_analyst import analyze_insurance
 from app.services.analysts.traffic_law_analyst import analyze_traffic_law
 from app.services.claim_evidence_validator import apply_claim_evidence_audit, validate_claim_evidence
 from app.services.orchestration_context import CaseContext
-from app.services.orchestration_evidence import EvidenceBundle, _filter_primary_knia_evidence, merge_evidence_items, normalize_evidence_items
+from app.services.orchestration_evidence import (
+    EvidenceBundle,
+    _filter_primary_knia_evidence,
+    _filter_target_context_mismatch,
+    merge_evidence_items,
+    normalize_evidence_items,
+)
 from app.services.rag_client import retrieve_for_scenario
 from app.services.reflection_loop import build_requery_plan
 
@@ -30649,6 +32318,12 @@ def run_reflection_requery_stage(
         ]
     )
     legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario.get("scenario_tags") or [], scenario.get("scenario_type"))
+    legal_evidence = _filter_target_context_mismatch(
+        legal_evidence,
+        normalized["structured_facts"],
+        scenario.get("accident_party_type"),
+        scenario.get("scenario_type"),
+    )
     next_evidence_bundle = EvidenceBundle(
         **{
             **evidence_bundle.__dict__,
@@ -30746,19 +32421,25 @@ def _apply_adjustment_registry(
         knia_fault_estimate,
         normalized["description_text"],
     )
-    if evaluation.get("base_fault"):
+    preserve_contextual_estimate = fault_ratio.get("fault_estimate_source") == "contextual_complex_case"
+    if evaluation.get("base_fault") and not preserve_contextual_estimate:
         fault_ratio["base_fault"] = evaluation["base_fault"]
-    if evaluation.get("final_fault"):
+    if evaluation.get("final_fault") and not preserve_contextual_estimate:
         fault_ratio["final_fault"] = evaluation["final_fault"]
         fault_ratio["my"] = evaluation["final_fault"].get("my", fault_ratio.get("my"))
         fault_ratio["other"] = evaluation["final_fault"].get("other", fault_ratio.get("other"))
-    if evaluation.get("fault_range"):
+    if evaluation.get("fault_range") and not preserve_contextual_estimate:
         fault_ratio["fault_range"] = evaluation["fault_range"]
     for key in ("applied_adjustments", "not_applied_adjustments", "unknown_adjustments", "conditional_outcomes"):
         if evaluation.get(key):
             existing = fault_ratio.get(key)
             if isinstance(existing, list) and key == "conditional_outcomes":
-                fault_ratio[key] = [*existing, *evaluation[key]]
+                if fault_ratio.get("fault_estimate_source") == "contextual_complex_case" and existing:
+                    fault_ratio[key] = _dedupe_conditional_outcomes(existing)
+                else:
+                    fault_ratio[key] = _dedupe_conditional_outcomes([*existing, *evaluation[key]])
+            elif preserve_contextual_estimate and isinstance(existing, list):
+                fault_ratio[key] = existing
             else:
                 fault_ratio[key] = evaluation[key]
     fault_ratio["knia_adjustment_policy"] = evaluation.get("policy") or {}
@@ -30767,11 +32448,28 @@ def _apply_adjustment_registry(
     if not knia_fault_estimate:
         fault_ratio["no_knia_match_reason"] = knia_result.get("no_knia_match_reason") or "knia_fault_estimate_unavailable"
 
+
+def _dedupe_conditional_outcomes(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        key = "|".join(
+            str(item.get(field) or "").strip().lower()
+            for field in ("label", "condition", "my_range", "other_range")
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped
+
 ```
 
 ### File: `apps/agent/app/services/orchestration_context.py`
 
-- size: `3,635` bytes
+- size: `3,717` bytes
 
 ```python
 from __future__ import annotations
@@ -30807,6 +32505,7 @@ def build_case_context(
     selected_keywords: list[str] | None,
     analysis_mode: str | None,
     video_metadata: dict[str, Any] | None,
+    initial_intake: dict[str, Any] | None = None,
 ) -> CaseContext:
     video_context = summarize_video_context(video_metadata)
     normalized = normalize_analysis_input(
@@ -30815,6 +32514,7 @@ def build_case_context(
         selected_keywords=selected_keywords,
         video_metadata=video_metadata,
         analysis_mode=analysis_mode,
+        initial_intake=initial_intake,
     )
     scenario = classify_scenario(
         normalized["merged_text"],
@@ -30867,7 +32567,7 @@ def build_case_context(
 
 ### File: `apps/agent/app/services/orchestration_evidence.py`
 
-- size: `18,533` bytes
+- size: `20,668` bytes
 
 ```python
 from __future__ import annotations
@@ -30918,7 +32618,12 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
     )
     scenario_tags = scenario.get("scenario_tags") or []
     knia_matches = _filter_primary_knia_evidence(knia_result.get("items") or [], scenario_tags, scenario.get("scenario_type"))
-    knia_matches = _filter_pedestrian_target_mismatch(knia_matches, normalized["structured_facts"], scenario.get("accident_party_type"))
+    knia_matches = _filter_target_context_mismatch(
+        knia_matches,
+        normalized["structured_facts"],
+        scenario.get("accident_party_type"),
+        scenario.get("scenario_type"),
+    )
     knia_matches, _ = reject_mismatched_knia_items(knia_matches, scenario.get("accident_party_type"))
     knia_matches = _filter_knia_major_party(knia_matches, scenario.get("accident_party_type"))
     evidence_query = evidence_query_payload(
@@ -30937,7 +32642,12 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         limit=5,
     )
     knia_json_evidence = _filter_primary_knia_evidence(knia_json_result.get("items") or [], scenario_tags, scenario.get("scenario_type"))
-    knia_json_evidence = _filter_pedestrian_target_mismatch(knia_json_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
+    knia_json_evidence = _filter_target_context_mismatch(
+        knia_json_evidence,
+        normalized["structured_facts"],
+        scenario.get("accident_party_type"),
+        scenario.get("scenario_type"),
+    )
     knia_json_evidence, _ = reject_mismatched_knia_items(knia_json_evidence, scenario.get("accident_party_type"))
     knia_json_evidence = _filter_knia_major_party(knia_json_evidence, scenario.get("accident_party_type"))
     knia_fault_estimate: dict[str, Any] | None = None
@@ -30980,7 +32690,12 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
         [*build_knia_evidence(knia_matches), *knia_reference_evidence, *knia_json_evidence],
         default_source="과실비율정보포털",
     )
-    knia_evidence = _filter_pedestrian_target_mismatch(knia_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
+    knia_evidence = _filter_target_context_mismatch(
+        knia_evidence,
+        normalized["structured_facts"],
+        scenario.get("accident_party_type"),
+        scenario.get("scenario_type"),
+    )
     knia_evidence = _filter_knia_major_party(knia_evidence, scenario.get("accident_party_type"))
     retrieval = retrieve_for_scenario(
         scenario_type=scenario["scenario_type"],
@@ -30993,7 +32708,12 @@ def collect_evidence_stage(context: CaseContext, video_metadata: dict[str, Any] 
     )
     legal_evidence = normalize_evidence_items(retrieval["items"], default_source="법률 근거")
     legal_evidence = _filter_primary_knia_evidence(legal_evidence, scenario_tags, scenario.get("scenario_type"))
-    legal_evidence = _filter_pedestrian_target_mismatch(legal_evidence, normalized["structured_facts"], scenario.get("accident_party_type"))
+    legal_evidence = _filter_target_context_mismatch(
+        legal_evidence,
+        normalized["structured_facts"],
+        scenario.get("accident_party_type"),
+        scenario.get("scenario_type"),
+    )
     legal_evidence = _filter_knia_major_party(legal_evidence, scenario.get("accident_party_type"))
     return EvidenceBundle(
         knia_result=knia_result,
@@ -31140,34 +32860,83 @@ def _filter_knia_major_party(items: list[dict[str, Any]], accident_party_type: s
     return filtered
 
 
-def _filter_pedestrian_target_mismatch(
+def _filter_target_context_mismatch(
     items: list[dict[str, Any]],
     facts: dict[str, Any],
     accident_party_type: str | None,
+    scenario_type: str | None = None,
 ) -> list[dict[str, Any]]:
     partner = str(facts.get("collision_partner_type") or "").strip().lower()
     direct_partner = str(facts.get("direct_collision_partner_type") or "").strip().lower()
-    vehicle_context = accident_party_type == "car_vs_car" or partner in {"vehicle", "car", "truck", "bus", "van"} or direct_partner in {"vehicle", "car", "truck", "bus", "van"}
+    target = str(facts.get("primary_collision_target") or "").strip().lower()
+    vehicle_context = (
+        accident_party_type == "car_vs_car"
+        or partner in {"vehicle", "car", "truck", "bus", "van"}
+        or direct_partner in {"vehicle", "car", "truck", "bus", "van"}
+        or target in {"vehicle", "car", "truck", "bus", "van"}
+    )
     if not vehicle_context:
         return items
+    scenario_name = str(scenario_type or "").strip().lower()
+    rear_context = scenario_name == "rear_end_collision" or any(
+        facts.get(key) is True
+        for key in ("front_vehicle_stopped", "rear_vehicle_collision", "rear_end_collision", "rear_impact")
+    )
+    trigger_actor = str(facts.get("trigger_actor_type") or "").strip().lower()
+    possible_trigger = str(facts.get("possible_trigger_vehicle") or "").strip().lower()
+    bicycle_context = (
+        scenario_name == "bicycle_collision"
+        or any(facts.get(key) is True for key in ("bicycle_involved", "bicycle_related", "non_contact_bicycle_trigger"))
+        or trigger_actor in {"bicycle", "자전거"}
+        or possible_trigger in {"bicycle", "자전거"}
+        or "자전거" in trigger_actor
+        or "자전거" in possible_trigger
+    )
     filtered: list[dict[str, Any]] = []
     for item in items:
-        text = " ".join(
-            str(item.get(key) or "")
-            for key in ("title", "article_title", "plain_summary", "related_reason", "accident_summary", "law_name", "source_type")
-        ).lower()
+        text = _target_filter_text(item)
         party = str(item.get("accident_party_type") or "").strip().lower()
         tags = " ".join(str(tag).lower() for tag in (item.get("scenario_tags") or item.get("display_tags") or []))
         pedestrian_target = (
             party == "car_vs_person"
             or "pedestrian_crosswalk_accident" in text
             or "school_zone_child_accident" in text
+            or "pedestrian-crosswalk" in text
+            or "school-zone" in text
             or any(token in text for token in ("보행자 사고", "보행자 보호", "pedestrian protection", "child protection"))
             or ("pedestrian" in tags and "vehicle" not in tags and "intersection" not in tags and "rear" not in tags)
         )
-        if not pedestrian_target:
-            filtered.append(item)
+        rear_target = not rear_context and (
+            "front-vehicle-stop-rear-end" in text
+            or "fault-guide:rear-end" in text
+            or ("rear-end" in tags and "intersection" not in tags and "centerline" not in tags)
+        )
+        bicycle_target = not bicycle_context and (
+            "bicycle" in text
+            or "bicycle" in tags
+            or "자전거" in text
+        )
+        if pedestrian_target or rear_target or bicycle_target:
+            continue
+        filtered.append(item)
     return filtered
+
+
+def _target_filter_text(item: dict[str, Any]) -> str:
+    return " ".join(
+        str(item.get(key) or "")
+        for key in (
+            "chunk_id",
+            "title",
+            "article_title",
+            "plain_summary",
+            "related_reason",
+            "accident_summary",
+            "law_name",
+            "source_type",
+            "scenario_type",
+        )
+    ).lower()
 
 
 def normalize_evidence_items(items: list[dict[str, Any]], *, default_source: str) -> list[dict[str, Any]]:
@@ -31551,7 +33320,7 @@ __all__ = [
 
 ### File: `apps/agent/app/services/orchestrator.py`
 
-- size: `7,745` bytes
+- size: `8,035` bytes
 
 ```python
 ﻿from __future__ import annotations
@@ -31580,6 +33349,7 @@ def analyze_case(
     selected_keywords: list[str] | None = None,
     video_metadata: dict[str, Any] | None = None,
     analysis_mode: str | None = None,
+    initial_intake: dict[str, Any] | None = None,
     ai_profile: str | None = None,
     specialist_roles: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -31591,6 +33361,7 @@ def analyze_case(
         ai_profile=ai_profile,
         specialist_roles=specialist_roles,
         video_metadata=video_metadata,
+        initial_intake=initial_intake,
     )
 
 
@@ -31602,6 +33373,7 @@ def analyze_video_case(
     structured_facts: dict[str, Any] | None = None,
     selected_keywords: list[str] | None = None,
     analysis_mode: str | None = None,
+    initial_intake: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return _analyze_core(
         description_text=preprocessed_summary or "영상 분석 정보가 충분하지 않습니다. 사고 상황을 글로 조금 더 입력해 주세요.",
@@ -31611,6 +33383,7 @@ def analyze_video_case(
         ai_profile=ai_profile,
         specialist_roles=specialist_roles,
         video_metadata=video_metadata,
+        initial_intake=initial_intake,
     )
 
 
@@ -31623,6 +33396,7 @@ def analyze_scenario(payload: dict[str, Any]) -> dict[str, Any]:
         ai_profile=payload.get("ai_profile"),
         specialist_roles=payload.get("specialist_roles"),
         video_metadata=payload.get("video_metadata"),
+        initial_intake=payload.get("initial_intake"),
     )
 
 
@@ -31635,6 +33409,7 @@ def _analyze_core(
     ai_profile: str | None,
     specialist_roles: list[str] | None,
     video_metadata: dict[str, Any] | None,
+    initial_intake: dict[str, Any] | None,
 ) -> dict[str, Any]:
     context = build_case_context(
         description_text=description_text,
@@ -31642,6 +33417,7 @@ def _analyze_core(
         selected_keywords=selected_keywords,
         analysis_mode=analysis_mode,
         video_metadata=video_metadata,
+        initial_intake=initial_intake,
     )
     evidence_bundle = collect_evidence_stage(context, video_metadata)
     analysis_bundle = run_analysis_stage(context, evidence_bundle)
@@ -32115,7 +33891,7 @@ def build_knia_json_query(description_text: str, facts: dict[str, Any], keywords
 
 ### File: `apps/agent/app/services/rag/two_stage_cache.py`
 
-- size: `16,917` bytes
+- size: `20,455` bytes
 
 ```python
 ﻿from __future__ import annotations
@@ -32124,6 +33900,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 from typing import Any
 
@@ -32145,6 +33922,8 @@ REVIEW_REQUIRED_SQL = (
     "IN ('true', '1', 'yes') THEN true ELSE false END"
 )
 
+CHART_NO_RE = re.compile(r"(?<![가-힣A-Za-z0-9])([차보거자단기물]\d{1,3}(?:-\d{1,2})?)")
+
 
 def _chart_prefix_patterns(party_type: str | None) -> list[str]:
     return {
@@ -32154,6 +33933,38 @@ def _chart_prefix_patterns(party_type: str | None) -> list[str]:
         "car_vs_object": ["기%", "湲%"],
         "single_vehicle": ["단%"],
     }.get(str(party_type or ""), [])
+
+
+def _extract_chart_no(*parts: Any) -> str | None:
+    text = " ".join(str(part or "") for part in parts)
+    match = CHART_NO_RE.search(text)
+    return match.group(1) if match else None
+
+
+def _party_from_chart_no(chart_no: str | None) -> str | None:
+    value = str(chart_no or "")
+    if value.startswith("차"):
+        return "car_vs_car"
+    if value.startswith("보"):
+        return "car_vs_person"
+    if value.startswith(("거", "자")):
+        return "car_vs_bicycle"
+    if value.startswith("단"):
+        return "single_vehicle"
+    if value.startswith(("기", "물")):
+        return "car_vs_object"
+    return None
+
+
+def _party_label(party_type: str | None, fallback: str | None = None) -> str:
+    labels = {
+        "car_vs_car": "차대차 사고",
+        "car_vs_person": "차대보행자 사고",
+        "car_vs_bicycle": "차대자전거 사고",
+        "car_vs_object": "물체/시설물 사고",
+        "single_vehicle": "단독 사고",
+    }
+    return labels.get(str(party_type or ""), fallback or "확인이 필요합니다.")
 
 
 def _db_url() -> str | None:
@@ -32169,6 +33980,25 @@ def normalize_query(query: str) -> str:
 
 def query_hash(query: str) -> str:
     return hashlib.sha256(normalize_query(query).encode("utf-8")).hexdigest()
+
+
+def _literal_patterns(query: str) -> list[str]:
+    generic_terms = {"사고", "차량", "자동차", "과실", "기준", "관련", "상황", "검토", "정보"}
+    tokens = [token.strip() for token in normalize_query(query).split()]
+    expanded = [token for token in tokens if len(token) >= 2 and token not in generic_terms]
+    query_text = " ".join(tokens)
+    if "후미추돌" in query_text or "후방추돌" in query_text or "추돌" in query_text:
+        expanded.extend(["후방 추돌", "추돌사고", "안전거리미확보"])
+    if "정차" in query_text or "정지" in query_text:
+        expanded.extend(["주정차", "정지 직후", "정차 중"])
+    seen: set[str] = set()
+    patterns: list[str] = []
+    for token in expanded:
+        if token in seen:
+            continue
+        seen.add(token)
+        patterns.append(f"%{token}%")
+    return patterns
 
 
 def _redis() -> redis.Redis | None:
@@ -32243,16 +34073,18 @@ def _public_items_from_refs(refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         r = by_id.get(ref.get("chunk_id"))
         if not r:
             continue
+        inferred_chart_no = r[9] or _extract_chart_no(r[1], r[2], r[14])
+        inferred_party = _party_from_chart_no(inferred_chart_no) or r[4]
         out.append({
             "title": r[1],
             "summary": r[2],
             "source_url": r[3],
-            "accident_party_type": r[4],
-            "accident_party_label": r[5],
+            "accident_party_type": inferred_party,
+            "accident_party_label": _party_label(inferred_party, r[5]),
             "display_tags": r[6] or [],
             "keywords": r[7] or [],
             "source": r[8] or "KNIA 자동차사고 과실비율 정보포털",
-            "chart_no": r[9],
+            "chart_no": inferred_chart_no,
             "major_party_type": r[10],
             "scenario_type": r[11],
             "chunk_type": r[12],
@@ -32264,26 +34096,29 @@ def _public_items_from_refs(refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _rows_to_public_items(rows: list[Any]) -> list[dict[str, Any]]:
-    return [
-        {
+    out = []
+    for row in rows:
+        metadata = row[14] if len(row) > 14 else {}
+        inferred_chart_no = (row[9] if len(row) > 9 else None) or _extract_chart_no(row[1], row[2], metadata)
+        inferred_party = _party_from_chart_no(inferred_chart_no) or row[4]
+        out.append({
             "title": row[1],
             "summary": row[2],
             "source_url": row[3],
-            "accident_party_type": row[4],
-            "accident_party_label": row[5],
+            "accident_party_type": inferred_party,
+            "accident_party_label": _party_label(inferred_party, row[5]),
             "display_tags": row[6] or [],
             "keywords": row[7] or [],
             "source": row[8] or "KNIA 자동차사고 과실비율 정보포털",
-            "chart_no": row[9] if len(row) > 9 else None,
+            "chart_no": inferred_chart_no,
             "major_party_type": row[10] if len(row) > 10 else None,
             "scenario_type": row[11] if len(row) > 11 else None,
             "chunk_type": row[12] if len(row) > 12 else None,
             "review_required": bool(row[13]) if len(row) > 13 else False,
-            "metadata": row[14] if len(row) > 14 else {},
+            "metadata": metadata,
             "attribution": "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
-        }
-        for row in rows
-    ]
+        })
+    return out
 
 
 def _keyword_fallback_search(
@@ -32312,7 +34147,8 @@ def _keyword_fallback_search(
         }
     try:
         with psycopg.connect(db_url) as conn, conn.cursor() as cur:
-            params: list[Any] = [query]
+            patterns = _literal_patterns(query)
+            params: list[Any] = [query, patterns]
             where = "kc.source_url IS NOT NULL"
             if chart_no:
                 params.append(chart_no)
@@ -32325,11 +34161,14 @@ def _keyword_fallback_search(
                 if prefixes:
                     params.append(prefixes)
                     where += f" OR {CHART_NO_SQL} LIKE ANY(%s::text[])"
+                if patterns:
+                    params.append(patterns)
+                    where += " OR kc.chunk_text ILIKE ANY(%s::text[])"
                 where += ")"
             params.append(limit)
             cur.execute(
                 f"""
-                WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq)
+                WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq, %s::text[] AS patterns)
                 SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
                        kc.display_tags, kc.keywords, kd.source,
                        {CHART_NO_SQL} AS chart_no,
@@ -32338,14 +34177,19 @@ def _keyword_fallback_search(
                        kc.chunk_type,
                        {REVIEW_REQUIRED_SQL} AS review_required,
                        kd.metadata AS metadata,
+                       (SELECT count(*)::numeric FROM unnest(q.patterns) AS pattern
+                        WHERE kc.chunk_text ILIKE pattern
+                           OR coalesce(kc.plain_summary, '') ILIKE pattern
+                           OR coalesce(kd.title, '') ILIKE pattern) AS literal_score,
                        (CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) AS fts_rank,
                        kc.evidence_quality_score
                 FROM knia_reference_chunks kc
                 JOIN knia_reference_documents kd ON kd.id=kc.document_id
                 CROSS JOIN q
                 WHERE {where}
-                ORDER BY ((CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) * 0.80
-                        + kc.evidence_quality_score * 0.20) DESC
+                ORDER BY literal_score DESC,
+                         fts_rank DESC,
+                         kc.evidence_quality_score DESC
                 LIMIT %s
                 """.format(
                     where=where,
@@ -32357,6 +34201,13 @@ def _keyword_fallback_search(
                 params,
             )
             rows = cur.fetchall()
+            refs = [{"chunk_id": str(row[0])} for row in rows]
+            r = _redis()
+            if r:
+                try:
+                    r.setex(cache_key, 3600, json.dumps(refs, ensure_ascii=False))
+                except Exception:
+                    pass
             return {
                 "items": _rows_to_public_items(rows),
                 "cache": {
@@ -32456,7 +34307,8 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
                 },
             }
 
-        params: list[Any] = [normalized, vec_literal]
+        patterns = _literal_patterns(normalized)
+        params: list[Any] = [normalized, patterns, vec_literal]
         where = "kc.source_url IS NOT NULL"
         if chart_no:
             params.append(chart_no)
@@ -32469,11 +34321,14 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
             if prefixes:
                 params.append(prefixes)
                 where += f" OR {CHART_NO_SQL} LIKE ANY(%s::text[])"
+            if patterns:
+                params.append(patterns)
+                where += " OR kc.chunk_text ILIKE ANY(%s::text[])"
             where += ")"
         params.append(limit)
         cur.execute(
             f"""
-            WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq, %s::vector AS qvec)
+            WITH q AS (SELECT plainto_tsquery('simple', %s) AS tsq, %s::text[] AS patterns, %s::vector AS qvec)
             SELECT kc.id, kd.title, kc.plain_summary, kc.source_url, kc.accident_party_type, kc.accident_party_label,
                    kc.display_tags, kc.keywords, kd.source,
                    {CHART_NO_SQL} AS chart_no,
@@ -32482,6 +34337,10 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
                    kc.chunk_type,
                    {REVIEW_REQUIRED_SQL} AS review_required,
                    kd.metadata AS metadata,
+                   (SELECT count(*)::numeric FROM unnest(q.patterns) AS pattern
+                    WHERE kc.chunk_text ILIKE pattern
+                       OR coalesce(kc.plain_summary, '') ILIKE pattern
+                       OR coalesce(kd.title, '') ILIKE pattern) AS literal_score,
                    (CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) AS fts_rank,
                    (CASE WHEN kc.embedding IS NOT NULL THEN 1 - (kc.embedding <=> q.qvec) ELSE 0 END) AS vector_score,
                    kc.evidence_quality_score
@@ -32489,9 +34348,10 @@ def search_knia_json_cached(query: str, accident_party_type: str | None = None, 
             JOIN knia_reference_documents kd ON kd.id=kc.document_id
             CROSS JOIN q
             WHERE {where}
-            ORDER BY ((CASE WHEN kc.tsv @@ q.tsq THEN ts_rank(kc.tsv, q.tsq) ELSE 0 END) * 0.55
-                    + (CASE WHEN kc.embedding IS NOT NULL THEN 1 - (kc.embedding <=> q.qvec) ELSE 0 END) * 0.35
-                    + kc.evidence_quality_score * 0.10) DESC
+            ORDER BY literal_score DESC,
+                     vector_score DESC,
+                     fts_rank DESC,
+                     kc.evidence_quality_score DESC
             LIMIT %s
             """,
             params,
@@ -32848,7 +34708,7 @@ def _recovery_suggestions(missing_requirements: list[str], blocking_fields: list
 
 ### File: `apps/agent/app/services/scenario_classifier.py`
 
-- size: `28,851` bytes
+- size: `29,279` bytes
 
 ```python
 ﻿from __future__ import annotations
@@ -32880,7 +34740,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
     if _is_road_worker_pedestrian_accident(facts, haystack):
         tags.update(["pedestrian", "road_work", "worker", "sudden_entry", "fault_ratio"])
         return {
-            "scenario_type": "pedestrian_accident",
+            "scenario_type": "pedestrian_road_work_worker_accident",
             "accident_type": "pedestrian_roadway_worker_accident",
             "accident_party_type": "car_vs_person",
             "major_party_type": "car_vs_person",
@@ -32967,7 +34827,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         accident_party_type = "car_vs_car"
         tags.update(["rear_end", "safe_distance", "front_vehicle_stopped", "right_turn", "crosswalk"])
     elif accident_type == "centerline_obstacle_collision":
-        scenario_type = "parking_or_stopped_vehicle_accident"
+        scenario_type = "centerline_obstacle_collision"
         accident_party_type = "car_vs_car"
         tags.update(["centerline", "road_obstruction", "oncoming_vehicle"])
     elif accident_type == "stopped_vehicle_collision":
@@ -33047,7 +34907,7 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         accident_party_type = "car_vs_car"
         tags.update(["intersection", "signal_violation", "right_of_way"])
     elif facts.get("centerline_crossed") and (facts.get("road_obstruction") or facts.get("illegal_parking_obstruction") or any(w in haystack for w in ["중앙선", "황색 실선", "불법 주정차", "주차 차량", "장애물"])):
-        scenario_type = "parking_or_stopped_vehicle_accident"
+        scenario_type = "centerline_obstacle_collision"
         accident_party_type = "car_vs_car"
         tags.update(["centerline", "road_obstruction", "oncoming_vehicle"])
     elif facts.get("lane_change") or any(w in haystack for w in ["차선변경", "진로변경", "끼어들", "방향지시등", "깜빡이"]):
@@ -33145,6 +35005,14 @@ def classify_scenario(text: str, facts: dict[str, Any] | None = None, keywords: 
         tags.add("single_vehicle")
 
     filtered_tags = filter_tags_by_party(sorted(tags), accident_party_type, facts)
+    if (
+        accident_party_type == "car_vs_car"
+        and scenario_type == "rear_end_collision"
+        and (facts.get("trigger_actor_type") == "bicycle" or facts.get("possible_trigger_vehicle") == "bicycle")
+        and facts.get("non_contact_trigger")
+        and "bicycle" not in filtered_tags
+    ):
+        filtered_tags = [*filtered_tags, "bicycle"]
     confidence = 0.86 if scenario_type != "general_collision" and accident_party_type != "unknown" else 0.48
     return {
         "scenario_type": scenario_type,
@@ -33202,17 +35070,17 @@ def _is_stealth_illegal_parked_vehicle_context(facts: dict[str, Any], haystack: 
     )
     abnormal_place = any(token in haystack for token in ("화단", "중앙분리대", "갓길", "통행 공간", "flowerbed", "median"))
     drunk = any(token in haystack for token in ("음주", "음주운전", "만취", "술", "drunk"))
+    explicit_stealth = "스텔스" in haystack
 
     fact_match = (
             facts.get("stopped_vehicle_without_lights") is True
             or facts.get("night_no_lights_or_low_visibility") is True
-            or facts.get("abnormal_parking") is True
             or str(facts.get("parked_vehicle_lighting") or "") == "unlit_stealth"
             or str(facts.get("visibility_condition") or "") in {"night_dark", "under_bridge_dark"}
-            or str(facts.get("opponent_impairment") or "") in {"drunk_driving_confirmed", "suspected_drunk"}
     )
+    fact_abnormal = facts.get("abnormal_parking") is True or str(facts.get("opponent_impairment") or "") in {"drunk_driving_confirmed", "suspected_drunk"}
 
-    return collision and parked_vehicle and (stealth_or_dark or abnormal_place or drunk or fact_match)
+    return collision and parked_vehicle and (stealth_or_dark or fact_match) and (explicit_stealth or abnormal_place or drunk or fact_abnormal)
 
 
 def _is_road_worker_pedestrian_accident(facts: dict[str, Any], text: str) -> bool:
@@ -34307,7 +36175,7 @@ def describe_roles(role_ids: list[str]) -> list[dict[str, str]]:
 
 ### File: `apps/agent/app/services/static_legal_fallback.py`
 
-- size: `31,660` bytes
+- size: `24,593` bytes
 
 ```python
 from __future__ import annotations
@@ -34318,441 +36186,132 @@ from typing import Any
 _STATIC_CHUNKS: list[dict[str, Any]] = [
     {
         "chunk_id": "static:rt-law:safe-distance",
-        "title": "도로교통법 안전거리 유지 의무",
+        "source_type": "legal_reference",
+        "title": "도로교통법 안전거리 및 전방주시 의무",
         "source": "교통사고 법률 설명 자료",
+        "source_url": "https://www.law.go.kr/법령/도로교통법",
         "law_name": "도로교통법",
-        "article_title": "앞차와의 안전거리 및 전방주시 의무",
-        "snippet": "뒤차는 앞차와 안전거리를 유지하고 전방 상황에 맞춰 속도를 줄일 주의의무가 있습니다.",
-        "plain_summary": "후미추돌 사고에서는 뒤차가 안전거리를 지켰는지와 전방주시를 했는지가 핵심입니다.",
-        "related_reason": "정차 또는 감속 중 뒤에서 추돌된 사고와 직접 관련된 확인 기준입니다.",
+        "article_title": "앞차와의 안전거리 및 안전운전 의무",
+        "snippet": "뒤차는 앞차가 정지하거나 감속하는 상황에도 충돌을 피할 수 있도록 필요한 거리를 두고 전방을 주시해야 합니다.",
+        "plain_summary": "후미추돌 사고에서는 뒤차가 안전거리와 전방주시 의무를 지켰는지가 핵심입니다.",
+        "related_reason": "정차 또는 감속 중 뒤에서 충돌한 사고와 직접 관련된 판단 기준입니다.",
         "scenario_tags": ["rear_end", "safe_distance"],
         "keywords": ["후미", "뒤차", "추돌", "안전거리", "정차", "급정거", "rear", "distance"],
-        "score": 0.39,
-    },
-    {
-        "chunk_id": "static:rt-law:signal",
-        "title": "도로교통법 신호 준수 의무",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "도로교통법",
-        "article_title": "교차로 신호 및 우선권 확인",
-        "snippet": "교차로 사고에서는 각 차량의 신호 상태, 진입 시점, 우선권이 중요한 판단 요소입니다.",
-        "plain_summary": "신호위반이나 선진입 여부가 다투어지는 사고에서 확인해야 하는 기준입니다.",
-        "related_reason": "교차로 또는 신호위반 입력이 있을 때 참고할 수 있는 기준입니다.",
-        "scenario_tags": ["signal_violation", "intersection"],
-        "keywords": ["교차로", "신호", "좌회전", "우회전", "직진", "우선권", "intersection", "signal"],
-        "score": 0.38,
-    },
-    {
-        "chunk_id": "static:rt-law:lane-change",
-        "title": "도로교통법 차로변경 주의의무",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "도로교통법",
-        "article_title": "진로변경 시 주변 차량 확인 의무",
-        "snippet": "차로를 바꾸는 차량은 방향지시등 사용, 사각지대 확인, 충분한 거리 확보가 필요합니다.",
-        "plain_summary": "차선변경 중 사고에서는 변경 차량이 주변 차량을 충분히 확인했는지가 핵심입니다.",
-        "related_reason": "차선변경, 끼어들기, 측면 충돌 입력과 관련된 기준입니다.",
-        "scenario_tags": ["lane_change", "turn_signal"],
-        "keywords": ["차선", "차로", "진로", "변경", "끼어들", "방향지시등", "사각지대", "lane", "merge"],
-        "score": 0.38,
-    },
-    {
-        "chunk_id": "static:special-act:criminal",
-        "title": "교통사고처리 특례법 형사책임 확인",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "교통사고처리 특례법",
-        "article_title": "중과실 및 인명피해 확인",
-        "snippet": "인명피해, 12대 중과실, 도주 여부가 있으면 형사책임 검토가 필요합니다.",
-        "plain_summary": "다친 사람이 있거나 중대한 법규 위반이 의심되면 신고와 형사책임 여부를 확인해야 합니다.",
-        "related_reason": "부상, 음주, 무면허, 신호위반, 뺑소니 입력과 관련된 기준입니다.",
-        "scenario_tags": ["injury", "reporting_duty", "twelve_gross_negligence"],
-        "keywords": ["형사", "신고", "중과실", "부상", "인명피해", "음주", "무면허", "뺑소니", "criminal"],
-        "score": 0.41,
-    },
-    {
-        "chunk_id": "static:criminal-law:injury",
-        "title": "형법상 과실치상 검토 기준",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "형법",
-        "article_title": "업무상 과실과 상해 발생 여부",
-        "snippet": "사고로 사람이 다친 경우 주의의무 위반, 예견 가능성, 인과관계를 확인해야 합니다.",
-        "plain_summary": "부상자가 있는 사고에서는 치료 기록과 사고 경위를 함께 확인해야 합니다.",
-        "related_reason": "대인 접수나 진단서가 필요한 사고와 관련된 기준입니다.",
-        "scenario_tags": ["injury"],
-        "keywords": ["부상", "상해", "진단서", "대인", "치료", "injury"],
-        "score": 0.37,
-    },
-    {
-        "chunk_id": "static:rt-law:bicycle-duty",
-        "title": "자전거 사고 주의의무 확인",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "도로교통법",
-        "article_title": "자전거와 자동차 통행 중 안전확인 의무",
-        "snippet": "자전거와 자동차가 충돌한 사고에서는 자전거의 진행 위치, 교차로 진입 방식, 자동차의 전방주시와 안전거리 확보 여부를 함께 확인해야 합니다.",
-        "plain_summary": "자전거 사고는 자동차끼리 사고와 다르게 취약 교통참여자 여부와 통행 위치를 따로 확인해야 합니다.",
-        "related_reason": "자전거 탑승 중 차량과 충돌했다는 입력과 직접 관련된 법률 검토 기준입니다.",
-        "scenario_tags": ["bicycle", "vulnerable_road_user"],
-        "keywords": ["자전거", "차대 자전거", "자전거도로", "교차로 자전거", "취약 교통참여자", "bicycle"],
-        "score": 0.41,
-    },
-    {
-        "chunk_id": "static:fault-guide:bicycle",
-        "title": "자전거 사고 과실비율 참고 기준",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "과실비율 인정기준",
-        "article_title": "자동차와 자전거 충돌 사고의 가감요소",
-        "snippet": "차대 자전거 사고에서는 자전거의 주행 위치, 횡단 또는 교차로 진입 여부, 자동차의 전방주시와 속도, 취약 교통참여자 보호 필요성을 함께 봅니다.",
-        "plain_summary": "자전거 사고의 과실비율은 자동차 사고 기준을 그대로 쓰기보다 자전거 통행 상황과 보호 필요성을 별도로 확인해야 합니다.",
-        "related_reason": "자전거 사고에서 자동차끼리 차선변경 기준이 잘못 붙는 것을 막기 위한 참고 기준입니다.",
-        "scenario_tags": ["bicycle"],
-        "keywords": ["자전거", "차대 자전거", "취약 교통참여자", "과실비율", "bicycle"],
-        "score": 0.42,
-    },
-    {
-        "chunk_id": "static:rt-law:pedestrian-crosswalk",
-        "title": "보행자·횡단보도 사고 주의의무",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "도로교통법",
-        "article_title": "횡단보도와 보행자 보호의무",
-        "snippet": "횡단보도 또는 보행자 사고에서는 차량의 일시정지, 보행자 신호, 시야 확보, 제한속도 준수 여부가 중요한 판단 요소입니다.",
-        "plain_summary": "보행자 사고는 차량 운전자의 보행자 보호의무와 보행자의 횡단 방식이 함께 검토됩니다.",
-        "related_reason": "보행자 또는 횡단보도 사고 입력과 직접 관련된 법률 검토 기준입니다.",
-        "scenario_tags": ["pedestrian", "crosswalk"],
-        "keywords": ["보행자", "횡단보도", "보행자 보호", "일시정지", "crosswalk", "pedestrian"],
-        "score": 0.4,
-    },
-    {
-        "chunk_id": "static:rt-law:school-zone",
-        "title": "어린이보호구역 사고 주의의무",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "도로교통법",
-        "article_title": "어린이보호구역 제한속도와 어린이 보호의무",
-        "snippet": "어린이보호구역 사고에서는 제한속도, 어린이 여부, 보행자 보호의무, 전방주시와 감속 여부를 중점적으로 확인해야 합니다.",
-        "plain_summary": "스쿨존 사고는 일반 사고보다 제한속도와 어린이 보호의무가 더 엄격하게 검토됩니다.",
-        "related_reason": "어린이보호구역 또는 어린이 피해 사고 입력과 직접 관련된 기준입니다.",
-        "scenario_tags": ["school_zone", "child"],
-        "keywords": ["어린이보호구역", "스쿨존", "어린이", "제한속도", "school zone", "child"],
-        "score": 0.4,
-    },
-    {
-        "chunk_id": "static:fault-guide:rear-end",
-        "title": "후미추돌 과실비율 참고 기준",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "과실비율 인정기준",
-        "article_title": "정차 또는 감속 차량을 뒤에서 추돌한 사고",
-        "snippet": "정차 또는 정상 감속 중인 앞차를 뒤차가 추돌했다면 일반적으로 뒤차 책임이 크게 검토됩니다.",
-        "plain_summary": "피추돌 차량이 정상적으로 정차 중이었다면 뒤차의 안전거리 미확보가 중요한 판단 요소입니다.",
-        "related_reason": "정차 중 뒤에서 추돌당한 사고와 직접 관련된 과실비율 참고 기준입니다.",
-        "scenario_tags": ["rear_end", "safe_distance"],
-        "keywords": ["후미", "뒤차", "추돌", "정차", "안전거리", "피추돌", "rear", "stopped"],
         "score": 0.43,
     },
     {
-        "chunk_id": "static:fault-guide:crosswalk-front-stop-rear-end",
+        "chunk_id": "static:fault-guide:rear-end",
         "source_type": "knia_reference",
-        "title": "횡단보도 앞 앞차 정차 후 후방추돌 과실 참고 기준",
+        "title": "후미추돌 과실비율 참고 기준",
         "source": "과실비율 인정기준 참고 자료",
-        "law_name": "도로교통법 및 과실비율 인정기준",
-        "article_title": "횡단보도 앞 정차 차량을 뒤에서 추돌한 사고",
-        "snippet": "횡단보도 앞에서 앞차가 정지한 뒤 후방 추돌이 발생한 경우에도 뒷차의 안전거리 의무가 중심이지만, 앞차 정지 사유, 보행자 신호, 횡단보도 위치, 급정지 여부, 정지 예견 가능성을 함께 검토해야 합니다.",
-        "plain_summary": "횡단보도 앞에서 앞차가 정지한 뒤 후방 추돌이 발생한 사고는 뒷차의 안전거리 의무를 기본으로 보되, 앞차 정지 사유와 보행자 신호, 급정지 여부를 함께 확인해야 합니다.",
-        "related_reason": "앞차 정지 사유, 횡단보도 위치, 보행자 신호, 안전거리, 후방추돌 여부를 함께 확인해야 하는 사고와 관련됩니다.",
-        "scenario_tags": ["rear_end", "crosswalk", "front_vehicle_stop_reason", "safe_distance"],
-        "keywords": [
-            "front vehicle",
-            "stop reason",
-            "crosswalk",
-            "pedestrian signal",
-            "rear-end",
-            "safe distance",
-            "sudden braking",
-            "stopped",
-            "앞차",
-            "정지 사유",
-            "정차 사유",
-            "횡단보도 앞 정차",
-            "보행자 신호",
-            "후방추돌",
-            "안전거리",
-            "급정거",
-        ],
+        "law_name": "과실비율 인정기준",
+        "article_title": "정차 또는 감속 차량 뒤에서 충돌한 사고",
+        "snippet": "앞차가 정상적으로 정차 또는 감속 중이었다면 뒤차의 안전거리 미확보가 중요하게 검토됩니다.",
+        "plain_summary": "후미추돌은 뒤차 책임이 크게 검토되지만, 앞차의 급정거 사유와 정지 위치도 함께 확인합니다.",
+        "related_reason": "정차 중 뒤에서 충돌한 사고의 과실비율 판단에 참고할 수 있습니다.",
+        "scenario_tags": ["rear_end", "safe_distance"],
+        "keywords": ["후미추돌", "정차", "감속", "뒤차", "안전거리", "rear", "stopped"],
         "score": 0.45,
     },
     {
-        "chunk_id": "static:legal:front-vehicle-stop-rear-end-duty",
+        "chunk_id": "static:rt-law:signal",
         "source_type": "legal_reference",
-        "title": "앞차 정차 사유와 후방추돌 법률 검토 기준",
+        "title": "도로교통법 신호 준수 의무",
         "source": "교통사고 법률 설명 자료",
-        "law_name": "도로교통법 안전거리·전방주시 의무 참고",
-        "article_title": "횡단보도·교차로 앞 정차 차량을 뒤에서 추돌한 사고",
-        "snippet": "횡단보도나 교차로 앞에서 앞차가 정지한 뒤 뒤차가 추돌한 경우, 뒤차의 안전거리 의무가 기본이지만 앞차 정지 사유, 보행자 신호, 급정거 여부, 정지 예견 가능성을 함께 검토해야 합니다.",
-        "plain_summary": "앞차가 왜 멈췄는지와 뒤차가 정지 상황을 예견하고 안전거리를 확보할 수 있었는지를 분리해서 봐야 합니다.",
-        "related_reason": "앞차 정지 사유, 횡단보도 위치, 보행자 신호, 급정거 여부, 뒤차 안전거리와 직접 관련된 법률 검토 기준입니다.",
-        "scenario_tags": ["rear_end", "front_vehicle_stop_reason", "crosswalk", "safe_distance"],
-        "keywords": [
-            "front vehicle",
-            "front vehicle stopped",
-            "stop reason",
-            "vehicle stops",
-            "brakes",
-            "crosswalk",
-            "pedestrian signal",
-            "rear-end",
-            "safe distance",
-            "sudden braking",
-            "앞차",
-            "정지 사유",
-            "정차 사유",
-            "횡단보도 앞 정차",
-            "보행자 신호",
-            "후방추돌",
-            "안전거리",
-            "급정거",
-        ],
-        "score": 0.49,
+        "source_url": "https://www.law.go.kr/법령/도로교통법",
+        "law_name": "도로교통법",
+        "article_title": "교차로 신호와 우선순위 확인",
+        "snippet": "교차로 사고에서는 각 차량의 신호 상태, 진입 시점, 우선순위가 중요한 판단 요소입니다.",
+        "plain_summary": "신호위반이나 교차로 진입 순서가 다투어지는 사고에서 확인해야 하는 기준입니다.",
+        "related_reason": "교차로 또는 신호위반 입력이 있을 때 참고할 수 있는 법률 근거입니다.",
+        "scenario_tags": ["signal_violation", "intersection"],
+        "keywords": ["교차로", "신호", "좌회전", "우회전", "직진", "우선순위", "intersection", "signal"],
+        "score": 0.4,
     },
     {
-        "chunk_id": "static:fault-guide:intersection",
-        "title": "교차로 사고 과실비율 참고 기준",
+        "chunk_id": "static:legal:signal-transition-cctv",
+        "source_type": "legal_reference",
+        "title": "신호 전환과 CCTV 확인 기준",
         "source": "교통사고 법률 설명 자료",
-        "law_name": "과실비율 인정기준",
-        "article_title": "교차로 신호와 진입 순서",
-        "snippet": "교차로 사고는 신호 준수 여부, 선진입, 시야 확보, 속도 등을 함께 봅니다.",
-        "plain_summary": "교차로에서 충돌한 사고라면 신호와 진입 순서가 과실 판단의 핵심입니다.",
-        "related_reason": "교차로 또는 신호위반 사고와 관련된 과실비율 참고 기준입니다.",
-        "scenario_tags": ["intersection", "signal_violation"],
-        "keywords": ["교차로", "신호", "선진입", "속도", "우선권", "intersection"],
+        "source_url": "https://www.law.go.kr/법령/도로교통법",
+        "law_name": "도로교통법",
+        "article_title": "교차로 신호 전환과 진입 시점",
+        "snippet": "황색·적색 신호 전환 사고에서는 차량 진입 시점, 상대 신호, CCTV 또는 신호 주기 자료를 확인해야 합니다.",
+        "plain_summary": "신호 전환 교차로 사고는 충돌 순간 신호만이 아니라 진입 시점과 객관 자료를 함께 봅니다.",
+        "related_reason": "상대 신호와 내 신호가 다투어지는 사고에서 추가 확인 근거로 쓸 수 있습니다.",
+        "scenario_tags": ["intersection", "signal_violation", "cctv"],
+        "keywords": ["신호 전환", "황색 신호", "적색 신호", "상대 신호", "CCTV", "intersection"],
+        "score": 0.42,
+    },
+    {
+        "chunk_id": "static:rt-law:lane-change",
+        "source_type": "legal_reference",
+        "title": "도로교통법 차로변경 주의의무",
+        "source": "교통사고 법률 설명 자료",
+        "source_url": "https://www.law.go.kr/법령/도로교통법",
+        "law_name": "도로교통법",
+        "article_title": "진로변경 전 주변 차량 확인 의무",
+        "snippet": "차로를 바꾸는 차량은 방향지시등 사용, 사각지대 확인, 충분한 거리 확보를 통해 다른 차량의 정상 진행을 방해하지 않아야 합니다.",
+        "plain_summary": "차선변경 중 사고에서는 변경 차량의 주의의무와 기존 차로 차량의 진행 상태를 함께 확인합니다.",
+        "related_reason": "차선변경, 끼어들기, 측면 충돌 입력과 관련된 기준입니다.",
+        "scenario_tags": ["lane_change", "turn_signal"],
+        "keywords": ["차선", "차로", "진로변경", "끼어들기", "방향지시등", "사각지대", "lane", "merge"],
         "score": 0.42,
     },
     {
         "chunk_id": "static:fault-guide:lane-change",
+        "source_type": "knia_reference",
         "title": "차선변경 사고 과실비율 참고 기준",
-        "source": "교통사고 법률 설명 자료",
+        "source": "과실비율 인정기준 참고 자료",
         "law_name": "과실비율 인정기준",
         "article_title": "진로변경 차량과 직진 차량의 충돌",
-        "snippet": "진로를 변경하는 차량은 방향지시등 사용, 후방·측방 확인, 안전한 차로 변경 가능 여부를 확인해야 합니다.",
-        "plain_summary": "차선변경 사고에서는 차선을 바꾼 차량과 기존 차로를 진행하던 차량의 위치와 방향지시등 사용 여부가 과실 판단의 핵심입니다.",
-        "related_reason": "상대 또는 내 차량이 차선변경 중 충돌한 사고와 직접 관련된 과실비율 참고 기준입니다.",
+        "snippet": "진로를 변경한 차량과 기존 차로를 직진하던 차량이 충돌한 경우 방향지시등, 진입 거리, 충돌 위치를 봅니다.",
+        "plain_summary": "차선변경 사고는 변경 차량의 주의의무 위반 여부와 직진 차량의 회피 가능성이 함께 검토됩니다.",
+        "related_reason": "차선변경 사고에서 KNIA 계열 기준을 함께 충족하기 위한 참고 근거입니다.",
         "scenario_tags": ["lane_change", "turn_signal"],
         "keywords": ["차선변경", "차로변경", "진로변경", "끼어들기", "방향지시등", "직진 차량", "lane change", "merge"],
+        "score": 0.45,
+    },
+    {
+        "chunk_id": "static:rt-law:bicycle-duty",
+        "source_type": "legal_reference",
+        "title": "자전거 사고 주의의무 확인",
+        "source": "교통사고 법률 설명 자료",
+        "source_url": "https://www.law.go.kr/법령/도로교통법",
+        "law_name": "도로교통법",
+        "article_title": "자전거와 자동차 통행 중 안전확인 의무",
+        "snippet": "자동차와 자전거가 충돌한 사고에서는 자전거의 진행 위치, 교차로 진입 방식, 자동차의 전방주시와 안전거리 확보 여부를 함께 확인합니다.",
+        "plain_summary": "자전거 사고는 자동차끼리 사고와 달리 취약 교통참여자의 통행 위치와 보호 필요성을 별도로 봅니다.",
+        "related_reason": "자전거 탑승자와 차량이 관련된 사고 입력과 직접 관련된 법률 검토 기준입니다.",
+        "scenario_tags": ["bicycle", "vulnerable_road_user"],
+        "keywords": ["자전거", "차대 자전거", "자전거도로", "교차로 자전거", "취약 교통참여자", "bicycle"],
         "score": 0.43,
     },
     {
-        "chunk_id": "static:fault-guide:pedestrian-crosswalk",
-        "title": "보행자·횡단보도 사고 과실비율 참고 기준",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "과실비율 인정기준",
-        "article_title": "횡단보도 보행자와 차량 충돌",
-        "snippet": "보행자 사고에서는 횡단보도 위치, 보행자 신호, 차량의 일시정지와 감속 여부, 시야 확보 여부를 함께 봅니다.",
-        "plain_summary": "횡단보도 주변 보행자 사고는 차량의 보행자 보호의무가 강하게 검토되며 보행자의 횡단 방식도 함께 확인합니다.",
-        "related_reason": "보행자 또는 횡단보도 사고와 직접 관련된 과실비율 참고 기준입니다.",
-        "scenario_tags": ["pedestrian", "crosswalk"],
-        "keywords": ["보행자", "횡단보도", "보행자 보호", "일시정지", "보행자 신호", "과실비율", "pedestrian", "crosswalk"],
-        "score": 0.43,
-    },
-    {
-        "chunk_id": "static:fault-guide:school-zone",
-        "title": "어린이보호구역 사고 과실비율 참고 기준",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "과실비율 인정기준",
-        "article_title": "어린이보호구역 내 어린이·보행자 사고",
-        "snippet": "어린이보호구역 사고에서는 제한속도 준수, 어린이 여부, 횡단보도나 통학로 위치, 전방주시와 감속 여부를 중점적으로 확인합니다.",
-        "plain_summary": "스쿨존 사고는 일반 보행자 사고보다 운전자 주의의무와 속도 준수 여부가 더 엄격하게 검토됩니다.",
-        "related_reason": "어린이보호구역 또는 어린이 피해 사고와 직접 관련된 과실비율 참고 기준입니다.",
-        "scenario_tags": ["school_zone", "child", "pedestrian"],
-        "keywords": ["어린이보호구역", "스쿨존", "어린이", "제한속도", "보행자 보호", "과실비율", "school zone", "child"],
-        "score": 0.43,
-    },
-    {
-        "chunk_id": "static:insurance:process",
-        "title": "보험 처리 기본 체크리스트",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "보험 처리 안내",
-        "article_title": "접수번호, 영상, 사진, 진단서 보관",
-        "snippet": "보험 접수번호, 블랙박스 원본, 현장 사진, 수리 견적서, 진료 기록을 확보해야 합니다.",
-        "plain_summary": "사고 직후에는 증거 보관과 보험 접수 진행 상황을 기록해 두는 것이 중요합니다.",
-        "related_reason": "모든 교통사고에서 보험 접수와 증거 보관에 참고할 수 있는 기준입니다.",
-        "keywords": ["보험", "접수", "블랙박스", "사진", "견적", "진단서", "insurance", "claim"],
-        "score": 0.36,
-    },
-    {
-        "chunk_id": "static:knia:centerline-obstacle",
+        "chunk_id": "static:fault-guide:bicycle",
         "source_type": "knia_reference",
-        "title": "중앙선 장애물 회피 사고 과실비율 참고 기준",
+        "title": "자전거 사고 과실비율 참고 기준",
         "source": "과실비율 인정기준 참고 자료",
-        "law_name": "도로교통법 및 과실비율 인정기준",
-        "article_title": "주차 차량 또는 도로 장애물 회피로 중앙선을 넘은 사고",
-        "snippet": "주차 차량이나 도로 장애물 때문에 중앙선을 넘은 경우에는 중앙선 침범 사유, 정차 위치, 마주오던 차량의 시야와 회피 가능성을 나누어 검토해야 합니다.",
-        "plain_summary": "중앙선 침범 사고라도 주차 차량 회피, 정차 여부, 마주오던 차량의 회피 가능성에 따라 책임 범위가 달라질 수 있습니다.",
-        "related_reason": "중앙선 침범 사유와 도로 장애물, 대향 차량과의 충돌 구조를 분리해서 볼 필요가 있는 사고와 관련됩니다.",
-        "scenario_tags": ["centerline", "stopped_vehicle", "oncoming_vehicle"],
-        "keywords": [
-            "centerline",
-            "centerline crossing",
-            "centerline obstacle avoidance",
-            "oncoming vehicle collision",
-            "parked vehicle",
-            "secondary collision",
-            "중앙선",
-            "중앙선 침범",
-            "주차 차량",
-            "마주오던 차량",
-            "후속 추돌",
-        ],
+        "law_name": "과실비율 인정기준",
+        "article_title": "자동차와 자전거 충돌 사고의 가감요소",
+        "snippet": "자전거 사고에서는 자전거의 주행 위치, 횡단 또는 교차로 진입 여부, 자동차의 전방주시와 속도, 보호 필요성을 함께 봅니다.",
+        "plain_summary": "자전거 사고의 과실비율은 자동차 사고 기준을 그대로 붙이기보다 자전거 통행 상황과 보호 필요성을 별도로 확인해야 합니다.",
+        "related_reason": "자전거 사고에서 자동차끼리 기준이 잘못 붙는 것을 막기 위한 참고 기준입니다.",
+        "scenario_tags": ["bicycle"],
+        "keywords": ["자전거", "차대 자전거", "취약 교통참여자", "과실비율", "bicycle"],
         "score": 0.44,
-    },
-    {
-        "chunk_id": "static:knia:unlit-stopped-vehicle",
-        "source_type": "knia_reference",
-        "title": "무등화 정차 차량 추돌 사고 시인성 참고 기준",
-        "source": "과실비율 인정기준 참고 자료",
-        "law_name": "도로교통법 및 과실비율 인정기준",
-        "article_title": "야간 등화 없는 정차 차량을 추돌한 사고",
-        "snippet": "야간에 등화 없이 정차한 차량을 추돌한 사고는 시인성, 등화 상태, 정차 위치, 속도, 제한속도 주행 시 회피 가능성이 핵심 가감요소입니다.",
-        "plain_summary": "무등화 정차 차량 사고는 단순 후방 추돌 원칙만으로 판단하지 않고 야간 시인성, 정차 위치, 속도별 회피 가능성을 함께 봐야 합니다.",
-        "related_reason": "무등화 정차 차량, 야간 시인성, 속도, 회피 가능성을 따로 확인해야 하는 사고와 관련됩니다.",
-        "scenario_tags": ["stopped_vehicle", "visibility", "rear_end", "speed"],
-        "keywords": [
-            "unlit stopped vehicle",
-            "stealth stopped vehicle",
-            "night visibility",
-            "avoidability analysis",
-            "speed limit",
-            "rear-end",
-            "무등화",
-            "스텔스 차량",
-            "야간 시인성",
-            "회피 가능성",
-            "속도위반",
-        ],
-        "score": 0.45,
-    },
-    {
-        "chunk_id": "static:legal:centerline-obstacle-duty",
-        "source_type": "legal_reference",
-        "title": "중앙선 장애물 회피 사고 법률 검토 기준",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "도로교통법 안전운전의무 참고",
-        "article_title": "장애물 회피로 중앙선을 넘은 차량과 대향 차량의 충돌",
-        "snippet": "주차 차량이나 도로 장애물 때문에 중앙선을 넘은 사고는 중앙선 침범 자체만으로 단정하지 않고, 침범 사유, 정차 위치, 대향 차량의 시야와 회피 가능성을 함께 검토해야 합니다.",
-        "plain_summary": "중앙선 장애물 회피 사고에서는 중앙선을 넘은 이유, 차량이 멈췄는지, 마주오던 차량이 피할 수 있었는지를 분리해서 봐야 합니다.",
-        "related_reason": "중앙선 회피, 대향 차량 충돌, 정차 위치, 2차 충돌을 함께 검토해야 하는 사고와 관련됩니다.",
-        "scenario_tags": ["centerline", "oncoming_vehicle", "stopped_vehicle", "avoidability"],
-        "keywords": [
-            "centerline",
-            "centerline crossing",
-            "centerline obstacle avoidance",
-            "oncoming vehicle collision",
-            "parked vehicle",
-            "secondary collision",
-            "avoidability",
-            "safe driving duty",
-            "Road Traffic Act",
-            "legal duty",
-        ],
-        "score": 0.48,
-    },
-    {
-        "chunk_id": "static:legal:unlit-stopped-vehicle-duty",
-        "source_type": "legal_reference",
-        "title": "무등화 정차 차량 사고 법률 검토 기준",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "도로교통법 및 형사·민사 회피가능성 참고",
-        "article_title": "야간 등화 없는 정차 차량을 추돌한 사고",
-        "snippet": "야간 등화 없는 정차 차량 추돌은 시인성, 등화 상태, 정차 위치, 속도, 제한속도 주행 시 회피 가능성을 구분해 검토해야 합니다.",
-        "plain_summary": "무등화 정차 차량 사고에서는 형사 과실, 민사 과실비율, 보험 처리를 구분하고, 속도위반만으로 결론을 내리지 말아야 합니다.",
-        "related_reason": "무등화 정차 차량, 야간 시인성, 속도, 회피 가능성, 사망 결과, 형사·민사 구분 검토와 관련됩니다.",
-        "scenario_tags": ["stopped_vehicle", "visibility", "rear_end", "speed", "criminal_liability"],
-        "keywords": [
-            "unlit stopped vehicle",
-            "stealth stopped vehicle",
-            "night visibility",
-            "avoidability analysis",
-            "speed limit",
-            "speeding",
-            "rear-end",
-            "fatal traffic accident",
-            "criminal liability",
-            "civil fault ratio",
-            "Road Traffic Act",
-        ],
-        "score": 0.49,
-    },
-    {
-        "chunk_id": "static:legal:speed-avoidability-criminal-civil",
-        "source_type": "legal_reference",
-        "title": "속도위반과 회피 가능성의 형사·민사 구분 기준",
-        "source": "교통사고 법률 설명 자료",
-        "law_name": "도로교통법 및 형사 과실 참고",
-        "article_title": "속도위반만으로 회피 가능성과 민사 과실비율이 바로 결정되지는 않음",
-        "snippet": "속도가 다투어지는 사고에서는 형사 과실, 민사 과실비율, 보험 처리를 구분해야 하며, 제한속도 주행 시에도 피할 수 있었는지가 중요합니다.",
-        "plain_summary": "속도위반은 불리한 요소지만, 제한속도 주행 시에도 피할 수 없었는지에 대한 감정 결과가 형사와 민사 판단 모두에서 중요합니다.",
-        "related_reason": "속도위반, 회피 가능성 감정, 사망 사고, 형사·민사 판단 구분과 관련됩니다.",
-        "scenario_tags": ["speed", "fatality", "criminal_liability", "civil_fault"],
-        "keywords": [
-            "speeding",
-            "speed limit",
-            "avoidability analysis",
-            "fatal traffic accident",
-            "criminal liability",
-            "civil fault ratio",
-            "insurance handling",
-            "속도위반",
-            "회피 가능성",
-            "사망 사고",
-            "형사",
-            "민사",
-            "보험",
-        ],
-        "score": 0.43,
-    },
-    {
-        "chunk_id": "static:knia:bicycle-non-contact-trigger",
-        "source_type": "knia_reference",
-        "title": "자전거 비접촉 유발 후 후방추돌 과실 참고 기준",
-        "source": "과실비율 인정기준 참고 자료",
-        "law_name": "도로교통법 및 과실비율 인정기준",
-        "article_title": "자전거 유발 비접촉 사고와 후속 후방추돌",
-        "snippet": "자전거가 비접촉 위험을 만들고 차량이 정지 또는 제동한 뒤 뒤에서 추돌된 경우, 유발 주체, 후방 차량의 안전거리, 차선 변경, 급제동, 반응 시간을 분리해야 합니다.",
-        "plain_summary": "자전거 비접촉 유발 사고는 직접 충돌 차량만 보지 말고 유발 원인, 트럭 정지의 불가피성, 후방 차량 안전거리와 대응 시간을 분리해야 합니다.",
-        "related_reason": "자전거 비접촉 유발, 후방 버스 추돌, 급제동, 시간적 여유를 분리해야 하는 사고와 관련됩니다.",
-        "scenario_tags": ["bicycle", "non_contact_trigger", "rear_end", "safe_distance"],
-        "keywords": [
-            "non-contact bicycle trigger",
-            "bicycle induced accident",
-            "rear-end after bicycle avoidance",
-            "reaction time gap",
-            "sudden braking",
-            "safe distance",
-            "front vehicle",
-            "truck",
-            "truck stopped",
-            "rear-end bus",
-            "vehicle stops",
-            "brakes",
-            "자전거",
-            "비접촉 유발",
-            "후방 추돌",
-            "후방 버스",
-            "트럭",
-            "앞차",
-            "정지",
-            "정지 사유",
-            "급제동",
-            "급정거",
-            "시간적 여유",
-        ],
-        "score": 0.45,
     },
     {
         "chunk_id": "static:legal:bicycle-trigger-rear-end-duty",
         "source_type": "legal_reference",
-        "title": "자전거 비접촉 유발과 후방추돌 법률 검토 기준",
+        "title": "자전거 비접촉 유발과 후미추돌 법률 검토 기준",
         "source": "교통사고 법률 설명 자료",
-        "law_name": "도로교통법 안전거리·전방주시 의무 참고",
-        "article_title": "자전거 유발 위험 회피 후 정차 차량을 후방 차량이 추돌한 사고",
-        "snippet": "자전거가 비접촉 위험을 만들고 트럭 또는 앞차가 정지한 뒤 후방 차량이나 버스가 추돌한 사고에서는 실제 충돌 상대, 자전거 유발성, 앞차 정지의 불가피성, 급차로변경·급제동 여부, 뒤차의 반응 시간과 안전거리를 분리해야 합니다.",
-        "plain_summary": "비접촉 자전거 유발 사고는 자전거가 실제 충돌 대상인지, 앞차 정지가 불가피했는지, 뒤차가 충분히 반응할 시간이 있었는지를 나누어 판단해야 합니다.",
-        "related_reason": "자전거 비접촉 유발, 트럭·앞차 정지, 후방 버스 추돌, 급제동, 시간적 여유, 안전거리와 직접 관련된 법률 검토 기준입니다.",
+        "source_url": "https://www.law.go.kr/법령/도로교통법",
+        "law_name": "도로교통법",
+        "article_title": "자전거 유발 위험 회피 후 정차 차량과 후방 차량의 충돌 사고",
+        "snippet": "자전거가 비접촉 위험을 만들고 앞차가 급제동한 뒤 후방 차량이 충돌했다면 실제 충돌 대상, 자전거 유발성, 앞차 정차의 불가피성, 뒤차의 반응 시간과 안전거리를 분리해 봐야 합니다.",
+        "plain_summary": "비접촉 자전거 유발 사고는 자전거가 실제 충돌 대상인지, 앞차 정차가 불가피했는지, 뒤차가 충분히 반응할 시간이 있었는지를 나누어 판단해야 합니다.",
+        "related_reason": "자전거 비접촉 유발, 앞차 급정거, 후방 버스 충돌, 급제동 시간 사유, 안전거리와 직접 관련된 법률 검토 기준입니다.",
         "scenario_tags": ["bicycle", "non_contact_trigger", "rear_end", "front_vehicle_stop_reason", "safe_distance"],
         "keywords": [
             "non-contact bicycle trigger",
@@ -34768,10 +36327,9 @@ _STATIC_CHUNKS: list[dict[str, Any]] = [
             "자전거",
             "비접촉 유발",
             "후방 버스",
-            "후방 추돌",
-            "트럭",
+            "후미추돌",
             "앞차",
-            "정지 사유",
+            "정차 사유",
             "급제동",
             "급정거",
             "시간적 여유",
@@ -34780,30 +36338,177 @@ _STATIC_CHUNKS: list[dict[str, Any]] = [
         "score": 0.5,
     },
     {
-        "chunk_id": "static:legal:signal-transition-cctv",
+        "chunk_id": "static:knia:bicycle-non-contact-trigger",
+        "source_type": "knia_reference",
+        "title": "자전거 비접촉 유발 사고 과실비율 참고 기준",
+        "source": "과실비율 인정기준 참고 자료",
+        "law_name": "과실비율 인정기준",
+        "article_title": "비접촉 자전거 유발과 후속 추돌 사고",
+        "snippet": "자전거의 갑작스러운 진입이나 회피 행동이 앞차의 급정거와 뒤차 추돌로 이어진 경우 자전거 유발성, 앞차의 회피 필요성, 뒤차 안전거리 확보 여부를 함께 봅니다.",
+        "plain_summary": "자전거가 직접 충돌하지 않았더라도 사고를 유발했다면 자전거 관련 기준과 후미추돌 기준을 함께 검토해야 합니다.",
+        "related_reason": "자전거 유발과 후미추돌 구조가 함께 나타나는 사고에 대한 KNIA 계열 참고 근거입니다.",
+        "scenario_tags": ["bicycle", "non_contact_trigger", "rear_end", "safe_distance"],
+        "keywords": ["자전거", "비접촉", "유발", "후미추돌", "급정거", "안전거리", "bicycle", "rear-end"],
+        "score": 0.48,
+    },
+    {
+        "chunk_id": "static:rt-law:pedestrian-crosswalk",
         "source_type": "legal_reference",
-        "title": "신호 전환과 CCTV 확인 기준",
+        "title": "보행자·횡단보도 사고 주의의무",
         "source": "교통사고 법률 설명 자료",
+        "source_url": "https://www.law.go.kr/법령/도로교통법",
         "law_name": "도로교통법",
-        "article_title": "교차로 신호 전환과 진입 시점",
-        "snippet": "황색·적색 신호 전환 사고에서는 최종 과실비율을 정하기 전에 차량 진입 시점, 상대 신호 단계, CCTV 또는 신호 주기 자료를 확인해야 합니다.",
-        "plain_summary": "신호 전환 교차로 사고는 충돌 순간 신호만으로 단정하지 않고 진입 시점, 상대 신호, CCTV 또는 신호 주기 자료를 확인해야 합니다.",
-        "related_reason": "신호 전환, 상대 신호, CCTV 자료가 결론을 바꿀 수 있는 사고와 관련됩니다.",
-        "scenario_tags": ["intersection", "signal_violation", "cctv"],
-        "keywords": [
-            "signal transition",
-            "yellow signal",
-            "red light",
-            "opponent signal",
-            "CCTV",
-            "intersection",
-            "신호 전환",
-            "황색 신호",
-            "적색 신호",
-            "상대 신호",
-            "CCTV",
-        ],
+        "article_title": "횡단보도와 보행자 보호의무",
+        "snippet": "횡단보도 또는 보행자 사고에서는 차량의 일시정지, 보행자 신호, 시야 확보, 제한속도 준수 여부가 중요합니다.",
+        "plain_summary": "보행자 사고는 차량 운전자의 보행자 보호의무와 보행자의 횡단 방식을 함께 검토합니다.",
+        "related_reason": "보행자 또는 횡단보도 사고 입력과 직접 관련된 법률 검토 기준입니다.",
+        "scenario_tags": ["pedestrian", "crosswalk"],
+        "keywords": ["보행자", "횡단보도", "보행자 보호", "일시정지", "crosswalk", "pedestrian"],
         "score": 0.42,
+    },
+    {
+        "chunk_id": "static:fault-guide:pedestrian-crosswalk",
+        "source_type": "knia_reference",
+        "title": "보행자·횡단보도 사고 과실비율 참고 기준",
+        "source": "과실비율 인정기준 참고 자료",
+        "law_name": "과실비율 인정기준",
+        "article_title": "횡단보도 보행자와 차량 충돌",
+        "snippet": "보행자 사고에서는 횡단보도 위치, 보행자 신호, 차량의 일시정지와 감속 여부, 시야 확보 여부를 함께 봅니다.",
+        "plain_summary": "횡단보도 주변 보행자 사고는 차량의 보호의무가 강하게 검토되며 보행자의 횡단 방식도 함께 확인합니다.",
+        "related_reason": "보행자 또는 횡단보도 사고와 직접 관련된 과실비율 참고 기준입니다.",
+        "scenario_tags": ["pedestrian", "crosswalk"],
+        "keywords": ["보행자", "횡단보도", "보행자 보호", "일시정지", "보행자 신호", "과실비율", "pedestrian", "crosswalk"],
+        "score": 0.45,
+    },
+    {
+        "chunk_id": "static:fault-guide:crosswalk-front-stop-rear-end",
+        "source_type": "knia_reference",
+        "title": "횡단보도 앞 앞차 정차 후 후방추돌 과실 참고 기준",
+        "source": "과실비율 인정기준 참고 자료",
+        "law_name": "도로교통법 및 과실비율 인정기준",
+        "article_title": "횡단보도 앞 정차 차량 뒤에서 충돌한 사고",
+        "snippet": "횡단보도 앞에서 앞차가 정지한 뒤 후방 추돌이 발생한 경우에도 뒤차의 안전거리 의무가 기본이지만, 앞차 정지 사유, 보행자 신호, 횡단보도 위치, 급정지 여부를 함께 검토해야 합니다.",
+        "plain_summary": "횡단보도 앞 정차 후 후방추돌 사고는 뒤차의 안전거리 의무를 기본으로 보되, 앞차 정지 사유와 보행자 신호, 급정지 여부를 함께 확인해야 합니다.",
+        "related_reason": "앞차 정차 사유, 횡단보도 위치, 보행자 신호, 안전거리, 후방추돌 여부를 함께 확인해야 하는 사고와 관련됩니다.",
+        "scenario_tags": ["rear_end", "crosswalk", "front_vehicle_stop_reason", "safe_distance"],
+        "keywords": ["front vehicle", "stop reason", "crosswalk", "pedestrian signal", "rear-end", "safe distance", "sudden braking", "stopped", "앞차", "정차 사유", "횡단보도 앞 정차", "보행자 신호", "후방추돌", "안전거리", "급정거"],
+        "score": 0.47,
+    },
+    {
+        "chunk_id": "static:legal:front-vehicle-stop-rear-end-duty",
+        "source_type": "legal_reference",
+        "title": "앞차 정차 사유와 후방추돌 법률 검토 기준",
+        "source": "교통사고 법률 설명 자료",
+        "source_url": "https://www.law.go.kr/법령/도로교통법",
+        "law_name": "도로교통법 안전거리·전방주시 의무 참고",
+        "article_title": "횡단보도·교차로 앞 정차 차량 뒤에서 충돌한 사고",
+        "snippet": "횡단보도나 교차로 앞에서 앞차가 정지했고 뒤차가 충돌한 경우, 뒤차의 안전거리 의무가 기본이지만 앞차 정지 사유, 보행자 신호, 급정거 여부, 정지 예견 가능성을 함께 검토해야 합니다.",
+        "plain_summary": "앞차가 왜 멈췄는지와 뒤차가 정지 상황을 예견하고 안전거리를 확보할 수 있었는지를 분리해서 봐야 합니다.",
+        "related_reason": "앞차 정차 사유, 횡단보도 위치, 보행자 신호, 급정거 여부, 뒤차 안전거리와 직접 관련된 법률 검토 기준입니다.",
+        "scenario_tags": ["rear_end", "front_vehicle_stop_reason", "crosswalk", "safe_distance"],
+        "keywords": ["front vehicle", "front vehicle stopped", "stop reason", "vehicle stops", "brakes", "crosswalk", "pedestrian signal", "rear-end", "safe distance", "sudden braking", "앞차", "정차 사유", "횡단보도 앞 정차", "보행자 신호", "후방추돌", "안전거리", "급정거"],
+        "score": 0.49,
+    },
+    {
+        "chunk_id": "static:rt-law:school-zone",
+        "source_type": "legal_reference",
+        "title": "어린이보호구역 사고 주의의무",
+        "source": "교통사고 법률 설명 자료",
+        "source_url": "https://www.law.go.kr/법령/도로교통법",
+        "law_name": "도로교통법",
+        "article_title": "어린이보호구역 제한속도와 어린이 보호의무",
+        "snippet": "어린이보호구역 사고에서는 제한속도, 어린이 여부, 보행자 보호의무, 전방주시와 감속 여부가 중점적으로 검토됩니다.",
+        "plain_summary": "스쿨존 사고는 일반 사고보다 제한속도와 어린이 보호의무가 더 엄격하게 검토됩니다.",
+        "related_reason": "어린이보호구역 또는 어린이 상해 사고 입력과 직접 관련된 기준입니다.",
+        "scenario_tags": ["school_zone", "child"],
+        "keywords": ["어린이보호구역", "스쿨존", "어린이", "제한속도", "school zone", "child"],
+        "score": 0.42,
+    },
+    {
+        "chunk_id": "static:fault-guide:school-zone",
+        "source_type": "knia_reference",
+        "title": "어린이보호구역 사고 과실비율 참고 기준",
+        "source": "과실비율 인정기준 참고 자료",
+        "law_name": "과실비율 인정기준",
+        "article_title": "어린이보호구역 내 어린이·보행자 사고",
+        "snippet": "어린이보호구역 사고에서는 제한속도 준수, 어린이 여부, 횡단보도나 통학로 위치, 전방주시와 감속 여부를 중점적으로 확인합니다.",
+        "plain_summary": "스쿨존 사고는 일반 보행자 사고보다 운전자의 주의의무와 속도 준수 여부가 더 엄격하게 검토됩니다.",
+        "related_reason": "어린이보호구역 또는 어린이 상해 사고와 직접 관련된 과실비율 참고 기준입니다.",
+        "scenario_tags": ["school_zone", "child", "pedestrian"],
+        "keywords": ["어린이보호구역", "스쿨존", "어린이", "제한속도", "보행자 보호", "과실비율", "school zone", "child"],
+        "score": 0.45,
+    },
+    {
+        "chunk_id": "static:special-act:criminal",
+        "source_type": "legal_reference",
+        "title": "교통사고처리 특례법 형사책임 확인",
+        "source": "교통사고 법률 설명 자료",
+        "source_url": "https://www.law.go.kr/법령/교통사고처리특례법",
+        "law_name": "교통사고처리 특례법",
+        "article_title": "중과실 및 인명피해 확인",
+        "snippet": "인명피해, 12대 중과실, 음주운전, 무면허, 도주 여부가 있으면 형사책임 검토가 필요합니다.",
+        "plain_summary": "다친 사람이 있거나 중대한 법규 위반이 의심되면 형사책임 가능성을 별도로 확인해야 합니다.",
+        "related_reason": "부상, 음주, 무면허, 신호위반, 뺑소니 입력과 관련된 기준입니다.",
+        "scenario_tags": ["injury", "reporting_duty", "twelve_gross_negligence"],
+        "keywords": ["형사", "신고", "중과실", "부상", "인명피해", "음주", "무면허", "뺑소니", "criminal"],
+        "score": 0.41,
+    },
+    {
+        "chunk_id": "static:insurance:process",
+        "source_type": "legal_reference",
+        "title": "보험 처리 기본 체크리스트",
+        "source": "교통사고 법률 설명 자료",
+        "law_name": "보험 처리 안내",
+        "article_title": "접수번호, 영상, 사진, 진단서 보관",
+        "snippet": "보험 접수번호, 블랙박스 원본, 현장 사진, 수리 견적서, 진료 기록을 보관해야 합니다.",
+        "plain_summary": "사고 직후에는 증거 보관과 보험 접수 진행 상황을 기록하는 것이 중요합니다.",
+        "related_reason": "모든 교통사고에서 보험 접수와 증거 보관에 참고할 수 있는 기준입니다.",
+        "keywords": ["보험", "접수", "블랙박스", "사진", "견적", "진단서", "insurance", "claim"],
+        "scenario_tags": ["insurance"],
+        "score": 0.36,
+    },
+    {
+        "chunk_id": "static:legal:unlit-stopped-vehicle-duty",
+        "source_type": "legal_reference",
+        "title": "야간 무등화 정차 차량 충돌 법률 검토 기준",
+        "source": "교통사고 법률 설명 자료",
+        "source_url": "https://www.law.go.kr/법령/도로교통법",
+        "law_name": "도로교통법",
+        "article_title": "야간 시야 확보와 정차 차량 안전조치",
+        "snippet": "야간에 등화나 안전조치 없이 정차한 차량과 충돌했다면 정차 위치, 비상등·삼각대 등 안전조치, 제한속도, 시야 확보와 회피 가능성을 함께 검토합니다.",
+        "plain_summary": "무등화 정차 차량 사고는 단순 후미추돌로만 보지 않고 정차 차량의 안전조치와 운전자의 야간 시야·속도·회피 가능성을 나누어 봐야 합니다.",
+        "related_reason": "야간, 무등화, 정차 차량, 시야 제한, 회피 가능성 입력과 직접 관련된 법률 검토 기준입니다.",
+        "scenario_tags": ["stopped_vehicle", "night", "visibility", "speed_limit", "avoidability"],
+        "keywords": [
+            "unlit stopped vehicle",
+            "night visibility",
+            "speed limit",
+            "avoidability",
+            "analysis",
+            "stopped vehicle",
+            "무등화",
+            "야간",
+            "정차 차량",
+            "시야",
+            "제한속도",
+            "회피 가능성",
+            "비상등",
+        ],
+        "score": 0.49,
+    },
+    {
+        "chunk_id": "static:knia:unlit-stopped-vehicle",
+        "source_type": "knia_reference",
+        "title": "야간 무등화 정차 차량 충돌 과실비율 참고 기준",
+        "source": "과실비율 인정기준 참고 자료",
+        "law_name": "도로교통법 및 과실비율 인정기준",
+        "article_title": "야간 등화 없는 정차 차량과 충돌한 사고",
+        "snippet": "야간에 등화 없이 정차한 차량을 충돌한 사고는 정차 차량의 등화 상태, 정차 위치, 제한속도, 시야와 회피 가능성이 핵심 가감요소입니다.",
+        "plain_summary": "무등화 정차 차량 사고는 운전자의 전방주시와 정차 차량의 안전조치 미흡을 함께 검토해야 합니다.",
+        "related_reason": "무등화 정차 차량, 야간 시야, 속도, 회피 가능성을 따져야 하는 사고와 관련됩니다.",
+        "scenario_tags": ["stopped_vehicle", "night", "visibility", "speed_limit", "avoidability"],
+        "keywords": ["unlit stopped vehicle", "night visibility", "speed limit", "avoidability", "무등화", "야간", "정차 차량", "회피 가능성"],
+        "score": 0.47,
     },
 ]
 
@@ -34813,9 +36518,10 @@ def retrieve_static_legal_chunks(query: str, limit: int = 5) -> list[dict[str, A
     ranked: list[tuple[int, float, dict[str, Any]]] = []
     for item in _STATIC_CHUNKS:
         keyword_hits = sum(1 for k in item["keywords"] if str(k).lower() in q)
-        score = float(item["score"]) + keyword_hits * 0.04
+        tag_hits = sum(1 for tag in item.get("scenario_tags", []) if str(tag).lower() in q)
+        score = float(item["score"]) + keyword_hits * 0.04 + tag_hits * 0.03
         payload = {k: v for k, v in item.items() if k != "keywords"} | {"score": round(score, 3)}
-        ranked.append((keyword_hits, score, payload))
+        ranked.append((keyword_hits + tag_hits, score, payload))
     max_hits = max((hits for hits, _, _ in ranked), default=0)
     if max_hits > 0:
         ranked = [item for item in ranked if item[0] > 0]
@@ -39117,7 +40823,7 @@ def test_evidence_source_status_marks_reference_only_gap():
 
 ### File: `apps/agent/tests/test_expert_guidance_sections.py`
 
-- size: `22,279` bytes
+- size: `25,335` bytes
 
 ```python
 from app.services.expert_guidance_sections import build_expert_guidance_sections
@@ -39318,6 +41024,67 @@ def test_false_pedestrian_video_fact_does_not_boost_pedestrian_basis():
     basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
     assert "Vehicle collision impact point guide" in basis_titles[:2]
     assert "Crosswalk pedestrian duty guide" not in basis_titles[:2]
+
+
+def test_vehicle_intersection_guidance_removes_pedestrian_and_rear_end_basis():
+    sections = build_expert_guidance_sections(
+        scenario={"scenario_type": "intersection_signal_violation", "accident_party_label": "vehicle intersection crash"},
+        facts={
+            "accident_party_type": "car_vs_car",
+            "collision_partner_type": "vehicle",
+            "direct_collision_partner_type": "vehicle",
+            "crosswalk_nearby": True,
+            "pedestrian_visible": False,
+            "opponent_signal_visible": False,
+            "excluded_knia_party_types": ["car_vs_bicycle", "car_vs_person"],
+        },
+        legal_analysis={"legal_issue_summary": "left turn signal transition and opponent signal uncertainty"},
+        fault_ratio={
+            "my": 80,
+            "other": 20,
+            "key_factors": ["intersection", "signal transition", "opponent signal", "CCTV"],
+            "conditional_outcomes": [
+                {"label": "opponent normal signal", "my_range": "70~90%", "other_range": "10~30%"},
+                {"label": "opponent signal violation", "my_range": "20~40%", "other_range": "60~80%"},
+            ],
+        },
+        legal_liability={"criminal_risk_level": "low"},
+        insurance_guide={},
+        evidence=[
+            {
+                "source_type": "legal_reference",
+                "title": "Crosswalk pedestrian duty guide",
+                "related_reason": "pedestrian and crosswalk duty reference.",
+            },
+            {
+                "source_type": "legal_reference",
+                "title": "Crosswalk front vehicle stop reason and rear-end fault guide",
+                "related_reason": "front vehicle stop reason, crosswalk, pedestrian signal, and rear-end collision are relevant.",
+            },
+            {
+                "source_type": "legal_reference",
+                "title": "Signal transition CCTV guide",
+                "related_reason": "intersection signal transition, opponent signal, and CCTV cycle are directly relevant.",
+            },
+            {
+                "source_type": "knia_reference",
+                "title": "Vehicle intersection signal fault guide",
+                "related_reason": "vehicle to vehicle intersection signal conflict fault ratio reference.",
+            },
+        ],
+        evidence_audit={},
+        claim_evidence={"coverage_level": "high", "unsupported_claim_count": 0, "weak_claim_count": 0},
+        input_requirements={},
+        reflection_loop={},
+    )
+
+    basis_titles = [item["title"] for item in sections["legal_prediction"]["basis"]]
+    assert "Signal transition CCTV guide" in basis_titles
+    assert "Vehicle intersection signal fault guide" in basis_titles
+    assert "Crosswalk pedestrian duty guide" not in basis_titles
+    assert "Crosswalk front vehicle stop reason and rear-end fault guide" not in basis_titles
+    basis_text = str(sections["legal_prediction"]["basis"]).lower()
+    assert "bicycle" not in basis_text
 
 
 def test_basis_summary_keeps_non_contact_bicycle_trigger_basis():
@@ -39797,6 +41564,65 @@ def test_matching_held_video_observation_still_asks_when_context_can_change_acci
     assert pending["status"] == "user_supported_by_held_video_needs_context_confirmation"
     assert pending["needs_confirmation"] is True
     assert result["contract"]["requires_confirmation"][0]["field"] == "collision_partner_type"
+
+```
+
+### File: `apps/agent/tests/test_initial_intake_flow.py`
+
+- size: `2,310` bytes
+
+```python
+from app.services.dynamic_questionnaire import build_dynamic_questionnaire
+from app.services.input_normalizer import normalize_analysis_input
+
+
+def test_initial_intake_sets_party_guard_before_natural_language_claim():
+    normalized = normalize_analysis_input(
+        "횡단보도 근처 사람이 보였지만 실제 충돌은 차량과 차량 사이입니다.",
+        structured_facts={},
+        initial_intake={
+            "accident_major_category": "car_vs_car",
+            "preliminary_accident_type": "lane_change_collision",
+            "natural_language_description": "횡단보도 근처 사람이 보였습니다.",
+        },
+    )
+
+    facts = normalized["structured_facts"]
+    assert facts["accident_party_type"] == "car_vs_car"
+    assert facts["knia_major_party_type"] == "car_vs_car"
+    assert facts["selected_major_category"] == "car_vs_car"
+    assert normalized["initial_intake_summary"]["natural_language_used_as"] == "low_weight_supporting_claim"
+    assert normalized["fact_source_weights"]["field_sources"]["natural_language_description"]["can_override_video"] is False
+
+
+def test_two_wheeler_alias_is_kept_in_intake_and_canonicalized_for_agent_party():
+    normalized = normalize_analysis_input(
+        "",
+        structured_facts={},
+        initial_intake={
+            "accident_major_category": "car_vs_two_wheeler",
+            "preliminary_accident_type": "intersection_collision",
+        },
+    )
+
+    facts = normalized["structured_facts"]
+    assert normalized["initial_intake"]["accident_major_category"] == "car_vs_two_wheeler"
+    assert facts["accident_party_type"] == "car_vs_motorcycle"
+    assert facts["collision_partner_type"] == "motorcycle"
+
+
+def test_dynamic_questionnaire_skips_already_answered_structured_facts_and_limits_count():
+    questionnaire = build_dynamic_questionnaire(
+        scenario_type="lane_change_collision",
+        accident_party_type="car_vs_car",
+        analysis_mode="expert",
+        structured_facts={"lane_change_actor": "opponent"},
+    )
+
+    fields = [item["fact_key"] for item in questionnaire["questions"]]
+    assert "lane_change_actor" not in fields
+    assert len(questionnaire["questions"]) <= 6
+    assert all(any(choice["value"] == "unknown" for choice in item["choices"]) for item in questionnaire["questions"])
 
 ```
 
@@ -40508,6 +42334,51 @@ def test_validation_warnings_do_not_abort_import_shape_checks():
 
 ```
 
+### File: `apps/agent/tests/test_knia_json_rag_cache.py`
+
+- size: `1,125` bytes
+
+```python
+from app.services.rag import two_stage_cache as cache
+
+
+def test_knia_json_public_items_infer_chart_and_party_from_chunk_text():
+    rows = [
+        (
+            "chunk-1",
+            "과실비율 인정기준",
+            "안전거리미확보로 인한 추돌사고 차41-1 양 차량 주행 중 후방 추돌",
+            "https://accident.knia.or.kr/example",
+            "car_vs_person",
+            "차대보행자 사고",
+            [],
+            [],
+            "KNIA 자동차사고 과실비율 정보포털",
+            None,
+            None,
+            None,
+            "rag",
+            False,
+            {},
+        )
+    ]
+
+    item = cache._rows_to_public_items(rows)[0]
+
+    assert item["chart_no"] == "차41-1"
+    assert item["accident_party_type"] == "car_vs_car"
+    assert item["accident_party_label"] == "차대차 사고"
+
+
+def test_knia_literal_patterns_expand_rear_end_terms():
+    patterns = cache._literal_patterns("후미추돌 정차 안전거리")
+
+    assert "%후방 추돌%" in patterns
+    assert "%안전거리미확보%" in patterns
+    assert "%주정차%" in patterns
+
+```
+
 ### File: `apps/agent/tests/test_knia_matcher_no_cross_party_leak.py`
 
 - size: `2,879` bytes
@@ -40583,6 +42454,42 @@ def test_person_matcher_static_fallback_is_knia_family(monkeypatch) -> None:
     assert result["items"][0]["evidence_family"] == "knia"
     assert result["items"][0]["reference_only"] is True
     assert result["no_knia_match_reason"] is None
+
+```
+
+### File: `apps/agent/tests/test_knia_matcher_party_prefix.py`
+
+- size: `792` bytes
+
+```python
+from app.services.knia import knia_matcher
+from app.services.knia.party_guard import reject_mismatched_knia_items
+
+
+def test_knia_matcher_prefers_chart_prefix_over_stale_party_metadata():
+    row = {
+        "chart_no": "차41-1",
+        "major_party_type": "car_vs_person",
+        "accident_party_type": "car_vs_person",
+    }
+
+    assert knia_matcher._row_party_type(row) == "car_vs_car"
+
+
+def test_party_guard_keeps_chart_prefix_match_with_stale_metadata():
+    kept, rejected = reject_mismatched_knia_items(
+        [
+            {
+                "chart_no": "차41-1",
+                "major_party_type": "car_vs_person",
+                "accident_party_type": "car_vs_person",
+            }
+        ],
+        "car_vs_car",
+    )
+
+    assert len(kept) == 1
+    assert rejected == []
 
 ```
 
@@ -40962,7 +42869,7 @@ def test_rejected_mismatch_knia_candidate_is_not_display_representative(monkeypa
 
 ### File: `apps/agent/tests/test_knia_road_worker_matching.py`
 
-- size: `2,141` bytes
+- size: `2,251` bytes
 
 ```python
 from app.services.input_normalizer import normalize_analysis_input
@@ -40983,11 +42890,13 @@ def test_road_worker_input_stays_car_vs_person_and_matches_real_knia_chart():
 
     assert facts["accident_party_type"] == "car_vs_person"
     assert facts["major_party_type"] == "car_vs_person"
-    assert facts["collision_partner_type"] == "person"
-    assert facts["direct_collision_partner_type"] == "person"
+    assert facts["collision_partner_type"] == "pedestrian"
+    assert facts["direct_collision_partner_type"] == "pedestrian"
     assert facts["accident_type"] == "pedestrian_roadway_worker_accident"
+    assert facts["pedestrian_worker"] is True
+    assert facts["road_work_context"] is True
     assert scenario["accident_party_type"] == "car_vs_person"
-    assert scenario["scenario_type"] == "pedestrian_accident"
+    assert scenario["scenario_type"] == "pedestrian_road_work_worker_accident"
 
     result = match_knia_charts(
         description_text=ROAD_WORKER_TEXT,
@@ -41044,6 +42953,38 @@ def test_pedestrian_scenario_rejects_unrelated_car_chart():
         {"chart_no": "\ubcf41-1", "accident_party_type": "car_vs_person"},
         "crosswalk pedestrian accident",
     )
+
+```
+
+### File: `apps/agent/tests/test_knia_taxonomy_bicycle_prefix.py`
+
+- size: `984` bytes
+
+```python
+from app.services.knia.knia_json_repository import _party_prefix_patterns
+from app.services.knia.taxonomy import classify_knia_accident_party_type, infer_party_type_from_text
+
+
+def test_bicycle_prefix_overrides_incorrect_stored_party_type():
+    result = classify_knia_accident_party_type(
+        {
+            "chart_no": "거33-1",
+            "title": "자전거도로 사고",
+            "accident_party_type": "car_vs_person",
+            "accident_summary": "자전거와 차량의 충돌 사고",
+        }
+    )
+
+    assert result["accident_party_type"] == "car_vs_bicycle"
+    assert result["accident_party_label"] == "차대자전거 사고"
+
+
+def test_bicycle_keywords_are_enough_for_taxonomy_search_context():
+    assert infer_party_type_from_text("자전거도로에서 발생한 자전거 사고", {}) == "car_vs_bicycle"
+
+
+def test_repository_bicycle_party_filter_includes_both_knia_prefixes():
+    assert _party_prefix_patterns("car_vs_bicycle") == ["자%", "거%"]
 
 ```
 
@@ -41356,7 +43297,7 @@ def test_rear_end_filter_drops_intersection_left_turn_primary_links():
 
 ### File: `apps/agent/tests/test_orchestrator.py`
 
-- size: `15,004` bytes
+- size: `19,273` bytes
 
 ```python
 ﻿from app.schemas import AnalysisOutput
@@ -41570,11 +43511,85 @@ def test_centerline_obstacle_context_uses_textual_stop_and_oncoming_nonstop_cues
         analysis_mode="fault_ratio",
     )
 
-    assert result["scenario_type"] == "parking_or_stopped_vehicle_accident"
+    assert result["scenario_type"] == "centerline_obstacle_collision"
+    assert result["structured_facts"]["stopped"] is True
+    assert result["structured_facts"]["opposing_vehicle_present"] is True
+    assert result["structured_facts"]["opposing_vehicle_did_not_stop"] is True
     assert result["fault_ratio"]["my"] == 30
     assert result["fault_ratio"]["other"] == 70
     assert result["fault_ratio"]["fault_estimate_source"] == "contextual_complex_case"
     assert "상대 차량 회피 가능성" in result["fault_ratio"]["key_factors"]
+
+
+def test_centerline_obstacle_video_and_input_e2e_keeps_video_facts_and_scenario():
+    result = analyze_case(
+        "왕복 2차로 도로에서 불법 주정차 차량 때문에 중앙선을 물었고, 마주오던 상대 차량이 멈추지 않아 앞부분을 충돌했습니다.",
+        structured_facts={
+            "accident_party_type": "car_vs_car",
+            "accident_type": "centerline_obstacle_collision",
+            "centerline_crossed": True,
+            "road_obstruction": True,
+            "illegal_parking_obstruction": True,
+        },
+        selected_keywords=["중앙선", "대향 차량", "불법 주정차"],
+        video_metadata={
+            "metadata": {
+                "duration_sec": 8.4,
+                "representative_frames": [f"/frames/frame_{index:03d}.jpg" for index in range(1, 7)],
+                "observations": [
+                    {
+                        "field": "accident_event_candidate",
+                        "value": True,
+                        "confidence": 0.86,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "collision_point_visible",
+                        "value": True,
+                        "confidence": 0.95,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "collision_point_location",
+                        "value": "front_left",
+                        "confidence": 0.9,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "pedestrian_visible",
+                        "value": False,
+                        "confidence": 0.95,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_002.jpg", "frame_003.jpg", "frame_004.jpg"],
+                    },
+                    {
+                        "field": "primary_collision_target",
+                        "value": "vehicle_candidate",
+                        "confidence": 0.95,
+                        "source": "frame_analysis:openai",
+                        "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                    },
+                ],
+            }
+        },
+        analysis_mode="fault_ratio",
+    )
+
+    facts = result["structured_facts"]
+    assert result["scenario_type"] == "centerline_obstacle_collision"
+    assert facts["collision_partner_type"] == "vehicle"
+    assert facts["direct_collision_partner_type"] == "vehicle"
+    assert facts["opposing_vehicle_present"] is True
+    assert facts["opposing_vehicle_did_not_stop"] is True
+    assert facts["collision_point_visible"] is True
+    assert facts["collision_point_location"] == "front_left"
+    assert facts["pedestrian_visible"] is False
+    assert "primary_collision_target" in result["fact_arbitration"]["held_video_fields"]
+    assert result["fault_ratio"]["fault_estimate_source"] == "contextual_complex_case"
+    assert result["fault_ratio"]["my"] < result["fault_ratio"]["other"]
 
 
 def test_left_turn_yellow_to_red_unknown_opponent_signal_gets_conditional_outcomes_without_pedestrian_basis():
@@ -41599,11 +43614,19 @@ def test_left_turn_yellow_to_red_unknown_opponent_signal_gets_conditional_outcom
     assert result["scenario_type"] == "intersection_signal_violation"
     assert result["accident_party_type"] == "car_vs_car"
     assert result["fault_ratio"]["fault_estimate_source"] == "contextual_complex_case"
-    assert len(result["fault_ratio"].get("conditional_outcomes") or []) == 2
+    conditionals = result["fault_ratio"].get("conditional_outcomes") or []
+    assert len(conditionals) == 2
+    conditional_labels = " ".join(item["label"] for item in conditionals)
+    assert "정상 진행" in conditional_labels or "녹색" in conditional_labels
+    assert "신호위반" in conditional_labels or "적색" in conditional_labels
     assert "pedestrian" not in result["structured_facts"]["scenario_tags"]
     evidence_text = " ".join(str(ev) for ev in result["evidence"]).lower()
     assert "pedestrian_crosswalk_accident" not in evidence_text
     assert "school_zone_child_accident" not in evidence_text
+    assert "static:rt-law:pedestrian-crosswalk" not in evidence_text
+    assert "static:fault-guide:pedestrian-crosswalk" not in evidence_text
+    assert "static:fault-guide:crosswalk-front-stop-rear-end" not in evidence_text
+    assert "static:legal:front-vehicle-stop-rear-end-duty" not in evidence_text
 
 
 def test_contextual_complex_fault_estimate_is_not_overwritten_by_knia_base_fault():
@@ -41809,7 +43832,7 @@ if __name__ == "__main__":
 
 ### File: `apps/agent/tests/test_scenario_search_terms.py`
 
-- size: `15,865` bytes
+- size: `15,853` bytes
 
 ```python
 from app.services.keyword_recommender import recommend_keywords, suggest_next_inputs
@@ -41996,7 +44019,7 @@ def test_centerline_obstruction_context_is_car_vs_car():
     )
 
     assert scenario["accident_party_type"] == "car_vs_car"
-    assert scenario["scenario_type"] == "parking_or_stopped_vehicle_accident"
+    assert scenario["scenario_type"] == "centerline_obstacle_collision"
     assert "road_obstruction" in scenario["scenario_tags"]
     assert "oncoming_vehicle" in scenario["scenario_tags"]
 
@@ -42240,7 +44263,7 @@ def test_broad_vehicle_accident_types_map_to_generalizable_scenarios():
     )
 
     assert centerline["accident_party_type"] == "car_vs_car"
-    assert centerline["scenario_type"] == "parking_or_stopped_vehicle_accident"
+    assert centerline["scenario_type"] == "centerline_obstacle_collision"
     assert "centerline" in centerline["scenario_tags"]
     assert right_turn["accident_party_type"] == "car_vs_car"
     assert right_turn["scenario_type"] == "rear_end_collision"
@@ -42250,7 +44273,7 @@ def test_broad_vehicle_accident_types_map_to_generalizable_scenarios():
 
 ### File: `apps/agent/tests/test_static_scenario_support.py`
 
-- size: `3,980` bytes
+- size: `3,888` bytes
 
 ```python
 from app.services.evidence_quality_gate import evaluate_evidence_quality
@@ -42327,7 +44350,7 @@ def test_pedestrian_and_school_zone_static_support_have_direct_fault_guides():
 
 def test_static_support_returns_front_vehicle_stop_reference_for_crosswalk_rear_end():
     items = retrieve_static_legal_chunks(
-        "우회전 중 횡단보도 앞 앞차 정지 사유 보행자 신호 후방추돌 급정거 안전거리",
+        "우회전 중 횡단보도 앞 앞차 정차 사유 보행자 신호 후방추돌 급정거 안전거리",
         limit=5,
     )
 
@@ -42338,7 +44361,7 @@ def test_static_support_returns_front_vehicle_stop_reference_for_crosswalk_rear_
 
 def test_static_support_returns_bicycle_trigger_legal_and_knia_reference():
     items = retrieve_static_legal_chunks(
-        "자전거 비접촉 유발 트럭 정지 후방 버스 추돌 시간적 여유 급제동 안전거리",
+        "자전거 비접촉 유발 트럭 정차 후방 버스 충돌 시간적 여유 급제동 안전거리",
         limit=5,
     )
 
@@ -43886,7 +45909,7 @@ def test_non_contact_bicycle_trigger_remains_vehicle_rear_end_context():
 
 ### File: `apps/frontend/src/components/easy/AgentProcessCard.vue`
 
-- size: `3,609` bytes
+- size: `3,805` bytes
 
 ```vue
 <template>
@@ -43938,6 +45961,7 @@ function text(value: unknown) {
 .agent-process-card {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .process-header {
@@ -43948,27 +45972,31 @@ function text(value: unknown) {
 }
 
 .process-status {
-  background: rgba(120, 215, 207, 0.18);
-  border: 1px solid rgba(68, 185, 176, 0.26);
+  background: var(--accent-soft);
+  border: 1px solid rgba(201, 169, 98, 0.40);
   border-radius: 999px;
-  color: var(--primary-content);
+  color: var(--accent-strong);
   flex: 0 0 auto;
-  font-weight: 800;
-  padding: 9px 13px;
+  font-weight: 900;
+  min-height: 30px;
+  padding: 6px 12px;
+  width: fit-content;
 }
 
 .process-stats {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-top: 4px;
 }
 
 .process-stat {
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid rgba(87, 75, 99, 0.12);
+  background: rgba(28, 23, 20, 0.44);
+  border: 1px solid rgba(201, 169, 98, 0.22);
   border-radius: 16px;
   min-width: 0;
-  padding: 14px;
+  padding: 12px 14px;
+  overflow-wrap: anywhere;
 }
 
 .process-stat span,
@@ -43980,28 +46008,32 @@ function text(value: unknown) {
 
 .process-stat strong,
 .process-step strong {
-  color: var(--base-content);
+  color: var(--text-main);
   display: block;
   margin-top: 6px;
+  overflow-wrap: anywhere;
 }
 
 .process-steps {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 4px;
 }
 
 .process-step {
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid rgba(87, 75, 99, 0.12);
+  background: rgba(37, 30, 25, 0.72);
+  border: 1px solid rgba(201, 169, 98, 0.20);
   border-radius: 16px;
   min-width: 0;
-  padding: 13px;
+  padding: 12px 14px;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
 }
 
 .process-step .step-phase {
-  color: var(--primary-content);
-  font-weight: 800;
+  color: var(--accent-strong);
+  font-weight: 900;
 }
 
 .decision-notes {
@@ -44013,12 +46045,13 @@ function text(value: unknown) {
 }
 
 .decision-notes li {
-  background: rgba(120, 215, 207, 0.12);
-  border: 1px solid rgba(68, 185, 176, 0.18);
+  background: var(--warning-soft);
+  border: 1px solid rgba(215, 181, 109, 0.30);
   border-radius: 14px;
-  color: var(--base-content);
+  color: #f1d99a;
   line-height: 1.55;
   padding: 10px 12px;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 760px) {
@@ -44026,9 +46059,14 @@ function text(value: unknown) {
     display: grid;
   }
 
-  .process-stats,
-  .process-steps {
+  .process-stats {
     grid-template-columns: 1fr;
+  }
+
+  .process-stat,
+  .process-step {
+    border-radius: 14px;
+    padding: 11px 12px;
   }
 
   .process-status {
@@ -44041,7 +46079,7 @@ function text(value: unknown) {
 
 ### File: `apps/frontend/src/views/AdminAgentTestView.vue`
 
-- size: `20,893` bytes
+- size: `33,135` bytes
 
 ```vue
 <template>
@@ -44171,6 +46209,10 @@ function text(value: unknown) {
           <strong>{{ uploadId || "-" }}</strong>
         </div>
         <div>
+          <span>영상 처리</span>
+          <strong>{{ preprocessJobId || "-" }}</strong>
+        </div>
+        <div>
           <span>분석 작업</span>
           <strong>{{ analysisJobId || "-" }}</strong>
         </div>
@@ -44189,6 +46231,75 @@ function text(value: unknown) {
         </li>
       </ul>
       <p v-else class="kv">아직 등록된 작업이 없습니다.</p>
+    </article>
+
+    <article v-if="videoPreprocessDiagnostic" class="card video-diagnostic-panel">
+      <div class="diagnostic-head">
+        <div>
+          <p class="eyebrow">Video Preprocess</p>
+          <h3>Agent 전달 전 영상 처리 결과</h3>
+          <p class="kv">
+            YOLO 객체 후보와 OpenAI 프레임 관찰값이 Agent로 넘어가기 전에 어떤 데이터로 정리됐는지 확인합니다.
+          </p>
+        </div>
+        <button
+          v-if="canContinueAgentAnalysis"
+          class="btn"
+          :disabled="busy"
+          @click="continueAgentAnalysis"
+        >
+          {{ busy === "video-analysis" ? "Agent 분석 실행 중..." : "Agent 분석 계속 실행" }}
+        </button>
+      </div>
+
+      <div class="diagnostic-grid">
+        <div class="diagnostic-stat">
+          <span>대표 프레임</span>
+          <strong>{{ diagnosticFrameCount }}장</strong>
+        </div>
+        <div class="diagnostic-stat">
+          <span>OpenAI 관찰</span>
+          <strong>{{ diagnosticOpenAiCount }}개</strong>
+          <small>{{ diagnosticOpenAiStatus }}</small>
+        </div>
+        <div class="diagnostic-stat">
+          <span>YOLO 관찰</span>
+          <strong>{{ diagnosticYoloCount }}개</strong>
+          <small>{{ diagnosticYoloStatus }}</small>
+        </div>
+        <div class="diagnostic-stat">
+          <span>병합 관찰값</span>
+          <strong>{{ diagnosticMergedCount }}개</strong>
+        </div>
+      </div>
+
+      <div class="observation-section">
+        <h4>사람이 보기 쉬운 관찰값</h4>
+        <ul v-if="diagnosticObservations.length" class="list-reset observation-list">
+          <li v-for="(item, index) in diagnosticObservations" :key="`${item.field}-${index}`">
+            <div>
+              <strong>{{ item.display_label || observationFieldLabel(item.field) }}</strong>
+              <span class="badge" :class="diagnosticStatusClass(item.status)">
+                {{ item.status_label || item.source_family || "merged" }}
+              </span>
+            </div>
+            <p>{{ item.display_value || observationValueLabel(item.field, item.value) }}</p>
+            <p v-if="item.reason" class="kv">{{ item.reason }}</p>
+            <p class="kv">
+              신뢰도 {{ formatConfidence(item.confidence) }}
+              <template v-if="item.frame_ref_count">/ 프레임 {{ item.frame_ref_count }}장</template>
+              <template v-if="item.source_families?.length">/ 출처 {{ item.source_families.join(", ") }}</template>
+              <template v-else-if="item.source_family">/ 출처 {{ item.source_family }}</template>
+            </p>
+          </li>
+        </ul>
+        <p v-else class="kv">아직 영상 관찰값이 없습니다. 영상 전처리 작업 완료 후 표시됩니다.</p>
+      </div>
+
+      <details class="raw-diagnostic">
+        <summary>원본 진단 JSON 보기</summary>
+        <pre>{{ formatJson(videoPreprocessDiagnostic) }}</pre>
+      </details>
     </article>
 
     <EasyReportView
@@ -44264,9 +46375,11 @@ const facts = reactive<AccidentFacts>({});
 const file = ref<File | null>(null);
 const currentCaseId = ref("");
 const uploadId = ref("");
+const preprocessJobId = ref("");
 const analysisJobId = ref("");
 const jobs = ref<any[]>([]);
 const report = ref<any>(null);
+const videoPreprocessDiagnostic = ref<any>(null);
 const traceDiagnostic = ref<any>(null);
 const busy = ref(false);
 const message = ref("");
@@ -44276,12 +46389,46 @@ const followupError = ref("");
 
 const usesText = computed(() => mode.value === "text" || mode.value === "both");
 const usesVideo = computed(() => mode.value === "video" || mode.value === "both");
+const hasCompletedVideoAnalysis = computed(() => jobs.value.some(isCompletedVideoAnalysisJob));
+const canContinueAgentAnalysis = computed(() => Boolean(
+  currentCaseId.value
+  && uploadId.value
+  && videoPreprocessDiagnostic.value
+  && !hasCompletedVideoAnalysis.value
+));
+const diagnosticFrameCount = computed(() => videoPreprocessDiagnostic.value?.frame_selection?.representative_frame_count ?? 0);
+const diagnosticOpenAiCount = computed(() => videoPreprocessDiagnostic.value?.openai_frame_analysis?.observation_count ?? 0);
+const diagnosticYoloCount = computed(() => videoPreprocessDiagnostic.value?.yolo_frame_analysis?.observation_count ?? 0);
+const diagnosticMergedCount = computed(() => videoPreprocessDiagnostic.value?.merged_observations?.observation_count ?? 0);
+const diagnosticObservations = computed(() => (
+  videoPreprocessDiagnostic.value?.merged_observations?.human_observations
+  ?? videoPreprocessDiagnostic.value?.merged_observations?.observations
+  ?? []
+));
+const diagnosticOpenAiStatus = computed(() => {
+  const payload = videoPreprocessDiagnostic.value?.openai_frame_analysis;
+  if (!payload) return "대기";
+  return payload.enabled ? `${payload.model || "모델"} / ${payload.selected_frame_count ?? 0}장` : "비활성";
+});
+const diagnosticYoloStatus = computed(() => {
+  const payload = videoPreprocessDiagnostic.value?.yolo_frame_analysis;
+  if (!payload) return "대기";
+  return payload.enabled ? `${payload.model || "모델"} / ${payload.selected_frame_count ?? 0}장` : "비활성";
+});
 const canRun = computed(() => {
   if (!title.value.trim()) return false;
   if (usesText.value && !description.value.trim()) return false;
   if (usesVideo.value && !file.value) return false;
   return true;
 });
+
+function isSuccessfulJobStatus(status: unknown) {
+  return ["succeeded", "completed", "success", "done", "finished"].includes(String(status));
+}
+
+function isCompletedVideoAnalysisJob(job: any) {
+  return String(job?.type) === "video_analyze" && isSuccessfulJobStatus(job?.status);
+}
 
 function onFile(event: Event) {
   const selected = (event.target as HTMLInputElement).files?.[0] || null;
@@ -44296,9 +46443,11 @@ function onFile(event: Event) {
 function resetRun() {
   currentCaseId.value = "";
   uploadId.value = "";
+  preprocessJobId.value = "";
   analysisJobId.value = "";
   jobs.value = [];
   report.value = null;
+  videoPreprocessDiagnostic.value = null;
   traceDiagnostic.value = null;
   message.value = "";
 }
@@ -44325,13 +46474,14 @@ async function runTest() {
     currentCaseId.value = created.case.id;
 
     if (usesVideo.value) {
-      setMessage("영상을 업로드하고 전처리/분석 작업을 등록하고 있습니다.");
+      setMessage("영상을 업로드하고 Agent 전달 전 영상 처리 작업을 등록하고 있습니다.");
       const uploaded = await api.localUpload(created.case.id, file.value as File);
       uploadId.value = uploaded.upload_id;
-      const queued = await api.completeUpload(uploaded.upload_id);
-      analysisJobId.value = queued.job_id;
-      const finalVideoJob = await pollVideoPipelineUntilAnalyzed(created.case.id);
-      analysisJobId.value = finalVideoJob?.id || analysisJobId.value;
+      const queued = await api.completeUpload(uploaded.upload_id, { autoAnalyzeAfterPreprocess: false });
+      preprocessJobId.value = queued.job_id;
+      await pollVideoPreprocessUntilReady(created.case.id);
+      await loadVideoPreprocessDiagnostic();
+      setMessage("영상 처리 결과를 불러왔습니다. 아래 관찰값을 확인한 뒤 Agent 분석 계속 실행을 눌러 주세요.");
     } else {
       setMessage("텍스트 분석을 실행하고 있습니다.");
       await api.analyzeText(created.case.id, {
@@ -44341,6 +46491,7 @@ async function runTest() {
     }
 
     await refreshOutputs();
+    if (usesVideo.value) return;
     setMessage(report.value ? "테스트 분석 결과를 불러왔습니다." : "테스트 요청은 완료됐지만 아직 표시할 결과가 없습니다.", Boolean(report.value));
   } catch (error: any) {
     setMessage(formatApiError(error, "관리자 테스트 실행에 실패했습니다."), false);
@@ -44352,9 +46503,11 @@ async function runTest() {
 function resetOutputs() {
   currentCaseId.value = "";
   uploadId.value = "";
+  preprocessJobId.value = "";
   analysisJobId.value = "";
   jobs.value = [];
   report.value = null;
+  videoPreprocessDiagnostic.value = null;
   traceDiagnostic.value = null;
   followupError.value = "";
 }
@@ -44424,6 +46577,61 @@ async function submitFollowup(answers: Record<string, string>) {
   }
 }
 
+async function continueAgentAnalysis() {
+  if (!currentCaseId.value || !uploadId.value) {
+    setMessage("먼저 영상 처리 결과를 만든 뒤 Agent 분석을 실행해 주세요.", false);
+    return;
+  }
+
+  busy.value = true;
+  setMessage("영상 처리 결과와 입력값을 Agent 분석으로 전달하고 있습니다.");
+
+  try {
+    const payload = buildAnalysisPayload();
+    await api.analyzeVideo(currentCaseId.value, {
+      upload_id: uploadId.value,
+      structured_facts: payload.structured_facts,
+      selected_keywords: payload.selected_keywords,
+      analysis_mode: payload.analysis_mode
+    });
+    const finalVideoJob = await pollVideoPipelineUntilAnalyzed(currentCaseId.value);
+    analysisJobId.value = finalVideoJob?.id || analysisJobId.value;
+    await refreshOutputs();
+    setMessage(report.value ? "Agent 분석 결과를 불러왔습니다." : "Agent 분석은 완료됐지만 아직 표시할 결과가 없습니다.", Boolean(report.value));
+  } catch (error: any) {
+    setMessage(formatApiError(error, "Agent 분석 실행에 실패했습니다."), false);
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function loadVideoPreprocessDiagnostic() {
+  if (!uploadId.value) return null;
+  const response = await api.adminGetVideoPreprocessDiagnostic(uploadId.value);
+  videoPreprocessDiagnostic.value = response.diagnostic || response;
+  return videoPreprocessDiagnostic.value;
+}
+
+async function pollVideoPreprocessUntilReady(caseId: string) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    await sleep(attempt === 0 ? 600 : 2000);
+    const response = await api.getJobs(caseId);
+    jobs.value = response.items || [];
+    const failedJob = jobs.value.find((job) => FAILED_JOB_STATUSES.has(String(job.status)));
+    if (failedJob) {
+      throw new Error(`${failedJob.type || "video job"} 작업이 실패했습니다. ${failedJob.last_error || ""}`.trim());
+    }
+    const preprocessJob = jobs.value.find((job) => String(job.type) === "video_preprocess");
+    if (preprocessJob?.id) {
+      preprocessJobId.value = preprocessJob.id;
+    }
+    if (String(preprocessJob?.status) === "succeeded") {
+      return preprocessJob;
+    }
+  }
+  throw new Error("영상 처리 작업이 아직 완료되지 않았습니다. 잠시 뒤 결과/진단 새로고침을 눌러 확인해 주세요.");
+}
+
 async function pollVideoPipelineUntilAnalyzed(caseId: string) {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     await sleep(attempt === 0 ? 600 : 2500);
@@ -44437,7 +46645,7 @@ async function pollVideoPipelineUntilAnalyzed(caseId: string) {
     if (videoAnalyzeJob?.id) {
       analysisJobId.value = videoAnalyzeJob.id;
     }
-    if (String(videoAnalyzeJob?.status) === "succeeded") {
+    if (isSuccessfulJobStatus(videoAnalyzeJob?.status)) {
       return videoAnalyzeJob;
     }
   }
@@ -44451,15 +46659,25 @@ async function refreshOutputs() {
   } catch {
     jobs.value = [];
   }
-  try {
-    report.value = await api.getEasyReport(currentCaseId.value);
-  } catch {
+  const shouldLoadReport = !usesVideo.value || jobs.value.some(isCompletedVideoAnalysisJob);
+  if (shouldLoadReport) {
+    try {
+      report.value = await api.getEasyReport(currentCaseId.value);
+    } catch {
+      report.value = null;
+    }
+  } else {
     report.value = null;
   }
   try {
     traceDiagnostic.value = await api.adminGetAgentTrace(currentCaseId.value);
   } catch {
     traceDiagnostic.value = null;
+  }
+  try {
+    if (uploadId.value) await loadVideoPreprocessDiagnostic();
+  } catch {
+    videoPreprocessDiagnostic.value = null;
   }
 }
 
@@ -44470,6 +46688,67 @@ function setMessage(text: string, ok = true) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function observationFieldLabel(field: string) {
+  const labels: Record<string, string> = {
+    accident_event_candidate: "사고 발생 구간 후보",
+    primary_collision_target: "주 충돌 대상 후보",
+    collision_partner_type: "충돌 상대 유형",
+    direct_collision_partner_type: "직접 충돌 상대",
+    collision_point_visible: "충돌 지점 보임",
+    collision_point_location: "충돌 위치",
+    impact_direction: "충돌 방향",
+    stopped: "정차 여부",
+    front_vehicle_stopped: "앞차 정차",
+    pedestrian_visible: "보행자 보임",
+    pedestrian_context: "보행자 관련 관찰",
+    bicycle_visible: "자전거 보임",
+    motorcycle_visible: "이륜차 보임",
+    traffic_light_visible: "신호등 보임",
+    signal_state: "신호 상태",
+    visual_evidence_limited: "영상 근거 제한",
+    damage_level: "파손 정도"
+  };
+  return labels[field] || field;
+}
+
+function diagnosticStatusClass(status: string) {
+  if (status === "conflict") return "needs-review";
+  if (status === "candidate") return "pending";
+  if (status === "confirmed") return "done";
+  return "";
+}
+
+function observationValueLabel(field: string, value: unknown) {
+  const text = String(value);
+  const labels: Record<string, string> = {
+    true: "예",
+    false: "아니오",
+    vehicle: "차량",
+    vehicle_candidate: "차량 후보",
+    pedestrian: "보행자",
+    pedestrian_candidate: "보행자 후보",
+    bicycle: "자전거",
+    bicycle_candidate: "자전거 후보",
+    motorcycle: "이륜차",
+    motorcycle_candidate: "이륜차 후보",
+    object: "물체",
+    object_candidate: "물체 후보",
+    front_ego_to_rear_opponent: "내 차량 전면과 상대 후면 방향",
+    front_right: "전방 우측",
+    moderate: "중간 정도"
+  };
+  if (field === "primary_collision_target" && text.endsWith("_candidate")) {
+    return `${labels[text] || text}입니다. 확정 사실이 아니라 Agent 판단 전 확인 후보입니다.`;
+  }
+  return labels[text] || text;
+}
+
+function formatConfidence(value: unknown) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return "-";
+  return `${Math.round(numberValue * 100)}%`;
 }
 
 function formatJson(value: unknown) {
@@ -44599,14 +46878,119 @@ function formatJson(value: unknown) {
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.video-diagnostic-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.diagnostic-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.diagnostic-head h3,
+.diagnostic-head p {
+  margin-top: 0;
+}
+
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.diagnostic-stat {
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid rgba(143, 162, 185, 0.32);
+  border-radius: 8px;
+  background: rgba(12, 21, 33, 0.36);
+}
+
+.diagnostic-stat span,
+.diagnostic-stat small {
+  display: block;
+  color: #bed0e1;
+}
+
+.diagnostic-stat strong {
+  display: block;
+  margin: 6px 0;
+  font-size: 1.6rem;
+}
+
+.observation-section {
+  display: grid;
+  gap: 10px;
+}
+
+.observation-section h4 {
+  margin: 0;
+}
+
+.observation-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.observation-list li {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(94, 226, 240, 0.22);
+  border-radius: 8px;
+  background: rgba(13, 23, 35, 0.42);
+}
+
+.observation-list li > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.observation-list p {
+  margin: 0;
+}
+
+.observation-list .badge.needs-review {
+  color: #fde68a;
+  border-color: rgba(250, 204, 21, 0.65);
+}
+
+.observation-list .badge.pending {
+  color: #cffafe;
+  border-color: rgba(94, 234, 212, 0.58);
+}
+
+.observation-list .badge.done {
+  color: #dcfce7;
+  border-color: rgba(134, 239, 172, 0.58);
+}
+
+.raw-diagnostic pre {
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 900px) {
   .workspace-head {
     flex-direction: column;
   }
 
   .mode-tabs,
-  .state-grid {
+  .state-grid,
+  .diagnostic-grid,
+  .observation-list {
     grid-template-columns: 1fr;
+  }
+
+  .diagnostic-head {
+    display: grid;
   }
 }
 </style>
@@ -49818,7 +52202,7 @@ def _event_focused_frame_indexes(frame_count: int, max_frames: int) -> list[int]
 
 ### File: `apps/worker/worker/job_processor.py`
 
-- size: `30,543` bytes
+- size: `30,747` bytes
 
 ```python
 import json
@@ -50340,6 +52724,7 @@ def build_video_analyze_payload(row: tuple[Any, ...], payload: dict[str, Any], c
         "structured_facts": (case_inputs[0] if case_inputs else {}) or {},
         "selected_keywords": list(case_inputs[1] if case_inputs and case_inputs[1] else []),
         "analysis_mode": (case_inputs[2] if case_inputs else None) or "quick_summary",
+        "initial_intake": payload.get("initial_intake") or {},
     }
 
 
@@ -50351,6 +52736,7 @@ def build_agent_video_request(
 ) -> dict[str, Any]:
     structured_facts = payload.get("structured_facts") or {}
     selected_keywords = payload.get("selected_keywords") or []
+    initial_intake = payload.get("initial_intake") if isinstance(payload.get("initial_intake"), dict) else {}
     routing_reason = payload.get("routing_reason")
     case_text = f"{case_row[0] or ''} {case_row[1] or ''}".strip() if case_row else ""
     metadata = upload_row[0] if upload_row and isinstance(upload_row[0], dict) else {}
@@ -50384,6 +52770,7 @@ def build_agent_video_request(
         "structured_facts": structured_facts,
         "selected_keywords": selected_keywords,
         "analysis_mode": payload.get("analysis_mode") or "quick_summary",
+        "initial_intake": initial_intake,
     }
 
 
@@ -53669,7 +56056,7 @@ console.log(JSON.stringify({ test_chat: "passed", required_files: required.lengt
 
 ### File: `apps/frontend/scripts/test-display.mjs`
 
-- size: `20,029` bytes
+- size: `26,621` bytes
 
 ```javascript
 ﻿const forbidden = ["chunk_id", "score", "model_info", "cache_key", "rag_top_k", "ai_profile", "llm_enabled", "orchestrator", "scenario_classifier", "claim_id", "evidence_refs", "required_evidence_family", "rear_end_collision", "REAR_END_SAFE_DISTANCE", "ROAD_ACCIDENT_REPORTING_DUTY", "???", '"injury":', '"stopped":', '"weather":'];
@@ -53720,18 +56107,25 @@ const evidenceView = readFileSync("src/views/EvidenceDetailView.vue", "utf8");
 const easyReportView = readFileSync("src/components/easy/EasyReportView.vue", "utf8");
 const relatedVideoCard = readFileSync("src/components/knia/RelatedVideoCard.vue", "utf8");
 const kniaVideoLinkCard = readFileSync("src/components/knia/KniaVideoLinkCard.vue", "utf8");
+const topConclusionCard = readFileSync("src/components/easy/TopConclusionCard.vue", "utf8");
+const accidentPartyTypeActionCard = readFileSync("src/components/result/AccidentPartyTypeActionCard.vue", "utf8");
 const elderlyActionCard = readFileSync("src/components/easy/ElderlyActionCard.vue", "utf8");
 const expertGuidanceCard = readFileSync("src/components/easy/ExpertGuidanceCard.vue", "utf8");
 const easyLegalBasisCard = readFileSync("src/components/easy/EasyLegalBasisCard.vue", "utf8");
 const evidenceReliabilityCard = readFileSync("src/components/easy/EvidenceReliabilityCard.vue", "utf8");
 const videoFactExplanationCard = readFileSync("src/components/easy/VideoFactExplanationCard.vue", "utf8");
+const agentProcessCard = readFileSync("src/components/easy/AgentProcessCard.vue", "utf8");
 const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
 const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
 const kniaFaultRatioBar = readFileSync("src/components/knia/KniaFaultRatioBar.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
 const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
+const styles = readFileSync("src/styles.css", "utf8");
 const sanitizerContracts = [
   "sanitizeUserVisibleText",
+  "cleanUserFacingCopy",
+  "removeRawJsonFragments",
+  "collapseRepeatedPhrases",
   "formatKniaBody",
   "splitLegalBasisParagraphs",
   "참고할 수 있는 근거",
@@ -53743,20 +56137,67 @@ if (missingSanitizerContracts.length) {
   console.error("display sanitizer contract failed", missingSanitizerContracts);
   process.exit(1);
 }
+
+const brandLinkContracts = [
+  '<RouterLink class="brand brand-link" to="/"',
+  'aria-label="LawCompass 메인 화면으로 이동"',
+  "LawCompass",
+  "교통사고 AI 분석 도우미",
+  ".brand-link:focus-visible",
+];
+const brandLinkSource = [appView, styles].join("\n");
+const missingBrandLinkContracts = brandLinkContracts.filter((token) => !brandLinkSource.includes(token));
+if (missingBrandLinkContracts.length) {
+  console.error("app brand must navigate to the main route with accessible focus styling", missingBrandLinkContracts);
+  process.exit(1);
+}
+
 const publicUserFiles = [dashboardView, caseDetailView, easyReportView, caseWorkspaceGuidanceData].join("\n");
-const forbiddenPublicPhrases = ["직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.", "관련성이 있는 근거입니다.", "교통사고 법률 설명 자료", "=4, =4.", "=9", ", ="];
+const forbiddenPublicPhrases = [
+  "직접 충돌 대상이 사람이면 KNIA 보 계열 기준만 사용해야 합니다.",
+  "관련성이 있는 근거입니다.",
+  "교통사고 법률 설명 자료",
+  "=4, =4.",
+  "=9",
+  ", =",
+];
+const publicReportFiles = [easyReportView, relatedVideoCard, kniaVideoLinkCard, topConclusionCard].join("\n");
+const forbiddenGeneralReportPhrases = [
+  "영상 파일은 LawCompass 서버에 저장하지 않고",
+  "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다",
+  "참고용 분석입니다",
+  "조건부 결과는 특정 테스트 영상에 맞춘 답이 아니라",
+  "이 내용은 유사 근거와 입력 사실을 바탕으로 한 참고용 예상입니다",
+  "더 확인하면 좋은 사실",
+  "차량 파손 정도는 어느 정도인가요",
+  "인명피해 여부",
+  "신호 상태",
+  "사고 장소",
+  "상대방 행위",
+  "{\"inj",
+  "정차 중 후미추돌 사고 정차 중 후미추돌 사고",
+];
 const publicPhraseLeaks = forbiddenPublicPhrases.filter((token) => publicUserFiles.includes(token));
 if (publicPhraseLeaks.length) {
   console.error("public display exposes internal wording", publicPhraseLeaks);
   process.exit(1);
 }
-const styles = readFileSync("src/styles.css", "utf8");
+const publicReportPhraseLeaks = forbiddenGeneralReportPhrases.filter((token) => publicReportFiles.includes(token));
+if (publicReportPhraseLeaks.length) {
+  console.error("general user report exposes hidden copy", publicReportPhraseLeaks);
+  process.exit(1);
+}
+if (accidentPartyTypeActionCard.includes("먼저 해 주세요") || accidentPartyTypeActionCard.includes("top_actions")) {
+  console.error("accident party card must not duplicate action checklist shown in the three-action card");
+  process.exit(1);
+}
 const expertSource = [
   elderlyActionCard,
   expertGuidanceCard,
   videoFactExplanationCard,
   easyLegalBasisCard,
   easyReportView,
+  agentProcessCard,
   styles,
   displaySanitizer,
 ].join("\n");
@@ -53765,6 +56206,7 @@ const expertScopedSource = [
   expertGuidanceCard,
   videoFactExplanationCard,
   easyLegalBasisCard,
+  agentProcessCard,
 ].join("\n");
 const requiredExpertTokens = [
   "importance-badge",
@@ -53830,7 +56272,7 @@ const requiredErrorUx = [
   "개발자 전용 원문",
   "법률 근거가 부족합니다",
   "근거 연결 상태",
-  "검색 조건에 맞는 기준이 없습니다",
+  "관련 기준을 찾지 못했습니다.",
   "상세 기준 수집 필요",
   "상세 기준 수집",
   "검색순위에만 저장",
@@ -53845,7 +56287,7 @@ const requiredErrorUx = [
   "video_label",
   "영상 신뢰도"
 ];
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, relatedVideoCard, kniaVideoLinkCard, kniaFaultRatioBar, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, topConclusionCard, relatedVideoCard, kniaVideoLinkCard, kniaFaultRatioBar, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
@@ -53872,12 +56314,11 @@ if (evidenceLeaks.length) {
 }
 
 const kniaLinkCardContracts = [
-  "KNIA 원문 기준 및 관련 영상",
-  "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
   "target=\"_blank\"",
   "rel=\"noopener noreferrer\"",
-  "safeSourceUrl || video.has_knia_candidate",
-  "수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.",
+  "safeSourceUrl || hasKniaCandidate",
+  "KNIA 관련 영상 보기",
+  "KNIA 원문 기준 보기",
 ];
 const kniaCardText = [relatedVideoCard, kniaVideoLinkCard, easyReportView, kniaChartView].join("\n");
 const missingKniaCardContracts = kniaLinkCardContracts.filter((token) => !kniaCardText.includes(token));
@@ -53891,6 +56332,17 @@ if (kniaCardText.includes("<iframe") || kniaCardText.includes("<video")) {
 }
 if (relatedVideoCard.includes("<img") || kniaVideoLinkCard.includes("<img")) {
   console.error("KNIA link cards must not render default thumbnails as images");
+  process.exit(1);
+}
+const forbiddenKniaNoticeText = [
+  "KNIA 원문 기준 및 관련 영상",
+  "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
+  "영상 파일은 LawCompass 서버에 저장하지 않고",
+  "자료 출처: 과실비율정보포털",
+];
+const kniaNoticeLeaks = forbiddenKniaNoticeText.filter((token) => kniaVideoLinkCard.includes(token) || easyReportView.includes(token));
+if (kniaNoticeLeaks.length) {
+  console.error("user-facing KNIA link copy should stay inside evidence cards without notice text", kniaNoticeLeaks);
   process.exit(1);
 }
 
@@ -53970,13 +56422,41 @@ if (kniaColorLeaks.length) {
   process.exit(1);
 }
 
+const kniaRankingSearchContracts = [
+  "관련 기준을 찾지 못했습니다.",
+  "검색어를 바꿔 다시 시도해 주세요.",
+  "검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  "accident_party_label",
+  "차대자전거 사고",
+];
+const missingKniaRankingSearchContracts = kniaRankingSearchContracts.filter((token) => ![kniaRankingView, readFileSync("src/components/knia/KniaRankingCard.vue", "utf8")].some((text) => text.includes(token)));
+if (missingKniaRankingSearchContracts.length) {
+  console.error("KNIA ranking bicycle search UX contract failed", missingKniaRankingSearchContracts);
+  process.exit(1);
+}
+if (kniaRankingView.includes("요청 처리 중 문제가 발생했습니다.")) {
+  console.error("KNIA ranking view must not surface the generic red request failure copy");
+  process.exit(1);
+}
+
+const forbiddenDashboardKniaSearchCardCopy = [
+  "KNIA 기준 검색",
+  "기준번호/사고유형 검색",
+  "검색순위 화면에서 기준번호나 사고유형명으로 저장된 기준을 찾습니다.",
+];
+const dashboardKniaSearchCardLeaks = forbiddenDashboardKniaSearchCardCopy.filter((token) => dashboardView.includes(token));
+if (dashboardKniaSearchCardLeaks.length || !dashboardView.includes("많이 검색된 사고유형")) {
+  console.error("dashboard must keep only the popular KNIA ranking entry card", dashboardKniaSearchCardLeaks);
+  process.exit(1);
+}
+
 const userFriendlyKniaContracts = [
   "관련 KNIA 근거 및 영상",
-  "RelatedVideoCard v-if=\"simpleKniaLinkCard\"",
   "simple_report?.knia_and_video?.primary",
   "KNIA 관련 영상 보기",
   "KNIA 원문 기준 보기",
-  "상세 기준 수집 필요",
+  "simpleKniaPartyLabel",
+  "차대차 사고",
 ];
 const missingUserFriendlyKnia = userFriendlyKniaContracts.filter((token) => !easyReportView.includes(token) && !kniaVideoLinkCard.includes(token));
 if (missingUserFriendlyKnia.length) {
@@ -53985,6 +56465,19 @@ if (missingUserFriendlyKnia.length) {
 }
 
 const guidedFlowContracts = [
+  "guidedAccidentMajorCategoryOptions",
+  "guidedAccidentSubtypeOptions",
+  "selectAccidentMajorCategory",
+  "selectAccidentSubtype",
+  "initial_intake",
+  "natural_language_policy",
+  "source_type: \"subjective_user_claim\"",
+  "can_override_video: false",
+  "can_override_structured_followup: false",
+  "사고의 큰 유형을 먼저 선택해 주세요",
+  "영상은 사고 판단의 핵심 근거",
+  "추가 설명은 선택 사항입니다",
+  "설명은 참고 자료로만 사용",
   "어떤 사고에 가장 가까운가요?",
   "잘 모르겠어요",
   "결과를 어떤 방식으로 볼까요?",
@@ -54004,6 +56497,21 @@ const guidedFlowContracts = [
 const missingGuidedContracts = guidedFlowContracts.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingGuidedContracts.length) {
   console.error("guided analysis flow contract failed", missingGuidedContracts);
+  process.exit(1);
+}
+
+const videoFirstFlowContracts = [
+  "car_vs_two_wheeler",
+  "parking_or_stationary",
+  "getGuidedAccidentSubtypeOptions",
+  "guidedAccidentSubtypeOptionsByMajorCategory",
+  "buildInitialIntakePayload",
+  "initial_accident_major_category",
+  "initial_preliminary_accident_type",
+];
+const missingVideoFirstFlowContracts = videoFirstFlowContracts.filter((token) => !displayFiles.some((text) => text.includes(token)));
+if (missingVideoFirstFlowContracts.length) {
+  console.error("video-first intake contract failed", missingVideoFirstFlowContracts);
   process.exit(1);
 }
 
@@ -54044,6 +56552,9 @@ if (collisionTargetIndex < 0 || locationIndex < 0 || collisionTargetIndex > loca
 
 const spinnerContracts = [
   "analysis-loading-spinner",
+  "analysis-loading-text",
+  "analysis-loading-title",
+  "analysis-loading-message",
   "spinner-orb",
   "--progress",
   "safePercent",
@@ -54056,8 +56567,41 @@ if (missingSpinnerContracts.length) {
   process.exit(1);
 }
 
+const agentProcessContracts = [
+  ".agent-process-card",
+  ".process-stat",
+  ".process-step",
+  "overflow-wrap: anywhere",
+  "rgba(201, 169, 98",
+  "grid-template-columns: repeat(auto-fit",
+];
+const missingAgentProcessContracts = agentProcessContracts.filter((token) => !agentProcessCard.includes(token));
+if (missingAgentProcessContracts.length) {
+  console.error("agent process diagnostics card contract failed", missingAgentProcessContracts);
+  process.exit(1);
+}
+
 if (caseCreateView.includes("<select v-model=\"analysisMode\"")) {
   console.error("analysis mode dropdown must not appear on the first create screen");
+  process.exit(1);
+}
+const instantVideoCaseContracts = [
+  "영상부터 바로 시작합니다",
+  "createImmediately",
+  "router.replace(`/cases/${data.case.id}/wizard?start=video`)",
+  "DEFAULT_TITLE",
+  "initialGuidedStepFromRoute",
+  "route.query.start",
+  "영상을 먼저 선택하거나 사고 설명을 입력해 주세요",
+];
+const instantVideoCaseSource = [caseCreateView, useCaseWorkspace].join("\n");
+const missingInstantVideoCaseContracts = instantVideoCaseContracts.filter((token) => !instantVideoCaseSource.includes(token));
+if (missingInstantVideoCaseContracts.length) {
+  console.error("new case flow must create immediately and start on video input", missingInstantVideoCaseContracts);
+  process.exit(1);
+}
+if (caseCreateView.includes("<input v-model=\"title\"") || caseCreateView.includes("<textarea v-model=\"description\"")) {
+  console.error("new case create screen must not ask for title or description before video input");
   process.exit(1);
 }
 function blockFor(source, marker) {
@@ -54113,7 +56657,7 @@ console.log("frontend_display_safety=passed");
 
 ### File: `apps/frontend/src/App.vue`
 
-- size: `1,430` bytes
+- size: `1,521` bytes
 
 ```vue
 ﻿<template>
@@ -54124,10 +56668,10 @@ console.log("frontend_display_safety=passed");
 
   <div class="app-shell">
     <header class="glass topbar">
-      <div>
+      <RouterLink class="brand brand-link" to="/" aria-label="LawCompass 메인 화면으로 이동">
         <h1>LawCompass</h1>
         <p class="muted">교통사고 AI 분석 도우미</p>
-      </div>
+      </RouterLink>
       <nav>
         <RouterLink to="/">대시보드</RouterLink>
         <RouterLink to="/knia/ranking">KNIA 검색순위</RouterLink>
@@ -54304,20 +56848,24 @@ const combinedGaps = computed(() => {
 
 ### File: `apps/frontend/src/components/case/AnalysisLoadingSpinner.vue`
 
-- size: `3,304` bytes
+- size: `3,756` bytes
 
 ```vue
 <template>
   <div class="analysis-loading-spinner" role="status" aria-live="polite">
     <div
-        class="spinner-orb"
-        :style="{ '--progress': `${safePercent * 3.6}deg` }"
-        aria-hidden="true"
+      class="spinner-orb"
+      :style="{ '--progress': `${safePercent * 3.6}deg` }"
+      aria-hidden="true"
     >
       <div class="spinner-core">
         <strong>{{ safePercent }}%</strong>
-        <span>{{ label }}</span>
       </div>
+    </div>
+
+    <div class="analysis-loading-text">
+      <p class="analysis-loading-title">{{ label }}</p>
+      <p v-if="message" class="analysis-loading-message">{{ message }}</p>
     </div>
   </div>
 </template>
@@ -54326,16 +56874,16 @@ const combinedGaps = computed(() => {
 import { computed } from "vue";
 
 const props = withDefaults(
-    defineProps<{
-      percent?: number;
-      label?: string;
-      message?: string;
-    }>(),
-    {
-      percent: 0,
-      label: "분석 중",
-      message: "사고 정보를 정리하고 있습니다.",
-    },
+  defineProps<{
+    percent?: number;
+    label?: string;
+    message?: string;
+  }>(),
+  {
+    percent: 0,
+    label: "분석 중",
+    message: "사고 정보를 정리하고 있습니다.",
+  },
 );
 
 const safePercent = computed(() => {
@@ -54347,11 +56895,16 @@ const safePercent = computed(() => {
 
 <style scoped>
 .analysis-loading-spinner {
-  display: grid;
-  place-items: center;
-  min-height: 178px;
-  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 220px;
+  padding: 24px 16px;
   overflow: visible;
+  text-align: center;
 }
 
 .spinner-orb {
@@ -54361,18 +56914,19 @@ const safePercent = computed(() => {
   aspect-ratio: 1;
   display: grid;
   place-items: center;
+  flex: 0 0 auto;
   border-radius: 50%;
   background:
-      radial-gradient(circle at 50% 50%, rgba(28, 23, 20, 0.96) 0 49%, transparent 50%),
-      conic-gradient(
-          from 220deg,
-          #c9a962 0deg,
-          #d4b872 var(--progress),
-          rgba(232, 223, 212, 0.10) var(--progress) 360deg
-      );
+    radial-gradient(circle at 50% 50%, rgba(28, 23, 20, 0.96) 0 49%, transparent 50%),
+    conic-gradient(
+      from 220deg,
+      #c9a962 0deg,
+      #d4b872 var(--progress),
+      rgba(232, 223, 212, 0.10) var(--progress) 360deg
+    );
   box-shadow:
-      0 10px 24px rgba(0, 0, 0, 0.28),
-      inset 0 0 10px rgba(201, 169, 98, 0.10);
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    inset 0 0 10px rgba(201, 169, 98, 0.10);
 }
 
 .spinner-orb::before {
@@ -54400,7 +56954,6 @@ const safePercent = computed(() => {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 5px;
   place-items: center;
   max-width: 78%;
   text-align: center;
@@ -54415,17 +56968,28 @@ const safePercent = computed(() => {
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.46);
 }
 
-.spinner-core span {
-  color: var(--accent-strong);
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-  white-space: nowrap;
+.analysis-loading-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(100%, 560px);
+  line-height: 1.55;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
-.spinner-core small {
-  display: none;
+.analysis-loading-title {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: clamp(1rem, 2.6vw, 1.25rem);
+  font-weight: 900;
+}
+
+.analysis-loading-message {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: clamp(0.9rem, 2.2vw, 1rem);
 }
 
 @keyframes analysis-spin {
@@ -54442,8 +57006,8 @@ const safePercent = computed(() => {
 
 @media (max-width: 520px) {
   .analysis-loading-spinner {
-    min-height: 154px;
-    padding: 14px 8px;
+    min-height: 200px;
+    padding: 20px 12px;
   }
 
   .spinner-orb {
@@ -54463,8 +57027,8 @@ const safePercent = computed(() => {
     font-size: clamp(1.45rem, 6vw, 1.95rem);
   }
 
-  .spinner-core span {
-    font-size: 0.72rem;
+  .analysis-loading-text {
+    max-width: 92vw;
   }
 }
 </style>
@@ -55715,7 +58279,7 @@ const sourceLabel = computed(() =>
 
 ### File: `apps/frontend/src/components/easy/EasyReportView.vue`
 
-- size: `31,552` bytes
+- size: `32,689` bytes
 
 ```vue
 <template>
@@ -55738,9 +58302,8 @@ const sourceLabel = computed(() =>
           variant="user"
         />
         <p class="easy-summary">
-          {{ simpleFaultRatio.basis || simpleFaultRatio.summary || safeReport?.fault_ratio_summary || "입력한 사고 사실과 KNIA 기준을 함께 검토한 참고용 산정입니다." }}
+          {{ text(simpleFaultRatio.basis || simpleFaultRatio.summary || safeReport?.fault_ratio_summary || "입력한 사고 사실과 KNIA 기준을 함께 검토했습니다.") }}
         </p>
-        <p v-if="simpleFaultRatio.reference_only" class="kv">확정값이 아니라 참고 범위입니다.</p>
         <ul v-if="simpleFaultRatio.key_factors?.length" class="check-list">
           <li v-for="factor in simpleFaultRatio.key_factors.slice(0, 4)" :key="String(factor)">
             {{ text(factor) }}
@@ -55751,13 +58314,15 @@ const sourceLabel = computed(() =>
       <section class="card easy-card simple-section corner-flourish">
         <p class="eyebrow">관련 KNIA 근거 및 영상</p>
         <h2>가장 가까운 기준</h2>
-        <RelatedVideoCard v-if="simpleKniaLinkCard" :video="simpleKniaLinkCard" />
 
         <div v-if="simpleKniaEvidence" class="basis-card">
           <p class="accent-text">
             {{ simpleKniaEvidence.chart_no || simpleKniaEvidence.subchart_no || "KNIA 기준 확인 중" }}
             <span v-if="simpleKniaEvidence.title"> · {{ text(simpleKniaEvidence.title) }}</span>
           </p>
+          <div v-if="simpleKniaPartyLabel" class="chips">
+            <span class="chip">대분류: {{ simpleKniaPartyLabel }}</span>
+          </div>
           <p v-if="simpleKniaEvidence.menu_path?.length">
             {{ simpleKniaEvidence.menu_path.map(text).join(" > ") }}
           </p>
@@ -55776,15 +58341,8 @@ const sourceLabel = computed(() =>
             target="_blank"
             rel="noopener noreferrer"
           >
-            {{ simpleKniaEvidence.button_label || (simpleKniaEvidence.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기") }}
+            {{ simpleKniaEvidence.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기" }}
           </a>
-          <p v-else-if="simpleKniaEvidence.missing_source_notice" class="kv">
-            {{ text(simpleKniaEvidence.missing_source_notice) }}
-          </p>
-          <p v-if="simpleKniaEvidence.source_url_is_fallback" class="kv">
-            원문 링크 형식은 차트번호 기반으로 생성되었습니다.
-          </p>
-          <p class="kv">{{ text(simpleKniaEvidence.source_notice || "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.") }}</p>
         </div>
         <div v-if="userAdjustmentRows.length" class="user-adjustment-panel">
           <div class="user-adjustment-head">
@@ -56196,6 +58754,11 @@ const simpleKniaLinkCard = computed<any>(() => {
   const card = safeReport.value?.related_knia_video_card || safeReport.value?.related_video || safeReport.value?.simple_report?.knia_and_video?.primary;
   return card && (card.has_knia_candidate || card.button_url || card.source_url || card.video_url) ? card : null;
 });
+const simpleKniaPartyLabel = computed(() => resolveAccidentPartyLabel({
+  accident_party_label: simpleKniaEvidence.value?.accident_party_label || simpleKniaEvidence.value?.major_party_label,
+  accident_party_type: simpleKniaEvidence.value?.major_party_type || simpleKniaEvidence.value?.accident_party_type || safeReport.value?.accident_party_type,
+  chart_no: simpleKniaEvidence.value?.chart_no || simpleKniaEvidence.value?.subchart_no,
+}));
 const simpleVideoSummary = computed(() => textOrFallback(
   safeReport.value?.simple_report?.video_summary,
   safeReport.value?.video_summary,
@@ -56206,6 +58769,32 @@ const simpleVideoSummary = computed(() => textOrFallback(
 
 function text(value: unknown) { return sanitizeDisplayText(value); }
 function kniaParagraphs(value: unknown) { return formatKniaBody(value); }
+
+function resolveAccidentPartyLabel(input: { accident_party_label?: unknown; accident_party_type?: unknown; chart_no?: unknown }) {
+  const existing = sanitizeDisplayText(input.accident_party_label, "");
+  if (existing && existing !== "확인이 필요합니다.") return existing;
+  const type = String(input.accident_party_type || "").trim();
+  const byType: Record<string, string> = {
+    car_vs_car: "차대차 사고",
+    vehicle_vs_vehicle: "차대차 사고",
+    car_vs_person: "차대보행자 사고",
+    pedestrian_crosswalk_accident: "차대보행자 사고",
+    car_vs_bicycle: "차대자전거 사고",
+    bicycle_collision: "차대자전거 사고",
+    single_vehicle: "단독 사고",
+    single_vehicle_accident: "단독 사고",
+    object_collision: "물체/시설물 사고",
+    car_vs_object: "물체/시설물 사고",
+  };
+  if (byType[type]) return byType[type];
+  const chartNo = sanitizeDisplayText(input.chart_no, "");
+  if (chartNo.startsWith("차")) return "차대차 사고";
+  if (chartNo.startsWith("보")) return "차대보행자 사고";
+  if (chartNo.startsWith("자") || chartNo.startsWith("거")) return "차대자전거 사고";
+  if (chartNo.startsWith("단")) return "단독 사고";
+  if (chartNo.startsWith("기") || chartNo.startsWith("물")) return "물체/시설물 사고";
+  return "";
+}
 
 function extractSituationTitle(value: unknown) {
   let raw = sanitizeDisplayText(value);
@@ -56949,7 +59538,7 @@ function text(value: unknown) {
 
 ### File: `apps/frontend/src/components/easy/TopConclusionCard.vue`
 
-- size: `1,745` bytes
+- size: `1,671` bytes
 
 ```vue
 <template>
@@ -56959,7 +59548,6 @@ function text(value: unknown) {
     <div v-if="faultLabel" class="fault-summary-card">{{ faultLabel }}</div>
     <div class="chips">
       <span class="chip selected">{{ text(report.summary_for_user?.accident_type_label || "교통사고") }}</span>
-      <span class="chip">참고용 분석입니다</span>
     </div>
     <p class="easy-summary">{{ text(report.summary_for_user?.short_summary) }}</p>
     <p v-if="report.summary_for_user?.warning" class="soft-warning">{{ text(report.summary_for_user.warning) }}</p>
@@ -56967,8 +59555,8 @@ function text(value: unknown) {
 </template>
 
 <script setup lang="ts">
-import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 import { computed } from "vue";
+import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 
 const props = defineProps<{ report: any }>();
 
@@ -58072,16 +60660,16 @@ defineProps<{ pages: any[] }>();
 
 ### File: `apps/frontend/src/components/knia/KniaRankingCard.vue`
 
-- size: `5,595` bytes
+- size: `6,493` bytes
 
 ```vue
 <template>
   <li class="knia-ranking-row">
-    <div class="rank-col">{{ item.rank ?? item.rank_no }}위</div>
+    <div class="rank-col">{{ rankLabel }}</div>
     <RouterLink class="chart-badge" :to="localUrl">{{ text(item.chart_no) }}</RouterLink>
     <div class="title-col">
       <RouterLink class="ranking-title" :to="localUrl">{{ text(item.title) }}</RouterLink>
-      <span class="source-category">{{ text(item.source_category || '전체') }} 검색순위</span>
+      <span class="source-category">{{ rankingPartyLabel }}</span>
       <span class="detail-chip" :class="{ ready: item.has_detail }">
         {{ item.has_detail ? '상세 수집 완료' : '상세 수집 필요' }}
       </span>
@@ -58115,6 +60703,21 @@ import { sanitizeDisplayText } from '../../utils/displaySanitizer';
 const props = defineProps<{ item: any }>();
 
 const localUrl = computed(() => props.item.local_chart_url || props.item.chart_url || `/knia/charts/${encodeURIComponent(props.item.chart_no)}?chartType=${encodeURIComponent(props.item.chart_type || '1')}`);
+const rankLabel = computed(() => {
+  const rank = Number(props.item.rank ?? props.item.rank_no);
+  return Number.isFinite(rank) && rank > 0 ? `${rank}위` : '기준';
+});
+const rankingPartyLabel = computed(() => {
+  const existing = text(props.item.accident_party_label);
+  if (existing && existing !== '확인이 필요합니다.' && existing !== '사고유형 확인 필요') return existing;
+  const party = String(props.item.accident_party_type || '');
+  const chartNo = String(props.item.chart_no || '');
+  if (party === 'car_vs_bicycle' || chartNo.startsWith('자') || chartNo.startsWith('거')) return '차대자전거 사고';
+  if (party === 'car_vs_person' || chartNo.startsWith('보')) return '차대보행자 사고';
+  if (party === 'car_vs_car' || chartNo.startsWith('차')) return '차대차 사고';
+  if (party === 'single_vehicle' || chartNo.startsWith('단')) return '단독 사고';
+  return text(props.item.source_category || '전체');
+});
 const hasDetailUrl = computed(() => {
   const url = String(props.item.source_detail_url || '');
   return !!url && url !== 'https://accident.knia.or.kr/ranking' && /chartNo=/.test(url);
@@ -58222,11 +60825,12 @@ button[disabled] { opacity: 0.48; cursor: not-allowed; }
 
 ### File: `apps/frontend/src/components/knia/KniaVideoLinkCard.vue`
 
-- size: `5,372` bytes
+- size: `4,641` bytes
 
 ```vue
 <script setup lang="ts">
 import { computed } from "vue";
+import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 
 type AnyRecord = Record<string, any>;
 
@@ -58235,8 +60839,6 @@ const props = defineProps<{
   card?: AnyRecord | null;
 }>();
 
-const MISSING_KNIA_SOURCE_NOTICE = "상세 기준 수집 필요: 수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.";
-const KNIA_SOURCE_LINK_NOTICE = "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.";
 const KNIA_ALLOWED_HOST = "accident.knia.or.kr";
 
 const video = computed<AnyRecord>(() => props.card ?? props.video ?? {});
@@ -58273,16 +60875,20 @@ const safeSourcePageUrl = computed(() => (
 
 const safeSourceUrl = computed(() => safeVideoUrl.value || safeSourcePageUrl.value || safeKniaUrl(video.value.button_url));
 const buttonLabel = computed(() => safeVideoUrl.value ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기");
+const displayButtonLabel = computed(() => {
+  const provided = sanitizeDisplayText(video.value.button_label, "");
+  return /^KNIA\s+(관련 영상 보기|원문 기준 보기)$/.test(provided) ? provided : buttonLabel.value;
+});
 const hasKniaCandidate = computed(() => Boolean(video.value.has_knia_candidate || video.value.chart_no || video.value.chart_title || video.value.title));
-const missingNotice = computed(() => (!safeSourceUrl.value && hasKniaCandidate.value)
-  ? (video.value.missing_source_notice || MISSING_KNIA_SOURCE_NOTICE)
-  : "");
-const notice = computed(() => safeSourceUrl.value ? (video.value.notice || KNIA_SOURCE_LINK_NOTICE) : "");
-const sourceLabel = computed(() => video.value.source_label || video.value.attribution || "자료 출처: 과실비율정보포털");
+const title = computed(() => {
+  const value = sanitizeDisplayText(video.value.title || video.value.chart_title, "");
+  const legacyTitle = ["KNIA 원문 기준", "관련 영상"].join(" 및 ");
+  return value && value !== legacyTitle ? value : "";
+});
 
 function faultText(value: any): string {
   if (!value) return "";
-  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "string" || typeof value === "number") return sanitizeDisplayText(value);
   if (typeof value !== "object") return "";
   const my = value.my ?? value.A ?? value.user ?? value.ego ?? value.driver;
   const other = value.other ?? value.B ?? value.opponent ?? value.counterparty;
@@ -58290,31 +60896,28 @@ function faultText(value: any): string {
   const min = value.min ?? value.minimum;
   const max = value.max ?? value.maximum;
   if (min !== undefined && max !== undefined) return `${formatPercent(min)}~${formatPercent(max)}`;
-  return String(value.label || value.summary || "");
+  return sanitizeDisplayText(value.label || value.summary || "");
 }
 
 function formatPercent(value: any): string {
   const n = Number(value);
-  if (!Number.isFinite(n)) return String(value);
+  if (!Number.isFinite(n)) return sanitizeDisplayText(value);
   return `${Math.round(n)}%`;
 }
 </script>
 
 <template>
-  <article v-if="safeSourceUrl || video.has_knia_candidate" class="card easy-card knia-card knia-link-card">
+  <article v-if="safeSourceUrl || hasKniaCandidate" class="card easy-card knia-card knia-link-card">
     <p class="eyebrow">과실비율정보포털 기준</p>
-    <h2>{{ video.title || "KNIA 원문 기준 및 관련 영상" }}</h2>
-    <p class="muted">
-      {{ video.description || "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다." }}
-    </p>
+    <h2 v-if="title">{{ title }}</h2>
 
     <div v-if="video.chart_no || video.chart_title" class="chips">
-      <span v-if="video.chart_no" class="chip selected">기준번호 {{ video.chart_no }}</span>
-      <span v-if="video.subchart_no" class="chip selected">세부 {{ video.subchart_no }}</span>
-      <span v-if="video.chart_title" class="chip">{{ video.chart_title }}</span>
+      <span v-if="video.chart_no" class="chip selected">기준번호 {{ sanitizeDisplayText(video.chart_no) }}</span>
+      <span v-if="video.subchart_no" class="chip selected">세부 {{ sanitizeDisplayText(video.subchart_no) }}</span>
+      <span v-if="video.chart_title" class="chip">{{ sanitizeDisplayText(video.chart_title) }}</span>
     </div>
 
-    <p v-if="video.menu_path?.length" class="muted">{{ video.menu_path.join(" > ") }}</p>
+    <p v-if="video.menu_path?.length" class="muted">{{ video.menu_path.map(sanitizeDisplayText).filter(Boolean).join(" > ") }}</p>
 
     <div v-if="faultText(video.base_fault) || faultText(video.final_fault) || faultText(video.fault_range)" class="chips">
       <span v-if="faultText(video.base_fault)" class="chip">기준 과실 {{ faultText(video.base_fault) }}</span>
@@ -58329,19 +60932,9 @@ function formatPercent(value: any): string {
         target="_blank"
         rel="noopener noreferrer"
       >
-        {{ video.button_label || buttonLabel }}
+        {{ displayButtonLabel }}
       </a>
     </div>
-
-    <p v-else-if="missingNotice" class="soft-warning">
-      {{ missingNotice }}
-    </p>
-
-    <p v-if="notice" class="soft-warning">
-      {{ notice }}
-    </p>
-    <p v-if="video.source_url_is_fallback" class="kv">원문 링크 형식은 차트번호 기반으로 생성되었습니다.</p>
-    <p class="source-label">{{ sourceLabel }}</p>
   </article>
 </template>
 
@@ -58349,20 +60942,20 @@ function formatPercent(value: any): string {
 
 ### File: `apps/frontend/src/components/knia/RelatedKniaStandardCard.vue`
 
-- size: `2,630` bytes
+- size: `3,814` bytes
 
 ```vue
 <template>
   <article class="card easy-card knia-card" v-if="standard">
     <p class="eyebrow">과실비율정보포털 기준</p>
-    <h2>{{ text(standard.title || "이 사고와 비슷한 과실비율 인정기준") }}</h2>
+    <h2>{{ text(standard.title || standard.chart_title || "이 사고와 비슷한 과실비율 인정기준") }}</h2>
     <div class="chips">
       <span class="chip selected" v-if="standard.chart_no">기준번호 {{ text(standard.chart_no) }}</span>
-      <span class="chip" v-if="partyLabel">{{ partyLabel }}</span>
+      <span class="chip" v-if="partyLabel">대분류: {{ partyLabel }}</span>
       <span class="chip" v-if="standard.base_fault_label">{{ text(standard.base_fault_label) }}</span>
     </div>
 
-    <h3>{{ text(standard.chart_title || "유사 사고 기준") }}</h3>
+    <h3>{{ text(standard.chart_title || standard.title || "유사 사고 기준") }}</h3>
     <section class="knia-section">
       <h4>기준 요약</h4>
       <div class="knia-paragraphs">
@@ -58377,12 +60970,10 @@ function formatPercent(value: any): string {
       </div>
     </details>
 
-    <p v-if="fallbackNotice" class="soft-warning">{{ fallbackNotice }}</p>
     <div class="btn-row">
-      <a v-if="standard.source_url" class="btn secondary" :href="standard.source_url" target="_blank" rel="noopener noreferrer">원문 기준 보기</a>
+      <a v-if="standard.source_url" class="btn secondary" :href="standard.source_url" target="_blank" rel="noopener noreferrer">KNIA 원문 기준 보기</a>
+      <a v-if="standard.video_url" class="btn secondary" :href="standard.video_url" target="_blank" rel="noopener noreferrer">KNIA 관련 영상 보기</a>
     </div>
-    <p class="kv">{{ text(standard.source_label) }}</p>
-    <p class="kv">{{ text(standard.disclaimer) }}</p>
   </article>
 </template>
 
@@ -58391,19 +60982,42 @@ import { computed } from "vue";
 import { formatKniaBody, sanitizeDisplayText } from "../../utils/displaySanitizer";
 
 const props = defineProps<{ standard: any }>();
-const partyLabel = computed(() => {
-  const raw = props.standard?.major_party_type || props.standard?.accident_party_type || props.standard?.party_type || "";
-  return raw ? `대분류: ${sanitizeDisplayText(raw)}` : "";
-});
+
+const partyLabel = computed(() => resolveAccidentPartyLabel({
+  accident_party_label: props.standard?.accident_party_label || props.standard?.major_party_label,
+  accident_party_type: props.standard?.major_party_type || props.standard?.accident_party_type || props.standard?.party_type,
+  chart_no: props.standard?.chart_no || props.standard?.subchart_no,
+}));
 const summaryParagraphs = computed(() => formatKniaBody(props.standard?.easy_explanation || props.standard?.summary || props.standard?.body));
-const similarityParagraphs = computed(() => formatKniaBody(props.standard?.why_similar));
-const fallbackNotice = computed(() => {
-  const raw = JSON.stringify(props.standard || {});
-  if (/fallback_used|reference_only|review_required/i.test(raw)) {
-    return "정확히 같은 상황의 기준은 부족할 수 있어, 같은 대분류에서 참고 가능한 기준으로 보여드립니다.";
-  }
-  return "";
-});
+const similarityParagraphs = computed(() => formatKniaBody(props.standard?.why_similar || props.standard?.match_reason));
+
+function resolveAccidentPartyLabel(input: { accident_party_label?: unknown; accident_party_type?: unknown; chart_no?: unknown }) {
+  const existing = sanitizeDisplayText(input.accident_party_label, "");
+  if (existing && existing !== "확인이 필요합니다.") return existing;
+
+  const type = String(input.accident_party_type || "").trim();
+  const byType: Record<string, string> = {
+    car_vs_car: "차대차 사고",
+    vehicle_vs_vehicle: "차대차 사고",
+    car_vs_person: "차대보행자 사고",
+    pedestrian_crosswalk_accident: "차대보행자 사고",
+    car_vs_bicycle: "차대자전거 사고",
+    bicycle_collision: "차대자전거 사고",
+    single_vehicle: "단독 사고",
+    single_vehicle_accident: "단독 사고",
+    object_collision: "물체/시설물 사고",
+    car_vs_object: "물체/시설물 사고",
+  };
+  if (byType[type]) return byType[type];
+
+  const chartNo = sanitizeDisplayText(input.chart_no, "");
+  if (chartNo.startsWith("차")) return "차대차 사고";
+  if (chartNo.startsWith("보")) return "차대보행자 사고";
+  if (chartNo.startsWith("자") || chartNo.startsWith("거")) return "차대자전거 사고";
+  if (chartNo.startsWith("단")) return "단독 사고";
+  if (chartNo.startsWith("기") || chartNo.startsWith("물")) return "물체/시설물 사고";
+  return "확인이 필요합니다.";
+}
 
 function text(value: unknown) {
   return sanitizeDisplayText(value);
@@ -58552,7 +61166,7 @@ function bboxStyle(object: MlKitDetectedObject) {
 
 ### File: `apps/frontend/src/components/result/AccidentPartyTypeActionCard.vue`
 
-- size: `815` bytes
+- size: `644` bytes
 
 ```vue
 ﻿<template>
@@ -58560,10 +61174,6 @@ function bboxStyle(object: MlKitDetectedObject) {
     <p class="eyebrow">사고 대분류</p>
     <h2>{{ text(card.label || card.title || '사고유형 확인 필요') }}</h2>
     <p class="big-text">{{ text(card.summary || '사고 유형에 맞춰 필요한 조치를 정리했습니다.') }}</p>
-    <h3>먼저 해 주세요</h3>
-    <ul class="check-list">
-      <li v-for="action in card.top_actions || []" :key="action">{{ text(action) }}</li>
-    </ul>
     <p v-if="card.cautions?.length" class="soft-warning">{{ card.cautions.map(text).join(' ') }}</p>
   </article>
 </template>
@@ -59009,7 +61619,7 @@ export function statusClass(status?: string) {
 
 ### File: `apps/frontend/src/composables/caseWorkspaceGuidance.ts`
 
-- size: `966` bytes
+- size: `1,089` bytes
 
 ```typescript
 export type { GuidedChoice, GuidedQuestion, GuidedQuestionType } from "../data/caseWorkspaceGuidanceData";
@@ -59021,7 +61631,10 @@ export {
     REPORT_READY_RETRY_LIMIT,
     REPORT_READY_RETRY_DELAY_MS,
     DEFAULT_PROGRESS_STEPS,
+    guidedAccidentMajorCategoryOptions,
+    guidedAccidentSubtypeOptionsByMajorCategory,
     guidedAccidentTypeOptions,
+    getGuidedAccidentSubtypeOptions,
     guidedAnalysisModes,
     rearEndGuidedQuestions,
     rearHitByOtherGuidedQuestions,
@@ -59044,13 +61657,13 @@ export { getFallbackGuidedQuestions } from "../logic/caseWorkspaceQuestionInfere
 
 ### File: `apps/frontend/src/composables/caseWorkspaceOrchestration.ts`
 
-- size: `3,200` bytes
+- size: `3,220` bytes
 
 ```typescript
 import type { Ref } from "vue";
 import { normalizeProgressSteps } from "./caseWorkspaceProgress";
 
-export type GuidedStep = "input" | "accident-type" | "purpose" | "questions" | "analyzing" | "result";
+export type GuidedStep = "accident-type" | "accident-subtype" | "input" | "purpose" | "questions" | "analyzing" | "result";
 
 export interface ProgressUpdate {
     percent?: number;
@@ -59140,7 +61753,7 @@ export function getRunningJobProgress(jobType: string | undefined, currentPercen
 
 ### File: `apps/frontend/src/composables/caseWorkspacePayloads.ts`
 
-- size: `1,272` bytes
+- size: `3,483` bytes
 
 ```typescript
 import type { AccidentFacts } from "../api/client";
@@ -59151,6 +61764,19 @@ export interface CaseWorkspacePayloadInput {
     selectedKeywords: string[];
     analysisMode: string;
 }
+
+export type InitialIntakePayload = {
+    accident_major_category: string;
+    preliminary_accident_type: string;
+    video_upload_id?: string;
+    natural_language_description?: string;
+    natural_language_policy: {
+        weight: "low";
+        source_type: "subjective_user_claim";
+        can_override_video: false;
+        can_override_structured_followup: false;
+    };
+};
 
 export function normalizeCaseDescription(descriptionText: string) {
     const trimmed = descriptionText.trim();
@@ -59166,20 +61792,68 @@ export function buildCaseInputPayload(input: CaseWorkspacePayloadInput) {
     };
 }
 
+function normalizeMajorCategory(value: unknown, fallback = "unknown") {
+    const raw = String(value || "").trim();
+    if (!raw) return fallback;
+    if (raw === "car_vs_two_wheeler") return "car_vs_two_wheeler";
+    if (raw === "car_vs_motorcycle") return "car_vs_two_wheeler";
+    if (raw === "car_vs_object") return "single_vehicle";
+    return raw;
+}
+
+function normalizePreliminaryType(value: unknown) {
+    const raw = String(value || "").trim();
+    return raw && raw !== "unknown" ? raw : "unknown";
+}
+
+export function buildInitialIntakePayload(input: CaseWorkspacePayloadInput, uploadId?: string): InitialIntakePayload {
+    const facts = input.facts || {};
+    const description = input.descriptionText.trim();
+    const majorCategory = normalizeMajorCategory(
+        (facts as any).initial_accident_major_category ||
+        (facts as any).selected_major_category ||
+        facts.accident_party_type ||
+        (facts as any).knia_major_party_type,
+    );
+    const preliminaryType = normalizePreliminaryType(
+        (facts as any).initial_preliminary_accident_type ||
+        (facts as any).selected_preliminary_accident_type ||
+        facts.accident_type,
+    );
+
+    return {
+        accident_major_category: majorCategory,
+        preliminary_accident_type: preliminaryType,
+        ...(uploadId ? { video_upload_id: uploadId } : {}),
+        ...(description ? { natural_language_description: description } : {}),
+        natural_language_policy: {
+            weight: "low",
+            source_type: "subjective_user_claim",
+            can_override_video: false,
+            can_override_structured_followup: false,
+        },
+    };
+}
+
 export function buildTextAnalysisPayload(input: CaseWorkspacePayloadInput) {
-    return buildCaseInputPayload(input);
+    return {
+        ...buildCaseInputPayload(input),
+        initial_intake: buildInitialIntakePayload(input),
+    };
 }
 
 export function buildVideoAnalysisPayload(uploadId: string, input: CaseWorkspacePayloadInput) {
     return {
         upload_id: uploadId,
         ...buildCaseInputPayload(input),
+        initial_intake: buildInitialIntakePayload(input, uploadId),
     };
 }
 
 export function buildFollowupAnalysisPayload(input: CaseWorkspacePayloadInput, followupAnswers: Record<string, string>) {
     return {
         ...buildCaseInputPayload(input),
+        initial_intake: buildInitialIntakePayload(input),
         followup_answers: followupAnswers,
     };
 }
@@ -59325,7 +61999,7 @@ export function isReadyReport(value: any): boolean {
 
 ### File: `apps/frontend/src/composables/useCaseWorkspace.ts`
 
-- size: `33,654` bytes
+- size: `40,970` bytes
 
 ```typescript
 ﻿import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -59339,6 +62013,8 @@ import {
     REPORT_READY_RETRY_LIMIT,
     caseKeywordPool,
     getFallbackGuidedQuestions,
+    getGuidedAccidentSubtypeOptions,
+    guidedAccidentMajorCategoryOptions,
     guidedAccidentTypeOptions,
     guidedAnalysisModes,
 } from "./caseWorkspaceGuidance";
@@ -59366,7 +62042,7 @@ import {
 } from "./caseWorkspacePayloads";
 
 export { formatDate, prettySize, statusClass, statusLabel } from "./caseWorkspaceFormatters";
-export { guidedAccidentTypeOptions, guidedAnalysisModes } from "./caseWorkspaceGuidance";
+export { guidedAccidentMajorCategoryOptions, guidedAccidentTypeOptions, guidedAnalysisModes } from "./caseWorkspaceGuidance";
 
 export type CaseWorkspaceBusyState = "" | "save" | "upload" | "preprocess" | "text-analysis" | "video-analysis";
 
@@ -59384,6 +62060,71 @@ function normalizeAnalysisMode(mode?: string | null) {
     }
 
     return "user_friendly";
+}
+
+function canonicalMajorCategory(value?: string | null) {
+    const raw = String(value || "").trim();
+    if (raw === "car_vs_motorcycle") return "car_vs_two_wheeler";
+    if (raw === "car_vs_object") return "single_vehicle";
+    return raw || "unknown";
+}
+
+function canonicalPartyType(value?: string | null) {
+    const raw = String(value || "").trim();
+    if (raw === "car_vs_two_wheeler") return "car_vs_motorcycle";
+    if (raw === "parking_or_stationary") return "car_vs_car";
+    return raw || "unknown";
+}
+
+function partyDefaults(partyType: string) {
+    if (partyType === "car_vs_person") {
+        return {
+            collision_partner_type: "pedestrian",
+            direct_collision_partner_type: "pedestrian",
+            excluded_knia_party_types: ["car_vs_car", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+        };
+    }
+    if (partyType === "car_vs_bicycle") {
+        return {
+            collision_partner_type: "bicycle",
+            direct_collision_partner_type: "bicycle",
+            excluded_knia_party_types: ["car_vs_car", "car_vs_person", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+        };
+    }
+    if (partyType === "car_vs_motorcycle") {
+        return {
+            collision_partner_type: "motorcycle",
+            direct_collision_partner_type: "motorcycle",
+            excluded_knia_party_types: ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_object", "single_vehicle"],
+        };
+    }
+    if (partyType === "single_vehicle") {
+        return {
+            collision_partner_type: "none",
+            excluded_knia_party_types: ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object"],
+        };
+    }
+    if (partyType === "car_vs_object") {
+        return {
+            collision_partner_type: "object",
+            direct_collision_partner_type: "object",
+            excluded_knia_party_types: ["car_vs_car", "car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "single_vehicle"],
+        };
+    }
+    if (partyType === "car_vs_car") {
+        return {
+            collision_partner_type: "vehicle",
+            direct_collision_partner_type: "vehicle",
+            excluded_knia_party_types: ["car_vs_person", "car_vs_bicycle", "car_vs_motorcycle", "car_vs_object", "single_vehicle"],
+        };
+    }
+    return {};
+}
+
+function initialGuidedStepFromRoute(start: unknown): GuidedStep {
+    const value = String(start || "").trim().toLowerCase();
+    if (["video", "upload", "input"].includes(value)) return "input";
+    return "accident-type";
 }
 
 function firstUnansweredQuestionIndex(questions: any[], answers: Record<string, string>) {
@@ -59433,7 +62174,7 @@ export function useCaseWorkspace(caseId: string) {
     const followupError = ref("");
     const reanalyzing = ref(false);
     const busy = ref<CaseWorkspaceBusyState>("");
-    const guidedStep = ref<GuidedStep>("input");
+    const guidedStep = ref<GuidedStep>(initialGuidedStepFromRoute(route.query.start));
     const guidedAnswers = ref<Record<string, string>>({});
     const currentGuidedQuestionIndex = ref(0);
     let pollTimer: number | null = null;
@@ -59442,6 +62183,16 @@ export function useCaseWorkspace(caseId: string) {
     let reportInFlight = false;
 
     const activeUploadId = computed(() => selectedUploadId.value);
+    const selectedMajorCategory = computed(() =>
+        canonicalMajorCategory(
+            (facts.value as any).initial_accident_major_category ||
+            (facts.value as any).selected_major_category ||
+            facts.value.accident_party_type ||
+            (facts.value as any).knia_major_party_type,
+        ),
+    );
+    const hasSelectedMajorCategory = computed(() => selectedMajorCategory.value !== "unknown");
+    const guidedAccidentSubtypeOptions = computed(() => getGuidedAccidentSubtypeOptions(selectedMajorCategory.value));
     const remainingProgressSteps = computed(() =>
         progressSteps.value
             .filter((step) => Number(step.percent || 0) > progressPercent.value)
@@ -59527,7 +62278,7 @@ export function useCaseWorkspace(caseId: string) {
     }
 
     function isAnalysisReady() {
-        return Boolean(descriptionText.value.trim() || activeUploadId.value || file.value);
+        return Boolean(hasSelectedMajorCategory.value || descriptionText.value.trim() || activeUploadId.value || file.value);
     }
 
     async function saveCaseInputs(options: { quiet?: boolean } = {}) {
@@ -59614,8 +62365,8 @@ export function useCaseWorkspace(caseId: string) {
                     message: "영상은 저장되었습니다. 이제 사고유형과 추가 사고정보를 입력해 주세요.",
                 });
 
-                showMessage("영상 저장 완료. 아래 질문에 답하면 과실비율을 더 정확하게 볼 수 있습니다.");
-                guidedStep.value = "accident-type";
+                showMessage("영상 저장 완료. 영상에서 보이지 않는 점은 이후 확인 질문으로 보완합니다.");
+                if (guidedStep.value === "input") guidedStep.value = "input";
                 return true;
             }
 
@@ -59863,7 +62614,7 @@ export function useCaseWorkspace(caseId: string) {
                 return;
             }
 
-            if (guidedStep.value === "result") guidedStep.value = "input";
+            if (guidedStep.value === "result") guidedStep.value = "accident-type";
         } catch (error: any) {
             loadError.value = error?.message || "케이스 정보를 불러오지 못했습니다.";
         } finally {
@@ -59933,8 +62684,9 @@ export function useCaseWorkspace(caseId: string) {
     }
 
     async function continueFromInput() {
-        if (!isAnalysisReady()) {
-            showMessage("사고 설명을 쓰거나 영상을 먼저 선택해 주세요.", false);
+        const hasVideoOrTextInput = Boolean(descriptionText.value.trim() || activeUploadId.value || file.value);
+        if (!hasSelectedMajorCategory.value && !hasVideoOrTextInput) {
+            showMessage("영상을 먼저 선택하거나 사고 설명을 입력해 주세요.", false);
             return;
         }
 
@@ -59943,7 +62695,73 @@ export function useCaseWorkspace(caseId: string) {
 
         guidedAnswers.value = {};
         currentGuidedQuestionIndex.value = 0;
-        guidedStep.value = "accident-type";
+        guidedStep.value = "purpose";
+    }
+
+    function selectAccidentMajorCategory(option: { scenario_type?: string; accident_party_type: string; major_category?: string }) {
+        const majorCategory = canonicalMajorCategory(option.major_category || option.accident_party_type);
+        const partyType = canonicalPartyType(option.accident_party_type || majorCategory);
+        const nextFacts: AccidentFacts = {
+            ...facts.value,
+            accident_party_type: partyType,
+            scenario_hint: "user_selected_major_category",
+            ...(partyType !== "unknown" ? partyDefaults(partyType) : {}),
+        };
+        (nextFacts as any).initial_accident_major_category = majorCategory;
+        (nextFacts as any).selected_major_category = majorCategory;
+        (nextFacts as any).knia_major_party_type = partyType;
+        if (majorCategory === "parking_or_stationary") {
+            nextFacts.accident_party_type = "car_vs_car";
+            (nextFacts as any).knia_major_party_type = "car_vs_car";
+            (nextFacts as any).is_parked_vehicle_collision = true;
+            Object.assign(nextFacts, partyDefaults("car_vs_car"));
+        }
+        if (majorCategory === "unknown") {
+            delete nextFacts.accident_type;
+            (nextFacts as any).knia_major_party_type = "unknown";
+        }
+        facts.value = nextFacts;
+        guidedAnswers.value = {};
+        currentGuidedQuestionIndex.value = 0;
+        guidedStep.value = "accident-subtype";
+    }
+
+    function selectAccidentSubtype(option: { scenario_type: string; accident_party_type?: string; value?: string }) {
+        const selected = option.value || option.scenario_type || "unknown";
+        const partyType = canonicalPartyType(option.accident_party_type || facts.value.accident_party_type || selectedMajorCategory.value);
+        const nextFacts: AccidentFacts = {
+            ...facts.value,
+            accident_party_type: partyType,
+            scenario_hint: option.scenario_type ? "user_selected_preliminary_type" : "agent_infer_after_video",
+            ...(partyType !== "unknown" ? partyDefaults(partyType) : {}),
+        };
+        (nextFacts as any).initial_preliminary_accident_type = selected;
+        (nextFacts as any).selected_preliminary_accident_type = selected;
+        (nextFacts as any).knia_major_party_type = partyType;
+        if (option.scenario_type) nextFacts.accident_type = option.scenario_type;
+        if (selected === "unknown") delete nextFacts.accident_type;
+        if (selectedMajorCategory.value === "parking_or_stationary") {
+            nextFacts.accident_party_type = "car_vs_car";
+            (nextFacts as any).knia_major_party_type = "car_vs_car";
+            (nextFacts as any).is_parked_vehicle_collision = true;
+            Object.assign(nextFacts, partyDefaults("car_vs_car"));
+        }
+        if (option.scenario_type === "stealth_illegal_parked_vehicle_collision") {
+            nextFacts.accident_type = "stealth_illegal_parked_vehicle_collision";
+            nextFacts.accident_party_type = "car_vs_car";
+            (nextFacts as any).knia_major_party_type = "car_vs_car";
+            (nextFacts as any).collision_partner_type = "vehicle";
+            (nextFacts as any).direct_collision_partner_type = "vehicle";
+            (nextFacts as any).target_vehicle_status = "abnormal_parked";
+            (nextFacts as any).is_parked_vehicle_collision = true;
+            (nextFacts as any).is_stealth_parked_vehicle_collision = true;
+            (nextFacts as any).excluded_knia_party_types = ["car_vs_bicycle", "car_vs_person"];
+        }
+
+        facts.value = nextFacts;
+        guidedAnswers.value = {};
+        currentGuidedQuestionIndex.value = 0;
+        guidedStep.value = "input";
     }
 
     function selectAccidentType(option: { scenario_type: string; accident_party_type: string }) {
@@ -60179,7 +62997,9 @@ export function useCaseWorkspace(caseId: string) {
         guidedStep,
         guidedAnswers,
         currentGuidedQuestionIndex,
+        guidedAccidentMajorCategoryOptions,
         guidedAccidentTypeOptions,
+        guidedAccidentSubtypeOptions,
         guidedAnalysisModes,
         guidedQuestions,
         activeGuidedQuestionSetKey,
@@ -60205,6 +63025,8 @@ export function useCaseWorkspace(caseId: string) {
         prettySize,
         saveCaseInputs,
         continueFromInput,
+        selectAccidentMajorCategory,
+        selectAccidentSubtype,
         selectAccidentType,
         selectGuidedAnalysisMode,
         answerGuidedQuestion,
@@ -60224,7 +63046,7 @@ export function useCaseWorkspace(caseId: string) {
 
 ### File: `apps/frontend/src/data/caseWorkspaceGuidanceData.ts`
 
-- size: `35,892` bytes
+- size: `43,067` bytes
 
 ```typescript
 export type GuidedChoice = {
@@ -60273,43 +63095,121 @@ export const DEFAULT_PROGRESS_STEPS = [
     { key: "result", label: "결과 정리", percent: 100 },
 ];
 
-export const guidedAccidentTypeOptions = [
+export const guidedAccidentMajorCategoryOptions = [
     {
         label: "차대차 사고",
         scenario_type: "",
         accident_party_type: "car_vs_car",
+        major_category: "car_vs_car",
         hint: "자동차, 트럭, 버스, 주차·정차 차량 등 차량과 차량 사이의 사고",
     },
     {
         label: "차대사람 사고",
-        scenario_type: "pedestrian_crosswalk_accident",
+        scenario_type: "",
         accident_party_type: "car_vs_person",
+        major_category: "car_vs_person",
         hint: "보행자, 횡단보도, 어린이보호구역 등이 관련된 경우",
     },
     {
         label: "차대자전거 사고",
-        scenario_type: "bicycle_collision",
+        scenario_type: "",
         accident_party_type: "car_vs_bicycle",
+        major_category: "car_vs_bicycle",
         hint: "자전거와 직접 충돌한 경우",
     },
     {
-        label: "차대오토바이 사고",
-        scenario_type: "motorcycle_collision",
-        accident_party_type: "car_vs_motorcycle",
-        hint: "오토바이, 이륜차, 원동기장치자전거와 직접 충돌한 경우",
-    },
-    {
-        label: "차대기물 사고",
-        scenario_type: "object_collision",
-        accident_party_type: "car_vs_object",
-        hint: "가드레일, 전봇대, 벽, 낙하물, 시설물과 충돌한 경우",
+        label: "차대이륜차 사고",
+        scenario_type: "",
+        accident_party_type: "car_vs_two_wheeler",
+        major_category: "car_vs_two_wheeler",
+        hint: "오토바이, 이륜차, 원동기장치자전거가 관련된 경우",
     },
     {
         label: "차량단독 사고",
-        scenario_type: "single_vehicle_accident",
+        scenario_type: "",
         accident_party_type: "single_vehicle",
+        major_category: "single_vehicle",
         hint: "다른 차량·사람·자전거 없이 내 차량만 사고가 난 경우",
     },
+    {
+        label: "주차·정차 관련 사고",
+        scenario_type: "",
+        accident_party_type: "parking_or_stationary",
+        major_category: "parking_or_stationary",
+        hint: "주차·정차 차량, 야간 스텔스 정차, 갓길·통행공간 방치 차량이 관련된 경우",
+    },
+    {
+        label: "잘 모르겠어요",
+        scenario_type: "",
+        accident_party_type: "unknown",
+        major_category: "unknown",
+        hint: "영상 분석과 후속 질문으로 가장 가능성 높은 대분류를 보정합니다.",
+    },
+];
+
+export const guidedAccidentTypeOptions = guidedAccidentMajorCategoryOptions;
+
+export const guidedAccidentSubtypeOptionsByMajorCategory: Record<string, Array<{
+    value: string;
+    label: string;
+    scenario_type: string;
+    accident_party_type?: string;
+    hint: string;
+}>> = {
+    car_vs_car: [
+        { value: "rear_end_collision", label: "후미추돌", scenario_type: "rear_end_collision", hint: "앞차·뒤차 관계가 쟁점인 추돌 사고" },
+        { value: "lane_change_collision", label: "차로변경 중 충돌", scenario_type: "lane_change_collision", hint: "끼어들기, 진로변경, 방향지시등이 쟁점인 경우" },
+        { value: "intersection_signal_violation", label: "교차로·신호 관련 충돌", scenario_type: "intersection_signal_violation", hint: "신호, 좌회전·직진, 선진입 여부가 중요한 경우" },
+        { value: "left_turn_vs_straight", label: "좌회전 대 직진", scenario_type: "intersection_collision", hint: "좌회전 차량과 직진 차량의 진행 관계가 핵심인 경우" },
+        { value: "centerline_collision", label: "중앙선 침범", scenario_type: "centerline_obstacle_collision", hint: "중앙선, 회피, 맞은편 차량이 쟁점인 경우" },
+        { value: "parking_lot_collision", label: "주차장 사고", scenario_type: "parking_lot_collision", hint: "주차장 내부 진행·출차 중 발생한 사고" },
+        { value: "door_open_collision", label: "문 개방 사고", scenario_type: "door_open_collision", hint: "문을 열면서 충돌한 경우" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "영상과 확인 질문으로 세부유형을 좁힙니다." },
+    ],
+    car_vs_person: [
+        { value: "crosswalk_pedestrian", label: "횡단보도 보행자 사고", scenario_type: "pedestrian_crosswalk_accident", hint: "횡단보도, 보행자 신호가 쟁점인 경우" },
+        { value: "non_crosswalk_pedestrian", label: "횡단보도 밖 보행자 사고", scenario_type: "pedestrian_no_crosswalk_road_crossing", hint: "무단횡단, 차도 보행 등이 관련된 경우" },
+        { value: "school_zone_child_accident", label: "어린이보호구역 사고", scenario_type: "school_zone_child_accident", hint: "어린이보호구역 또는 어린이 피해자가 관련된 경우" },
+        { value: "sidewalk_or_shoulder", label: "인도·갓길 보행자 사고", scenario_type: "pedestrian_on_road_edge_accident", hint: "인도, 갓길, 도로 가장자리 보행자가 관련된 경우" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "보행자 위치와 신호를 후속 질문으로 확인합니다." },
+    ],
+    car_vs_bicycle: [
+        { value: "same_direction_collision", label: "같은 방향 진행 중 충돌", scenario_type: "bicycle_collision", hint: "차량과 자전거가 같은 방향으로 움직인 경우" },
+        { value: "intersection_collision", label: "교차로 충돌", scenario_type: "bicycle_collision", hint: "교차로에서 차량과 자전거가 만난 경우" },
+        { value: "turning_collision", label: "회전 중 충돌", scenario_type: "bicycle_collision", hint: "우회전·좌회전 과정에서 자전거와 부딪힌 경우" },
+        { value: "lane_change_collision", label: "차로변경 중 충돌", scenario_type: "bicycle_collision", hint: "차로 변경 또는 진로 변경 과정에서 자전거와 부딪힌 경우" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "자전거 위치와 진행 방향을 후속 질문으로 확인합니다." },
+    ],
+    car_vs_two_wheeler: [
+        { value: "same_direction_collision", label: "같은 방향 진행 중 충돌", scenario_type: "motorcycle_collision", hint: "차량과 이륜차가 같은 방향으로 진행한 경우" },
+        { value: "intersection_collision", label: "교차로 충돌", scenario_type: "motorcycle_collision", hint: "교차로에서 차량과 이륜차가 만난 경우" },
+        { value: "turning_collision", label: "회전 중 충돌", scenario_type: "motorcycle_collision", hint: "좌회전·우회전 중 이륜차와 부딪힌 경우" },
+        { value: "lane_change_collision", label: "차로변경 중 충돌", scenario_type: "motorcycle_collision", hint: "차로 변경 또는 진로 변경이 관련된 경우" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "이륜차 위치와 진행 방향을 후속 질문으로 확인합니다." },
+    ],
+    single_vehicle: [
+        { value: "object_collision", label: "시설물·물체 충돌", scenario_type: "object_collision", accident_party_type: "car_vs_object", hint: "가드레일, 벽, 기둥, 낙하물과 부딪힌 경우" },
+        { value: "guardrail_collision", label: "가드레일 충돌", scenario_type: "object_collision", accident_party_type: "car_vs_object", hint: "가드레일 또는 중앙분리대가 주된 충돌 대상인 경우" },
+        { value: "rollover", label: "전도·전복", scenario_type: "single_vehicle_accident", hint: "차량이 넘어지거나 전복된 경우" },
+        { value: "road_surface_or_weather", label: "노면·날씨 영향", scenario_type: "single_vehicle_accident", hint: "빗길, 눈길, 포트홀 등 도로 환경이 관련된 경우" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "영상과 추가 질문으로 원인을 확인합니다." },
+    ],
+    parking_or_stationary: [
+        { value: "parking_or_stopped_vehicle_accident", label: "주차·정차 차량", scenario_type: "parking_or_stopped_vehicle_accident", accident_party_type: "car_vs_car", hint: "정차 또는 주차된 차량과 부딪힌 경우" },
+        { value: "stealth_illegal_parked_vehicle_collision", label: "야간 스텔스 정차 차량", scenario_type: "stealth_illegal_parked_vehicle_collision", accident_party_type: "car_vs_car", hint: "야간, 교량 아래, 무등화, 갓길·통행공간 방치 차량이 관련된 경우" },
+        { value: "parking_lot_collision", label: "주차장 내 사고", scenario_type: "parking_lot_collision", accident_party_type: "car_vs_car", hint: "주차장 안에서 출차·후진·진행 중 발생한 사고" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", accident_party_type: "car_vs_car", hint: "정차 위치와 등화 여부를 후속 질문으로 확인합니다." },
+    ],
+    unknown: [
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", accident_party_type: "unknown", hint: "영상 분석과 후속 질문으로 사고유형을 추정합니다." },
+    ],
+};
+
+export function getGuidedAccidentSubtypeOptions(majorCategory?: string) {
+    return guidedAccidentSubtypeOptionsByMajorCategory[majorCategory || "unknown"] || guidedAccidentSubtypeOptionsByMajorCategory.unknown;
+}
+
+export const legacyGuidedAccidentScenarioOptions = [
     {
         label: "야간 스텔스 주차·정차 차량과 충돌",
         scenario_type: "stealth_illegal_parked_vehicle_collision",
@@ -60327,12 +63227,6 @@ export const guidedAccidentTypeOptions = [
         scenario_type: "intersection_collision",
         accident_party_type: "car_vs_car",
         hint: "직진, 좌회전, 우회전 중 충돌한 경우",
-    },
-    {
-        label: "신호위반이 관련된 사고",
-        scenario_type: "intersection_signal_violation",
-        accident_party_type: "car_vs_car",
-        hint: "빨간불 진입이나 신호 확인이 핵심인 경우",
     },
     {
         label: "차선변경 중 부딪힌 사고",
@@ -61928,7 +64822,7 @@ export const useSessionStore = defineStore("session", {
 
 ### File: `apps/frontend/src/styles.css`
 
-- size: `61,579` bytes
+- size: `62,459` bytes
 
 ```css
 ﻿:root {
@@ -62005,6 +64899,46 @@ a { color: var(--accent); text-decoration: none; }
 .topbar { padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .topbar h1 { margin: 0; font-size: 28px; letter-spacing: 0.4px; }
 .muted { margin: 2px 0 0; color: var(--text-sub); font-size: 13px; }
+.brand-link,
+.app-brand {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    min-height: 48px;
+    justify-content: center;
+    padding: 4px 8px;
+    color: inherit;
+    text-decoration: none;
+    border-radius: 16px;
+    cursor: pointer;
+    transition:
+            transform 160ms ease,
+            opacity 160ms ease,
+            background 160ms ease,
+            box-shadow 160ms ease;
+}
+.brand-link:hover,
+.app-brand:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+    background: rgba(232, 223, 212, 0.06);
+}
+.brand-link:focus-visible,
+.app-brand:focus-visible {
+    outline: 3px solid rgba(201, 169, 98, 0.72);
+    outline-offset: 4px;
+    box-shadow: 0 0 0 6px rgba(201, 169, 98, 0.14);
+}
+.brand-link h1,
+.app-brand-title {
+    margin: 0;
+}
+.brand-link p,
+.app-brand-subtitle {
+    margin: 0;
+}
 .topbar nav { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; align-items: center; flex: 1; }
 .topbar nav a { padding: 8px 12px; border-radius: 999px; border: 1px solid transparent; }
 .topbar nav a.router-link-active { border-color: rgba(201, 169, 98, 0.45); background: rgba(201, 169, 98, 0.12); }
@@ -64620,7 +67554,7 @@ export function findForbiddenClientObservationFields(value: unknown, path = "$")
 
 ### File: `apps/frontend/src/utils/displaySanitizer.ts`
 
-- size: `9,554` bytes
+- size: `11,661` bytes
 
 ```typescript
 ﻿const INTERNAL_MAP: Record<string, string> = {
@@ -64671,6 +67605,61 @@ const BAD_PATTERNS = [
   /(?:^|[\s,])=\s*\d+(?=$|[\s,.;])/g,
   /,\s*=0/g,
 ];
+
+const HIDDEN_USER_COPY_PATTERNS = [
+  /영상 파일은 LawCompass 서버에 저장하지 않고.*?(?:제공합니다\.?|$)/g,
+  /과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다\.?/g,
+  /참고용 분석입니다\.?/g,
+  /조건부 결과는 특정 테스트 영상에 맞춘 답이 아니라[\s\S]*?판단 구조입니다\.?/g,
+  /이 내용은 유사 근거와 입력 사실을 바탕으로 한 참고용 예상입니다\.[\s\S]*?달라질 수 있습니다\.?/g,
+  /실제 결과는 보험사, 분쟁심의, 수사기관, 법원의 판단에 따라 달라질 수 있습니다\.?/g,
+  /더 확인하면 좋은 사실/g,
+  /차량 파손 정도는 어느 정도인가요\??/g,
+  /인명피해 여부/g,
+  /신호 상태/g,
+  /사고 장소/g,
+  /상대방 행위/g,
+];
+
+const REPEATED_USER_PHRASES = [
+  "정차 중 후미추돌 사고",
+  "후미추돌 사고",
+  "차대차 사고",
+  "블랙박스 과실비율",
+];
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function removeRawJsonFragments(value: string): string {
+  return value
+    .replace(/\{["']?[A-Za-z_가-힣][^{}]{0,180}(?=$|\s)/g, " ")
+    .replace(/"\s*:\s*("[^"]*"|\d+|true|false|null)?/g, " ")
+    .replace(/\[[\s,":A-Za-z_가-힣0-9-]{0,120}(?=$|\s)/g, " ")
+    .trim();
+}
+
+export function collapseRepeatedPhrases(value: string): string {
+  let output = value.replace(/\s+/g, " ").trim();
+  for (const phrase of REPEATED_USER_PHRASES) {
+    output = output.replace(new RegExp(`(?:${escapeRegExp(phrase)}\\s*){2,}`, "g"), `${phrase} `);
+  }
+  return output.replace(/\s{2,}/g, " ").trim();
+}
+
+export function cleanUserFacingCopy(value: unknown): string {
+  let text = String(value ?? "");
+  for (const pattern of HIDDEN_USER_COPY_PATTERNS) {
+    text = text.replace(pattern, " ");
+  }
+  return collapseRepeatedPhrases(removeRawJsonFragments(text))
+    .replace(/\s+([,.])/g, "$1")
+    .replace(/^[\s,.;:·|-]+|[\s,.;:·|-]+$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 export function shouldHideTechnicalKey(key: string) {
   const normalized = String(key || "").trim();
   if (TECHNICAL_KEYS.has(normalized)) return true;
@@ -64713,6 +67702,7 @@ export function sanitizeDisplayText(value: unknown, fallback = ""): string {
   text = text.replace(/검수 필요 구조화 KNIA 참고 기준입니다\.?/g, "현재 사고와 가장 가까운 KNIA 참고 기준입니다. 실제 적용 전 추가 확인이 필요합니다.");
   text = text.replace(/상세 기준 수집 필요/g, "상세 기준이 부족해 같은 대분류의 참고 기준을 함께 보여드립니다.");
   for (const pattern of BAD_PATTERNS) text = text.replace(pattern, "");
+  text = cleanUserFacingCopy(text);
   text = text
     .replace(/(^|\s),\s*=\d+(,\s*=\d+)*\.?/g, " ")
     .replace(/\s{2,}/g, " ")
@@ -65066,36 +68056,38 @@ onBeforeUnmount(() => {
 
 ### File: `apps/frontend/src/views/CaseCreateView.vue`
 
-- size: `3,720` bytes
+- size: `4,942` bytes
 
 ```vue
-﻿<template>
-  <section class="card case-create-card">
+<template>
+  <section class="card easy-card case-create-card instant-video-case" aria-live="polite">
     <p class="eyebrow">새 사고 케이스</p>
-    <h2>사고 내용을 입력해 주세요</h2>
-    <p class="kv">제목과 기본 설명만 입력해도 시작할 수 있습니다. 자세한 사고 정보와 영상은 다음 단계에서 보완합니다.</p>
+    <h2>영상부터 바로 시작합니다</h2>
+    <p class="kv">
+      빈 케이스를 먼저 만들고, 곧바로 영상 업로드 화면으로 이동합니다. 제목과 사고 설명은 이후 단계에서 필요할 때 보완할 수 있습니다.
+    </p>
 
     <div v-if="draftApplied" class="soft-warning">
-      AI가 채팅 내용을 바탕으로 입력 초안을 만들었습니다. 틀린 부분이 있으면 편하게 수정해 주세요.
+      AI가 채팅 내용을 바탕으로 만든 초안을 새 케이스에 함께 저장합니다. 영상 업로드 화면에서 수정할 수 있습니다.
     </div>
 
-    <label>케이스 제목
-      <input v-model="title" placeholder="예: 정차 중 후미추돌 사고" />
-    </label>
-    <label>기본 사고 설명
-      <textarea v-model="description" rows="5" placeholder="예: 신호대기 중 정차해 있던 중 뒤 차량이 후미를 추돌했습니다. 목 통증이 있습니다." />
-    </label>
-
-    <div class="chips" v-if="keywords.length">
-      <span v-for="keyword in keywords" :key="keyword" class="chip selected">{{ keyword }}</span>
+    <div class="case-create-loading" role="status">
+      <span class="case-create-spinner" aria-hidden="true"></span>
+      <div>
+        <strong>{{ loading ? "케이스를 준비하고 있습니다" : "케이스 준비가 필요합니다" }}</strong>
+        <p class="kv">
+          {{ loading ? "잠시 후 영상 업로드 화면으로 이동합니다." : "자동 이동이 멈췄다면 다시 시도해 주세요." }}
+        </p>
+      </div>
     </div>
 
     <div class="btn-row">
-      <button class="btn" :disabled="loading || !title.trim()" @click="create">
-        {{ loading ? "생성 중..." : "케이스 생성 후 사고 입력으로 이동" }}
+      <button class="btn" :disabled="loading" @click="createImmediately">
+        {{ loading ? "생성 중..." : "다시 시도" }}
       </button>
       <RouterLink class="btn secondary" to="/">목록으로</RouterLink>
     </div>
+
     <p v-if="message" :class="ok ? 'msg-ok' : 'msg-error'">{{ message }}</p>
   </section>
 </template>
@@ -65106,24 +68098,32 @@ import { useRouter } from "vue-router";
 import { api, formatApiError, type AccidentFacts } from "../api/client";
 
 const DRAFT_KEY = "lawcompass:draftCase";
+const DEFAULT_TITLE = "영상 사고 분석 케이스";
+
 const router = useRouter();
-const title = ref("");
+const title = ref(DEFAULT_TITLE);
 const description = ref("");
 const analysisMode = ref("user_friendly");
 const keywords = ref<string[]>(["블랙박스", "과실비율"]);
-const facts = reactive<AccidentFacts>({ accident_type: "", accident_party_type: "", injury: null });
+const facts = reactive<AccidentFacts>({ injury: null });
 const loading = ref(false);
 const message = ref("");
 const ok = ref(true);
 const draftApplied = ref(false);
 
 onMounted(() => {
+  applyDraftIfPresent();
+  void createImmediately();
+});
+
+function applyDraftIfPresent() {
   const raw = localStorage.getItem(DRAFT_KEY);
   if (!raw) return;
+
   try {
     const draft = JSON.parse(raw);
-    title.value = draft.title || title.value;
-    description.value = draft.description_text || description.value;
+    title.value = normalizeTitle(draft.title);
+    description.value = String(draft.description_text || "");
     analysisMode.value = normalizeAnalysisMode(draft.analysis_mode || analysisMode.value);
     keywords.value = Array.isArray(draft.selected_keywords) ? draft.selected_keywords : keywords.value;
     Object.assign(facts, draft.structured_facts || {});
@@ -65131,28 +68131,36 @@ onMounted(() => {
   } catch {
     localStorage.removeItem(DRAFT_KEY);
   }
-});
+}
 
-async function create() {
+async function createImmediately() {
+  if (loading.value) return;
   loading.value = true;
   message.value = "";
   ok.value = true;
+
   try {
     const data = await api.createCase({
-      title: title.value.trim(),
+      title: normalizeTitle(title.value),
       description_text: description.value.trim(),
       structured_facts: { ...facts },
       selected_keywords: keywords.value,
-      analysis_mode: normalizeAnalysisMode(analysisMode.value)
+      analysis_mode: normalizeAnalysisMode(analysisMode.value),
     });
+
     localStorage.removeItem(DRAFT_KEY);
-    await router.push(`/cases/${data.case.id}/wizard`);
+    await router.replace(`/cases/${data.case.id}/wizard?start=video`);
   } catch (e: any) {
     message.value = formatApiError(e, "케이스 생성에 실패했습니다.");
     ok.value = false;
   } finally {
     loading.value = false;
   }
+}
+
+function normalizeTitle(value?: string | null) {
+  const text = String(value || "").trim();
+  return text || DEFAULT_TITLE;
 }
 
 function normalizeAnalysisMode(mode?: string | null) {
@@ -65172,11 +68180,66 @@ function normalizeAnalysisMode(mode?: string | null) {
 }
 </script>
 
+<style scoped>
+.case-create-card {
+  display: grid;
+  gap: 14px;
+}
+
+.case-create-loading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(201, 169, 98, 0.26);
+  background: rgba(232, 223, 212, 0.065);
+}
+
+.case-create-loading strong {
+  display: block;
+  color: var(--text-main);
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.case-create-spinner {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 2px solid rgba(232, 223, 212, 0.12);
+  border-top-color: var(--accent-strong);
+  border-right-color: rgba(139, 38, 53, 0.78);
+  animation: case-create-spin 0.9s linear infinite;
+}
+
+@keyframes case-create-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .case-create-spinner {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .case-create-loading {
+    align-items: flex-start;
+    padding: 14px;
+  }
+}
+</style>
+
 ```
 
 ### File: `apps/frontend/src/views/CaseDetailView.vue`
 
-- size: `15,703` bytes
+- size: `17,023` bytes
 
 ```vue
 <template>
@@ -65209,51 +68272,75 @@ function normalizeAnalysisMode(mode?: string | null) {
       <p class="eyebrow">교통사고 분석</p>
       <h2>사고 설명이나 영상을 넣으면 직접 충돌 대상부터 확인해 맞는 기준만 검토합니다</h2>
       <div class="guided-stepper">
-        <span :class="{ active: guidedStep === 'input' }">1 사고 자료</span>
-        <span :class="{ active: guidedStep === 'accident-type' }">2 사고유형</span>
-        <span :class="{ active: guidedStep === 'purpose' }">3 출력 모드</span>
-        <span :class="{ active: guidedStep === 'questions' }">4 확인 질문</span>
-        <span :class="{ active: guidedStep === 'analyzing' || guidedStep === 'result' }">5 결과</span>
+        <span :class="{ active: guidedStep === 'accident-type' }">1 대분류</span>
+        <span :class="{ active: guidedStep === 'accident-subtype' }">2 사고유형</span>
+        <span :class="{ active: guidedStep === 'input' }">3 영상/설명</span>
+        <span :class="{ active: guidedStep === 'purpose' }">4 출력 모드</span>
+        <span :class="{ active: guidedStep === 'questions' }">5 확인 질문</span>
+        <span :class="{ active: guidedStep === 'analyzing' || guidedStep === 'result' }">6 결과</span>
       </div>
 
-      <div v-if="guidedStep === 'input'" class="guided-panel">
-        <label>사고 설명
-          <textarea
-              :value="descriptionText"
-              rows="6"
-              placeholder="예: 빨간불에 정차해 있었는데 뒤차가 갑자기 추돌했습니다."
-              @input="updateDescriptionText(eventValue($event))"
-          />
-        </label>
-
-        <label class="file-drop">영상 선택은 선택 사항입니다
-          <input type="file" accept="video/*" @change="onGuidedFile" />
-        </label>
-
-        <p v-if="file" class="kv">선택한 영상: {{ file.name }} ({{ prettySize(file.size) }})</p>
-        <p v-if="message" :class="messageOk ? 'msg-ok' : 'msg-error'">{{ message }}</p>
-
-        <div class="btn-row">
-          <button class="btn" :disabled="!!busy" @click="continueFromInput">사고유형 선택하기</button>
-        </div>
-      </div>
-
-      <div v-else-if="guidedStep === 'accident-type'" class="guided-panel">
+      <div v-if="guidedStep === 'accident-type'" class="guided-panel">
         <!-- guided flow contract: 어떤 사고에 가장 가까운가요? / 답변 더 추가하기 -->
-        <h3>실제로 부딪힌 대상이 누구 또는 무엇이었나요?</h3>
-        <p class="kv">대분류가 먼저 정해져야 KNIA 기준이 섞이지 않습니다. 차량, 사람, 자전거, 오토바이, 물체 중 실제 충돌 대상을 선택해 주세요.</p>
+        <h3>어떤 사고에 가장 가까운가요? 큰 유형을 먼저 선택해 주세요</h3>
+        <p class="kv">사고의 큰 유형을 먼저 선택해 주세요. 정확하지 않아도 괜찮습니다. 영상 분석 후 필요한 내용만 다시 확인합니다.</p>
 
         <div class="guided-card-grid">
           <button
-              v-for="option in guidedAccidentTypeOptions"
+              v-for="option in guidedAccidentMajorCategoryOptions"
               :key="option.label"
               class="guided-choice-card"
               type="button"
-              @click="selectAccidentType(option)"
+              @click="selectAccidentMajorCategory(option)"
           >
             <strong>{{ option.label }}</strong>
             <span>{{ option.hint }}</span>
           </button>
+        </div>
+      </div>
+
+      <div v-else-if="guidedStep === 'accident-subtype'" class="guided-panel">
+        <h3>가능하면 사고 유형을 선택해 주세요</h3>
+        <p class="kv">잘 모르겠다면 “잘 모르겠어요”를 선택해도 됩니다. 자연어 설명보다 영상과 구조화된 답변을 우선해 보정합니다.</p>
+
+        <div class="guided-card-grid">
+          <button
+              v-for="option in guidedAccidentSubtypeOptions"
+              :key="option.value || option.label"
+              class="guided-choice-card"
+              type="button"
+              @click="selectAccidentSubtype(option)"
+          >
+            <strong>{{ option.label }}</strong>
+            <span>{{ option.hint }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div v-else-if="guidedStep === 'input'" class="guided-panel">
+        <h3>영상과 선택 설명을 추가해 주세요</h3>
+        <p class="kv">영상은 사고 판단의 핵심 근거로 사용합니다. 영상에서 보이지 않는 부분은 이후 질문으로 보완합니다.</p>
+
+        <label class="file-drop">영상 선택
+          <input type="file" accept="video/*" @change="onGuidedFile" />
+        </label>
+
+        <p v-if="file" class="kv">선택한 영상: {{ file.name }} ({{ prettySize(file.size) }})</p>
+
+        <label>추가 설명은 선택 사항입니다
+          <textarea
+              :value="descriptionText"
+              rows="5"
+              placeholder="예: 저는 직진 중이었고 상대 차량이 갑자기 차로를 변경했습니다. 방향지시등은 보지 못했습니다."
+              @input="updateDescriptionText(eventValue($event))"
+          />
+        </label>
+        <p class="kv">설명은 참고 자료로만 사용하며, 영상과 구조화된 답변보다 낮은 가중치로 반영합니다.</p>
+
+        <p v-if="message" :class="messageOk ? 'msg-ok' : 'msg-error'">{{ message }}</p>
+
+        <div class="btn-row">
+          <button class="btn" :disabled="!!busy" @click="continueFromInput">출력 모드 선택하기</button>
         </div>
       </div>
 
@@ -65547,7 +68634,8 @@ const {
   guidedStep,
   guidedAnswers,
   currentGuidedQuestionIndex,
-  guidedAccidentTypeOptions,
+  guidedAccidentMajorCategoryOptions,
+  guidedAccidentSubtypeOptions,
   guidedAnalysisModes,
   guidedQuestions,
   visibleGuidedQuestions,
@@ -65569,7 +68657,8 @@ const {
   prettySize,
   saveCaseInputs,
   continueFromInput,
-  selectAccidentType,
+  selectAccidentMajorCategory,
+  selectAccidentSubtype,
   selectGuidedAnalysisMode,
   answerGuidedQuestion,
   guidedQuestionId,
@@ -65820,7 +68909,7 @@ onMounted(load);
 
 ### File: `apps/frontend/src/views/DashboardView.vue`
 
-- size: `8,352` bytes
+- size: `8,013` bytes
 
 ```vue
 <template>
@@ -65834,7 +68923,7 @@ onMounted(load);
         </p>
         <div class="btn-row hero-actions">
           <RouterLink class="btn" to="/cases/new">새 케이스 만들기</RouterLink>
-          <RouterLink class="btn secondary" to="/knia/ranking">KNIA 기준 검색</RouterLink>
+          <RouterLink class="btn secondary" to="/knia/ranking">검색순위 보기</RouterLink>
         </div>
       </div>
 
@@ -65854,11 +68943,6 @@ onMounted(load);
         <span class="entry-kicker">검색순위 보기</span>
         <strong>많이 검색된 사고유형</strong>
         <small>KNIA 과실비율정보포털에서 많이 조회된 기준을 봅니다.</small>
-      </RouterLink>
-      <RouterLink class="knia-entry-card secondary-entry" to="/knia/ranking">
-        <span class="entry-kicker">KNIA 기준 검색</span>
-        <strong>기준번호/사고유형 검색</strong>
-        <small>검색순위 화면에서 기준번호나 사고유형명으로 저장된 기준을 찾습니다.</small>
       </RouterLink>
     </div>
 
@@ -66015,8 +69099,9 @@ onMounted(load);
 
 .dashboard-knia-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(260px, 760px);
   gap: 16px;
+  align-items: stretch;
 }
 
 .knia-entry-card {
@@ -66303,7 +69388,7 @@ onMounted(load);
 
 ### File: `apps/frontend/src/views/KniaChartView.vue`
 
-- size: `24,080` bytes
+- size: `23,682` bytes
 
 ```vue
 ﻿<template>
@@ -66532,8 +69617,7 @@ const manualFault = computed(() => {
   return { A: a, B: 100 - a };
 });
 const videoCard = computed(() => ({
-  title: "KNIA 원문 기준 및 관련 영상",
-  description: "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다.",
+  title: chart.value?.title || chart.value?.chart_title || "",
   source_url: safeKniaUrl(chart.value?.video_url || chart.value?.source_detail_url || chart.value?.source_url),
   video_url: safeKniaUrl(chart.value?.video_url) || undefined,
   source_detail_url: safeKniaUrl(chart.value?.source_detail_url) || undefined,
@@ -66543,10 +69627,8 @@ const videoCard = computed(() => ({
   thumbnail_url: safeThumbnail(chart.value?.thumbnail_url),
   display_mode: "external_link",
   button_label: chart.value?.video_url ? "KNIA 관련 영상 보기" : "KNIA 원문 기준 보기",
-  notice: "영상 파일은 LawCompass 서버에 저장하지 않고, 과실비율정보포털 원본 링크로만 제공합니다.",
   has_knia_candidate: Boolean(chart.value?.chart_no),
-  missing_source_notice: "수집된 KNIA 원문 링크가 없습니다. 관리자 KNIA 상세 수집을 먼저 실행해 주세요.",
-  source_label: "자료 출처: 과실비율정보포털"
+  missing_source_notice: "상세 기준 수집 필요",
 }));
 
 async function load() {
@@ -66795,7 +69877,7 @@ onMounted(async () => {
 
 ### File: `apps/frontend/src/views/KniaRankingView.vue`
 
-- size: `11,515` bytes
+- size: `11,546` bytes
 
 ```vue
 <template>
@@ -66894,6 +69976,7 @@ const collectingDetails = ref(false);
 const error = ref('');
 const message = ref('');
 const session = useSessionStore();
+const rankingLoadError = '검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
 const selectedLabel = computed(() => tabs.find((x) => x.value === selectedParty.value)?.label ?? '전체');
 const isFiltered = computed(() => Boolean(searchQuery.value.trim()) || selectedParty.value !== 'all');
@@ -66909,10 +69992,10 @@ const detailStatusText = computed(() => {
     ? `표시된 ${total}건 중 상세 기준 ${ready}건 수집 완료, ${missing}건은 상세 본문 수집이 필요합니다.`
     : `표시된 ${total}건의 상세 기준이 모두 준비되어 있습니다.`;
 });
-const emptyTitle = computed(() => isFiltered.value ? '검색 조건에 맞는 기준이 없습니다.' : '아직 수집된 검색순위가 없습니다.');
+const emptyTitle = computed(() => isFiltered.value ? '관련 기준을 찾지 못했습니다.' : '아직 수집된 검색순위가 없습니다.');
 const emptyDescription = computed(() =>
   isFiltered.value
-    ? '기준번호나 사고유형 단어를 줄여 다시 검색하거나 전체 탭에서 확인해 주세요.'
+    ? '검색어를 바꿔 다시 시도해 주세요.'
     : '검색순위 수집/새로고침을 실행하면 KNIA 원본 ranking 데이터를 로컬 DB에 저장한 뒤 표시합니다.'
 );
 
@@ -66946,8 +70029,11 @@ async function load(options: { preserveMessage?: boolean } = {}) {
     const data = await api.getKniaRanking(20, selectedParty.value, searchQuery.value.trim());
     items.value = data.items || [];
     detailSummary.value = data.detail_summary || null;
-  } catch (err: any) {
-    error.value = formatApiError(err, '검색순위를 불러오지 못했습니다.');
+    if (data.error) {
+      error.value = rankingLoadError;
+    }
+  } catch {
+    error.value = rankingLoadError;
   } finally {
     loading.value = false;
   }
@@ -68481,6 +71567,89 @@ YOLO_MODEL_PATH=/models/yolo/yolo11n.pt
 ``​`
 
 검증 완료 전에는 새 업로드 결과에서 `openai_frame_analysis.enabled=true`, `yolo_frame_analysis.enabled=true`, YOLO `summary.class_counts`, merged `observations`를 확인한다. YOLO가 꺼졌거나 실행 실패한 결과는 실제 영상 처리 완료가 아니라 OpenAI-only 또는 계약/fixture 검증으로 기록한다.
+
+```
+
+### File: `docs/DEADLINE_WORK_PLAN_2026-05-30.md`
+
+- size: `4,968` bytes
+
+```markdown
+# 2026-05-30 데드라인 작업 순서
+
+이 문서는 다음날 새벽 데드라인 전까지 작업 범위가 흔들리지 않도록 고정하는 임시 실행 계획이다. 작업 중 더 먼저 처리해야 하는 문제가 발견되면 해당 P 단계의 올바른 위치에 추가하고, 현재 단계 밖의 작업으로 임의 이동하지 않는다.
+
+## P0: 실행 흐름 차단 해소
+
+### P0-1. 관리자 테스트 흐름 문제 해결
+
+- 상태: 완료
+- 목표: 관리자 테스트 페이지에서 영상 전처리 결과를 확인한 뒤 `Agent 분석 계속 실행`을 눌러 사고 상황 정리와 과실비율 산정까지 이어갈 수 있게 한다.
+- 현재 원인: 영상 전처리 직후 `/easy-report`를 먼저 읽어 placeholder report가 생기고, 이 값 때문에 `Agent 분석 계속 실행` 버튼 조건이 막힌다.
+- 작업 범위:
+  - 영상 전처리만 완료된 상태에서는 결과 리포트를 불러오지 않는다.
+  - `video_analyze`가 완료된 뒤에만 easy report를 불러온다.
+  - 수동 새로고침을 눌러도 Agent 분석 전 버튼이 사라지지 않게 한다.
+- 완료 내용:
+  - `hasCompletedVideoAnalysis` 기준을 추가해 `video_analyze` 성공 전에는 계속 실행 버튼을 유지한다.
+  - `refreshOutputs()`는 영상 모드에서 `video_analyze` 성공 전까지 `/easy-report`를 읽지 않는다.
+  - `video_analyze` 성공 상태 판정은 `succeeded`, `completed`, `success`, `done`, `finished`를 허용한다.
+- 검증:
+  - 완료: Frontend build
+  - 완료: Gateway build
+  - 완료: `git diff --check`
+
+### P0-2. 영상+입력 Agent E2E 확인
+
+- 상태: 완료
+- 목표: 관리자 페이지에서 영상+입력으로 `video_preprocess -> video_analyze -> easy-report`가 끝까지 이어지는지 확인한다.
+- 최소 샘플: 사고 1~3 중 1개 이상, 가능하면 사고 2 포함.
+- 완료 내용:
+  - 사고 1 입력+영상 E2E에서 중앙선 장애물 회피/대향 차량 충돌 구조가 `centerline_obstacle_collision`으로 유지되는지 확인했다.
+  - 사고 1 저장 결과에서 영상 관찰값 `centerline_crossed`, `opposing_vehicle_present`, `collision_point_visible`, `pedestrian_visible=false`가 Agent 입력 계약과 저장 결과에 반영되는지 확인했다.
+  - 사고 2 입력+영상 E2E에서 좌회전 황색-적색 전환, 상대 신호 미확인 조건부 결과, 차대차 사고 대상 유지, 보행자 오염 방지가 동작하는지 확인했다.
+  - 사고 2 기준 근거 카드에 보행자/후방추돌 계열 근거가 일부 섞이는 문제는 P1 근거 적합도 보강 대상으로 남긴다.
+- 검증:
+  - 완료: Agent 중앙선/영상 입력 계약 단위 테스트
+  - 완료: Agent regression scenario script
+  - 완료: Docker `agent`, `worker`, `gateway` rebuild
+  - 완료: 사고 1 `scripts/video_agent_e2e.py`
+  - 완료: 사고 2 `scripts/video_agent_e2e.py`
+
+## P1: 결과 품질 보강
+
+### P1-1. 사고 대상 오염/조건부 결과 보강
+
+- 상태: 완료
+- 목표: 차대차 사고에서 보행자·횡단보도·후방추돌·자전거 근거가 사고 대상처럼 섞이지 않게 하고, 신호 불명확 사고는 조건별 결과를 중복 없이 표시한다.
+- 완료 내용:
+  - Agent evidence 단계에서 차대차 직접 충돌 맥락과 보행자/후방추돌/자전거 target 근거를 분리하는 `_filter_target_context_mismatch`를 추가했다.
+  - `fault_ratio`가 이미 사고별 조건부 결과를 만든 경우 KNIA 조정 registry의 일반 조건부 결과가 중복으로 붙지 않도록 병합 규칙을 보강했다.
+  - 전문가 안내 basis 생성 시 `excluded_knia_party_types`, video contract 같은 메타 필드가 실제 사고 사실처럼 컨텍스트에 들어가 근거 문구를 오염시키지 않도록 제외했다.
+  - 사고 2 E2E에서 조건부 결과는 2개로 유지되고, basis는 `신호 전환과 CCTV 확인 기준`, `도로교통법 신호 준수 의무`만 남는 것을 확인했다.
+- 검증:
+  - 완료: P1-1 Agent 단위 테스트 3건
+  - 완료: Agent regression scenario script
+  - 완료: Docker `agent`, `worker`, `gateway` rebuild
+  - 완료: 사고 2 `scripts/video_agent_e2e.py`
+  - 로그: `logs/video_accuracy/p1_1_accident2_target_schema_e2e_20260530_r2.json` (`logs/`는 Git에 포함하지 않음)
+
+### P1-2. 과실비율/KNIA 근거 싱크 점검
+
+- 상태: 대기
+- 목표: 사고 대분류와 다른 KNIA/법률 근거가 표시되지 않게 확인한다.
+
+## P2: 제출 전 점검
+
+### P2-1. 사용자 화면 문구와 기술 문자열 정리
+
+- 상태: 대기
+- 목표: 영어, raw key, 내부 진단 문구가 일반 사용자 화면에 노출되지 않게 확인한다.
+
+### P2-2. Docker 실행과 시연 경로 확인
+
+- 상태: 대기
+- 목표: `http://localhost`, `http://localhost/admin/agent-test`가 정상 동작하는지 확인한다.
 
 ```
 
@@ -70935,6 +74104,107 @@ Firebase ML Kit이라는 명칭은 현재 기준으로 재검토가 필요하다
 
 ```
 
+### File: `docs/VIDEO_FIRST_INTAKE_FLOW.md`
+
+- size: `3,624` bytes
+
+```markdown
+# Video-First Intake Flow
+
+LawCompass 분석 입력은 긴 자유서술을 먼저 요구하지 않고, 사용자가 사고 대분류와 가능한 세부유형을 먼저 고른 뒤 영상과 선택 설명을 더하는 흐름을 사용한다.
+
+## User Flow
+
+1. **사고 대분류 선택**
+   - `car_vs_car`
+   - `car_vs_person`
+   - `car_vs_bicycle`
+   - `car_vs_two_wheeler`
+   - `single_vehicle`
+   - `parking_or_stationary`
+   - `unknown`
+2. **세부 사고유형 선택**
+   - 대분류별 후보를 다르게 보여준다.
+   - 모든 세트에는 `잘 모르겠어요`를 제공한다.
+3. **영상 업로드**
+   - 영상은 사고 판단의 핵심 근거로 사용한다.
+   - 기존 text-only 분석 경로는 유지한다.
+4. **선택 자연어 설명**
+   - 자연어 설명은 `subjective_user_claim`이며 낮은 가중치로만 반영한다.
+   - 고신뢰 영상 관찰값 또는 구조화된 후속 답변을 덮어쓰지 않는다.
+5. **후속 질문**
+   - Agent가 불확실한 핵심 사실만 최대 6개까지 생성한다.
+   - 이미 사용자가 답했거나 영상에서 고신뢰로 확인된 항목은 다시 묻지 않는다.
+
+## Payload Contract
+
+``​`json
+{
+  "initial_intake": {
+    "accident_major_category": "car_vs_car",
+    "preliminary_accident_type": "lane_change_collision",
+    "video_upload_id": "upload-id",
+    "natural_language_description": "선택 입력",
+    "natural_language_policy": {
+      "weight": "low",
+      "source_type": "subjective_user_claim",
+      "can_override_video": false,
+      "can_override_structured_followup": false
+    }
+  }
+}
+``​`
+
+`car_vs_two_wheeler`는 사용자 입력 계약에서는 유지하고, Agent 내부 KNIA party guard에서는 `car_vs_motorcycle`로 정규화한다. `parking_or_stationary`는 주정차 사고 축을 강화하되 KNIA party guard는 `car_vs_car`로 둔다.
+
+## Fact Priority
+
+| Source | Weight | Note |
+| --- | ---: | --- |
+| selected_major_category | 0.85 | KNIA party guard prior |
+| selected_preliminary_accident_type | 0.70 | scenario prior |
+| video_observation | up to 0.90 | confidence and frame refs required |
+| structured_followup_answer | 0.85 | higher than natural text |
+| natural_language_claim | 0.30 | cannot override video or follow-up |
+| knia_evidence | 0.55 | reference basis, not user fact |
+| legal_evidence | 0.50 | explanatory basis |
+
+## Agent Output Contract
+
+When core facts remain unclear, the Agent returns:
+
+``​`json
+{
+  "analysis_status": "provisional",
+  "followup_required": true,
+  "initial_intake_summary": {
+    "accident_major_category": "car_vs_car",
+    "preliminary_accident_type": "lane_change_collision",
+    "natural_language_used_as": "low_weight_supporting_claim"
+  },
+  "uncertain_facts": [
+    {
+      "field": "turn_signal",
+      "label": "방향지시등",
+      "impact": "fault_adjustment",
+      "reason": "차로변경 사고의 주요 가감요소입니다.",
+      "confidence": 0.55
+    }
+  ],
+  "followup_questions_structured": []
+}
+``​`
+
+The frontend can display the existing guided questionnaire or `missing_info.questions` and submit answers through the existing reanalysis endpoint. Follow-up answers become structured facts and are weighted above the original natural language description.
+
+## Limits
+
+- Video may not show signal lights, turn signals, or counterpart behavior clearly.
+- Natural language can clarify context but does not decide observable physical facts by itself.
+- If high-confidence video evidence conflicts with user follow-up answers, the result should be presented as `needs_review` or conditional instead of silently overwriting one side.
+
+```
+
 ### File: `docs/VIDEO_MODEL_OPTIONS.md`
 
 - size: `7,982` bytes
@@ -72428,3808 +75698,842 @@ if __name__ == "__main__":
     )
 ```
 
-### File: `sample_data/sample_accident.json`
+### File: `presentation/lawcompass_presentation.html`
 
-- size: `971` bytes
+- size: `34,200` bytes
 
-```json
-{
-  "user": {
-    "email": "local-e2e@example.com",
-    "password": "localpass123!",
-    "display_name": "로컬테스터"
-  },
-  "case": {
-    "title": "로컬 E2E 후미 추돌 사고",
-    "description_text": "신호대기 중 정차해 있던 차량을 후방 차량이 추돌했습니다. 블랙박스 영상이 있습니다.",
-    "structured_facts": {
-      "accident_type": "후미추돌",
-      "signal_state": "적색",
-      "stopped": true,
-      "sudden_brake": false,
-      "lane_change": false,
-      "intersection": false,
-      "pedestrian": false,
-      "weather": "맑음",
-      "light_condition": "야간",
-      "opponent_behavior": "후방 차량이 안전거리를 확보하지 못하고 추돌",
-      "injury": false,
-      "damage_level": "후방 범퍼 파손"
-    },
-    "selected_keywords": ["후미추돌", "안전거리", "신호대기", "블랙박스", "보험접수"],
-    "analysis_mode": "fault_ratio"
-  }
-}
-
-```
-
-### File: `scripts/aihub597_labels_to_manifest.py`
-
-- size: `8,532` bytes
-
-```python
-import argparse
-import json
-import re
-from pathlib import Path
-
-
-DATASET_NAME = "AI-Hub traffic accident video dataset"
-DATASET_KEY = "597"
-PARTNER_TYPE_BY_ACCIDENT_OBJECT = {
-    "0": "vehicle",
-    "1": "pedestrian",
-    "2": "motorcycle",
-    "3": "bicycle",
-}
-
-
-def slug(value: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "_", value).strip("_").lower()
-    return cleaned or "aihub597_case"
-
-
-def infer_split(path: Path) -> str:
-    parts = {part.lower() for part in path.parts}
-    text = str(path)
-    if "training" in parts or "1.Training" in text:
-        return "training"
-    if "validation" in parts or "2.Validation" in text:
-        return "validation"
-    return "unknown"
-
-
-def infer_partner_type(path: Path, video: dict | None = None) -> str:
-    accident_object_value = None if video is None else video.get("accident_object")
-    accident_object = "" if accident_object_value is None else str(accident_object_value)
-    if accident_object in PARTNER_TYPE_BY_ACCIDENT_OBJECT:
-        return PARTNER_TYPE_BY_ACCIDENT_OBJECT[accident_object]
-    text = path.name.lower()
-    if "pedestrian" in text:
-        return "pedestrian"
-    if "two-wheeled" in text or "motorcycle" in text:
-        return "motorcycle"
-    if "bicycle" in text:
-        return "bicycle"
-    if "vehicle" in text:
-        return "vehicle"
-    return "unknown"
-
-
-def scenario_summary(video: dict) -> str:
-    parts = [
-        f"traffic_accident_type={video.get('traffic_accident_type')}",
-        f"accident_object={video.get('accident_object')}",
-        f"accident_place={video.get('accident_place')}",
-        f"accident_place_feature={video.get('accident_place_feature')}",
-        f"vehicle_a_progress_info={video.get('vehicle_a_progress_info')}",
-        f"vehicle_b_progress_info={video.get('vehicle_b_progress_info')}",
-        f"fault_ratio_A_B={video.get('accident_negligence_rateA')}:{video.get('accident_negligence_rateB')}",
-    ]
-    return ", ".join(parts)
-
-
-def expected_context(video: dict) -> list[str]:
-    context = []
-    for key in (
-        "traffic_accident_type",
-        "accident_place",
-        "accident_place_feature",
-        "vehicle_a_progress_info",
-        "vehicle_b_progress_info",
-        "damage_location",
-        "weather",
-    ):
-        value = video.get(key)
-        if value not in ("", None):
-            context.append(f"{key}:{value}")
-    return context[:8]
-
-
-def load_file_key_map(path: Path) -> dict[str, str]:
-    text = path.read_text(encoding="utf-8")
-    mapping = {}
-    for line in text.splitlines():
-        if "| 509" not in line or "`" not in line:
-            continue
-        cells = [cell.strip() for cell in line.strip("|").split("|")]
-        if len(cells) < 2:
-            continue
-        file_key = cells[0]
-        filename = cells[1].strip("`")
-        mapping[filename] = file_key
-    return mapping
-
-
-def load_local_index(labels_root: Path) -> dict[str, dict]:
-    index_path = labels_root / "index.json"
-    if not index_path.exists():
-        return {}
-    entries = json.loads(index_path.read_text(encoding="utf-8"))
-    return {entry.get("file_name", ""): entry for entry in entries if entry.get("kind") == "json"}
-
-
-def select_balanced_files(files: list[Path], per_target: int, targets: list[str]) -> list[Path]:
-    buckets = {target: [] for target in targets}
-    for path in files:
-        if all(len(items) >= per_target for items in buckets.values()):
-            break
-        data = json.loads(path.read_text(encoding="utf-8"))
-        partner_type = infer_partner_type(path, data.get("video", {}))
-        if partner_type in buckets and len(buckets[partner_type]) < per_target:
-            buckets[partner_type].append(path)
-    selected: list[Path] = []
-    for target in targets:
-        selected.extend(buckets[target])
-    return selected
-
-
-def build_case(path: Path, file_key_map: dict[str, str], local_index: dict[str, dict]) -> dict:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    video = data.get("video", {})
-    partner_type = infer_partner_type(path, video)
-    index_entry = local_index.get(path.name, {})
-    source_zip = index_entry.get("source_zip", "")
-    file_key = index_entry.get("file_key") or file_key_map.get(source_zip, "")
-    must_not = []
-    if partner_type != "pedestrian":
-        must_not.append("pedestrian_as_direct_collision_target")
-    if partner_type != "motorcycle":
-        must_not.append("motorcycle_as_direct_collision_target")
-    if partner_type != "bicycle":
-        must_not.append("bicycle_as_direct_collision_target")
-
-    return {
-        "id": slug(f"aihub597_{path.stem}"),
-        "title": path.stem,
-        "source_type": "aihub_sample",
-        "reference_role": "calibration_reference_only",
-        "review_status": "candidate_requires_manual_review",
-        "dataset_ref": {
-            "provider": "AI-Hub",
-            "dataset_name": DATASET_NAME,
-            "dataset_key": DATASET_KEY,
-            "file_key": file_key,
-            "split": infer_split(path),
-        },
-        "scenario_summary": scenario_summary(video),
-        "reference_notes": [
-            "Automatically generated from AI-Hub label JSON.",
-            "Do not use as Agent input fact until the matching raw video is reviewed.",
-        ],
-        "reference_outcome": {
-            "known_result_status": "public_reported",
-            "known_result_summary": (
-                f"AI-Hub label fault ratio A {video.get('accident_negligence_rateA')} / "
-                f"B {video.get('accident_negligence_rateB')}"
-            ),
-            "confidence_note": "Calibration reference only, not a final legal outcome.",
-        },
-        "reference_expectations": {
-            "direct_collision_partner_type": partner_type,
-            "accident_event_required": True,
-            "expected_context": expected_context(video),
-            "must_not_promote": must_not,
-        },
-        "evaluation_focus": [
-            "direct_collision_partner_type",
-            "context_pollution_guard",
-            "fault_ratio_reference_range",
-            "aihub_label_alignment",
-        ],
-        "usage_policy": {
-            "agent_input_allowed": False,
-            "raw_video_commit_allowed": False,
-            "notes": "Use AI-Hub labels only as evaluation and calibration references.",
-        },
+```html
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LawCompass 발표 자료</title>
+  <style>
+    :root {
+      --bg-1: #1c1714;
+      --bg-2: #251e19;
+      --bg-3: #15110f;
+      --paper: #e8dfd4;
+      --text-main: #f3ebdf;
+      --text-sub: #bfaf9d;
+      --text-faint: #9c8b7a;
+      --accent: #c9a962;
+      --accent-strong: #d4b872;
+      --crimson: #8b2635;
+      --line: rgba(201, 169, 98, 0.28);
+      --panel: rgba(61, 51, 43, 0.88);
+      --panel-2: rgba(37, 30, 25, 0.94);
+      --shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     }
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Convert AI-Hub 597 label JSON files to a LawCompass reference manifest.")
-    parser.add_argument("--labels-root", default="datasets/aihub/traffic-accident-video/labels/video")
-    parser.add_argument("--file-key-doc", default="docs/AIHUB_597_LABEL_FILEKEYS.md")
-    parser.add_argument("--output", default=".local/aihub597_video_label_manifest.json")
-    parser.add_argument("--limit", type=int, default=200)
-    parser.add_argument("--balanced", action="store_true", help="Select a balanced sample by direct collision partner type.")
-    parser.add_argument("--per-target", type=int, default=50, help="Number of cases per target when --balanced is used.")
-    parser.add_argument("--targets", default="vehicle,pedestrian,motorcycle,bicycle", help="Comma-separated target order for --balanced.")
-    args = parser.parse_args()
-
-    labels_root = Path(args.labels_root)
-    file_key_map = load_file_key_map(Path(args.file_key_doc))
-    local_index = load_local_index(labels_root)
-    files = sorted((labels_root / "training" / "json").glob("*.json"))
-    files += sorted((labels_root / "validation" / "json").glob("*.json"))
-    if args.balanced:
-        targets = [item.strip() for item in args.targets.split(",") if item.strip()]
-        files = select_balanced_files(files, args.per_target, targets)
-    elif args.limit > 0:
-        files = files[: args.limit]
-
-    manifest = {
-        "version": "1.0",
-        "purpose": "AI-Hub 597 video label reference candidates for LawCompass evaluation. Local-only generated artifact.",
-        "cases": [build_case(path, file_key_map, local_index) for path in files],
+    * {
+      box-sizing: border-box;
     }
 
-    output = Path(args.output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"wrote {len(manifest['cases'])} cases to {output}")
-
-
-if __name__ == "__main__":
-    main()
-
-```
-
-### File: `scripts/audit_video_observation_report.py`
-
-- size: `16,112` bytes
-
-```python
-"""Build a repeatable audit report for video observation accuracy.
-
-The script compares a video accuracy batch aggregate with a local reference
-manifest. It does not call model APIs, download media, or read raw videos.
-Use it to lock what each sample extracted, what matched the reference, and
-what still needs follow-up before changing the video pipeline again.
-"""
-
-from __future__ import annotations
-
-import argparse
-import json
-import sys
-from pathlib import Path
-from typing import Any
-
-
-DEFAULT_OUTPUT = "logs/video_accuracy/p2_2a_observation_audit.json"
-
-FIELD_CONTEXT_ALIASES: dict[str, tuple[str, ...]] = {
-    "centerline_context": ("centerline", "centerline_cross", "centerline_cross_reason"),
-    "parked_vehicle_obstacle": (
-        "parked_vehicle",
-        "parked_vehicle_obstruction",
-        "road_obstruction",
-        "obstacle",
-    ),
-    "oncoming_vehicle": ("oncoming", "opposing", "opponent_vehicle", "opponent"),
-    "secondary_rear_collision": ("secondary", "rear_collision", "rear_end", "bus_rear"),
-    "intersection_context": ("intersection", "crosswalk_nearby", "traffic_signal", "signal"),
-    "ego_signal_timing": ("ego_signal", "signal_timing", "yellow", "red", "traffic_signal"),
-    "opponent_signal_unknown": ("opponent_signal", "opponent_signal_visible"),
-    "front_vehicle_stopped": ("front_vehicle_stopped", "front_vehicle_stop_reason"),
-    "stopped_vehicle": ("stopped_vehicle", "stopped_vehicle_without_lights", "unlit"),
-    "bicycle_trigger": ("bicycle", "trigger_actor", "non_contact_trigger"),
-    "vehicle_visible": ("vehicle", "front_vehicle", "stopped_vehicle", "primary_collision_target"),
-}
-
-POLLUTION_FIELD_HINTS: dict[str, tuple[str, ...]] = {
-    "pedestrian_crosswalk_accident": ("pedestrian_collision", "pedestrian_crosswalk_accident"),
-    "pedestrian_collision": ("pedestrian_collision",),
-    "opponent_signal_violation_when_not_visible": ("opponent_signal_violation",),
-    "simple_rear_end_only": ("simple_rear_end_only",),
-    "centerline_violation_without_obstacle_context": ("centerline_violation",),
-    "bicycle_direct_collision": ("bicycle_direct_collision", "collision_partner_type bicycle"),
-}
-
-DIRECT_TARGET_FIELDS = (
-    "direct_collision_partner_type",
-    "collision_partner_type",
-    "primary_collision_target",
-)
-
-
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
-
-def load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8-sig"))
-
-
-def load_reference_cases(path: Path) -> dict[str, dict[str, Any]]:
-    payload = load_json(path)
-    cases = payload.get("cases") if isinstance(payload, dict) else []
-    out: dict[str, dict[str, Any]] = {}
-    for case in cases or []:
-        if isinstance(case, dict) and case.get("id"):
-            out[str(case["id"])] = case
-    return out
-
-
-def safe_list(value: Any) -> list[Any]:
-    return value if isinstance(value, list) else []
-
-
-def text(value: Any) -> str:
-    return str(value or "").strip()
-
-
-def norm(value: Any) -> str:
-    return text(value).lower().replace("-", "_").replace(" ", "_")
-
-
-def field_metrics(sample: dict[str, Any]) -> list[dict[str, Any]]:
-    return [item for item in safe_list(sample.get("field_metrics")) if isinstance(item, dict)]
-
-
-def promoted_metric(item: dict[str, Any]) -> bool:
-    return bool(
-        item.get("applied")
-        or item.get("confirmed")
-        or item.get("in_fact_patch")
-        or item.get("supporting")
-    )
-
-
-def all_field_text(sample: dict[str, Any], *, promoted_only: bool = False) -> str:
-    parts: list[str] = []
-    for item in field_metrics(sample):
-        if promoted_only and not promoted_metric(item):
-            continue
-        parts.append(norm(item.get("field")))
-        parts.append(norm(item.get("value")))
-    return " ".join(part for part in parts if part)
-
-
-def direct_target(sample: dict[str, Any]) -> dict[str, Any]:
-    for item in field_metrics(sample):
-        field = norm(item.get("field"))
-        if field not in DIRECT_TARGET_FIELDS:
-            continue
-        value = norm(item.get("value"))
-        if "vehicle" in value or "car" in value:
-            return {"value": "vehicle", "raw": item.get("value"), "candidate": "candidate" in value}
-        if "pedestrian" in value or "person" in value:
-            return {"value": "pedestrian", "raw": item.get("value"), "candidate": "candidate" in value}
-        if "bicycle" in value or "bike" in value:
-            return {"value": "bicycle", "raw": item.get("value"), "candidate": "candidate" in value}
-        if "object" in value:
-            return {"value": "object", "raw": item.get("value"), "candidate": "candidate" in value}
-    return {"value": "unknown", "raw": None, "candidate": False}
-
-
-def expected_context_status(sample: dict[str, Any], contexts: list[str]) -> dict[str, list[str]]:
-    haystack = all_field_text(sample)
-    matched: list[str] = []
-    missing: list[str] = []
-    for context in contexts:
-        aliases = FIELD_CONTEXT_ALIASES.get(context, (context,))
-        if any(alias in haystack for alias in aliases):
-            matched.append(context)
-        else:
-            missing.append(context)
-    return {"matched": matched, "missing": missing}
-
-
-def pollution_status(sample: dict[str, Any], forbidden: list[str]) -> dict[str, Any]:
-    promoted = all_field_text(sample, promoted_only=True)
-    uncertain = all_field_text(sample, promoted_only=False)
-    promoted_hits: list[str] = []
-    uncertain_only_hits: list[str] = []
-    for rule in forbidden:
-        aliases = POLLUTION_FIELD_HINTS.get(rule, (rule,))
-        promoted_hit = any(alias in promoted for alias in aliases)
-        any_hit = any(alias in uncertain for alias in aliases)
-        if promoted_hit:
-            promoted_hits.append(rule)
-        elif any_hit:
-            uncertain_only_hits.append(rule)
-    return {
-        "promoted_hits": promoted_hits,
-        "uncertain_only_hits": uncertain_only_hits,
-        "has_promoted_pollution": bool(promoted_hits),
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(201, 169, 98, 0.14), transparent 28%),
+        radial-gradient(circle at 88% 14%, rgba(139, 38, 53, 0.16), transparent 32%),
+        linear-gradient(145deg, var(--bg-1), var(--bg-3));
+      color: var(--text-main);
     }
 
-
-def parse_output_json(path_value: Any) -> dict[str, Any]:
-    if not path_value:
-        return {"checked": False, "status": "missing_path"}
-    path = Path(str(path_value))
-    if not path.exists():
-        return {"checked": False, "status": "missing_file", "path": str(path)}
-    try:
-        payload = load_json(path)
-    except Exception as exc:  # noqa: BLE001 - audit must report malformed payloads.
-        return {"checked": True, "status": "invalid_json", "path": str(path), "error": str(exc)}
-    return {"checked": True, "status": "valid_json", "path": str(path), "top_level_keys": sorted(payload.keys())[:20]}
-
-
-def audit_sample(sample: dict[str, Any], reference: dict[str, Any] | None) -> dict[str, Any]:
-    expectations = reference.get("reference_expectations") if isinstance(reference, dict) else {}
-    expectations = expectations if isinstance(expectations, dict) else {}
-    expected_direct = text(expectations.get("direct_collision_partner_type")) or "unknown"
-    actual_direct = direct_target(sample)
-    context = expected_context_status(sample, [text(item) for item in safe_list(expectations.get("expected_context"))])
-    pollution = pollution_status(sample, [text(item) for item in safe_list(expectations.get("must_not_promote"))])
-    ambiguous_branches = safe_list(expectations.get("ambiguous_branches"))
-    output_json = parse_output_json(sample.get("output_json"))
-
-    accepted_count = int(sample.get("agent_accepted_count") or 0)
-    frame_observation_count = int(sample.get("frame_observation_count") or 0)
-    direct_match = expected_direct == "unknown" or actual_direct["value"] == expected_direct
-    weak_reasons: list[str] = []
-    fail_reasons: list[str] = []
-
-    if frame_observation_count == 0:
-        fail_reasons.append("zero_frame_observations")
-    if not direct_match:
-        fail_reasons.append("direct_collision_target_mismatch")
-    if pollution["has_promoted_pollution"]:
-        fail_reasons.append("forbidden_context_promoted")
-    if output_json["status"] == "invalid_json":
-        fail_reasons.append("sample_output_json_invalid")
-    if accepted_count == 0 and frame_observation_count > 0:
-        weak_reasons.append("observations_remained_uncertain")
-    if context["missing"]:
-        weak_reasons.append("expected_context_missing")
-    if ambiguous_branches:
-        # The aggregate currently exposes missing-info cards but not a full
-        # conditional outcome structure for all samples. Keep this as a review
-        # item instead of pretending the branch is fully covered.
-        weak_reasons.append("ambiguous_branch_requires_explicit_output_review")
-    if actual_direct.get("candidate"):
-        weak_reasons.append("direct_target_is_candidate_not_confirmed")
-
-    status = "pass"
-    if fail_reasons:
-        status = "fail"
-    elif weak_reasons:
-        status = "weak"
-
-    return {
-        "name": sample.get("name"),
-        "status": status,
-        "fail_reasons": fail_reasons,
-        "weak_reasons": weak_reasons,
-        "reference_case_id": reference.get("id") if isinstance(reference, dict) else None,
-        "matched_reference": bool(reference),
-        "expected_direct_collision_partner_type": expected_direct,
-        "actual_direct_collision_partner_type": actual_direct,
-        "frame_observation_count": frame_observation_count,
-        "agent_accepted_count": accepted_count,
-        "agent_uncertain_count": int(sample.get("agent_uncertain_count") or 0),
-        "agent_supporting_count": int(sample.get("agent_supporting_count") or 0),
-        "applied_count": int(sample.get("applied_count") or 0),
-        "confirmed_count": int(sample.get("confirmed_count") or 0),
-        "conflict_count": int(sample.get("conflict_count") or 0),
-        "selected_frame_count": sample.get("selected_frame_count"),
-        "expected_context": context,
-        "pollution": pollution,
-        "ambiguous_branch_count": len(ambiguous_branches),
-        "missing_info_priority": sample.get("missing_info_priority"),
-        "video_display": sample.get("video_display"),
-        "key_fields": [
-            {
-                "field": item.get("field"),
-                "value": item.get("value"),
-                "confidence": item.get("confidence"),
-                "applied": bool(item.get("applied")),
-                "confirmed": bool(item.get("confirmed")),
-                "conflict": bool(item.get("conflict")),
-                "supporting": bool(item.get("supporting")),
-                "frame_ref_count": item.get("frame_ref_count"),
-            }
-            for item in field_metrics(sample)
-        ],
-        "output_json_parse": output_json,
+    body {
+      overflow: hidden;
     }
 
-
-def build_summary(samples: list[dict[str, Any]]) -> dict[str, Any]:
-    status_counts = {"pass": 0, "weak": 0, "fail": 0}
-    for sample in samples:
-        status_counts[str(sample.get("status"))] = status_counts.get(str(sample.get("status")), 0) + 1
-    return {
-        "sample_count": len(samples),
-        "status_counts": status_counts,
-        "fail_sample_count": status_counts.get("fail", 0),
-        "weak_sample_count": status_counts.get("weak", 0),
-        "zero_observation_count": sum(1 for item in samples if item.get("frame_observation_count") == 0),
-        "promoted_pollution_count": sum(1 for item in samples if item.get("pollution", {}).get("has_promoted_pollution")),
-        "invalid_output_json_count": sum(
-            1 for item in samples if item.get("output_json_parse", {}).get("status") == "invalid_json"
-        ),
-        "candidate_direct_target_count": sum(
-            1 for item in samples if item.get("actual_direct_collision_partner_type", {}).get("candidate")
-        ),
-        "missing_context_sample_count": sum(1 for item in samples if item.get("expected_context", {}).get("missing")),
+    button,
+    a {
+      font: inherit;
     }
 
-
-def write_markdown(path: Path, report: dict[str, Any]) -> None:
-    lines = [
-        "# P2-2a Video Observation Audit",
-        "",
-        "This report is generated from existing batch artifacts. It does not call model APIs or read raw videos.",
-        "",
-        "## Summary",
-        "",
-    ]
-    summary = report["summary"]
-    for key in (
-        "sample_count",
-        "fail_sample_count",
-        "weak_sample_count",
-        "zero_observation_count",
-        "promoted_pollution_count",
-        "invalid_output_json_count",
-        "candidate_direct_target_count",
-        "missing_context_sample_count",
-    ):
-        lines.append(f"- {key}: {summary.get(key)}")
-    lines.extend(["", "## Samples", ""])
-    for item in report["samples"]:
-        lines.append(f"### {item['name']}")
-        lines.append("")
-        lines.append(f"- status: {item['status']}")
-        lines.append(f"- fail_reasons: {', '.join(item['fail_reasons']) or 'none'}")
-        lines.append(f"- weak_reasons: {', '.join(item['weak_reasons']) or 'none'}")
-        lines.append(
-            "- direct_target: "
-            f"expected={item['expected_direct_collision_partner_type']}, "
-            f"actual={item['actual_direct_collision_partner_type']['raw']}"
-        )
-        lines.append(
-            "- observations: "
-            f"frame={item['frame_observation_count']}, "
-            f"accepted={item['agent_accepted_count']}, "
-            f"uncertain={item['agent_uncertain_count']}, "
-            f"applied={item['applied_count']}, confirmed={item['confirmed_count']}"
-        )
-        lines.append(f"- missing_expected_context: {', '.join(item['expected_context']['missing']) or 'none'}")
-        lines.append(f"- promoted_pollution: {', '.join(item['pollution']['promoted_hits']) or 'none'}")
-        lines.append(f"- uncertain_only_noise: {', '.join(item['pollution']['uncertain_only_hits']) or 'none'}")
-        lines.append(f"- output_json_parse: {item['output_json_parse']['status']}")
-        lines.append("")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--aggregate", required=True, help="Path to video_accuracy_batch aggregate.json")
-    parser.add_argument("--reference-manifest", required=True, help="Path to local reference case manifest")
-    parser.add_argument("--output", default=DEFAULT_OUTPUT, help="JSON report output path")
-    parser.add_argument("--markdown-output", help="Optional Markdown report output path")
-    args = parser.parse_args()
-
-    aggregate_path = Path(args.aggregate)
-    reference_path = Path(args.reference_manifest)
-    aggregate = load_json(aggregate_path)
-    if not isinstance(aggregate, dict) or not isinstance(aggregate.get("samples"), list):
-        raise SystemExit("aggregate must be a JSON object with a samples array")
-    references = load_reference_cases(reference_path)
-    audited = [
-        audit_sample(sample, references.get(str(sample.get("name") or "")))
-        for sample in aggregate["samples"]
-        if isinstance(sample, dict)
-    ]
-    report = {
-        "audit": "p2_2a_video_observation_audit",
-        "aggregate": str(aggregate_path),
-        "reference_manifest": str(reference_path),
-        "summary": build_summary(audited),
-        "samples": audited,
+    .deck {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
     }
 
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    if args.markdown_output:
-        write_markdown(Path(args.markdown_output), report)
-    print(json.dumps(report["summary"], ensure_ascii=False, indent=2))
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-
-```
-
-### File: `scripts/backup_postgres_to_nas.ps1`
-
-- size: `1,953` bytes
-
-```powershell
-param(
-  [string]$EnvFile = ".env",
-  [int]$KeepLast = 14
-)
-
-$ErrorActionPreference = "Stop"
-
-function Read-EnvFile([string]$Path) {
-  $values = @{}
-  if (-not (Test-Path -LiteralPath $Path)) {
-    throw "Environment file not found: $Path"
-  }
-  Get-Content -LiteralPath $Path | ForEach-Object {
-    $line = $_.Trim()
-    if (-not $line -or $line.StartsWith("#") -or -not $line.Contains("=")) { return }
-    $idx = $line.IndexOf("=")
-    $key = $line.Substring(0, $idx).Trim()
-    $value = $line.Substring($idx + 1).Trim().Trim('"')
-    $values[$key] = $value
-  }
-  return $values
-}
-
-$envs = Read-EnvFile $EnvFile
-$nasHost = $envs["NAS_HOST"]
-$nasUser = $envs["NAS_USER"]
-$nasBackupDir = $envs["NAS_DB_BACKUP_DIR"]
-$postgresUser = $envs["POSTGRES_USER"]
-$postgresDb = $envs["POSTGRES_DB"]
-
-if (-not $nasHost -or -not $nasUser -or -not $nasBackupDir) {
-  throw "NAS_HOST, NAS_USER, NAS_DB_BACKUP_DIR must be set in .env"
-}
-if (-not $postgresUser -or -not $postgresDb) {
-  throw "POSTGRES_USER and POSTGRES_DB must be set in .env"
-}
-
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$localDir = Join-Path $PWD "storage\db-backups-tmp"
-New-Item -ItemType Directory -Force -Path $localDir | Out-Null
-$dumpPath = Join-Path $localDir "lawcompass_$timestamp.dump"
-
-docker compose exec -T postgres pg_dump -U $postgresUser -d $postgresDb -Fc > $dumpPath
-
-$batchPath = Join-Path $localDir "sftp_backup_$timestamp.txt"
-@"
-cd $nasBackupDir
-put $dumpPath
-ls
-bye
-"@ | Set-Content -LiteralPath $batchPath -Encoding UTF8
-
-try {
-  sftp -b $batchPath "$nasUser@$nasHost"
-} finally {
-  Remove-Item -LiteralPath $batchPath -Force -ErrorAction SilentlyContinue
-}
-
-Get-ChildItem -LiteralPath $localDir -Filter "lawcompass_*.dump" |
-  Sort-Object LastWriteTime -Descending |
-  Select-Object -Skip $KeepLast |
-  Remove-Item -Force -ErrorAction SilentlyContinue
-
-Write-Host "PostgreSQL backup uploaded to NAS backup directory. Secrets and NAS absolute paths were not printed."
-
-
-```
-
-### File: `scripts/build_aihub597_source_video_manifest.py`
-
-- size: `6,145` bytes
-
-```python
-"""Build a local video-accuracy manifest from downloaded AI-Hub 597 source videos.
-
-This script does not download files and does not call model APIs. It connects
-local source videos with their AI-Hub accident-object label JSON so the video
-pipeline can be evaluated against a broader, balanced local sample set.
-Generated manifests should stay under .local/ or logs/ and must not be
-committed because they contain local video paths.
-"""
-
-from __future__ import annotations
-
-import argparse
-import json
-import sys
-from collections import defaultdict
-from pathlib import Path
-from typing import Any
-
-
-ACCIDENT_OBJECT_TO_TARGET = {
-    0: "vehicle",
-    1: "pedestrian",
-    2: "motorcycle",
-    3: "bicycle",
-}
-
-
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
-
-def load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8-sig"))
-
-
-def accident_target(label_path: Path) -> str:
-    payload = load_json(label_path)
-    video = payload.get("video") if isinstance(payload, dict) else {}
-    try:
-        code = int(video.get("accident_object"))
-    except (TypeError, ValueError, AttributeError):
-        code = -1
-    return ACCIDENT_OBJECT_TO_TARGET.get(code, "unknown")
-
-
-def index_labels(labels_root: Path) -> dict[str, Path]:
-    labels: dict[str, Path] = {}
-    for path in labels_root.rglob("*.json"):
-        labels[path.stem] = path.resolve()
-    return labels
-
-
-def candidate_videos(video_root: Path, labels: dict[str, Path]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for video_path in sorted(video_root.rglob("*")):
-        if video_path.suffix.lower() not in {".mp4", ".mov", ".mkv", ".avi"}:
-            continue
-        label_path = labels.get(video_path.stem)
-        if not label_path:
-            continue
-        target = accident_target(label_path)
-        if target == "unknown":
-            continue
-        rows.append({
-            "name": video_path.stem,
-            "target": target,
-            "video_path": video_path.resolve(),
-            "label_json": label_path,
-            "size_bytes": video_path.stat().st_size,
-        })
-    return rows
-
-
-def select_balanced(rows: list[dict[str, Any]], per_target: int, max_samples: int) -> list[dict[str, Any]]:
-    buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in sorted(rows, key=lambda item: (item["target"], item["size_bytes"], item["name"])):
-        target = str(row["target"])
-        if per_target > 0 and len(buckets[target]) >= per_target:
-            continue
-        buckets[target].append(row)
-    selected: list[dict[str, Any]] = []
-    for target in ("vehicle", "pedestrian", "motorcycle", "bicycle"):
-        selected.extend(buckets.get(target, []))
-    if max_samples > 0:
-        selected = selected[:max_samples]
-    return selected
-
-
-def build_sample(row: dict[str, Any], case_json: Path) -> dict[str, Any]:
-    return {
-        "name": row["name"],
-        "video_path": str(row["video_path"]),
-        "case_json": str(case_json.resolve()),
-        "require_frame_observations": True,
-        "require_agent_video_facts": False,
-        "reference": {
-            "source_type": "aihub597_source_video_local",
-            "label_json": str(row["label_json"]),
-            "expected_direct_collision_partner_type": row["target"],
-            "purpose": "evaluation_only_not_agent_input",
-            "calibration_purpose": "video_fact_extraction_target_alignment",
-        },
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 24px;
+      padding: clamp(26px, 4vw, 64px);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(42px) scale(0.985);
+      transition: opacity 220ms ease, transform 220ms ease;
     }
 
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Build an AI-Hub 597 source-video batch manifest.")
-    parser.add_argument("--video-root", default=".local/aihub597_source_validation_recommended/videos")
-    parser.add_argument("--labels-root", default="datasets/aihub/traffic-accident-video/labels/video")
-    parser.add_argument("--case-json", default=".local/aihub597_source_validation_recommended/neutral_case.json")
-    parser.add_argument("--output", default=".local/aihub597_source_validation_recommended/batch_manifest.generated.json")
-    parser.add_argument("--per-target", type=int, default=4)
-    parser.add_argument("--max-samples", type=int, default=16)
-    args = parser.parse_args()
-
-    video_root = Path(args.video_root).expanduser().resolve()
-    labels_root = Path(args.labels_root).expanduser().resolve()
-    case_json = Path(args.case_json).expanduser().resolve()
-    output = Path(args.output).expanduser().resolve()
-
-    if not video_root.exists():
-        raise SystemExit(f"video root does not exist: {video_root}")
-    if not labels_root.exists():
-        raise SystemExit(f"labels root does not exist: {labels_root}")
-    if not case_json.exists():
-        raise SystemExit(f"case json does not exist: {case_json}")
-
-    rows = candidate_videos(video_root, index_labels(labels_root))
-    selected = select_balanced(rows, args.per_target, args.max_samples)
-    manifest = {
-        "samples": [build_sample(row, case_json) for row in selected],
-        "metadata": {
-            "source": "AI-Hub 597 local source videos",
-            "candidate_video_count": len(rows),
-            "selected_sample_count": len(selected),
-            "per_target": args.per_target,
-            "policy": "Generated manifest is local-only. Do not commit raw video paths or files.",
-        },
-    }
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    counts = defaultdict(int)
-    for row in selected:
-        counts[row["target"]] += 1
-    print(json.dumps({
-        "output": str(output),
-        "candidate_video_count": len(rows),
-        "selected_sample_count": len(selected),
-        "target_counts": dict(sorted(counts.items())),
-    }, ensure_ascii=False, indent=2))
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-
-```
-
-### File: `scripts/collect_public_video_references.py`
-
-- size: `17,859` bytes
-
-```python
-"""Collect public accident-video reference metadata into a safe manifest.
-
-This script collects links and public metadata only. It never downloads video
-files and marks every collected case as evaluation-only, not Agent input.
-"""
-
-from __future__ import annotations
-
-import argparse
-import datetime as dt
-import hashlib
-import json
-import os
-import re
-import subprocess
-import sys
-import urllib.parse
-import urllib.request
-from pathlib import Path
-from typing import Any
-
-
-YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
-DEFAULT_FOCUS = [
-    "pedestrian_context_pollution",
-    "traffic_signal_presence_pollution",
-    "text_keyword_override_pollution",
-]
-DEFAULT_MUST_NOT_PROMOTE = [
-    "pedestrian_crosswalk_accident",
-    "opponent_signal_violation_when_not_visible",
-    "vehicle_collision_without_collision_event",
-]
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Collect public accident-video links into a reference manifest."
-    )
-    parser.add_argument(
-        "--query",
-        action="append",
-        default=[],
-        help="YouTube search query. Requires YOUTUBE_API_KEY unless --api-key-env is changed.",
-    )
-    parser.add_argument(
-        "--yt-dlp-search",
-        action="append",
-        default=[],
-        help="Search YouTube through local yt-dlp and collect public metadata without requiring YouTube Data API.",
-    )
-    parser.add_argument(
-        "--yt-dlp-search-max-results",
-        type=int,
-        default=3,
-        help="Maximum yt-dlp search results per --yt-dlp-search query. Capped to 10.",
-    )
-    parser.add_argument(
-        "--urls",
-        nargs="*",
-        default=[],
-        help="Public video URLs to add without downloading the original media.",
-    )
-    parser.add_argument(
-        "--yt-dlp-metadata",
-        action="store_true",
-        help="Use local yt-dlp to read public title/description metadata for --urls without downloading media.",
-    )
-    parser.add_argument(
-        "--allow-video-download",
-        action="store_true",
-        help="Optionally download URL media with yt-dlp into --download-dir for local-only evaluation. Never commit the result.",
-    )
-    parser.add_argument(
-        "--download-dir",
-        default=".local/public-video-cache",
-        help="Local ignored directory for optional --allow-video-download artifacts.",
-    )
-    parser.add_argument(
-        "--channel-id",
-        default="",
-        help="Optional YouTube channel id to limit search results.",
-    )
-    parser.add_argument(
-        "--max-results",
-        type=int,
-        default=5,
-        help="Maximum YouTube results per query. Capped to 25.",
-    )
-    parser.add_argument(
-        "--output",
-        required=True,
-        help="Output manifest path. Use a non-committed path for real working manifests.",
-    )
-    parser.add_argument(
-        "--api-key-env",
-        default="YOUTUBE_API_KEY",
-        help="Environment variable containing a YouTube Data API key.",
-    )
-    parser.add_argument(
-        "--append",
-        action="store_true",
-        help="Append to an existing manifest instead of replacing it.",
-    )
-    return parser.parse_args()
-
-
-def utc_now() -> str:
-    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
-
-
-def read_json_url(url: str, params: dict[str, str]) -> dict[str, Any]:
-    encoded = urllib.parse.urlencode(params)
-    request = urllib.request.Request(f"{url}?{encoded}", headers={"Accept": "application/json"})
-    with urllib.request.urlopen(request, timeout=20) as response:
-        return json.loads(response.read().decode("utf-8"))
-
-
-def extract_youtube_video_id(url: str) -> str | None:
-    parsed = urllib.parse.urlparse(url)
-    host = parsed.netloc.lower()
-    if host.endswith("youtu.be"):
-        video_id = parsed.path.strip("/").split("/")[0]
-        return video_id or None
-    if "youtube.com" in host:
-        if parsed.path == "/watch":
-            video_id = urllib.parse.parse_qs(parsed.query).get("v", [""])[0]
-            return video_id or None
-        match = re.match(r"^/(shorts|embed)/([^/?#]+)", parsed.path)
-        if match:
-            return match.group(2)
-    return None
-
-
-def safe_slug(text: str, fallback: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
-    return slug[:80] or fallback
-
-
-def reference_id_for_url(url: str, title: str = "") -> str:
-    video_id = extract_youtube_video_id(url)
-    if video_id:
-        return f"yt_{safe_slug(video_id, 'video')}"
-    parsed = urllib.parse.urlparse(url)
-    seed = f"{parsed.netloc}_{parsed.path}_{title}"
-    digest = hashlib.sha1(url.encode("utf-8")).hexdigest()[:10]
-    return f"public_{safe_slug(seed, digest)}_{digest}"
-
-
-def description_excerpt(text: str, limit: int = 450) -> str:
-    cleaned = re.sub(r"\s+", " ", text or "").strip()
-    if len(cleaned) <= limit:
-        return cleaned
-    return cleaned[: limit - 1].rstrip() + "..."
-
-
-def build_case(
-    *,
-    url: str,
-    title: str,
-    description: str = "",
-    platform_video_id: str = "",
-    channel_title: str = "",
-    published_at: str = "",
-    query: str = "",
-    collected_at: str = "",
-    local_video_path: str = "",
-) -> dict[str, Any]:
-    collected_at = collected_at or utc_now()
-    summary = description_excerpt(description, 220) or (
-        "공개 영상 reference 후보입니다. 사고 상황 요약은 수동 검토 후 보강해야 합니다."
-    )
-    notes = [
-        "자동 수집은 원본 영상을 다운로드하지 않고 공개 메타데이터와 링크만 기록합니다.",
-        "사고 상황, 전문가 의견, 실제 처리 결과는 수동 검토 후 reference expectations에 반영합니다.",
-        "이 reference는 Agent 입력 사실이 아니라 오염 탐지와 calibration 평가에만 사용합니다.",
-    ]
-    case = {
-        "id": reference_id_for_url(url, title),
-        "title": title or "Public accident video reference candidate",
-        "source_type": "public_reference_link",
-        "reference_role": "calibration_reference_only",
-        "review_status": "candidate_requires_manual_review",
-        "source_url": url,
-        "source_metadata": {
-            "platform": "youtube" if extract_youtube_video_id(url) else "public_web",
-            "platform_video_id": platform_video_id or extract_youtube_video_id(url) or "",
-            "channel_title": channel_title,
-            "published_at": published_at,
-            "description_excerpt": description_excerpt(description),
-            "collection_query": query,
-            "collected_at": collected_at,
-            "collection_status": "candidate_requires_manual_review",
-        },
-        "scenario_summary": summary,
-        "reference_notes": notes,
-        "reference_outcome": {
-            "expert_opinion_summary": "수동 검토 전까지 비워둔다.",
-            "known_result_status": "unknown",
-            "known_result_summary": "수동 검토 전까지 실제 결과를 알 수 없음",
-            "confidence_note": "자동 수집 후보는 검토 전까지 평가 기준으로 쓰지 않는다.",
-        },
-        "reference_expectations": {
-            "direct_collision_partner_type": "unknown",
-            "accident_event_required": True,
-            "expected_context": [],
-            "must_not_promote": DEFAULT_MUST_NOT_PROMOTE,
-        },
-        "evaluation_focus": DEFAULT_FOCUS,
-        "usage_policy": {
-            "agent_input_allowed": False,
-            "raw_video_commit_allowed": False,
-            "notes": "Public reference links are collected for evaluation planning only. Do not commit raw video files or inject commentary as user facts.",
-        },
-    }
-    if local_video_path:
-        case["local_video_path"] = local_video_path
-        case["usage_policy"]["notes"] += " local_video_path is for local-only temporary evaluation and must stay ignored."
-    return case
-
-
-def youtube_search(api_key: str, query: str, channel_id: str, max_results: int) -> list[str]:
-    params = {
-        "part": "snippet",
-        "type": "video",
-        "q": query,
-        "maxResults": str(min(max(max_results, 1), 25)),
-        "key": api_key,
-    }
-    if channel_id:
-        params["channelId"] = channel_id
-    data = read_json_url(f"{YOUTUBE_API_BASE}/search", params)
-    video_ids: list[str] = []
-    for item in data.get("items", []):
-        video_id = item.get("id", {}).get("videoId")
-        if video_id:
-            video_ids.append(video_id)
-    return video_ids
-
-
-def youtube_video_details(api_key: str, video_ids: list[str]) -> list[dict[str, Any]]:
-    if not video_ids:
-        return []
-    params = {
-        "part": "snippet",
-        "id": ",".join(video_ids),
-        "key": api_key,
-    }
-    data = read_json_url(f"{YOUTUBE_API_BASE}/videos", params)
-    return data.get("items", [])
-
-
-def collect_from_queries(args: argparse.Namespace) -> list[dict[str, Any]]:
-    if not args.query:
-        return []
-    api_key = os.environ.get(args.api_key_env, "").strip()
-    if not api_key:
-        raise SystemExit(
-            f"{args.api_key_env} is required for --query collection. "
-            "Put the key in .env or the local shell environment, not in Git."
-        )
-    cases: list[dict[str, Any]] = []
-    collected_at = utc_now()
-    seen: set[str] = set()
-    for query in args.query:
-        video_ids = youtube_search(api_key, query, args.channel_id, args.max_results)
-        for item in youtube_video_details(api_key, video_ids):
-            video_id = item.get("id", "")
-            if not video_id or video_id in seen:
-                continue
-            seen.add(video_id)
-            snippet = item.get("snippet", {})
-            url = f"https://www.youtube.com/watch?v={video_id}"
-            cases.append(
-                build_case(
-                    url=url,
-                    title=snippet.get("title", ""),
-                    description=snippet.get("description", ""),
-                    platform_video_id=video_id,
-                    channel_title=snippet.get("channelTitle", ""),
-                    published_at=snippet.get("publishedAt", ""),
-                    query=query,
-                    collected_at=collected_at,
-                )
-            )
-    return cases
-
-
-def collect_from_urls(urls: list[str], *, use_ytdlp_metadata: bool = False, allow_video_download: bool = False, download_dir: str = "") -> list[dict[str, Any]]:
-    collected_at = utc_now()
-    cases: list[dict[str, Any]] = []
-    for url in urls:
-        normalized = url.strip()
-        if not normalized:
-            continue
-        video_id = extract_youtube_video_id(normalized) or ""
-        metadata = ytdlp_metadata(normalized) if use_ytdlp_metadata else {}
-        local_video_path = ""
-        if allow_video_download:
-            local_video_path = ytdlp_download(normalized, download_dir)
-        title = metadata.get("title") or (f"YouTube reference candidate {video_id}" if video_id else "Public reference candidate")
-        cases.append(
-            build_case(
-                url=normalized,
-                title=title,
-                description=metadata.get("description", ""),
-                platform_video_id=video_id or metadata.get("id", ""),
-                channel_title=metadata.get("channel", "") or metadata.get("uploader", ""),
-                published_at=metadata.get("upload_date", ""),
-                collected_at=collected_at,
-                local_video_path=local_video_path,
-            )
-        )
-    return cases
-
-
-def collect_from_ytdlp_searches(args: argparse.Namespace) -> list[dict[str, Any]]:
-    if not args.yt_dlp_search:
-        return []
-    cases: list[dict[str, Any]] = []
-    collected_at = utc_now()
-    seen: set[str] = set()
-    max_results = min(max(int(args.yt_dlp_search_max_results or 1), 1), 10)
-    for query in args.yt_dlp_search:
-        for metadata in ytdlp_search_metadata(query, max_results):
-            url = metadata.get("webpage_url") or metadata.get("original_url") or ""
-            video_id = metadata.get("id") or extract_youtube_video_id(url) or ""
-            if not url or video_id in seen:
-                continue
-            seen.add(video_id)
-            cases.append(
-                build_case(
-                    url=url,
-                    title=metadata.get("title", ""),
-                    description=metadata.get("description", ""),
-                    platform_video_id=video_id,
-                    channel_title=metadata.get("channel", "") or metadata.get("uploader", ""),
-                    published_at=str(metadata.get("upload_date") or ""),
-                    query=query,
-                    collected_at=collected_at,
-                )
-            )
-    return cases
-
-
-def ytdlp_metadata(url: str) -> dict[str, Any]:
-    cmd = ["yt-dlp", "--skip-download", "--dump-json", url]
-    try:
-        proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=45)
-    except FileNotFoundError as exc:
-        raise SystemExit("yt-dlp is not installed. Install it locally or omit --yt-dlp-metadata.") from exc
-    except subprocess.TimeoutExpired as exc:
-        raise SystemExit(f"yt-dlp metadata timed out for {url}") from exc
-    if proc.returncode != 0:
-        raise SystemExit(f"yt-dlp metadata failed for {url}: {(proc.stderr or '').strip()[:300]}")
-    return json.loads(proc.stdout or "{}")
-
-
-def ytdlp_search_metadata(query: str, max_results: int) -> list[dict[str, Any]]:
-    target = f"ytsearch{max_results}:{query}"
-    cmd = ["yt-dlp", "--skip-download", "--dump-json", target]
-    try:
-        proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
-    except FileNotFoundError as exc:
-        raise SystemExit("yt-dlp is not installed. Install it locally or use --query with YouTube Data API.") from exc
-    except subprocess.TimeoutExpired as exc:
-        raise SystemExit(f"yt-dlp search timed out for query: {query}") from exc
-    if proc.returncode != 0:
-        raise SystemExit(f"yt-dlp search failed for {query}: {(proc.stderr or '').strip()[:300]}")
-    results: list[dict[str, Any]] = []
-    for line in (proc.stdout or "").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        parsed = json.loads(line)
-        if isinstance(parsed, dict):
-            results.append(parsed)
-    return results
-
-
-def ytdlp_download(url: str, download_dir: str) -> str:
-    target = Path(download_dir)
-    target.mkdir(parents=True, exist_ok=True)
-    before = {path.resolve() for path in target.glob("*") if path.is_file()}
-    cmd = [
-        "yt-dlp",
-        "--restrict-filenames",
-        "--write-info-json",
-        "--paths",
-        str(target),
-        "-f",
-        "bv*+ba/best",
-        url,
-    ]
-    try:
-        proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=600)
-    except FileNotFoundError as exc:
-        raise SystemExit("yt-dlp is not installed. Install it locally or omit --allow-video-download.") from exc
-    except subprocess.TimeoutExpired as exc:
-        raise SystemExit(f"yt-dlp download timed out for {url}") from exc
-    if proc.returncode != 0:
-        raise SystemExit(f"yt-dlp download failed for {url}: {(proc.stderr or '').strip()[:300]}")
-    after = [path.resolve() for path in target.glob("*") if path.is_file() and path.resolve() not in before]
-    videos = [path for path in after if path.suffix.lower() in {".mp4", ".webm", ".mkv", ".mov"}]
-    return str(sorted(videos, key=lambda item: item.stat().st_mtime, reverse=True)[0]) if videos else ""
-
-
-def load_manifest(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {
-            "version": dt.date.today().isoformat(),
-            "purpose": "Public reference candidates for video observation contamination checks. Do not inject reference notes into Agent user-case payloads.",
-            "cases": [],
-        }
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def merge_cases(existing: list[dict[str, Any]], incoming: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    by_id = {case["id"]: case for case in existing}
-    for case in incoming:
-        by_id[case["id"]] = case
-    return list(by_id.values())
-
-
-def main() -> int:
-    args = parse_args()
-    output = Path(args.output)
-    incoming = collect_from_urls(
-        args.urls,
-        use_ytdlp_metadata=args.yt_dlp_metadata,
-        allow_video_download=args.allow_video_download,
-        download_dir=args.download_dir,
-    ) + collect_from_queries(args) + collect_from_ytdlp_searches(args)
-    manifest = load_manifest(output) if args.append else {
-        "version": dt.date.today().isoformat(),
-        "purpose": "Public reference candidates for video observation contamination checks. Do not inject reference notes into Agent user-case payloads.",
-        "cases": [],
-    }
-    manifest["cases"] = merge_cases(manifest.get("cases", []), incoming)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"wrote {len(incoming)} collected cases to {output}")
-    print("raw videos were not downloaded; review scenario_summary and reference_expectations before evaluation")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-
-```
-
-### File: `scripts/download_aihub597_labels.ps1`
-
-- size: `4,230` bytes
-
-```powershell
-param(
-    [ValidateSet("Video", "All", "SourceSmoke", "SourceValidationRecommended", "SourceValidationVideoAll")]
-    [string]$Scope = "Video",
-    [int[]]$FileKeys = @()
-)
-
-$ErrorActionPreference = "Stop"
-
-if (-not $env:AIHUB_API_KEY) {
-    throw "AIHUB_API_KEY environment variable is not set. Set it in the current PowerShell session before running this script."
-}
-
-$repoRoot = Split-Path -Parent $PSScriptRoot
-$shellDir = Join-Path $repoRoot "datasets/aihub/traffic-accident-video/aihubshell"
-$shellPath = Join-Path $shellDir "aihubshell"
-
-if (-not (Test-Path $shellPath)) {
-    throw "aihubshell not found at $shellPath"
-}
-
-$trainingVideoKeys = @(
-    509290, 509291, 509292, 509293, 509294, 509295,
-    509302, 509303, 509304, 509305, 509306, 509307,
-    509314, 509315, 509316, 509317,
-    509322, 509323, 509324, 509325, 509326, 509327, 509328, 509329
-)
-
-$validationVideoKeys = @(
-    509386, 509387, 509388, 509389, 509390,
-    509397, 509398, 509399, 509400, 509401,
-    509408, 509409, 509410,
-    509415, 509416, 509417, 509418, 509419, 509420, 509421, 509422
-)
-
-$trainingImageKeys = @(
-    509296, 509297, 509298, 509299, 509300, 509301,
-    509308, 509309, 509310, 509311, 509312, 509313,
-    509318, 509319, 509320, 509321,
-    509330, 509331, 509332, 509333, 509334, 509335, 509336, 509337
-)
-
-$validationImageKeys = @(
-    509391, 509392, 509393, 509394, 509395, 509396,
-    509402, 509403, 509404, 509405, 509406, 509407,
-    509411, 509412, 509413, 509414,
-    509423, 509424, 509425, 509426, 509427, 509428, 509429, 509430
-)
-
-$sourceSmokeVideoKeys = @(
-    509431, # VS car-vs-pedestrian, crosswalk without signal, 33.65 MB
-    509442, # VS car-vs-motorcycle, T intersection, 122.12 MB
-    509454, # VS car-vs-bicycle, four-way intersection with signal, 55.86 MB
-    509466  # VS car-vs-car, road/non-road place, 189.42 MB
-)
-
-$sourceValidationRecommendedVideoKeys = @(
-    509431, 509432, 509433, 509434, 509435,
-    509442, 509443, 509444, 509446,
-    509453, 509454, 509455,
-    509464, 509466, 509467
-)
-
-$sourceValidationVideoKeys = @(
-    509431, 509432, 509433, 509434, 509435,
-    509442, 509443, 509444, 509445, 509446,
-    509453, 509454, 509455,
-    509460, 509461, 509462, 509463, 509464, 509465, 509466, 509467
-)
-
-$keys = @($trainingVideoKeys + $validationVideoKeys)
-if ($Scope -eq "All") {
-    $keys = @($keys + $trainingImageKeys + $validationImageKeys)
-}
-if ($Scope -eq "SourceSmoke") {
-    $keys = @($sourceSmokeVideoKeys)
-}
-if ($Scope -eq "SourceValidationRecommended") {
-    $keys = @($sourceValidationRecommendedVideoKeys)
-}
-if ($Scope -eq "SourceValidationVideoAll") {
-    $keys = @($sourceValidationVideoKeys)
-}
-if ($FileKeys.Count -gt 0) {
-    $keys = @($FileKeys)
-}
-
-$wslShellDir = "/mnt/c/Users/yangbun/Documents/OSS/Law_Compass/datasets/aihub/traffic-accident-video/aihubshell"
-
-Write-Host "Downloading AI-Hub 597 files. Scope=$Scope, Count=$($keys.Count)"
-Write-Host "Download directory: $shellDir"
-Write-Host "API key is read from AIHUB_API_KEY and will not be printed."
-
-$previousWslEnv = $env:WSLENV
-if ($previousWslEnv) {
-    if ($previousWslEnv -notmatch "(^|:)AIHUB_API_KEY/u(:|$)") {
-        $env:WSLENV = "AIHUB_API_KEY/u:$previousWslEnv"
-    }
-} else {
-    $env:WSLENV = "AIHUB_API_KEY/u"
-}
-
-try {
-    foreach ($fileKey in $keys) {
-        Write-Host "Downloading filekey=$fileKey"
-        $bashCommand = @"
-cd "$wslShellDir" &&
-chmod +x ./aihubshell &&
-./aihubshell -mode d -datasetkey 597 -filekey "$fileKey" -aihubapikey "`$AIHUB_API_KEY"
-"@
-
-        $previousErrorActionPreference = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
-        $output = wsl bash -lc "$bashCommand" 2>&1
-        $ErrorActionPreference = $previousErrorActionPreference
-        $output | ForEach-Object { Write-Host $_ }
-        $joinedOutput = $output -join "`n"
-        if ($LASTEXITCODE -ne 0 -or $joinedOutput -match 'Download failed|HTTP status 502|Error msg' -or $joinedOutput -notmatch 'Download successful') {
-            throw "AI-Hub download command failed for filekey=$fileKey"
-        }
-    }
-} finally {
-    $env:WSLENV = $previousWslEnv
-}
-
-```
-
-### File: `scripts/evaluate_aihub597_label_reference.py`
-
-- size: `8,630` bytes
-
-```python
-"""Evaluate AI-Hub 597 label manifests as LawCompass reference candidates.
-
-This script does not call OpenAI, run YOLO, or download media. It checks whether
-the AI-Hub label manifest is useful as a broad reference set for video-fact
-extraction evaluation, then writes a small balanced candidate list for later raw
-video validation.
-"""
-
-from __future__ import annotations
-
-import argparse
-import json
-import sys
-from collections import Counter, defaultdict
-from pathlib import Path
-from typing import Any
-
-
-DEFAULT_MANIFEST = ".local/aihub597_video_label_manifest.json"
-DEFAULT_OUTPUT = ".local/aihub597_label_reference_eval.json"
-DEFAULT_REQUIRED_TARGETS = ("vehicle", "pedestrian", "motorcycle", "bicycle")
-
-
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
-
-def load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8-sig"))
-
-
-def direct_target(case: dict[str, Any]) -> str:
-    expectations = case.get("reference_expectations")
-    if not isinstance(expectations, dict):
-        return "unknown"
-    return str(expectations.get("direct_collision_partner_type") or "unknown")
-
-
-def dataset_ref(case: dict[str, Any]) -> dict[str, Any]:
-    value = case.get("dataset_ref")
-    return value if isinstance(value, dict) else {}
-
-
-def expected_context(case: dict[str, Any]) -> list[str]:
-    expectations = case.get("reference_expectations")
-    if not isinstance(expectations, dict):
-        return []
-    value = expectations.get("expected_context")
-    return [str(item) for item in value] if isinstance(value, list) else []
-
-
-def must_not_promote(case: dict[str, Any]) -> list[str]:
-    expectations = case.get("reference_expectations")
-    if not isinstance(expectations, dict):
-        return []
-    value = expectations.get("must_not_promote")
-    return [str(item) for item in value] if isinstance(value, list) else []
-
-
-def balance_cases(cases: list[dict[str, Any]], per_target: int, targets: tuple[str, ...]) -> list[dict[str, Any]]:
-    buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for case in cases:
-        target = direct_target(case)
-        if target in targets:
-            buckets[target].append(case)
-    selected: list[dict[str, Any]] = []
-    for target in targets:
-        selected.extend(buckets[target][:per_target])
-    return selected
-
-
-def case_summary(case: dict[str, Any]) -> dict[str, Any]:
-    ref = dataset_ref(case)
-    return {
-        "id": case.get("id"),
-        "title": case.get("title"),
-        "direct_collision_partner_type": direct_target(case),
-        "split": ref.get("split"),
-        "label_file_key": ref.get("file_key"),
-        "dataset_key": ref.get("dataset_key"),
-        "expected_context": expected_context(case),
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0) scale(1);
     }
 
-
-def build_result(args: argparse.Namespace) -> dict[str, Any]:
-    manifest_path = Path(args.manifest).expanduser().resolve()
-    payload = load_json(manifest_path)
-    cases = payload.get("cases") if isinstance(payload, dict) else []
-    if not isinstance(cases, list):
-        raise ValueError("manifest.cases must be an array")
-
-    required_targets = tuple(str(item).strip() for item in args.required_targets.split(",") if str(item).strip())
-    target_counts = Counter(direct_target(case) for case in cases if isinstance(case, dict))
-    split_counts = Counter(str(dataset_ref(case).get("split") or "unknown") for case in cases if isinstance(case, dict))
-    known_count = sum(count for target, count in target_counts.items() if target != "unknown")
-    guard_count = sum(1 for case in cases if isinstance(case, dict) and must_not_promote(case))
-    context_count = sum(1 for case in cases if isinstance(case, dict) and expected_context(case))
-    known_rate = round(known_count / len(cases), 4) if cases else 0.0
-    guard_rate = round(guard_count / len(cases), 4) if cases else 0.0
-    context_rate = round(context_count / len(cases), 4) if cases else 0.0
-    missing_targets = [target for target in required_targets if target_counts.get(target, 0) == 0]
-
-    balanced = balance_cases([case for case in cases if isinstance(case, dict)], args.per_target, required_targets)
-    failure_axes: list[str] = []
-    if len(cases) < args.min_sample_count:
-        failure_axes.append("sample_count_below_threshold")
-    if known_rate < args.min_known_target_rate:
-        failure_axes.append("known_direct_target_rate_below_threshold")
-    if guard_rate < args.min_guard_rate:
-        failure_axes.append("pollution_guard_coverage_below_threshold")
-    if context_rate < args.min_context_rate:
-        failure_axes.append("expected_context_coverage_below_threshold")
-    if missing_targets:
-        failure_axes.append("required_direct_target_type_missing")
-    if len(balanced) < args.min_balanced_sample_count:
-        failure_axes.append("balanced_candidate_count_below_threshold")
-
-    status = "needs_attention" if failure_axes else "passed"
-    return {
-        "aihub597_label_reference_eval": "completed",
-        "manifest": str(manifest_path),
-        "mode": "label_manifest_static",
-        "summary": {
-            "status": status,
-            "case_count": len(cases),
-            "target_counts": dict(target_counts),
-            "split_counts": dict(split_counts),
-            "known_direct_target_rate": known_rate,
-            "pollution_guard_coverage": guard_rate,
-            "expected_context_coverage": context_rate,
-            "required_targets": list(required_targets),
-            "missing_required_targets": missing_targets,
-            "balanced_candidate_count": len(balanced),
-            "failure_axes": failure_axes,
-        },
-        "thresholds": {
-            "min_sample_count": args.min_sample_count,
-            "min_known_target_rate": args.min_known_target_rate,
-            "min_guard_rate": args.min_guard_rate,
-            "min_context_rate": args.min_context_rate,
-            "min_balanced_sample_count": args.min_balanced_sample_count,
-            "per_target": args.per_target,
-        },
-        "balanced_raw_video_validation_candidates": [case_summary(case) for case in balanced],
-        "raw_video_validation": {
-            "openai_yolo_alignment_status": "requires_raw_video_samples",
-            "reason": "AI-Hub labels can validate reference coverage, but OpenAI+YOLO frame extraction can only be compared after the matching source videos are available locally.",
-            "next_action": "Download a small balanced TS/VS source-video subset matching the selected label cases, then run the video pipeline and compare outputs against this manifest.",
-            "git_policy": "Do not commit raw videos, AI-Hub labels, generated manifests, or API keys.",
-        },
+    .slide-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
     }
 
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Evaluate AI-Hub 597 label manifest readiness.")
-    parser.add_argument("--manifest", default=DEFAULT_MANIFEST)
-    parser.add_argument("--output", default=DEFAULT_OUTPUT)
-    parser.add_argument("--required-targets", default=",".join(DEFAULT_REQUIRED_TARGETS))
-    parser.add_argument("--per-target", type=int, default=50)
-    parser.add_argument("--min-sample-count", type=int, default=200)
-    parser.add_argument("--min-balanced-sample-count", type=int, default=200)
-    parser.add_argument("--min-known-target-rate", type=float, default=0.95)
-    parser.add_argument("--min-guard-rate", type=float, default=1.0)
-    parser.add_argument("--min-context-rate", type=float, default=0.95)
-    parser.add_argument("--fail-on-threshold", action="store_true")
-    args = parser.parse_args()
-
-    result = build_result(args)
-    output_path = Path(args.output).expanduser().resolve()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    summary = result["summary"]
-    print(json.dumps({
-        "status": summary["status"],
-        "case_count": summary["case_count"],
-        "target_counts": summary["target_counts"],
-        "balanced_candidate_count": summary["balanced_candidate_count"],
-        "failure_axes": summary["failure_axes"],
-        "output": str(output_path),
-    }, ensure_ascii=False, indent=2))
-    return 1 if args.fail_on_threshold and summary["status"] != "passed" else 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-
-```
-
-### File: `scripts/evaluate_aihub597_video_batch_targets.py`
-
-- size: `11,305` bytes
-
-```python
-"""Compare AI-Hub 597 source-video labels with LawCompass video extraction output.
-
-This evaluator is for calibration only. It does not call OpenAI, does not
-download media, and does not feed labels into Agent inference. It checks whether
-the video pipeline extracted target-type signals that agree with the AI-Hub
-accident_object label.
-"""
-
-from __future__ import annotations
-
-import argparse
-import json
-import re
-import sys
-from collections import Counter, defaultdict
-from pathlib import Path
-from typing import Any
-
-
-ACCIDENT_OBJECT_TO_TARGET = {
-    0: "vehicle",
-    1: "pedestrian",
-    2: "motorcycle",
-    3: "bicycle",
-}
-
-TARGET_FIELDS = {
-    "direct_collision_partner_type",
-    "collision_partner_type",
-    "primary_collision_target",
-}
-
-DIRECT_TARGET_FIELDS = {
-    "direct_collision_partner_type",
-    "collision_partner_type",
-}
-
-
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
-
-def load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8-sig"))
-
-
-def normalize_target(value: Any) -> str:
-    text = re.sub(r"[^a-z0-9가-힣]+", "_", str(value or "").lower()).strip("_")
-    if text.endswith("_candidate"):
-        text = text[: -len("_candidate")]
-    if text in {"vehicle", "car", "truck", "bus", "van"} or "vehicle" in text:
-        return "vehicle"
-    if text in {"pedestrian", "person"} or "pedestrian" in text:
-        return "pedestrian"
-    if text in {"motorcycle", "motorbike", "scooter", "moped", "two_wheeler", "two_wheeled"} or "motorcycle" in text or "two_wheeler" in text:
-        return "motorcycle"
-    if text in {"bicycle", "bike", "cyclist"} or "bicycle" in text:
-        return "bicycle"
-    if text in {"object", "obstacle", "facility"} or "object" in text:
-        return "object"
-    return "unknown"
-
-
-def manifest_samples(path: Path) -> list[dict[str, Any]]:
-    payload = load_json(path)
-    samples = payload.get("samples") if isinstance(payload, dict) else payload
-    if not isinstance(samples, list):
-        raise ValueError("manifest must contain a samples array")
-    return [sample for sample in samples if isinstance(sample, dict)]
-
-
-def aggregate_samples(path: Path) -> dict[str, dict[str, Any]]:
-    payload = load_json(path)
-    samples = payload.get("samples") if isinstance(payload, dict) else payload
-    if not isinstance(samples, list):
-        raise ValueError("batch aggregate must contain a samples array")
-    out: dict[str, dict[str, Any]] = {}
-    for sample in samples:
-        if isinstance(sample, dict) and sample.get("name"):
-            out[str(sample["name"])] = sample
-    return out
-
-
-def expected_target_from_label(sample: dict[str, Any]) -> tuple[str, str]:
-    reference = sample.get("reference") if isinstance(sample.get("reference"), dict) else {}
-    label_path = Path(str(reference.get("label_json") or "")).expanduser()
-    if not label_path.exists():
-        return "unknown", str(label_path)
-    label = load_json(label_path)
-    video = label.get("video") if isinstance(label, dict) else {}
-    code = video.get("accident_object") if isinstance(video, dict) else None
-    try:
-        parsed_code = int(code)
-    except (TypeError, ValueError):
-        parsed_code = -1
-    return ACCIDENT_OBJECT_TO_TARGET.get(parsed_code, "unknown"), str(label_path)
-
-
-def extracted_targets(sample: dict[str, Any]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for item in sample.get("field_metrics") or []:
-        if not isinstance(item, dict):
-            continue
-        field = str(item.get("field") or "")
-        if field not in TARGET_FIELDS:
-            continue
-        target = normalize_target(item.get("value"))
-        if target == "unknown":
-            continue
-        rows.append({
-            "field": field,
-            "target": target,
-            "raw_value": item.get("value"),
-            "from_observation": bool(item.get("from_observation")),
-            "in_fact_patch": bool(item.get("in_fact_patch")),
-            "applied": bool(item.get("applied")),
-            "confirmed": bool(item.get("confirmed")),
-            "supporting": bool(item.get("supporting")),
-            "confidence": item.get("confidence"),
-            "frame_ref_count": item.get("frame_ref_count"),
-        })
-    return rows
-
-
-def score_sample(manifest_sample: dict[str, Any], batch_by_name: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    name = str(manifest_sample.get("name") or "")
-    batch = batch_by_name.get(name, {})
-    expected, label_path = expected_target_from_label(manifest_sample)
-    targets = extracted_targets(batch)
-    observation_hits = [item for item in targets if item["from_observation"] and item["target"] == expected]
-    agent_hits = [
-        item for item in targets
-        if item["target"] == expected and (item["in_fact_patch"] or item["applied"] or item["confirmed"])
-    ]
-    direct_pollution = [
-        item for item in targets
-        if item["field"] in DIRECT_TARGET_FIELDS and item["target"] != expected
-    ]
-    agent_direct_pollution = [
-        item for item in direct_pollution
-        if item["in_fact_patch"] or item["applied"] or item["confirmed"]
-    ]
-    return {
-        "name": name,
-        "matched_batch_sample": bool(batch),
-        "label_json": label_path,
-        "expected_target": expected,
-        "extracted_targets": targets,
-        "observation_target_hit": bool(observation_hits),
-        "agent_target_hit": bool(agent_hits),
-        "direct_target_pollution": bool(direct_pollution),
-        "agent_direct_target_pollution": bool(agent_direct_pollution),
-        "direct_target_pollution_values": direct_pollution,
-        "agent_direct_target_pollution_values": agent_direct_pollution,
-        "frame_observation_count": batch.get("frame_observation_count"),
-        "agent_accepted_count": batch.get("agent_accepted_count"),
-        "agent_uncertain_count": batch.get("agent_uncertain_count"),
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--accent-strong);
+      font-size: 0.9rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-
-def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    total = len(rows)
-    by_target: dict[str, Counter[str]] = defaultdict(Counter)
-    for row in rows:
-        target = str(row.get("expected_target") or "unknown")
-        by_target[target]["sample_count"] += 1
-        by_target[target]["observation_target_hit_count"] += int(bool(row.get("observation_target_hit")))
-        by_target[target]["agent_target_hit_count"] += int(bool(row.get("agent_target_hit")))
-        by_target[target]["direct_target_pollution_count"] += int(bool(row.get("direct_target_pollution")))
-        by_target[target]["agent_direct_target_pollution_count"] += int(bool(row.get("agent_direct_target_pollution")))
-    target_summary = {
-        target: {
-            **dict(counter),
-            "observation_target_hit_rate": rate(counter["observation_target_hit_count"], counter["sample_count"]),
-            "agent_target_hit_rate": rate(counter["agent_target_hit_count"], counter["sample_count"]),
-            "direct_target_pollution_rate": rate(counter["direct_target_pollution_count"], counter["sample_count"]),
-            "agent_direct_target_pollution_rate": rate(counter["agent_direct_target_pollution_count"], counter["sample_count"]),
-        }
-        for target, counter in sorted(by_target.items())
-    }
-    return {
-        "sample_count": total,
-        "matched_batch_sample_count": sum(1 for row in rows if row.get("matched_batch_sample")),
-        "observation_target_hit_count": sum(1 for row in rows if row.get("observation_target_hit")),
-        "agent_target_hit_count": sum(1 for row in rows if row.get("agent_target_hit")),
-        "direct_target_pollution_count": sum(1 for row in rows if row.get("direct_target_pollution")),
-        "agent_direct_target_pollution_count": sum(1 for row in rows if row.get("agent_direct_target_pollution")),
-        "observation_target_hit_rate": rate(sum(1 for row in rows if row.get("observation_target_hit")), total),
-        "agent_target_hit_rate": rate(sum(1 for row in rows if row.get("agent_target_hit")), total),
-        "direct_target_pollution_rate": rate(sum(1 for row in rows if row.get("direct_target_pollution")), total),
-        "agent_direct_target_pollution_rate": rate(sum(1 for row in rows if row.get("agent_direct_target_pollution")), total),
-        "target_summary": target_summary,
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
     }
 
-
-def rate(numerator: int, denominator: int) -> float:
-    return round(numerator / denominator, 3) if denominator else 0.0
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Evaluate AI-Hub 597 label target extraction from a video batch aggregate.")
-    parser.add_argument("--manifest", required=True, help="Batch manifest with reference.label_json entries.")
-    parser.add_argument("--batch-aggregate", required=True, help="video_accuracy_batch aggregate.json output.")
-    parser.add_argument("--output", required=True)
-    parser.add_argument("--min-observation-target-hit-rate", type=float, default=0.8)
-    parser.add_argument("--max-direct-target-pollution-rate", type=float, default=0.0)
-    parser.add_argument("--max-agent-direct-target-pollution-rate", type=float, default=0.0)
-    parser.add_argument("--fail-on-threshold", action="store_true")
-    args = parser.parse_args()
-
-    manifest_path = Path(args.manifest).expanduser().resolve()
-    aggregate_path = Path(args.batch_aggregate).expanduser().resolve()
-    output_path = Path(args.output).expanduser().resolve()
-    batch_by_name = aggregate_samples(aggregate_path)
-    rows = [score_sample(sample, batch_by_name) for sample in manifest_samples(manifest_path)]
-    summary = summarize(rows)
-    status = "passed"
-    if summary["observation_target_hit_rate"] < args.min_observation_target_hit_rate:
-        status = "needs_attention"
-    if summary["direct_target_pollution_rate"] > args.max_direct_target_pollution_rate:
-        status = "needs_attention"
-    if summary["agent_direct_target_pollution_rate"] > args.max_agent_direct_target_pollution_rate:
-        status = "needs_attention"
-    result = {
-        "aihub597_video_batch_target_eval": "completed",
-        "status": status,
-        "manifest": str(manifest_path),
-        "batch_aggregate": str(aggregate_path),
-        "thresholds": {
-            "min_observation_target_hit_rate": args.min_observation_target_hit_rate,
-            "max_direct_target_pollution_rate": args.max_direct_target_pollution_rate,
-            "max_agent_direct_target_pollution_rate": args.max_agent_direct_target_pollution_rate,
-        },
-        "summary": summary,
-        "samples": rows,
-    }
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"status": status, **summary, "output": str(output_path)}, ensure_ascii=False, indent=2))
-    return 1 if args.fail_on_threshold and status != "passed" else 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-
-```
-
-### File: `scripts/evaluate_video_observation_merge.py`
-
-- size: `11,578` bytes
-
-```python
-from __future__ import annotations
-
-import argparse
-import json
-import sys
-from pathlib import Path
-from typing import Any
-
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-AGENT_APP = REPO_ROOT / "apps" / "agent"
-if str(AGENT_APP) not in sys.path:
-    sys.path.insert(0, str(AGENT_APP))
-
-from app.services.fact_arbitration import arbitrate_facts
-from app.services.video_input_contract import normalize_video_input_contract
-
-
-VERSION = "lawcompass-video-openai-yolo-merge-eval-v1"
-YOLO_CANDIDATE_FIELDS = {
-    "pedestrian_visible",
-    "opponent_signal_visible",
-    "primary_collision_target",
-}
-
-
-def main() -> int:
-    args = parse_args()
-    manifest_path = resolve_path(args.manifest)
-    openai_dir = resolve_path(args.openai_batch_dir)
-    yolo_dir = resolve_path(args.yolo_dir)
-    output_path = resolve_path(args.output)
-
-    manifest = read_json(manifest_path)
-    samples = manifest.get("samples") if isinstance(manifest, dict) else None
-    if not isinstance(samples, list):
-        raise SystemExit(f"Manifest must contain a samples array: {manifest_path}")
-
-    results: list[dict[str, Any]] = []
-    for index, sample in enumerate(samples, start=1):
-        if not isinstance(sample, dict):
-            continue
-        result = evaluate_sample(sample, index=index, openai_dir=openai_dir, yolo_dir=yolo_dir)
-        results.append(result)
-
-    aggregate = aggregate_results(results)
-    output = {
-        "version": VERSION,
-        "manifest": str(manifest_path.relative_to(REPO_ROOT) if manifest_path.is_relative_to(REPO_ROOT) else manifest_path),
-        "openai_batch_dir": str(openai_dir.relative_to(REPO_ROOT) if openai_dir.is_relative_to(REPO_ROOT) else openai_dir),
-        "yolo_dir": str(yolo_dir.relative_to(REPO_ROOT) if yolo_dir.is_relative_to(REPO_ROOT) else yolo_dir),
-        "sample_count": len(results),
-        "aggregate": aggregate,
-        "samples": results,
-    }
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(aggregate, ensure_ascii=False, indent=2))
-    return 0 if aggregate["contamination_regression_count"] == 0 else 1
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Merge existing OpenAI frame-analysis debug observations and YOLO smoke "
-            "observations, then verify Agent fact-contract/arbitration behavior."
-        )
-    )
-    parser.add_argument("--manifest", required=True, help="Reference manifest with sample names/video paths.")
-    parser.add_argument("--openai-batch-dir", required=True, help="Directory containing video_agent_e2e per-sample JSON.")
-    parser.add_argument("--yolo-dir", required=True, help="Directory containing car_accident_N YOLO smoke JSON.")
-    parser.add_argument("--output", required=True, help="JSON output path for the merge evaluation summary.")
-    return parser.parse_args()
-
-
-def evaluate_sample(sample: dict[str, Any], *, index: int, openai_dir: Path, yolo_dir: Path) -> dict[str, Any]:
-    name = str(sample.get("name") or f"sample_{index}")
-    video_path = Path(str(sample.get("video_path") or f"car_accident_{index}.mp4"))
-    video_stem = video_path.stem or f"car_accident_{index}"
-    openai_payload = read_json(openai_dir / f"{name}.json")
-    yolo_payload = read_json(yolo_dir / f"{video_stem}.json")
-    case_facts = read_case_facts(sample.get("case_json"))
-
-    openai_observations = source_observations(
-        [
-            *as_list(openai_payload.get("agent_video_input", {}).get("accepted_observations")),
-            *as_list(openai_payload.get("agent_video_input", {}).get("uncertain_observations")),
-            *as_list(openai_payload.get("agent_video_input", {}).get("supporting_observations")),
-        ],
-        default_source="frame_analysis:openai_debug_contract",
-    )
-    yolo_observations = source_observations(
-        as_list(yolo_payload.get("observations")),
-        default_source="vision_model:yolo",
-    )
-    representative_frame_count = int(
-        openai_payload.get("video_fact_card", {}).get("representative_frame_count")
-        or openai_payload.get("frame_analysis", {}).get("selected_frame_count")
-        or 0
-    )
-
-    contract = normalize_video_input_contract(
-        {
-            "metadata": {
-                "representative_frames": [f"{video_stem}_representative_{frame_index:03d}.jpg" for frame_index in range(1, representative_frame_count + 1)],
-                "observations": [*openai_observations, *yolo_observations],
-                "openai_frame_analysis": {
-                    "enabled": True,
-                    "selected_frame_count": representative_frame_count,
-                },
-                "yolo_frame_analysis": {
-                    "enabled": True,
-                    "provider": yolo_payload.get("provider"),
-                    "model": display_model_name(yolo_payload.get("model")),
-                    "summary": yolo_payload.get("summary") if isinstance(yolo_payload.get("summary"), dict) else {},
-                },
-            }
-        }
-    )
-    arbitration = arbitrate_facts(user_facts=case_facts, video_contract=contract)
-    yolo_candidate_summary = summarize_yolo_candidates(contract)
-    contamination_flags = contamination_regressions(contract, arbitration)
-
-    return {
-        "name": name,
-        "video_stem": video_stem,
-        "input_case_fact_count": len(case_facts),
-        "openai_observation_count": len(openai_observations),
-        "yolo_observation_count": len(yolo_observations),
-        "representative_frame_count": representative_frame_count,
-        "accepted_count": len(contract["accepted_observations"]),
-        "uncertain_count": len(contract["uncertain_observations"]),
-        "supporting_count": len(contract["supporting_observations"]),
-        "fact_patch_fields": sorted(contract["fact_patch"].keys()),
-        "applied_video_fields": arbitration["contract"]["applied_video_fields"],
-        "confirmed_fields": arbitration["contract"]["confirmed_fields"],
-        "conflict_count": len(arbitration["contract"]["conflicts"]),
-        "yolo_candidate_summary": yolo_candidate_summary,
-        "contamination_regressions": contamination_flags,
-        "recovery_status": contract["observation_quality_summary"].get("recovery_status"),
+    h1 {
+      margin-bottom: 14px;
+      max-width: 1040px;
+      font-size: clamp(2.8rem, 7vw, 6rem);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
     }
 
-
-def source_observations(observations: list[Any], *, default_source: str) -> list[dict[str, Any]]:
-    sourced: list[dict[str, Any]] = []
-    for item in observations:
-        if not isinstance(item, dict):
-            continue
-        sourced.append({**item, "source": item.get("source") or default_source})
-    return sourced
-
-
-def summarize_yolo_candidates(contract: dict[str, Any]) -> dict[str, Any]:
-    summary: dict[str, Any] = {
-        "accepted": [],
-        "uncertain": [],
-        "supporting": [],
-        "ignored": [],
-    }
-    for bucket_name in ("accepted", "uncertain", "supporting", "ignored"):
-        contract_key = f"{bucket_name}_observations"
-        for item in as_list(contract.get(contract_key)):
-            if not isinstance(item, dict):
-                continue
-            field = str(item.get("field") or "")
-            source = str(item.get("source") or "")
-            if field in YOLO_CANDIDATE_FIELDS and source.startswith("vision_model:yolo"):
-                summary[bucket_name].append({
-                    "field": field,
-                    "value": item.get("value"),
-                    "confidence": item.get("confidence"),
-                    "reason": item.get("reason"),
-                    "frame_ref_count": len(item.get("frame_refs") or []),
-                })
-    return summary
-
-
-def contamination_regressions(contract: dict[str, Any], arbitration: dict[str, Any]) -> list[str]:
-    fact_patch = contract.get("fact_patch") if isinstance(contract.get("fact_patch"), dict) else {}
-    accepted_yolo_fields = {
-        str(item.get("field"))
-        for item in as_list(contract.get("accepted_observations"))
-        if isinstance(item, dict) and str(item.get("source") or "").startswith("vision_model:yolo")
-    }
-    applied = set(arbitration.get("contract", {}).get("applied_video_fields") or [])
-    confirmed = set(arbitration.get("contract", {}).get("confirmed_fields") or [])
-
-    flags: list[str] = []
-    for field in sorted(YOLO_CANDIDATE_FIELDS):
-        if field in accepted_yolo_fields:
-            flags.append(f"yolo_candidate_accepted:{field}")
-        if field in fact_patch:
-            flags.append(f"yolo_candidate_fact_patch:{field}")
-        if field in applied:
-            flags.append(f"yolo_candidate_applied:{field}")
-        if field in confirmed:
-            flags.append(f"yolo_candidate_confirmed:{field}")
-    return flags
-
-
-def aggregate_results(results: list[dict[str, Any]]) -> dict[str, Any]:
-    total_yolo_observations = sum(int(item.get("yolo_observation_count") or 0) for item in results)
-    total_openai_observations = sum(int(item.get("openai_observation_count") or 0) for item in results)
-    contamination_count = sum(len(item.get("contamination_regressions") or []) for item in results)
-    yolo_uncertain_count = sum(len(item.get("yolo_candidate_summary", {}).get("uncertain") or []) for item in results)
-    yolo_accepted_count = sum(len(item.get("yolo_candidate_summary", {}).get("accepted") or []) for item in results)
-    return {
-        "sample_count": len(results),
-        "openai_observation_count": total_openai_observations,
-        "yolo_observation_count": total_yolo_observations,
-        "yolo_candidate_uncertain_count": yolo_uncertain_count,
-        "yolo_candidate_accepted_count": yolo_accepted_count,
-        "applied_video_field_count": sum(len(item.get("applied_video_fields") or []) for item in results),
-        "confirmed_video_field_count": sum(len(item.get("confirmed_fields") or []) for item in results),
-        "conflict_count": sum(int(item.get("conflict_count") or 0) for item in results),
-        "contamination_regression_count": contamination_count,
-        "status": "pass" if contamination_count == 0 else "fail",
+    h2 {
+      margin-bottom: 10px;
+      max-width: 1060px;
+      font-size: clamp(2rem, 4.6vw, 4.2rem);
+      line-height: 1.06;
+      letter-spacing: -0.035em;
     }
 
-
-def read_case_facts(case_json: Any) -> dict[str, Any]:
-    if not case_json:
-        return {}
-    path = resolve_path(str(case_json))
-    if not path.exists():
-        return {}
-    data = read_json(path)
-    case = data.get("case") if isinstance(data.get("case"), dict) else data
-    facts = case.get("structured_facts") if isinstance(case, dict) else {}
-    return dict(facts) if isinstance(facts, dict) else {}
-
-
-def read_json(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        raise SystemExit(f"Required JSON file does not exist: {path}")
-    text = path.read_text(encoding="utf-8-sig")
-    data = json.loads(text)
-    if not isinstance(data, dict):
-        raise SystemExit(f"Expected a JSON object: {path}")
-    return data
-
-
-def as_list(value: Any) -> list[Any]:
-    return value if isinstance(value, list) else []
-
-
-def display_model_name(model: Any) -> str | None:
-    if not model:
-        return None
-    return Path(str(model)).name
-
-
-def resolve_path(path: str | Path) -> Path:
-    resolved = Path(path)
-    if not resolved.is_absolute():
-        resolved = REPO_ROOT / resolved
-    return resolved
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-
-```
-
-### File: `scripts/evaluate_video_reference_metrics.py`
-
-- size: `19,607` bytes
-
-```python
-"""Evaluate video/reference accuracy metrics from a batch aggregate.
-
-This script does not call OpenAI or download media. It compares safe reference
-case expectations against an already produced batch aggregate and produces
-repeatable metrics for accident-target accuracy, pollution, zero observations,
-evidence fit, and conditional-branch coverage.
-"""
-
-from __future__ import annotations
-
-import argparse
-import json
-import re
-import sys
-from pathlib import Path
-from typing import Any
-
-
-DEFAULT_OUTPUT = "logs/video_accuracy/video_reference_metrics.json"
-TARGET_FIELDS = [
-    "direct_collision_partner_type",
-    "collision_partner_type",
-    "primary_collision_target",
-    "accident_party_type",
-]
-PARTY_BY_DIRECT_TARGET = {
-    "vehicle": {"car_vs_car", "vehicle", "차대차"},
-    "pedestrian": {"car_vs_person", "vehicle_vs_pedestrian", "pedestrian", "차대사람", "차대보행자"},
-    "motorcycle": {"car_vs_motorcycle", "vehicle_vs_motorcycle", "motorcycle", "two_wheeled", "two-wheeled", "차대이륜차", "이륜차"},
-    "bicycle": {"car_vs_bicycle", "vehicle_vs_bicycle", "bicycle", "차대자전거"},
-    "object": {"vehicle_vs_object", "object", "시설물", "물체"},
-}
-CONTEXT_ALIASES = {
-    "centerline_context": ["centerline", "중앙선"],
-    "parked_vehicle_obstacle": ["parked", "parking", "주차", "장애물"],
-    "oncoming_vehicle": ["oncoming", "마주", "대향"],
-    "secondary_rear_collision": ["secondary", "2차", "후속", "rear"],
-    "intersection_context": ["intersection", "교차로"],
-    "ego_signal_timing": ["signal", "신호", "황색", "적색", "녹색"],
-    "opponent_signal_unknown": ["opponent signal", "상대 신호", "신호"],
-    "vehicle_visible": ["vehicle", "차량"],
-    "pedestrian_visible": ["pedestrian", "보행자", "사람"],
-}
-CONDITIONAL_BRANCH_ALIASES = {
-    "signal": ["signal", "traffic light", "opponent signal", "신호", "황색", "적색", "녹색"],
-    "centerline": ["centerline", "중앙선", "침범", "obstacle", "parked", "주정차", "장애물"],
-    "non_contact": ["non contact", "non-contact", "비접촉", "유발", "trigger", "bicycle", "자전거"],
-    "rear_stop": ["rear", "rear-end", "stopped", "sudden brake", "후방", "추돌", "정차", "급정거"],
-    "collision_target": ["collision target", "direct collision", "partner", "사고 대상", "직접 충돌", "충돌 대상"],
-}
-
-
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
-
-def load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8-sig"))
-
-
-def normalize(value: Any) -> str:
-    return re.sub(r"[^a-z0-9가-힣]+", "_", str(value or "").lower()).strip("_")
-
-
-def text_blob(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True).lower()
-
-
-def load_reference_cases(path: Path) -> dict[str, dict[str, Any]]:
-    payload = load_json(path)
-    cases = payload.get("cases") if isinstance(payload, dict) else []
-    out: dict[str, dict[str, Any]] = {}
-    for case in cases or []:
-        if isinstance(case, dict) and case.get("id"):
-            out[str(case["id"])] = case
-    return out
-
-
-def load_batch_samples(path: Path) -> list[dict[str, Any]]:
-    payload = load_json(path)
-    if isinstance(payload, dict) and isinstance(payload.get("samples"), list):
-        return [item for item in payload["samples"] if isinstance(item, dict)]
-    if isinstance(payload, list):
-        return [item for item in payload if isinstance(item, dict)]
-    raise ValueError("batch aggregate must contain a samples array")
-
-
-def reference_id_for_sample(sample: dict[str, Any]) -> str:
-    for key in ("reference_case_id", "reference_id", "case_id"):
-        if sample.get(key):
-            return str(sample[key])
-    reference = sample.get("reference") if isinstance(sample.get("reference"), dict) else {}
-    for key in ("reference_case_id", "reference_id", "case_id", "id"):
-        if reference.get(key):
-            return str(reference[key])
-    return str(sample.get("name") or "")
-
-
-def value_from_field_metrics(sample: dict[str, Any], field_names: list[str]) -> Any:
-    field_set = set(field_names)
-    for item in sample.get("field_metrics") or []:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("field") or "") in field_set and item.get("value") is not None:
-            return item.get("value")
-    return None
-
-
-def nested_values(payload: Any, key: str) -> list[Any]:
-    values: list[Any] = []
-    if isinstance(payload, dict):
-        for current_key, current_value in payload.items():
-            if current_key == key:
-                values.append(current_value)
-            values.extend(nested_values(current_value, key))
-    elif isinstance(payload, list):
-        for item in payload:
-            values.extend(nested_values(item, key))
-    return values
-
-
-def actual_direct_target(sample: dict[str, Any]) -> str:
-    value = value_from_field_metrics(sample, ["direct_collision_partner_type", "collision_partner_type", "primary_collision_target"])
-    if value is None:
-        for key in ("direct_collision_partner_type", "collision_partner_type", "primary_collision_target"):
-            values = nested_values(sample, key)
-            if values:
-                value = values[0]
-                break
-    normalized = normalize(value)
-    if normalized in {"vehicle", "car", "차량", "차"} or "vehicle" in normalized:
-        return "vehicle"
-    if normalized in {"pedestrian", "person", "보행자", "사람"} or "pedestrian" in normalized:
-        return "pedestrian"
-    if normalized in {"motorcycle", "two_wheeled", "two_wheeled_vehicle", "이륜차", "오토바이"} or "motorcycle" in normalized or "two_wheeled" in normalized:
-        return "motorcycle"
-    if normalized in {"bicycle", "bike", "자전거"} or "bicycle" in normalized:
-        return "bicycle"
-    if normalized in {"object", "facility", "물체", "시설물"} or "object" in normalized:
-        return "object"
-    return "unknown"
-
-
-def actual_party_type(sample: dict[str, Any]) -> str:
-    value = value_from_field_metrics(sample, ["accident_party_type"])
-    if value is None:
-        values = nested_values(sample, "accident_party_type")
-        value = values[0] if values else None
-    return normalize(value)
-
-
-def evidence_blob(sample: dict[str, Any]) -> str:
-    expert = sample.get("expert_guidance") if isinstance(sample.get("expert_guidance"), dict) else {}
-    basis = expert.get("basis") if isinstance(expert.get("basis"), list) else []
-    legal_points = expert.get("legal_points") if isinstance(expert.get("legal_points"), list) else []
-    legal_limits = expert.get("legal_limits") if isinstance(expert.get("legal_limits"), list) else []
-    return text_blob({"basis": basis, "legal_points": legal_points, "legal_limits": legal_limits})
-
-
-def conditional_blob(sample: dict[str, Any]) -> str:
-    return text_blob({
-        "conditional_outcome_card": sample.get("conditional_outcome_card"),
-        "expert_guidance": sample.get("expert_guidance"),
-        "missing_info_priority": sample.get("missing_info_priority"),
-    })
-
-
-def expected_conditional_branch_keys(ambiguous_branches: list[Any]) -> set[str]:
-    keys: set[str] = set()
-    for branch in ambiguous_branches:
-        blob = text_blob(branch)
-        for key, aliases in CONDITIONAL_BRANCH_ALIASES.items():
-            if contains_any(blob, aliases):
-                keys.add(key)
-    return keys
-
-
-def detected_conditional_branch_keys(sample: dict[str, Any]) -> set[str]:
-    keys: set[str] = set()
-    for value in nested_values(sample, "detected_branch_keys"):
-        if isinstance(value, list):
-            keys.update(str(item) for item in value if item)
-        elif value:
-            keys.add(str(value))
-    for value in nested_values(sample, "branch_key"):
-        if value:
-            keys.add(str(value))
-    return keys
-
-
-def contains_any(blob: str, needles: list[str]) -> bool:
-    return any(str(needle).lower() in blob for needle in needles if str(needle).strip())
-
-
-def forbidden_hit(blob: str, forbidden: list[str]) -> list[str]:
-    hits: list[str] = []
-    for item in forbidden:
-        normalized = str(item or "").strip()
-        if not normalized:
-            continue
-        alternatives = {normalized.lower(), normalized.replace("_", " ").lower()}
-        if any(alt and alt in blob for alt in alternatives):
-            hits.append(normalized)
-    return hits
-
-
-def context_hit(blob: str, contexts: list[str]) -> tuple[list[str], list[str]]:
-    matched: list[str] = []
-    missing: list[str] = []
-    for context in contexts:
-        aliases = CONTEXT_ALIASES.get(str(context), [str(context).replace("_", " ")])
-        if contains_any(blob, aliases):
-            matched.append(str(context))
-        else:
-            missing.append(str(context))
-    return matched, missing
-
-
-def score_sample(sample: dict[str, Any], reference: dict[str, Any] | None) -> dict[str, Any]:
-    expectations = reference.get("reference_expectations") if isinstance(reference, dict) else {}
-    if not isinstance(expectations, dict):
-        expectations = {}
-    expected_direct = str(expectations.get("direct_collision_partner_type") or "unknown")
-    actual_direct = actual_direct_target(sample)
-    actual_party = actual_party_type(sample)
-    expected_party_values = PARTY_BY_DIRECT_TARGET.get(expected_direct, set())
-    direct_scored = expected_direct != "unknown"
-    direct_passed = direct_scored and actual_direct == expected_direct
-    party_scored = bool(expected_party_values)
-    party_passed = party_scored and (actual_party in {normalize(item) for item in expected_party_values} or actual_direct == expected_direct)
-
-    blob = text_blob(sample)
-    basis_blob = evidence_blob(sample)
-    forbidden = [str(item) for item in expectations.get("must_not_promote") or []]
-    pollution_hits = forbidden_hit(blob, forbidden)
-    evidence_pollution_hits = forbidden_hit(basis_blob, forbidden)
-    expected_context = [str(item) for item in expectations.get("expected_context") or []]
-    matched_context, missing_context = context_hit(basis_blob, expected_context)
-
-    frame_count = int(sample.get("frame_observation_count") or 0)
-    ambiguous_branches = expectations.get("ambiguous_branches") if isinstance(expectations.get("ambiguous_branches"), list) else []
-    conditional_text = conditional_blob(sample)
-    conditional_required = bool(ambiguous_branches)
-    expected_branch_keys = expected_conditional_branch_keys(ambiguous_branches)
-    detected_branch_keys = detected_conditional_branch_keys(sample)
-    legacy_conditional_present = bool(sample.get("conditional_outcome_card")) or contains_any(
-        conditional_text,
-        ["조건", "달라지는 판단", "경우", "분기"],
-    )
-    if conditional_required and expected_branch_keys and detected_branch_keys:
-        conditional_present = expected_branch_keys.issubset(detected_branch_keys)
-    else:
-        conditional_present = legacy_conditional_present
-
-    evidence_mismatch = bool(evidence_pollution_hits) or (bool(expected_context) and not matched_context)
-    return {
-        "name": sample.get("name"),
-        "reference_case_id": reference.get("id") if isinstance(reference, dict) else None,
-        "matched_reference": bool(reference),
-        "expected_direct_collision_partner_type": expected_direct,
-        "actual_direct_collision_partner_type": actual_direct,
-        "direct_collision_target_scored": direct_scored,
-        "direct_collision_target_passed": direct_passed,
-        "actual_accident_party_type": actual_party or "unknown",
-        "accident_party_scored": party_scored,
-        "accident_party_passed": party_passed,
-        "frame_observation_count": frame_count,
-        "zero_observations": frame_count == 0,
-        "context_pollution_hits": pollution_hits,
-        "context_pollution": bool(pollution_hits),
-        "evidence_pollution_hits": evidence_pollution_hits,
-        "matched_expected_context": matched_context,
-        "missing_expected_context": missing_context,
-        "evidence_mismatch": evidence_mismatch,
-        "conditional_branch_required": conditional_required,
-        "expected_conditional_branch_keys": sorted(expected_branch_keys),
-        "detected_conditional_branch_keys": sorted(detected_branch_keys),
-        "conditional_branch_present": conditional_present,
-        "conditional_branch_passed": (not conditional_required) or conditional_present,
-        "status": sample.get("status"),
+    h3 {
+      margin-bottom: 8px;
+      color: var(--text-main);
+      font-size: clamp(1.1rem, 2vw, 1.45rem);
+      line-height: 1.28;
     }
 
-
-def rate(passed: int, total: int) -> float | None:
-    return round(passed / total, 3) if total else None
-
-
-def count_true(samples: list[dict[str, Any]], key: str) -> int:
-    return sum(1 for item in samples if item.get(key))
-
-
-def metric_status(summary: dict[str, Any], thresholds: dict[str, float]) -> str:
-    failures: list[str] = []
-    for key, threshold in thresholds.items():
-        value = summary.get(key)
-        if value is None:
-            continue
-        if key.endswith("_max"):
-            metric_name = key[:-4]
-            if summary.get(metric_name) is not None and float(summary[metric_name]) > threshold:
-                failures.append(metric_name)
-        elif float(value) < threshold:
-            failures.append(key)
-    if summary.get("reference_matched_rate") is not None and summary["reference_matched_rate"] < 1:
-        failures.append("reference_matched_rate")
-    return "needs_attention" if failures else "passed"
-
-
-def aggregate(scored: list[dict[str, Any]], thresholds: dict[str, float]) -> dict[str, Any]:
-    total = len(scored)
-    reference_matched = count_true(scored, "matched_reference")
-    direct_scored = count_true(scored, "direct_collision_target_scored")
-    direct_passed = count_true(scored, "direct_collision_target_passed")
-    party_scored = count_true(scored, "accident_party_scored")
-    party_passed = count_true(scored, "accident_party_passed")
-    conditional_required = count_true(scored, "conditional_branch_required")
-    conditional_passed = sum(1 for item in scored if item.get("conditional_branch_required") and item.get("conditional_branch_present"))
-    zero_observations = count_true(scored, "zero_observations")
-    context_pollution = count_true(scored, "context_pollution")
-    evidence_mismatch = count_true(scored, "evidence_mismatch")
-    summary = {
-        "sample_count": total,
-        "reference_matched_count": reference_matched,
-        "reference_matched_rate": rate(reference_matched, total),
-        "direct_collision_target_scored_count": direct_scored,
-        "direct_collision_target_passed_count": direct_passed,
-        "direct_collision_target_accuracy": rate(direct_passed, direct_scored),
-        "accident_party_scored_count": party_scored,
-        "accident_party_passed_count": party_passed,
-        "accident_party_accuracy": rate(party_passed, party_scored),
-        "context_pollution_count": context_pollution,
-        "context_pollution_rate": rate(context_pollution, total),
-        "zero_observation_count": zero_observations,
-        "zero_observation_rate": rate(zero_observations, total),
-        "evidence_mismatch_count": evidence_mismatch,
-        "evidence_mismatch_rate": rate(evidence_mismatch, total),
-        "conditional_branch_required_count": conditional_required,
-        "conditional_branch_passed_count": conditional_passed,
-        "conditional_branch_coverage": rate(conditional_passed, conditional_required),
-    }
-    summary["status"] = metric_status({
-        **summary,
-        "context_pollution_rate_max": summary["context_pollution_rate"],
-        "zero_observation_rate_max": summary["zero_observation_rate"],
-        "evidence_mismatch_rate_max": summary["evidence_mismatch_rate"],
-    }, thresholds)
-    return summary
-
-
-def build_thresholds(args: argparse.Namespace) -> dict[str, float]:
-    return {
-        "direct_collision_target_accuracy": float(args.min_direct_target_accuracy),
-        "accident_party_accuracy": float(args.min_accident_party_accuracy),
-        "context_pollution_rate_max": float(args.max_context_pollution_rate),
-        "zero_observation_rate_max": float(args.max_zero_observation_rate),
-        "evidence_mismatch_rate_max": float(args.max_evidence_mismatch_rate),
-        "conditional_branch_coverage": float(args.min_conditional_branch_coverage),
+    p,
+    li {
+      color: var(--text-sub);
+      font-size: clamp(1rem, 1.7vw, 1.18rem);
+      line-height: 1.62;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
     }
 
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Evaluate fixed video/reference accuracy metrics.")
-    parser.add_argument("--reference-manifest", required=True, help="Reference case manifest JSON.")
-    parser.add_argument("--batch-aggregate", required=True, help="video_accuracy_batch aggregate JSON.")
-    parser.add_argument("--output", default=DEFAULT_OUTPUT)
-    parser.add_argument("--min-direct-target-accuracy", type=float, default=0.8)
-    parser.add_argument("--min-accident-party-accuracy", type=float, default=0.8)
-    parser.add_argument("--max-context-pollution-rate", type=float, default=0.0)
-    parser.add_argument("--max-zero-observation-rate", type=float, default=0.2)
-    parser.add_argument("--max-evidence-mismatch-rate", type=float, default=0.2)
-    parser.add_argument("--min-conditional-branch-coverage", type=float, default=0.8)
-    parser.add_argument("--fail-on-threshold", action="store_true")
-    args = parser.parse_args()
-
-    reference_path = Path(args.reference_manifest).expanduser().resolve()
-    aggregate_path = Path(args.batch_aggregate).expanduser().resolve()
-    output_path = Path(args.output).expanduser().resolve()
-    references = load_reference_cases(reference_path)
-    samples = load_batch_samples(aggregate_path)
-    scored = []
-    for sample in samples:
-        ref_id = reference_id_for_sample(sample)
-        reference = references.get(ref_id) or references.get(str(sample.get("name") or ""))
-        scored.append(score_sample(sample, reference))
-    thresholds = build_thresholds(args)
-    summary = aggregate(scored, thresholds)
-    result = {
-        "video_reference_metrics": "completed",
-        "reference_manifest": str(reference_path),
-        "batch_aggregate": str(aggregate_path),
-        "thresholds": thresholds,
-        "summary": summary,
-        "samples": scored,
+    ul,
+    ol {
+      margin: 0;
+      padding-left: 1.2em;
     }
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({
-        "status": summary["status"],
-        "sample_count": summary["sample_count"],
-        "direct_collision_target_accuracy": summary["direct_collision_target_accuracy"],
-        "context_pollution_rate": summary["context_pollution_rate"],
-        "zero_observation_rate": summary["zero_observation_rate"],
-        "evidence_mismatch_rate": summary["evidence_mismatch_rate"],
-        "conditional_branch_coverage": summary["conditional_branch_coverage"],
-        "output": str(output_path),
-    }, ensure_ascii=False, indent=2))
-    return 1 if args.fail_on_threshold and summary["status"] != "passed" else 0
 
+    .hero-copy {
+      max-width: 880px;
+      color: var(--paper);
+      font-size: clamp(1.18rem, 2.3vw, 1.65rem);
+      line-height: 1.58;
+    }
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+    .content {
+      align-self: stretch;
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+    }
 
-```
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      min-width: 0;
+    }
 
-### File: `scripts/knia_fault_ratio.json`
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 
-- size: `948,612` bytes
+    .card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(145deg, var(--panel), var(--panel-2));
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.24);
+      padding: clamp(16px, 2.2vw, 24px);
+    }
 
-```json
-{
-  "metadata": {
-    "site": "자동차사고 과실비율 분쟁심의위원회 / 과실비율 정보포털",
-    "base_url": "https://accident.knia.or.kr",
-    "start_urls": [
-      "https://accident.knia.or.kr/myaccident1",
-      "https://accident.knia.or.kr/myaccident2",
-      "https://accident.knia.or.kr/myaccident3",
-      "https://accident.knia.or.kr/myaccident4",
-      "https://accident.knia.or.kr/myaccident5"
-    ],
-    "collected_at": "2026-05-13T20:48:53",
-    "description": "myaccident1~5 페이지의 기본 HTML, 아코디언 클릭 후 DOM 변화, 클릭으로 연결되는 상세 페이지, Ajax/Fetch 응답을 수집한 JSON 데이터"
-  },
-  "pages": [
-    {
-      "start_url": "https://accident.knia.or.kr/myaccident1",
-      "initial_snapshot": {
-        "label": "initial",
-        "url": "https://accident.knia.or.kr/myaccident1",
-        "captured_at": "2026-05-13T20:49:06",
-        "trigger": null,
-        "content_hash": "bb1e653b7b83e4910298369bbfb96ac3ad36529477301eda8351b015c7690039",
-        "title": "나의 과실비율 알아보기 | 과실비율 인정기준 | 자동차사고 과실비율 분쟁심의위원회",
-        "headings": [],
-        "text": "나의 과실비율 알아보기 | 과실비율 인정기준 | 자동차사고 과실비율 분쟁심의위원회 홈페이지에 17,858,213번째로 방문하셨습니다. 과실비율의 이해 과실비율 인정기준 과실비율 분쟁심의위원회 자료실 과실비율 법률상담 과실비율의 이해 과실비율이란? 과실상계 절차와 근거 과실분쟁해결 이야기 과실비율 FAQ 과실비율 용어해설 과실비율 인정기준 과실비율 인정기준이란? 나의 과실비율 알아보기 과실비율 검색순위 비정형 과실비율 기준 개정 건의함 과실비율 분쟁심의위원회 심의위원장 인사말 심의위원회 소개 심의제도 소개 심의위원 및 심의사례 자료실 홍보자료 기준정보 연구자료 설명자료 과실비율상담 인터넷 상담 과실분쟁 상담사례 과실비율 인정기준 ▶ 나의 과실비율 알아보기 나의 과실비율 알아보기 과실비율 인정기준이란? 나의 과실비율 알아보기 과실비율 검색순위 비정형 과실비율 기준 개정 건의함 검 색 교차로(+자로, T자로 등) 사고 양쪽 신호등 있는 교차로 직진 대 직진 사고 - 상대차량이 측면에서 진입 차1-1 녹색직진 대 적색직진 차1-2 녹색 직진 대 녹색이나 황색 진입 적색 충돌 차1-3 황색 직진 대 적색 직진 차1-4 적색 직진 대 적색 직진 차1-5 적색점멸 직진 대 황색점멸 직진 직진 대 좌회전 사고 - 상대차량이 맞은편에서 진입 차2-1 적색직진 대 녹색화살표 신호좌회전 차2-2 녹색직진 대 녹색(적색)신호위반 좌회전 차2-3 황색직진 대 녹색신호위반 좌회전 진입 후 황색에 충돌 차2-4 황(적)색 직진 대 황(적)색 좌회전(동일신호) 차2-5 녹색 직진 대 녹색이나 황색 진입 적색 충돌 차2-6 녹색 비보호 좌회전 대 맞은편 녹색 직진 직진 대 좌회전 사고 - 상대차량이 측면 방향에서 진입 차3-1 적색직진 대 녹색화살표 좌회전 차3-2 적색직진 대 적색좌회전 차3-3 황색 직진 대(對) 적색 좌회전 차3-4 적색 직진 대(對) 황색 좌회전 차3-5 녹색화살표 또는 황색에 좌회전 진입 대 녹색직진 차3-6 녹색직진 대 적색좌회전 차3-7 적색점멸좌회전 대 황색점멸직진 차3-8 적색점멸직진 대 황색점멸좌회전 좌회전 대 우회전 - 상대차량이 맞은편에서 진입 차4-1 녹색화살표 좌회전 대 맞은편 우회전 차4-2 비보호 좌회전 대 맞은편 우회전 한쪽 신호등 있는 교차로(상대차량이 측면에서 진입) 직진 대 우회전 사고 차5-1 신호직진 대 우회전 차5-2 보행자신호 우회전 대 녹색신호직진 직진 대 직진(좌회전 포함) 사고 차6-1 신호직진 대 직진(좌회전) 한쪽 지시표지 있는 교차로 직진 대 직진 차7-1 직진 대 일시정지위반 직진 차7-2 직진 대 일방통행위반 직진 (측면 진입) 직진 대 좌회전 차8-1 직진 대 일시정지위반 좌회전 차8-2 일시정지 위반 직진 대 오른쪽 좌회전 차8-3 일시정지위반 직진 대 왼쪽 좌회전 직진 대 우회전 차9-1 일시정지위반 우회전 대 왼쪽 직진 차9-2 일시정지위반 직진 대 오른쪽 우회전 좌회전 대 일시정지위반좌회전 차10-1 일시정지 위반 좌회전 대 좌회전 교차로 노면 표시 위반 사고 교차로 노면 표시 위반 사고 차11-1 좌회전 노면표시 차로에서 직진 사고(신호 있음) - 좌회전차로위반 직진 대 직진좌회전차로에서 좌회전 차11-2 직진 노면표시 차로에서 좌회전 사고(신호 있음) - 직진좌회전차로 직진 대 직진차로위반 좌회전 차11-3 좌측 동시노면표시 위반(신호 없음) - 좌회전 차로에서 직진 대 직진차로에서 좌회전 사고(신호 없음) 차11-4 직진 노면표시 차로에서 우회전 사고(신호 있음) - 직진차로위반 추월우회전 대 직진우회전차로 직진 차11-5 우회전전용 노면표시차로 직진사고 (신호있음)-직진우회전차로 선행 우회전 대 우회전 전용차로 후행직진 차11-6 우회전차로 직진 대 직진차로 우회전(신호 없음) 신호등 없는 교차로 직진 대 직진 사고 차12-1 우측도로 직진 대 좌측도로 직진(동일폭) 차12-2 대로 직진 대 소로 직진 직진 대 우회전 사고 - 상대차량이 측면에서 진입 차13-1 오른쪽 우회전 대 왼쪽 직진 차13-2 왼쪽직진 교차로 내 진로변경 대 오른쪽 우회전 차13-3 오른쪽소로 우회전 대 왼쪽대로 직진 차13-4 오른쪽대로 우회전 대 왼쪽소로 직진 직진 대 우회전 사고 - 상대차량이 맞은편에서 진입 차14-1 동일폭 이면도로 사거리(十자)에서 우회전 대 우->좌 직진 직진 대 좌회전 사고 - 상대차량이 맞은편에서 진입 차15-1 직진 대 맞은편 좌회전 직진 대 좌회전 사고 - 상대차량이 측면에서 진입 차16-1 왼쪽 직진 대 오른쪽 좌회전 차16-2 오른쪽 직진 대 왼쪽 좌회전 차16-3 대로 직진 대 좌/우 소로 좌회전 차16-4 소로 직진 대 오른쪽 대로 좌회전 차16-5 소로 직진 대 왼쪽 대로 좌회전 좌회전 대 좌회전 차17-1 오른쪽 도로 좌회전 대 왼쪽 도로 좌회전 사고(동일폭 도로) 차17-2 소로 좌회전 대 대로 좌회전 좌회전 대 우회전 차18-1 중앙선 없는 이면도로에서 우회전 대 우측 좌회전 차18-2 신호 없는 사거리(十자) 교차로에서 좌회전 대 맞은편 우회전 교차로 부근 동시 우회전 내지 좌회전 사고 2개 차량이 나란히 통행 가능한 차로폭에서의 사고 차19-1 후행 직진 대 선행 좌(우)회전 동시 우회전 사고 차20-1 우측 우회전 대 좌측 우회전 차20-2 후행 우측 좁은 공간 끼어들기 대 선행 좌측 일시정지 대기 후 출발 동시 좌회전 사고 차21-1 좌측 좌회전 대 우측 좌회전 마주보는 방향 진행차량 상호 간의 사고 중앙선 침범 사고 차31-1 직진 대 중앙선 침범 역주행 차31-2 도로가 아닌 장소에서 도로로 좌회전 진입 차31-3 직진 대 중앙선침범 좌회전(유턴) 차31-4 정차 후 후진 대 맞은편 중앙선침범 좌회전(유턴) 중앙선 없거나 중앙선침범 미적용 도로에서 교행 사고 차32-1 직진 대 맞은편 직진(교행사고) 직진(우회전)차와 유턴차 사이의 사고 차33-1 직진 대(對) 유턴 차33-2 우회전 대(對) 유턴 같은 방향 진행차량 상호 간의 사고 안전거리미확보로 인한 추돌사고 차41-1 양 차량 주행 중 후방 추돌(앞차량 정지 직후 포함) 주정차 차량 추돌사고 차42-1 차로 주·정차 중 재추돌(2차) 사고(고속도로등 포함) 차42-2 일반 도로 가장자리(갓길포함) 주·정차 차42-3 고속도로(자동차전용도로 포함) 갓길 주·정차 중 추돌 진로변경 사고 차43-1 차로 감소 도로 (합류) 사고 차43-2 후행 직진 대 선행 진로변경 차43-3 좌우 동시 차로 변경(진로 변경) 사고 차43-4 정체 중 급 차로 변경 사고 차43-5 동일차로 후행차 선 진로변경 대 선행차 후 진로변경 차43-6 갓길로 진로변경 대 갓길 직진 차43-7 안전지대 통과 직진 대 선행 진로변경 도로로 진입하는 차와 직진차와의 사고 차44-1 직진 대 도로가 아닌 장소에서 도로로 우회전 진입 앞지르기 금지 장소에서 추월사고 차45-1 황색실선 추월 직진(좌회전) 대 선행 좌회전 차45-2 동일차로 내 우측 급진입 추월 이륜차 대 선행 우회전 차45-3 선행 직진 대 후행 좌측 앞지르기(금지 장소) 차45-4 정체중 후행 중앙선 침범 추월 대 선행 중앙선침범 추월 차45-5 선행 직진 대 후행 근접거리 추월(황색점선 중앙선) 차45-6 후행 흰색 실선 앞지르기 대 선행 직진 선행 유턴 대 후행 유턴 사고 차46-1 양 차량 유턴 사고 정차 후 출발 대 직진(우회전) 사고 차47-1 정차 후 출발 대 직진(우회전) 사고 차47-2 정차후 출발차량과 그 앞으로 진로변경(교차로 아닌 곳) 차47-3 버스정류장에서 정차후 출발 버스와 그 앞으로 진로변경 낙하물 사고 차48-1 선행차량의 적재물 낙하 기타 유형의 사고(주차장,회전교차로 등) 주차장 사고 차51-1 통로주행 대 주차구획 출차 차51-2 주차구획으로 선행진입 개시 대 통로진행 추월 문 열림 사고 차52-1 후행 직진 대 문 열림 횡단보도 횡단 차량 차53-1 횡단보도(보행자적색) 횡단 대 신호에 따라 직진(좌회전) 회전교차로 사고 차54-1 회전 1차로 회전 대 진입 차54-2 회전 2차로 이상 회전 대 대(大)진입 차54-3 회전 2차로 이상 회전진출 대 진입 차54-4 회전 2차로 이상 회전진출 대 회전 차54-5 회전교차로 내로 좌우 동시 진입 긴급자동차 사고 차55-1 녹색직진 대 긴급자동차 적색직진 차55-2 직진 대 맞은편에서 긴급자동차 좌측통행 차55-3 좌회전(유턴) 대 같은방향에서 긴급자동차 좌측통행 차55-4 대로주행 대 긴급자동차 소로 주행 사고 차55-5 선행 직진 대 후행 긴급자동차 차55-6 긴급자동차 진로변경 사고 차55-7 진로변경 대 긴급자동차 직진 자동차 대 이륜차 특수유형 자동차 대 이륜차 특수유형 차61-1 신호 없는 교차로 정체차량 우측 좁은 공간 이륜차 직진 대 맞은편 좌회전(측면 직진) 차61-2 이륜차 보도(인도) 주행 대 자동차의 도로가 아닌 장소로 우회전 차61-3 후행이륜차 우측직진 대 선행정차 우측 문열림 사고 서울특별시 종로구 종로1길 50, 케이트윈타워 B동 15층 Copyrightⓒ 2026 General Insurance Association of Korea, All Rights Reserved 개인정보처리방침",
-        "visible_items": [
-          {
-            "text": "과실비율의 이해",
-            "tag": "li",
-            "class_name": "",
-            "left": 433,
-            "top": 85,
-            "href": null,
-            "depth": 19
-          },
-          {
-            "text": "과실비율의 이해",
-            "tag": "a",
-            "class_name": "",
-            "left": 433,
-            "top": 87,
-            "href": "https://accident.knia.or.kr/about",
-            "depth": 19
-          },
-          {
-            "text": "과실비율 인정기준",
-            "tag": "li",
-            "class_name": "",
-            "left": 563,
-            "top": 85,
-            "href": null,
-            "depth": 26
-          },
-          {
-            "text": "과실비율 인정기준",
-            "tag": "a",
-            "class_name": "",
-            "left": 563,
-            "top": 87,
-            "href": "https://accident.knia.or.kr/index",
-            "depth": 26
-          },
-          {
-            "text": "과실비율 분쟁심의위원회",
-            "tag": "li",
-            "class_name": "",
-            "left": 708,
-            "top": 85,
-            "href": null,
-            "depth": 34
-          },
-          {
-            "text": "과실비율 분쟁심의위원회",
-            "tag": "a",
-            "class_name": "",
-            "left": 708,
-            "top": 87,
-            "href": "https://accident.knia.or.kr/greeting",
-            "depth": 34
-          },
-          {
-            "text": "자료실",
-            "tag": "li",
-            "class_name": "",
-            "left": 899,
-            "top": 85,
-            "href": null,
-            "depth": 45
-          },
-          {
-            "text": "자료실",
-            "tag": "a",
-            "class_name": "",
-            "left": 899,
-            "top": 87,
-            "href": "https://accident.knia.or.kr/pr",
-            "depth": 45
-          },
-          {
-            "text": "과실비율 법률상담",
-            "tag": "li",
-            "class_name": "",
-            "left": 965,
-            "top": 85,
-            "href": null,
-            "depth": 48
-          },
-          {
-            "text": "과실비율 법률상담",
-            "tag": "a",
-            "class_name": "",
-            "left": 965,
-            "top": 87,
-            "href": "https://accident.knia.or.kr/qna",
-            "depth": 48
-          },
-          {
-            "text": "과실비율 인정기준이란?",
-            "tag": "li",
-            "class_name": "subm_five",
-            "left": 98,
-            "top": 306,
-            "href": null,
-            "depth": 0
-          },
-          {
-            "text": "과실비율 인정기준이란?",
-            "tag": "a",
-            "class_name": "",
-            "left": 136,
-            "top": 325,
-            "href": "https://accident.knia.or.kr/index",
-            "depth": 2
-          },
-          {
-            "text": "나의 과실비율 알아보기",
-            "tag": "li",
-            "class_name": "subm_fiveon",
-            "left": 331,
-            "top": 306,
-            "href": null,
-            "depth": 13
-          },
-          {
-            "text": "과실비율 검색순위",
-            "tag": "li",
-            "class_name": "subm_five",
-            "left": 564,
-            "top": 306,
-            "href": null,
-            "depth": 26
-          },
-          {
-            "text": "과실비율 검색순위",
-            "tag": "a",
-            "class_name": "",
-            "left": 622,
-            "top": 325,
-            "href": "https://accident.knia.or.kr/ranking",
-            "depth": 29
-          },
-          {
-            "text": "비정형 과실비율",
-            "tag": "li",
-            "class_name": "subm_five",
-            "left": 797,
-            "top": 306,
-            "href": null,
-            "depth": 39
-          },
-          {
-            "text": "비정형 과실비율",
-            "tag": "a",
-            "class_name": "",
-            "left": 862,
-            "top": 325,
-            "href": "https://accident.knia.or.kr/special",
-            "depth": 42
-          },
-          {
-            "text": "기준 개정 건의함",
-            "tag": "li",
-            "class_name": "subm_five",
-            "left": 1029,
-            "top": 306,
-            "href": null,
-            "depth": 52
-          },
-          {
-            "text": "기준 개정 건의함",
-            "tag": "a",
-            "class_name": "",
-            "left": 1093,
-            "top": 325,
-            "href": "https://accident.knia.or.kr/proposal",
-            "depth": 55
-          },
-          {
-            "text": "검 색",
-            "tag": "button",
-            "class_name": "search_myaccident",
-            "left": 1124,
-            "top": 582,
-            "href": null,
-            "depth": 57
-          },
-          {
-            "text": "교차로(+자로, T자로 등) 사고",
-            "tag": "li",
-            "class_name": "",
-            "left": 158,
-            "top": 677,
-            "href": null,
-            "depth": 3
-          },
-          {
-            "text": "교차로(+자로, T자로 등) 사고",
-            "tag": "a",
-            "class_name": "",
-            "left": 158,
-            "top": 677,
-            "href": null,
-            "depth": 3
-          },
-          {
-            "text": "마주보는 방향 진행차량 상호 간의 사고",
-            "tag": "li",
-            "class_name": "",
-            "left": 158,
-            "top": 737,
-            "href": null,
-            "depth": 3
-          },
-          {
-            "text": "마주보는 방향 진행차량 상호 간의 사고",
-            "tag": "a",
-            "class_name": "",
-            "left": 158,
-            "top": 737,
-            "href": null,
-            "depth": 3
-          },
-          {
-            "text": "같은 방향 진행차량 상호 간의 사고",
-            "tag": "li",
-            "class_name": "",
-            "left": 158,
-            "top": 797,
-            "href": null,
-            "depth": 3
-          },
-          {
-            "text": "같은 방향 진행차량 상호 간의 사고",
-            "tag": "a",
-            "class_name": "",
-            "left": 158,
-            "top": 797,
-            "href": null,
-            "depth": 3
-          },
-          {
-            "text": "기타 유형의 사고(주차장,회전교차로 등)",
-            "tag": "li",
-            "class_name": "",
-            "left": 158,
-            "top": 857,
-            "href": null,
-            "depth": 3
-          },
-          {
-            "text": "기타 유형의 사고(주차장,회전교차로 등)",
-            "tag": "a",
-            "class_name": "",
-            "left": 158,
-            "top": 857,
-            "href": null,
-            "depth": 3
-          },
-          {
-            "text": "자동차 대 이륜차 특수유형",
-            "tag": "li",
-            "class_name": "",
-            "left": 158,
-            "top": 917,
-            "href": null,
-            "depth": 3
-          },
-          {
-            "text": "자동차 대 이륜차 특수유형",
-            "tag": "a",
-            "class_name": "",
-            "left": 158,
-            "top": 917,
-            "href": null,
-            "depth": 3
-          },
-          {
-            "text": "개인정보처리방침",
-            "tag": "button",
-            "class_name": "",
-            "left": 98,
-            "top": 1159,
-            "href": null,
-            "depth": 0
-          }
-        ],
-        "links": [
-          {
-            "text": "",
-            "href": "https://accident.knia.or.kr/",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율의 이해",
-            "href": "https://accident.knia.or.kr/about",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율 인정기준",
-            "href": "https://accident.knia.or.kr/index",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율 분쟁심의위원회",
-            "href": "https://accident.knia.or.kr/greeting",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "자료실",
-            "href": "https://accident.knia.or.kr/pr",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율 법률상담",
-            "href": "https://accident.knia.or.kr/qna",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "",
-            "href": "http://pf.kakao.com/_euLTs",
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "",
-            "href": "https://accident.knia.or.kr/",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율이란?",
-            "href": "https://accident.knia.or.kr/about",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실상계 절차와 근거",
-            "href": "https://accident.knia.or.kr/process",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실분쟁해결 이야기",
-            "href": "https://accident.knia.or.kr/story",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율 FAQ",
-            "href": "https://accident.knia.or.kr/faq",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율 용어해설",
-            "href": "https://accident.knia.or.kr/define",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율 인정기준이란?",
-            "href": "https://accident.knia.or.kr/index",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "나의 과실비율 알아보기",
-            "href": "https://accident.knia.or.kr/myaccident1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율 검색순위",
-            "href": "https://accident.knia.or.kr/ranking",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "비정형 과실비율",
-            "href": "https://accident.knia.or.kr/special",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "기준 개정 건의함",
-            "href": "https://accident.knia.or.kr/proposal",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "심의위원장 인사말",
-            "href": "https://accident.knia.or.kr/greeting",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "심의위원회 소개",
-            "href": "https://accident.knia.or.kr/introduction",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "심의제도 소개",
-            "href": "https://accident.knia.or.kr/system",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "심의위원 및 심의사례",
-            "href": "https://accident.knia.or.kr/executive",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "홍보자료",
-            "href": "https://accident.knia.or.kr/pr",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "기준정보",
-            "href": "https://accident.knia.or.kr/standard",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "연구자료",
-            "href": "https://accident.knia.or.kr/research",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "설명자료",
-            "href": "https://accident.knia.or.kr/press",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "인터넷 상담",
-            "href": "https://accident.knia.or.kr/qna",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실분쟁 상담사례",
-            "href": "https://accident.knia.or.kr/qnaCase",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "",
-            "href": "https://accident.knia.or.kr/",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율 인정기준이란?",
-            "href": "https://accident.knia.or.kr/index",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "과실비율 검색순위",
-            "href": "https://accident.knia.or.kr/ranking",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "비정형 과실비율",
-            "href": "https://accident.knia.or.kr/special",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "기준 개정 건의함",
-            "href": "https://accident.knia.or.kr/proposal",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "",
-            "href": "https://accident.knia.or.kr/myaccident3",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "",
-            "href": "https://accident.knia.or.kr/myaccident5",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "",
-            "href": "https://accident.knia.or.kr/myaccident3",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "",
-            "href": "https://accident.knia.or.kr/myaccident5",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "교차로(+자로, T자로 등) 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "양쪽 신호등 있는 교차로",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 직진 사고 - 상대차량이 측면에서 진입",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차1-1 녹색직진 대 적색직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차1-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차1-2 녹색 직진 대 녹색이나 황색 진입 적색 충돌",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차1-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차1-3 황색 직진 대 적색 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차1-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차1-4 적색 직진 대 적색 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차1-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차1-5 적색점멸 직진 대 황색점멸 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차1-5&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 좌회전 사고 - 상대차량이 맞은편에서 진입",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차2-1 적색직진 대 녹색화살표 신호좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차2-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차2-2 녹색직진 대 녹색(적색)신호위반 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차2-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차2-3 황색직진 대 녹색신호위반 좌회전 진입 후 황색에 충돌",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차2-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차2-4 황(적)색 직진 대 황(적)색 좌회전(동일신호)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차2-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차2-5 녹색 직진 대 녹색이나 황색 진입 적색 충돌",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차2-5&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차2-6 녹색 비보호 좌회전 대 맞은편 녹색 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차2-6&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 좌회전 사고 - 상대차량이 측면 방향에서 진입",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차3-1 적색직진 대 녹색화살표 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차3-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차3-2 적색직진 대 적색좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차3-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차3-3 황색 직진 대(對) 적색 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차3-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차3-4 적색 직진 대(對) 황색 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차3-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차3-5 녹색화살표 또는 황색에 좌회전 진입 대 녹색직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차3-5&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차3-6 녹색직진 대 적색좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차3-6&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차3-7 적색점멸좌회전 대 황색점멸직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차3-7&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차3-8 적색점멸직진 대 황색점멸좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차3-8&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "좌회전 대 우회전 - 상대차량이 맞은편에서 진입",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차4-1 녹색화살표 좌회전 대 맞은편 우회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차4-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차4-2 비보호 좌회전 대 맞은편 우회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차4-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "한쪽 신호등 있는 교차로(상대차량이 측면에서 진입)",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 우회전 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차5-1 신호직진 대 우회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차5-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차5-2 보행자신호 우회전 대 녹색신호직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차5-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 직진(좌회전 포함) 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차6-1 신호직진 대 직진(좌회전)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차6-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "한쪽 지시표지 있는 교차로",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 직진",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차7-1 직진 대 일시정지위반 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차7-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차7-2 직진 대 일방통행위반 직진 (측면 진입)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차7-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 좌회전",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차8-1 직진 대 일시정지위반 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차8-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차8-2 일시정지 위반 직진 대 오른쪽 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차8-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차8-3 일시정지위반 직진 대 왼쪽 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차8-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 우회전",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차9-1 일시정지위반 우회전 대 왼쪽 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차9-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차9-2 일시정지위반 직진 대 오른쪽 우회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차9-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "좌회전 대 일시정지위반좌회전",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차10-1 일시정지 위반 좌회전 대 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차10-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "교차로 노면 표시 위반 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "교차로 노면 표시 위반 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차11-1 좌회전 노면표시 차로에서 직진 사고(신호 있음) - 좌회전차로위반 직진 대 직진좌회전차로에서 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차11-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차11-2 직진 노면표시 차로에서 좌회전 사고(신호 있음) - 직진좌회전차로 직진 대 직진차로위반 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차11-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차11-3 좌측 동시노면표시 위반(신호 없음) - 좌회전 차로에서 직진 대 직진차로에서 좌회전 사고(신호 없음)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차11-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차11-4 직진 노면표시 차로에서 우회전 사고(신호 있음) - 직진차로위반 추월우회전 대 직진우회전차로 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차11-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차11-5 우회전전용 노면표시차로 직진사고 (신호있음)-직진우회전차로 선행 우회전 대 우회전 전용차로 후행직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차11-5&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차11-6 우회전차로 직진 대 직진차로 우회전(신호 없음)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차11-6&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "신호등 없는 교차로",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 직진 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차12-1 우측도로 직진 대 좌측도로 직진(동일폭)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차12-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차12-2 대로 직진 대 소로 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차12-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 우회전 사고 - 상대차량이 측면에서 진입",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차13-1 오른쪽 우회전 대 왼쪽 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차13-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차13-2 왼쪽직진 교차로 내 진로변경 대 오른쪽 우회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차13-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차13-3 오른쪽소로 우회전 대 왼쪽대로 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차13-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차13-4 오른쪽대로 우회전 대 왼쪽소로 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차13-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 우회전 사고 - 상대차량이 맞은편에서 진입",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차14-1 동일폭 이면도로 사거리(十자)에서 우회전 대 우->좌 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차14-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 좌회전 사고 - 상대차량이 맞은편에서 진입",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차15-1 직진 대 맞은편 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차15-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "직진 대 좌회전 사고 - 상대차량이 측면에서 진입",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차16-1 왼쪽 직진 대 오른쪽 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차16-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차16-2 오른쪽 직진 대 왼쪽 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차16-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차16-3 대로 직진 대 좌/우 소로 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차16-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차16-4 소로 직진 대 오른쪽 대로 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차16-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차16-5 소로 직진 대 왼쪽 대로 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차16-5&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "좌회전 대 좌회전",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차17-1 오른쪽 도로 좌회전 대 왼쪽 도로 좌회전 사고(동일폭 도로)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차17-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차17-2 소로 좌회전 대 대로 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차17-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "좌회전 대 우회전",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차18-1 중앙선 없는 이면도로에서 우회전 대 우측 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차18-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차18-2 신호 없는 사거리(十자) 교차로에서 좌회전 대 맞은편 우회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차18-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "교차로 부근 동시 우회전 내지 좌회전 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "2개 차량이 나란히 통행 가능한 차로폭에서의 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차19-1 후행 직진 대 선행 좌(우)회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차19-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "동시 우회전 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차20-1 우측 우회전 대 좌측 우회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차20-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차20-2 후행 우측 좁은 공간 끼어들기 대 선행 좌측 일시정지 대기 후 출발",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차20-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "동시 좌회전 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차21-1 좌측 좌회전 대 우측 좌회전",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차21-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "마주보는 방향 진행차량 상호 간의 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "중앙선 침범 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차31-1 직진 대 중앙선 침범 역주행",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차31-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차31-2 도로가 아닌 장소에서 도로로 좌회전 진입",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차31-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차31-3 직진 대 중앙선침범 좌회전(유턴)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차31-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차31-4 정차 후 후진 대 맞은편 중앙선침범 좌회전(유턴)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차31-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "중앙선 없거나 중앙선침범 미적용 도로에서 교행 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차32-1 직진 대 맞은편 직진(교행사고)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차32-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "직진(우회전)차와 유턴차 사이의 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차33-1 직진 대(對) 유턴",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차33-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차33-2 우회전 대(對) 유턴",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차33-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "같은 방향 진행차량 상호 간의 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "안전거리미확보로 인한 추돌사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차41-1 양 차량 주행 중 후방 추돌(앞차량 정지 직후 포함)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차41-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "주정차 차량 추돌사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차42-1 차로 주·정차 중 재추돌(2차) 사고(고속도로등 포함)",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차42-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차42-2 일반 도로 가장자리(갓길포함) 주·정차",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차42-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차42-3 고속도로(자동차전용도로 포함) 갓길 주·정차 중 추돌",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차42-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "진로변경 사고",
-            "href": null,
-            "is_same_site": false,
-            "is_asset": false
-          },
-          {
-            "text": "차43-1 차로 감소 도로 (합류) 사고",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차43-1&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차43-2 후행 직진 대 선행 진로변경",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차43-2&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차43-3 좌우 동시 차로 변경(진로 변경) 사고",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차43-3&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차43-4 정체 중 급 차로 변경 사고",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차43-4&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차43-5 동일차로 후행차 선 진로변경 대 선행차 후 진로변경",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차43-5&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차43-6 갓길로 진로변경 대 갓길 직진",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차43-6&chartType=1",
-            "is_same_site": true,
-            "is_asset": false
-          },
-          {
-            "text": "차43-7 안전지대 통과 직진 대 선행 진로변경",
-            "href": "https://accident.knia.or.kr/myaccident-content?chartNo=차43-7&chartType=1",
-            "is_sam
+    .card strong {
+      color: var(--text-main);
+    }
 
-... [TRUNCATED: 789,147 chars omitted] ...
+    .metric {
+      display: grid;
+      gap: 4px;
+    }
+
+    .metric strong {
+      color: var(--accent-strong);
+      font-size: clamp(1.8rem, 4vw, 3.4rem);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 6px 12px;
+      border: 1px solid rgba(201, 169, 98, 0.34);
+      border-radius: 999px;
+      background: rgba(232, 223, 212, 0.08);
+      color: var(--text-sub);
+      font-size: 0.88rem;
+      font-weight: 800;
+    }
+
+    .tag.gold {
+      background: rgba(201, 169, 98, 0.16);
+      color: var(--accent-strong);
+    }
+
+    .diagram {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(110px, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .node {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 116px;
+      padding: 14px;
+      border: 1px solid rgba(201, 169, 98, 0.3);
+      border-radius: 16px;
+      background: rgba(28, 23, 20, 0.56);
+      text-align: center;
+      color: var(--text-main);
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    .node span {
+      display: block;
+      margin-top: 6px;
+      color: var(--text-sub);
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .arrow {
+      display: grid;
+      place-items: center;
+      color: var(--accent-strong);
+      font-size: 1.8rem;
+      font-weight: 900;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(28, 23, 20, 0.4);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 780px;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(201, 169, 98, 0.16);
+      text-align: left;
+      vertical-align: top;
+      color: var(--text-sub);
+      line-height: 1.45;
+      word-break: keep-all;
+    }
+
+    th {
+      color: var(--text-main);
+      background: rgba(201, 169, 98, 0.11);
+      font-size: 0.9rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    td strong {
+      color: var(--accent-strong);
+    }
+
+    .ratio-bar {
+      display: flex;
+      width: 100%;
+      height: 42px;
+      overflow: hidden;
+      border: 1px solid rgba(201, 169, 98, 0.38);
+      border-radius: 999px;
+      background: rgba(28, 23, 20, 0.58);
+    }
+
+    .ratio-a,
+    .ratio-b {
+      display: grid;
+      place-items: center;
+      min-width: 0;
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ratio-a {
+      background: linear-gradient(135deg, #8b2635, #b84b55);
+      color: #fff2f2;
+    }
+
+    .ratio-b {
+      background: linear-gradient(135deg, #b8953f, #d4b872);
+      color: #1c1714;
+    }
+
+    .warning {
+      border-color: rgba(215, 181, 109, 0.52);
+      background: rgba(215, 181, 109, 0.12);
+    }
+
+    .video-frame {
+      width: min(100%, 780px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #080605;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    video {
+      display: block;
+      width: 100%;
+      max-height: 420px;
+      background: #050403;
+    }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--text-faint);
+      font-size: 0.9rem;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .controls button {
+      min-width: 42px;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(232, 223, 212, 0.08);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+    }
+
+    .controls button:hover {
+      border-color: rgba(201, 169, 98, 0.62);
+      background: rgba(201, 169, 98, 0.14);
+    }
+
+    .progress {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 4px;
+      background: rgba(232, 223, 212, 0.08);
+    }
+
+    .progress span {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+      transition: width 180ms ease;
+    }
+
+    code {
+      border: 1px solid rgba(201, 169, 98, 0.2);
+      border-radius: 8px;
+      background: rgba(15, 12, 10, 0.64);
+      color: var(--paper);
+      padding: 2px 6px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      overflow: auto;
+      border: 1px solid rgba(201, 169, 98, 0.22);
+      border-radius: 16px;
+      background: rgba(15, 12, 10, 0.72);
+      color: var(--paper);
+      padding: 16px;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        overflow: auto;
+      }
+
+      .deck {
+        height: auto;
+        min-height: 100vh;
+      }
+
+      .slide {
+        position: relative;
+        display: none;
+        min-height: 100vh;
+      }
+
+      .slide.active {
+        display: grid;
+      }
+
+      .grid,
+      .grid.three,
+      .diagram,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        transform: rotate(90deg);
+      }
+
+      table {
+        min-width: 720px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck" id="deck">
+    <section class="slide active" data-title="title">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">LawCompass</p>
+          <h1>교통사고 AI 분석 도우미</h1>
+          <p class="hero-copy">영상, 사고 질문, KNIA 과실비율 인정기준, 법률 근거를 하나의 사용자 리포트로 연결하는 MSA 기반 AI 분석 시스템입니다.</p>
+        </div>
+      </header>
+      <div class="content">
+        <div class="tag-row">
+          <span class="tag gold">Vue 3 Frontend</span>
+          <span class="tag gold">Fastify Gateway</span>
+          <span class="tag gold">FastAPI Agent</span>
+          <span class="tag gold">Redis Stream Worker</span>
+          <span class="tag gold">PostgreSQL + pgvector</span>
+          <span class="tag gold">KNIA RAG</span>
+        </div>
+      </div>
+      <footer class="footer"><span>2026-05-30</span><span>실제 코드 및 실행 가능한 로컬 시나리오 기준</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">Problem</p>
+          <h2>사고 당사자가 바로 이해할 수 있는 결과가 필요합니다</h2>
+        </div>
+      </header>
+      <div class="content grid">
+        <article class="card">
+          <h3>사용자 입장</h3>
+          <ul>
+            <li>영상과 사고 정황을 어떻게 설명해야 하는지 어렵습니다.</li>
+            <li>과실비율 기준, 법규, 보험 절차가 분리되어 있습니다.</li>
+            <li>전문가 문서를 그대로 보여주면 일반 사용자가 이해하기 어렵습니다.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>시스템 목표</h3>
+          <ul>
+            <li>사고 유형을 안정적으로 분류합니다.</li>
+            <li>KNIA 기준과 법률 근거를 함께 확인합니다.</li>
+            <li>일반 사용자 화면과 고급진단 화면을 분리합니다.</li>
+            <li>결과가 불확실하면 조건부 결과와 추가 확인 사항으로 표현합니다.</li>
+          </ul>
+        </article>
+      </div>
+      <footer class="footer"><span>01</span><span>문제 정의</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">Architecture</p>
+          <h2>단일 앱이 아니라 역할을 분리한 MSA입니다</h2>
+        </div>
+      </header>
+      <div class="content">
+        <div class="flow">
+          <div class="node">Frontend<span>Vue, Vite, SPA UI</span></div>
+          <div class="arrow">→</div>
+          <div class="node">Gateway<span>Fastify API, auth, report composer</span></div>
+          <div class="arrow">→</div>
+          <div class="node">Agent<span>FastAPI, AI orchestration, RAG</span></div>
+        </div>
+        <div style="height:14px"></div>
+        <div class="diagram">
+          <div class="node">Worker<span>Redis Stream jobs</span></div>
+          <div class="node">Postgres<span>case data, pgvector</span></div>
+          <div class="node">Redis<span>queue, cache, pubsub</span></div>
+          <div class="node">Storage<span>local default, S3/NAS adapter</span></div>
+          <div class="node">Caddy Edge<span>frontend/API routing</span></div>
+        </div>
+      </div>
+      <footer class="footer"><span>02</span><span>Service boundaries</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">Runtime Flow</p>
+          <h2>사용자 입력부터 리포트까지의 흐름</h2>
+        </div>
+      </header>
+      <div class="content grid three">
+        <article class="card">
+          <h3>1. 사고 정보 수집</h3>
+          <p>일반사용자모드 질문 흐름, 영상 업로드, 사고 유형 선택을 통해 분석에 필요한 사실을 구조화합니다.</p>
+        </article>
+        <article class="card">
+          <h3>2. 비동기 분석</h3>
+          <p>Gateway가 작업을 생성하고 Worker가 Redis Stream을 통해 Agent 분석을 수행합니다.</p>
+        </article>
+        <article class="card">
+          <h3>3. 사용자 리포트</h3>
+          <p>Agent와 Gateway가 KNIA 기준, 법률 근거, 과실비율, 행동 지침을 사용자 화면에 맞게 합성합니다.</p>
+        </article>
+      </div>
+      <footer class="footer"><span>03</span><span>End-to-end flow</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">AI Agent</p>
+          <h2>Agent는 “답변 생성기”보다 사고 판단 파이프라인에 가깝습니다</h2>
+        </div>
+      </header>
+      <div class="content grid">
+        <article class="card">
+          <h3>주요 단계</h3>
+          <ul>
+            <li>프레임/영상 단서와 사용자의 답변을 병합합니다.</li>
+            <li>사고 유형과 당사자 역할을 추론합니다.</li>
+            <li>KNIA 기준과 법률 근거를 검색합니다.</li>
+            <li>과실비율, 조건부 결과, 추가 확인 질문을 구성합니다.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>안전 장치</h3>
+          <ul>
+            <li>영상 단서와 사용자 입력이 충돌하면 검토 필요 상태를 표시합니다.</li>
+            <li>근거가 약한 경우 단정하지 않고 조건부 결과로 낮춥니다.</li>
+            <li>일반 사용자 화면에서는 raw trace와 내부 진단값을 숨깁니다.</li>
+          </ul>
+        </article>
+      </div>
+      <footer class="footer"><span>04</span><span>AI orchestration</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">RAG</p>
+          <h2>KNIA RAG와 법률 RAG를 분리해서 사용합니다</h2>
+        </div>
+      </header>
+      <div class="content grid">
+        <article class="card">
+          <h3>KNIA 기준 검색</h3>
+          <p>차41-1, 차43-2, 보21, 거9-1 같은 기준번호와 사고 유형을 기준으로 유사 기준을 찾아 과실비율을 연결합니다.</p>
+          <div class="tag-row">
+            <span class="tag">chart_no</span>
+            <span class="tag">base fault</span>
+            <span class="tag">adjustments</span>
+            <span class="tag">source/video link</span>
+          </div>
+        </article>
+        <article class="card">
+          <h3>법률 근거 검색</h3>
+          <p>도로교통법, 보고 의무, 형사 리스크 등 일반 법률 근거를 별도 evidence로 수집합니다.</p>
+          <div class="tag-row">
+            <span class="tag">legal evidence</span>
+            <span class="tag">liability</span>
+            <span class="tag">reporting duty</span>
+          </div>
+        </article>
+      </div>
+      <footer class="footer"><span>05</span><span>Retrieval design</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">Fault Ratio</p>
+          <h2>과실비율은 “기준값 + 역할 매핑 + 가감요소”로 계산됩니다</h2>
+        </div>
+      </header>
+      <div class="content grid">
+        <article class="card">
+          <h3>차로변경 예시</h3>
+          <p>KNIA 차43-2의 기본 기준 30:70에서 방향지시등 미사용 같은 가감요소를 반영합니다.</p>
+          <div class="ratio-bar" aria-label="내 20%, 상대 80%">
+            <div class="ratio-a" style="flex:0 0 20%">20%</div>
+            <div class="ratio-b" style="flex:0 0 80%">80%</div>
+          </div>
+        </article>
+        <article class="card">
+          <h3>후미추돌 예시</h3>
+          <p>차41-1 기준에서 사용자를 앞차로 매핑하면 사용자 과실은 0~10%, 상대 과실은 90~100% 범위가 됩니다.</p>
+          <div class="ratio-bar" aria-label="내 0%, 상대 100%">
+            <div class="ratio-a" style="flex:0 0 0%"></div>
+            <div class="ratio-b" style="flex:0 0 100%">100%</div>
+          </div>
+        </article>
+      </div>
+      <footer class="footer"><span>06</span><span>Fault ratio logic</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">Verified Scenarios</p>
+          <h2>로컬 Agent 샘플 시나리오 결과</h2>
+        </div>
+      </header>
+      <div class="content table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>시나리오</th>
+              <th>유형</th>
+              <th>과실비율</th>
+              <th>KNIA</th>
+              <th>요약</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>교차로 신호위반</td>
+              <td>intersection_signal_violation</td>
+              <td><strong>0:100</strong></td>
+              <td>직접 매칭 없음</td>
+              <td>상대 신호위반 여부에 따라 조건부 결과를 제시합니다.</td>
+            </tr>
+            <tr>
+              <td>차로변경 사고</td>
+              <td>lane_change_collision</td>
+              <td><strong>20:80</strong></td>
+              <td>차43-2</td>
+              <td>방향지시등 미사용 조정이 반영됩니다.</td>
+            </tr>
+            <tr>
+              <td>후미추돌</td>
+              <td>rear_end_collision</td>
+              <td><strong>0:100</strong></td>
+              <td>차41-1</td>
+              <td>사용자가 앞차 역할인 후방 추돌 구조로 정리됩니다.</td>
+            </tr>
+            <tr>
+              <td>어린이보호구역 보행자 사고</td>
+              <td>pedestrian_accident</td>
+              <td><strong>70:30</strong></td>
+              <td>보21</td>
+              <td>보행자 기준과 법규 근거가 함께 수집됩니다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <footer class="footer"><span>07</span><span>Sample run results</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">Regression</p>
+          <h2>회귀 시나리오 6개 통과</h2>
+        </div>
+      </header>
+      <div class="content table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>시나리오</th>
+              <th>과실</th>
+              <th>역할</th>
+              <th>KNIA</th>
+              <th>판정</th>
+              <th>근거</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>rear_end_victim</td><td>0:100</td><td>front_vehicle</td><td>차41-1</td><td>evidence_supported</td><td>high</td></tr>
+            <tr><td>video_rear_end_overrides_conflicting_user_fact</td><td>0:100</td><td>front_vehicle</td><td>차41-1</td><td>needs_review</td><td>high</td></tr>
+            <tr><td>opponent_lane_change</td><td>30:70</td><td>straight_vehicle</td><td>차43-2</td><td>needs_review</td><td>medium</td></tr>
+            <tr><td>user_lane_change</td><td>70:30</td><td>lane_changing_vehicle</td><td>차43-2</td><td>needs_review</td><td>medium</td></tr>
+            <tr><td>opponent_signal_violation</td><td>0:100</td><td>signal_compliant_vehicle</td><td>없음</td><td>needs_review</td><td>medium</td></tr>
+            <tr><td>user_bicycle_collision</td><td>60:40</td><td>bicycle</td><td>거9-1</td><td>needs_review</td><td>medium</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <footer class="footer"><span>08</span><span>Regression scenarios</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">test.mp4</p>
+          <h2>실제 영상 E2E는 Docker 데몬 미실행으로 보류되었습니다</h2>
+        </div>
+      </header>
+      <div class="content grid">
+        <article class="card">
+          <h3>확인한 사실</h3>
+          <ul>
+            <li><code>storage/test.mp4</code> 파일은 존재합니다.</li>
+            <li>파일 크기: 5,451,338 bytes</li>
+            <li><code>scripts/video_agent_e2e.py</code>는 업로드부터 easy report 확인까지 자동화합니다.</li>
+          </ul>
+        </article>
+        <article class="card warning">
+          <h3>실행 차단 원인</h3>
+          <p>Docker Desktop Linux engine 파이프가 없어 <code>docker compose ps</code> 단계에서 실패했습니다. 따라서 컨테이너 기반 전체 스택 E2E 결과를 이번 발표에 성공 결과로 기재하지 않았습니다.</p>
+          <pre>docker compose --env-file .env up -d --build --force-recreate
+python scripts/video_agent_e2e.py</pre>
+        </article>
+      </div>
+      <footer class="footer"><span>09</span><span>Truthful E2E status</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">Video Preview</p>
+          <h2>테스트 영상은 발표 파일에서 직접 미리보기 가능합니다</h2>
+        </div>
+      </header>
+      <div class="content">
+        <div class="video-frame">
+          <video controls preload="metadata" src="../storage/test.mp4"></video>
+        </div>
+        <p style="margin-top:14px">브라우저 보안 정책 또는 파일 위치에 따라 로컬 HTML에서 영상 미리보기가 제한될 수 있습니다. 이 경우 저장소의 <code>storage/test.mp4</code>를 직접 열어 확인합니다.</p>
+      </div>
+      <footer class="footer"><span>10</span><span>Local media reference</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">Frontend</p>
+          <h2>일반 사용자 화면은 “판단 결과” 중심으로 정리됩니다</h2>
+        </div>
+      </header>
+      <div class="content grid">
+        <article class="card">
+          <h3>Easy Report</h3>
+          <ul>
+            <li>현재 상황 요약</li>
+            <li>예상 과실비율</li>
+            <li>지금 해야 할 일 3가지</li>
+            <li>확인한 근거와 KNIA 링크</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>고급진단</h3>
+          <ul>
+            <li>Agent process</li>
+            <li>Evidence coverage</li>
+            <li>조건부 판단 구조</li>
+            <li>필요 시 접힘 영역으로 내부 진단 표시</li>
+          </ul>
+        </article>
+      </div>
+      <footer class="footer"><span>11</span><span>User-facing separation</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">Gateway</p>
+          <h2>Gateway는 인증, 라우팅, 리포트 합성을 담당합니다</h2>
+        </div>
+      </header>
+      <div class="content grid three">
+        <article class="card">
+          <h3>Auth</h3>
+          <p>세션 bootstrap, refresh retry, 보호 라우트 접근을 안정화하는 계층입니다.</p>
+        </article>
+        <article class="card">
+          <h3>Case API</h3>
+          <p>케이스 생성, 영상 업로드, 분석 요청, 결과 조회를 프론트엔드에 제공합니다.</p>
+        </article>
+        <article class="card">
+          <h3>Report Composer</h3>
+          <p>Agent 결과를 일반 사용자와 전문가 화면에 맞는 카드 단위 payload로 정리합니다.</p>
+        </article>
+      </div>
+      <footer class="footer"><span>12</span><span>Gateway responsibilities</span></footer>
+    </section>
+
+    <section class="slide">
+      <header class="slide-header">
+        <div>
+          <p class="eyebrow">Worker</p>
+          <h2>Worker는 분석 요청을 비동기로 처리합니다</h2>
+        </div>
+      </header>
+      <div class="content grid">
+        <article class="card">
+          <h3>Redis Stream 기반</h3>
+          <p>Gateway가 분석 작업을 넣고 Wor
+
+... [TRUNCATED: 7,324 chars omitted] ...
 
 ```
 

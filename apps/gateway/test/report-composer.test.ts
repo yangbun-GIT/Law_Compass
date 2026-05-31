@@ -1562,4 +1562,43 @@ describe("report composer", () => {
     expect(card.detected_branch_keys).toContain("centerline");
     expect(card.coverage.detected_ratio).toBeGreaterThan(0);
   });
+
+  it("publishes safe frame interpretation cards without internal storage paths", () => {
+    const enriched = enrichEasyReport(sanitizeEasyReport({ headline: "video report" }), {
+      analysis_mode: "expert",
+      video_input_contract: {
+        version: "video-input-v1",
+        technical_metadata: {
+          representative_frame_count: 1,
+          frame_interpretation_cards: [
+            {
+              frame_ref: "processed/frames/case-1/upload-1/frame_003.jpg",
+              time_sec: 3.2,
+              event_phase: "event",
+              interpretation_summary: "충돌 구간 단서를 확인했습니다.",
+              display_allowed: true,
+              confidence: 0.91,
+              image_ref: {
+                case_id: "case-1",
+                upload_id: "upload-1",
+                frame_ref: "frame_003.jpg",
+                storage_key: "processed/frames/case-1/upload-1/frame_003.jpg",
+                local_cache_path: "/app/storage/cache/frame_003.jpg",
+              },
+              observed_facts: [
+                { field: "impact_visible", value: "충돌 구간", confidence: 0.91, source: "frame_analysis:openai" },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    const card = (enriched as any).video_fact_explanation_card.frame_interpretation_cards[0];
+    expect(card.image_url).toBe("/api/v1/cases/case-1/uploads/upload-1/frames/frame_003.jpg");
+    expect(JSON.stringify(card)).not.toContain("local_cache_path");
+    expect(JSON.stringify(card)).not.toContain("/app/storage");
+    expect(JSON.stringify(card)).not.toContain("storage_key");
+    expect(JSON.stringify(card)).not.toContain("processed/frames");
+  });
 });

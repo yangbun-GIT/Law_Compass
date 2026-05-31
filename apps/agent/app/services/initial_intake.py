@@ -67,9 +67,11 @@ def normalize_initial_intake(
     ) or "unknown"
     natural = _safe_text(source.get("natural_language_description") or "")[:DESCRIPTION_LIMIT]
     upload_id = _safe_text(video_upload_id or source.get("video_upload_id") or "")
+    is_video_only = bool(source.get("is_video_only")) or bool(upload_id and not natural)
     return {
         "version": VERSION,
         "provided": provided,
+        "is_video_only": is_video_only,
         "accident_major_category": major,
         "canonical_party_type": canonical_party_type(major),
         "preliminary_accident_type": preliminary if preliminary != "" else "unknown",

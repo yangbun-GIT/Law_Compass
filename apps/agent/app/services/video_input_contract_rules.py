@@ -19,6 +19,16 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "pedestrian_visible": 0.88,
     "pedestrian_signal": 0.82,
     "school_zone": 0.85,
+    "ego_vehicle_type": 0.78,
+    "speed_limit_kmh": 0.82,
+    "road_marking_school_zone_visible": 0.78,
+    "speed_limit_sign_visible": 0.78,
+    "oncoming_traffic_present": 0.78,
+    "oncoming_bicycle_present": 0.78,
+    "opposing_direction_actor_type": 0.78,
+    "vulnerable_road_user": 0.78,
+    "child_candidate": 0.6,
+    "overlay_text_hint": 0.5,
     "centerline_crossed": 0.86,
     "road_obstruction": 0.84,
     "illegal_parking_obstruction": 0.84,
@@ -33,6 +43,7 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "centerline_cross_reason": 0.78,
     "collision_partner_type": 0.82,
     "primary_collision_target": 0.78,
+    "impact_visible": 0.78,
     "collision_point_visible": 0.84,
     "collision_point_location": 0.78,
     "front_vehicle_stopped": 0.84,
@@ -77,8 +88,19 @@ CONFIRMATION_FIELD_PRIORITIES = {
     "pedestrian_visible": 330,
     "pedestrian_signal": 340,
     "school_zone": 350,
-    "injury": 360,
-    "damage_level": 370,
+    "ego_vehicle_type": 352,
+    "speed_limit_kmh": 354,
+    "road_marking_school_zone_visible": 356,
+    "speed_limit_sign_visible": 358,
+    "oncoming_traffic_present": 360,
+    "oncoming_bicycle_present": 362,
+    "opposing_direction_actor_type": 364,
+    "vulnerable_road_user": 366,
+    "child_candidate": 368,
+    "overlay_text_hint": 370,
+    "impact_visible": 372,
+    "injury": 380,
+    "damage_level": 390,
 }
 
 FRAME_REF_REQUIRED_FACT_FIELDS = {
@@ -94,6 +116,15 @@ FRAME_REF_REQUIRED_FACT_FIELDS = {
     "pedestrian_visible",
     "pedestrian_signal",
     "school_zone",
+    "ego_vehicle_type",
+    "speed_limit_kmh",
+    "road_marking_school_zone_visible",
+    "speed_limit_sign_visible",
+    "oncoming_traffic_present",
+    "oncoming_bicycle_present",
+    "opposing_direction_actor_type",
+    "vulnerable_road_user",
+    "child_candidate",
     "damage_level",
     "centerline_crossed",
     "road_obstruction",
@@ -109,6 +140,7 @@ FRAME_REF_REQUIRED_FACT_FIELDS = {
     "centerline_cross_reason",
     "collision_partner_type",
     "primary_collision_target",
+    "impact_visible",
     "collision_point_visible",
     "collision_point_location",
     "front_vehicle_stopped",
@@ -150,6 +182,16 @@ FACT_FIELDS = {
     "pedestrian_visible",
     "pedestrian_signal",
     "school_zone",
+    "ego_vehicle_type",
+    "speed_limit_kmh",
+    "road_marking_school_zone_visible",
+    "speed_limit_sign_visible",
+    "oncoming_traffic_present",
+    "oncoming_bicycle_present",
+    "opposing_direction_actor_type",
+    "vulnerable_road_user",
+    "child_candidate",
+    "overlay_text_hint",
     "victim_is_child",
     "bicycle_location",
     "bicycle_direction",
@@ -169,6 +211,7 @@ FACT_FIELDS = {
     "rear_vehicle_collision",
     "collision_partner_type",
     "primary_collision_target",
+    "impact_visible",
     "collision_point_visible",
     "collision_point_location",
     "front_vehicle_stopped",
@@ -209,6 +252,23 @@ FIELD_ALIASES = {
     "visible_pedestrian": "pedestrian_visible",
     "pedestrian_traffic_light": "pedestrian_signal",
     "child_victim": "victim_is_child",
+    "ego_vehicle": "ego_vehicle_type",
+    "ego_vehicle_class": "ego_vehicle_type",
+    "dashcam_vehicle_type": "ego_vehicle_type",
+    "posted_speed_limit": "speed_limit_kmh",
+    "speed_limit": "speed_limit_kmh",
+    "school_zone_marking_visible": "road_marking_school_zone_visible",
+    "school_zone_road_marking": "road_marking_school_zone_visible",
+    "speed_limit_sign": "speed_limit_sign_visible",
+    "oncoming_traffic": "oncoming_traffic_present",
+    "oncoming_bicycle": "oncoming_bicycle_present",
+    "opposing_actor": "opposing_direction_actor_type",
+    "opposing_actor_type": "opposing_direction_actor_type",
+    "vulnerable_user_visible": "vulnerable_road_user",
+    "possible_child": "child_candidate",
+    "child_visible_candidate": "child_candidate",
+    "caption_text_hint": "overlay_text_hint",
+    "subtitle_text_hint": "overlay_text_hint",
     "crossed_centerline": "centerline_crossed",
     "yellow_centerline_crossed": "centerline_crossed",
     "centerline_reason": "centerline_cross_reason",
@@ -232,6 +292,8 @@ FIELD_ALIASES = {
     "collision_target_type": "collision_partner_type",
     "collision_object": "primary_collision_target",
     "collision_target": "primary_collision_target",
+    "impact_visible": "impact_visible",
+    "contact_visible": "impact_visible",
     "impact_point_visible": "collision_point_visible",
     "impact_location": "collision_point_location",
     "lead_vehicle_stopped": "front_vehicle_stopped",
@@ -279,7 +341,7 @@ def normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
         if text in {"user", "ego", "self", "my_vehicle"}:
             return "user"
         return value if isinstance(value, str) and value.strip() else None
-    if field == "collision_partner_type":
+    if field in {"collision_partner_type", "ego_vehicle_type", "opposing_direction_actor_type"}:
         return normalize_actor_type(value)
     if field == "primary_collision_target":
         text = str(value).strip().lower()
@@ -288,6 +350,18 @@ def normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
         return normalize_actor_type(value) or (text if text and text != "unknown" else None)
     if field in {"trigger_actor_type", "direct_collision_partner_type"}:
         return normalize_actor_type(value)
+    if field == "speed_limit_kmh":
+        numeric = as_float(str(value).replace("km/h", "").replace("km", ""))
+        if numeric is None:
+            return None
+        speed = int(round(numeric))
+        return speed if 0 < speed <= 130 else None
+    if field == "overlay_text_hint":
+        if isinstance(value, (list, tuple, set)):
+            hints = [str(item).replace("\x00", "").strip() for item in value if str(item).strip()]
+            return hints[:5] if hints else None
+        text = str(value or "").replace("\x00", "").strip()
+        return text[:240] if text and text.lower() != "unknown" else None
     if field == "trigger_actor_behavior":
         text = str(value).strip().lower().replace("-", "_").replace(" ", "_")
         if text in {"wrong_way", "reverse_direction", "opposite_direction", "sudden_entry", "sudden_appearance", "cut_in", "obstacle_avoidance", "stopped_obstruction"}:
@@ -317,7 +391,7 @@ def normalize_fact_value(field: str, value: Any, raw: dict[str, Any]) -> Any:
         if text in {"green_to_yellow", "yellow_to_red", "red_to_green", "green_to_red", "flashing", "none"}:
             return text
         return text if text and text != "unknown" else None
-    if field in {"stopped", "sudden_brake", "opponent_signal_visible", "opponent_signal_violation", "intersection", "crosswalk_nearby", "pedestrian_visible", "school_zone", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "non_contact_trigger", "rear_vehicle_collision", "collision_point_visible", "front_vehicle_stopped", "stopped_vehicle_without_lights", "highway_or_expressway"}:
+    if field in {"stopped", "sudden_brake", "opponent_signal_visible", "opponent_signal_violation", "intersection", "crosswalk_nearby", "pedestrian_visible", "school_zone", "road_marking_school_zone_visible", "speed_limit_sign_visible", "oncoming_traffic_present", "oncoming_bicycle_present", "vulnerable_road_user", "child_candidate", "victim_is_child", "injury", "centerline_crossed", "road_obstruction", "illegal_parking_obstruction", "opposing_vehicle_present", "opposing_vehicle_did_not_stop", "secondary_collision", "non_contact_trigger", "rear_vehicle_collision", "impact_visible", "collision_point_visible", "front_vehicle_stopped", "stopped_vehicle_without_lights", "highway_or_expressway"}:
         return as_bool(value)
     if isinstance(value, str):
         return value.strip() or None

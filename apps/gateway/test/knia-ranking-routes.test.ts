@@ -36,6 +36,7 @@ describe("KNIA ranking route", () => {
               title: "자전거도로 사고",
               source_category: "차대사람",
               accident_party_type: "car_vs_person",
+              accident_party_label: "차대사람 사고",
               search_count: 120,
               percentage: 2.4,
               source_url: "https://accident.knia.or.kr/ranking",
@@ -77,13 +78,13 @@ describe("KNIA ranking route", () => {
           rowCount: 1,
           rows: [
             {
-              chart_no: "자12",
+              chart_no: "자2",
               chart_type: "1",
               title: "차대자전거 사고",
               accident_party_type: "unknown",
               accident_summary: "자전거와 차량 충돌",
               source_url: "https://accident.knia.or.kr/",
-              source_detail_url: "https://accident.knia.or.kr/myaccident-content?chartNo=자12&chartType=1",
+              source_detail_url: "https://accident.knia.or.kr/myaccident-content?chartNo=자2&chartType=1",
               has_detail: false,
               matched_by: "chart_fallback",
             },
@@ -99,7 +100,7 @@ describe("KNIA ranking route", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().items[0]).toMatchObject({
-      chart_no: "자12",
+      chart_no: "자2",
       accident_party_type: "car_vs_bicycle",
       matched_by: "chart_fallback",
     });
@@ -167,6 +168,7 @@ describe("KNIA ranking route", () => {
     expect(response.statusCode).toBe(200);
     expect(queries[0].sql).toContain("r.chart_no LIKE '차%'");
     expect(queries[0].sql).not.toContain("r.chart_no LIKE '거%'");
+    expect(queries[0].sql).not.toContain("r.chart_no LIKE '자%'");
     await app.close();
   });
 });

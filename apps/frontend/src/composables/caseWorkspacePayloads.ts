@@ -10,6 +10,7 @@ export interface CaseWorkspacePayloadInput {
 export type InitialIntakePayload = {
     accident_major_category: string;
     preliminary_accident_type: string;
+    is_video_only?: boolean;
     video_upload_id?: string;
     natural_language_description?: string;
     natural_language_policy: {
@@ -66,6 +67,7 @@ export function buildInitialIntakePayload(input: CaseWorkspacePayloadInput, uplo
     return {
         accident_major_category: majorCategory,
         preliminary_accident_type: preliminaryType,
+        ...(uploadId && !description ? { is_video_only: true } : {}),
         ...(uploadId ? { video_upload_id: uploadId } : {}),
         ...(description ? { natural_language_description: description } : {}),
         natural_language_policy: {

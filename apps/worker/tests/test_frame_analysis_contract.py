@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from worker import frame_analysis
+from worker.frame_interpretation import build_frame_interpretation_cards
 
 
 class FrameAnalysisContractTest(unittest.TestCase):
@@ -848,6 +849,12 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertIn("highway_or_expressway", prompt_text)
         self.assertIn("pedestrian_visible", prompt_text)
         self.assertIn("never infer a pedestrian accident from crosswalk_nearby alone", prompt_text)
+        self.assertIn("ego_vehicle_type", prompt_text)
+        self.assertIn("speed_limit_kmh", prompt_text)
+        self.assertIn("oncoming_bicycle_present", prompt_text)
+        self.assertIn("child_candidate", prompt_text)
+        self.assertIn("overlay_text_hint", prompt_text)
+        self.assertIn("Do not infer actual driving speed from camera motion", prompt_text)
         self.assertIn("event_candidate_id=", frame_text)
         self.assertIn("event_phase=", frame_text)
         self.assertEqual(result["observations"][0]["field"], "stopped")
@@ -1203,6 +1210,60 @@ class FrameAnalysisContractTest(unittest.TestCase):
         self.assertTrue({"frame_003.jpg", "frame_004.jpg"} & set(refs))
         self.assertTrue({"frame_012.jpg", "frame_013.jpg"} & set(refs))
         self.assertTrue({"frame_026.jpg", "frame_027.jpg"} & set(refs))
+
+    def test_frame_interpretation_cards_hide_internal_paths(self):
+        cards = build_frame_interpretation_cards(
+            {"enabled": True, "ai_usage_event": {"success": True}},
+            [
+                {
+                    "path": "C:/tmp/lawcompass/frame_003.jpg",
+                    "storage_key": "processed/frames/case-1/upload-1/frame_003.jpg",
+                    "local_cache_path": "C:/tmp/lawcompass/frame_003.jpg",
+                    "time_sec": 3.5,
+                    "role": "accident_candidate",
+                }
+            ],
+            [
+                {
+                    "field": "impact_visible",
+                    "value": "충돌 구간",
+                    "source": "frame_analysis:openai",
+                    "confidence": 0.91,
+                    "frame_refs": ["frame_003.jpg", "frame_004.jpg"],
+                }
+            ],
+            {"impact_visible": True, "event_frame_refs": ["frame_003.jpg"]},
+            case_id="case-1",
+            upload_id="upload-1",
+        )
+
+        self.assertEqual(len(cards), 1)
+        self.assertTrue(cards[0]["display_allowed"])
+        text = json.dumps(cards[0], ensure_ascii=False)
+        self.assertNotIn("local_cache_path", text)
+        self.assertNotIn("C:/tmp", text)
+        self.assertNotIn("storage_path", text)
+        self.assertEqual(cards[0]["image_ref"]["frame_ref"], "frame_003.jpg")
+
+    def test_frame_interpretation_cards_do_not_display_unclear_low_confidence_frames(self):
+        cards = build_frame_interpretation_cards(
+            {"enabled": True, "ai_usage_event": {"success": True}},
+            [{"path": "/tmp/frame_001.jpg", "time_sec": 1, "role": "time_sequence"}],
+            [
+                {
+                    "field": "unclear_object",
+                    "value": "maybe vehicle",
+                    "source": "frame_analysis:openai",
+                    "confidence": 0.42,
+                    "frame_refs": ["frame_001.jpg"],
+                }
+            ],
+            {"impact_visible": False, "event_frame_refs": []},
+            case_id="case-1",
+            upload_id="upload-1",
+        )
+
+        self.assertFalse(any(card["display_allowed"] for card in cards))
 
 
 if __name__ == "__main__":

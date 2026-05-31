@@ -373,7 +373,32 @@ def _scenario_hint_for_party(
             return "pedestrian_on_road_edge_accident", None, tags, patch
         return str(facts.get("accident_type") or "pedestrian_crosswalk_accident"), None, tags, patch
     if party == "car_vs_bicycle":
-        return "bicycle_collision", None, ["bicycle"], patch
+        ego = str(facts.get("ego_vehicle_type") or "").strip().lower()
+        tags = ["bicycle", "vulnerable_road_user"]
+        patch.update(
+            {
+                key: value
+                for key, value in {
+                    "ego_vehicle_type": facts.get("ego_vehicle_type"),
+                    "direct_collision_partner_type": facts.get("direct_collision_partner_type"),
+                    "collision_partner_type": facts.get("collision_partner_type") or "bicycle",
+                    "school_zone": facts.get("school_zone"),
+                    "speed_limit_kmh": facts.get("speed_limit_kmh"),
+                    "oncoming_bicycle_present": facts.get("oncoming_bicycle_present"),
+                    "factual_party_type": "motorcycle_vs_bicycle" if ego in {"motorcycle", "two_wheeler", "motorbike", "scooter", "moped"} else None,
+                    "knia_party_type": "car_vs_bicycle",
+                }.items()
+                if value is not None
+            }
+        )
+        if ego in {"motorcycle", "two_wheeler", "motorbike", "scooter", "moped"}:
+            tags.extend(["motorcycle", "two_wheeler"])
+            if facts.get("school_zone") or facts.get("speed_limit_kmh") == 30:
+                tags.extend(["school_zone", "speed_limit"])
+            if facts.get("oncoming_bicycle_present"):
+                tags.append("oncoming")
+            return "motorcycle_bicycle_collision", None, tags, patch
+        return "bicycle_collision", None, tags, patch
     if party == "car_vs_motorcycle":
         return "motorcycle_collision", None, ["motorcycle", "two_wheeler"], patch
     if party == "car_vs_object":

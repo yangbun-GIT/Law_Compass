@@ -1,5 +1,49 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 KNIA myaccident1-5 사고 질문 coverage 보강
+
+Frontend 영상 우선 사고 입력 흐름의 기본 질문 세트가 KNIA 과실비율정보포털의 `myaccident1`부터 `myaccident5`까지의 상위 사고 분류를 반영하도록 보강되었다. `apps/frontend/src/data/caseWorkspaceGuidanceData.ts`는 차대차 일반, 고속도로, 차대사람, 차대이륜차, 차대자전거 축을 모두 대분류/세부유형 또는 후속 질문으로 다룬다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 차대차 | 교차로, 마주보는 방향, 같은 방향, 기타 유형(주차장·회전교차로 등), 자동차 대 이륜차 특수유형을 세부유형에 추가했다. |
+| 고속도로 | 합류도로, 차로 감소도로, 차로변경, 추돌, 낙하물, 보행자, 갓길 진로 변경 질문 세트를 추가했다. |
+| 차대사람 | 횡단보도 내 신호등 유무, 횡단보도 부근, 횡단시설 부근, 횡단보도 없음, 기타 사고유형을 구분한다. |
+| 차대이륜차 | 직진 대 직진, 직진 대 좌회전(맞은편/측면), 직진 대 우회전, 좌회전 대 좌회전, 동일차로, 삼거리, 기타 도로유형을 구분한다. |
+| 차대자전거 | 교차로, 마주보는 방향, 같은 방향, 기타 유형과 자전거 위치/진행방향을 함께 확인한다. |
+
+`caseWorkspaceQuestionInference.ts`는 고속도로·이륜차·차대차 진행관계 키워드와 선택값을 해당 질문 세트로 연결하고, `caseWorkspaceFactMapping.ts`는 답변을 기존 `accident_party_type`/`accident_type` 사실 구조에 보수적으로 반영한다. 이 변경은 Frontend 질문 데이터와 표시 계약만 보강하며 public API route, DB schema, Redis key, storage path, 외부 API 종류를 변경하지 않는다.
+
+## 2026-05-31 KNIA/공공법률 RAG Redis 실데이터 흐름 점검
+
+KNIA 검색순위, KNIA 원문 JSON RAG, 공공법률 API, Redis cache가 실제 데이터 흐름에서 연결되는지 로컬 Docker 환경으로 점검했다. `LAW_API_OC`, `DATA_GO_SERVICE_KEY`, `REDIS_URL`, `DATABASE_URL`은 존재 여부와 길이만 확인하며 실제 값은 출력하지 않는다.
+
+| 범위 | 내용 |
+| --- | --- |
+| 공공법률 API | `apps/agent/app/services/legal_api_clients.py`는 `LAW_API_BASE`가 `/DRF` root 또는 `/lawSearch.do` endpoint여도 동작하도록 검색/상세 URL을 분리한다. `LAW_API_OC`가 없으면 예외 대신 `missing_api_key` 상태의 빈 결과를 반환하고, 검색 row에는 `source_uri`/`source_url`, 상세 조회 target, 법령명, 법령 id, mst/prec id를 함께 남긴다. |
+| 법률 RAG | `apps/agent/app/services/legal/legal_evidence_retriever.py`는 DB RAG 결과가 없거나 조회 실패 시 공공법률 API 결과를 사용자 표시 가능한 근거 item으로 fallback한다. Redis exact cache key는 `rag:v3:*`를 유지하되 빈 결과 목록은 캐시하지 않는다. |
+| 법률 원문 ingestion | `apps/agent/app/services/legal/legal_ingestion_service.py`는 도로교통법 상세 조문을 우선 수집해 `plain_summary`, `related_reason`, `display_priority`, `source_url`, `law_name`, `article_title` 같은 사용자 표시 메타데이터를 `kb_documents`/`kb_chunks`에 보존한다. 상세 API가 비어 있을 때만 검색 snippet/local seed로 fallback한다. |
+| Static fallback | 외부 API나 DB coverage가 비어도 후방추돌, 무등화 정차 차량, 보행자 보호의무 같은 핵심 사고 축은 static legal/KNIA fallback이 보완한다. |
+| KNIA 원문 JSON | `infra/postgres/migrations/016_knia_structured_2023_json.sql`의 문서/청크 메타데이터 컬럼이 `db-migrate` 실행 목록에 포함되도록 `compose.yaml`을 보강했다. KNIA 원문 JSON import는 이 migration 적용 후 `knia_reference_documents`/`knia_reference_chunks`에 chart/scenario 메타데이터를 적재한다. |
+| KNIA 검색순위 | `/api/v1/knia/ranking` 결과 label은 DB party type보다 chart prefix를 우선해 `거*`, `자*` 기준이 `차대자전거 사고`로 보이도록 보정한다. |
+| 영상 프레임 근거 | Worker는 OpenAI/YOLO 관찰값 중 고신뢰·표시 허용 프레임만 `frame_interpretation_cards`로 만든다. Gateway는 내부 storage path/prompt를 제거하고 `/api/v1/cases/:caseId/uploads/:uploadId/frames/:frameRef` owner-scoped 이미지 route를 통해 안전한 프레임만 스트리밍한다. Frontend 일반/전문가 리포트는 `FrameEvidenceCard`로 해당 프레임을 표시한다. |
+
+이 변경은 기존 public route를 제거하거나 응답 계약을 깨지 않고, 사용자 리포트용 프레임 이미지 조회 route를 additive로 추가한다. DB migration 실행 목록, Redis cache 정책, 공공법률 fallback 표시 메타데이터, 업로드 프레임 표시 경로가 보강되었으므로 운영 반영 전 `db-migrate`와 업로드 프레임 접근 권한 smoke test를 다시 확인해야 한다.
+
+## 2026-05-31 영상-only 사고 개요/후속질문 표시 보강
+
+영상만 업로드하고 사고 설명을 비워 둔 케이스에서도 Agent가 `확인이 필요합니다` 또는 `블랙박스 과실비율` 같은 일반 fallback으로만 응답하지 않도록 영상 관측값 요약 경로를 보강했다.
+
+| 범위 | 내용 |
+| --- | --- |
+| Worker 프레임 관측 | OpenAI 프레임 분석 prompt/contract에 `ego_vehicle_type`, `direct_collision_partner_type`, `speed_limit_kmh`, `oncoming_bicycle_present`, `child_candidate`, `overlay_text_hint`, `impact_visible` 등을 추가했다. 제한속도는 표지/노면/신뢰 가능한 overlay 단서에서만 추출하고, 실제 주행속도·어린이 여부·신호위반은 영상만으로 단정하지 않는다. |
+| Agent 영상 요약 | `apps/agent/app/services/video_observation_summarizer.py`가 `video_input_contract`의 accepted/uncertain observation을 `video_scene_summary`로 변환한다. 일반 리포트 제목은 `영상에서 확인된 사고 개요`를 우선 사용하고, 확인된 시각 단서와 `추가 확인 필요` 질문을 분리한다. |
+| 자전거 후보 승격 | 다중 프레임, 충격/접촉 근거, 자전거 바퀴·핸들·탑승자 단서가 함께 있는 `bicycle_candidate`는 `direct_collision_partner_type=bicycle`로 승격할 수 있다. 단일 프레임·저신뢰·경쟁 대상이 강한 경우는 계속 확인 후보로 남긴다. |
+| 대분류/시나리오 | 오토바이 블랙박스와 자전거 직접 충돌이 확인되면 사실상 `motorcycle_vs_bicycle`로 기록하되 KNIA 검색 축은 `car_vs_bicycle`을 사용한다. 시나리오는 `motorcycle_bicycle_collision`을 허용하고 어린이보호구역/30km 단서는 RAG 검색 태그로 확장한다. |
+| Frontend/Gateway 표시 | Gateway `simple_report`는 `video_scene_summary.summary_text`를 현재 상황정리 최우선 후보로 사용한다. Frontend 일반 사용자 화면은 확인된 영상 단서 chip과 추가 확인 필요 chip을 표시하되 raw key, prompt, storage path, API key는 표시하지 않는다. |
+| 환경 설정 | 실제 프레임 분석 검증에는 `ENABLE_OPENAI_FRAME_ANALYSIS=1`, `OPENAI_API_KEY`, `OPENAI_VISION_MODEL=gpt-4.1-mini`, `OPENAI_FRAME_ANALYSIS_MAX_FRAMES=24`가 필요하다. 값이 없으면 Worker는 disabled reason을 남기고 YOLO/메타데이터 기반 fallback만 사용한다. |
+
+이 변경은 DB schema, Redis key, storage path, public API route를 변경하지 않는다. `initial_intake.is_video_only`는 additive payload 필드이며 기존 텍스트/영상 분석 요청과 호환된다.
 ## 2026-05-30 P1-1 사고 대상 오염/조건부 결과 보강
 
 사고 2처럼 교차로 차대차 사고에 보행자, 횡단보도, 후방추돌, 자전거 계열 근거가 사고 대상처럼 섞이는 문제를 보강했다. 이 단계는 영상 처리 자체가 아니라 Agent evidence, 조건부 과실 결과, 전문가 안내 basis의 대상 스키마 정합성을 높이는 작업이다.

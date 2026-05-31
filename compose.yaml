@@ -238,8 +238,8 @@ services:
       [
         "bash",
         "-lc",
-        "set -e; export PGPASSWORD=\"$$POSTGRES_PASSWORD\"; echo '[db-migrate] applying migrations...'; for file in /migrations/002_*.sql /migrations/003_*.sql /migrations/004_*.sql /migrations/005_*.sql /migrations/006_*.sql /migrations/007_*.sql /migrations/008_*.sql /migrations/010_*.sql /migrations/011_*.sql /migrations/012_*.sql /migrations/013_*.sql /migrations/014_*.sql /migrations/015_*.sql; do echo \"[db-migrate] applying $$file\"; psql -v ON_ERROR_STOP=1 -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -f \"$$file\"; done; echo '[db-migrate] done';"
-      ]
+        "set -e; export PGPASSWORD=\"$$POSTGRES_PASSWORD\"; echo '[db-migrate] applying migrations...'; for file in /migrations/002_*.sql /migrations/003_*.sql /migrations/004_*.sql /migrations/005_*.sql /migrations/006_*.sql /migrations/007_*.sql /migrations/008_*.sql /migrations/010_*.sql /migrations/011_*.sql /migrations/012_*.sql /migrations/013_*.sql /migrations/014_*.sql /migrations/015_*.sql /migrations/016_*.sql; do echo \"[db-migrate] applying $$file\"; psql -v ON_ERROR_STOP=1 -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -f \"$$file\"; done; echo '[db-migrate] done';"
+        ]
     networks:
       - app_net
 

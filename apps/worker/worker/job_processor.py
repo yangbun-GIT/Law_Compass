@@ -22,6 +22,7 @@ except ModuleNotFoundError:
         return None
 
 from worker.frame_analysis import analyze_frames_with_openai
+from worker.frame_interpretation import build_frame_interpretation_cards
 from worker.storage.base import frame_key
 from worker.storage.factory import create_storage_adapter
 from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION, extract_event_frames, probe_video, summarize_frame_selection
@@ -127,9 +128,18 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
         openai_frame_analysis = analyze_frames_with_openai(frame_details, frame_analysis_context)
         frame_observations = _merge_frame_observations(openai_frame_analysis, yolo_frame_analysis)
         frame_details = _persist_processed_frames(storage_adapter, frame_details, str(row[1]), str(row[2]))
+        frame_interpretation_cards = build_frame_interpretation_cards(
+            openai_frame_analysis,
+            frame_details,
+            frame_observations,
+            openai_frame_analysis.get("accident_event_summary") or {},
+            case_id=str(row[1]),
+            upload_id=str(row[2]),
+        )
         frames = [item.get("storage_key") or item["path"] for item in frame_details]
         metadata["representative_frames"] = frames
         metadata["representative_frame_details"] = frame_details
+        metadata["frame_interpretation_cards"] = frame_interpretation_cards
         metadata["frame_selection_summary"] = frame_selection_summary
         metadata["openai_frame_analysis"] = openai_frame_analysis
         metadata["yolo_frame_analysis"] = yolo_frame_analysis
@@ -155,6 +165,7 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
             "codec": metadata.get("codec"),
             "extracted_frame_paths": frames,
             "representative_frame_details": frame_details,
+            "frame_interpretation_cards": frame_interpretation_cards,
             "frame_selection_summary": frame_selection_summary,
             "openai_frame_analysis": openai_frame_analysis,
             "yolo_frame_analysis": yolo_frame_analysis,

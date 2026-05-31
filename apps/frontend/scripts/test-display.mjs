@@ -53,13 +53,18 @@ const expertGuidanceCard = readFileSync("src/components/easy/ExpertGuidanceCard.
 const easyLegalBasisCard = readFileSync("src/components/easy/EasyLegalBasisCard.vue", "utf8");
 const evidenceReliabilityCard = readFileSync("src/components/easy/EvidenceReliabilityCard.vue", "utf8");
 const videoFactExplanationCard = readFileSync("src/components/easy/VideoFactExplanationCard.vue", "utf8");
+const frameEvidenceCard = readFileSync("src/components/easy/FrameEvidenceCard.vue", "utf8");
 const agentProcessCard = readFileSync("src/components/easy/AgentProcessCard.vue", "utf8");
 const kniaRankingView = readFileSync("src/views/KniaRankingView.vue", "utf8");
 const kniaChartView = readFileSync("src/views/KniaChartView.vue", "utf8");
 const kniaFaultRatioBar = readFileSync("src/components/knia/KniaFaultRatioBar.vue", "utf8");
+const kniaDetailEvidenceCard = readFileSync("src/components/knia/KniaDetailEvidenceCard.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
 const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
 const styles = readFileSync("src/styles.css", "utf8");
+const agentVideoSummarizer = readFileSync("../agent/app/services/video_observation_summarizer.py", "utf8");
+const agentVideoRules = readFileSync("../agent/app/services/video_input_contract_rules.py", "utf8");
+const workerFrameAnalysis = readFileSync("../worker/worker/frame_analysis.py", "utf8");
 const sanitizerContracts = [
   "sanitizeUserVisibleText",
   "cleanUserFacingCopy",
@@ -74,6 +79,34 @@ const sanitizerContracts = [
 const missingSanitizerContracts = sanitizerContracts.filter((token) => !displaySanitizer.includes(token));
 if (missingSanitizerContracts.length) {
   console.error("display sanitizer contract failed", missingSanitizerContracts);
+  process.exit(1);
+}
+
+const videoOnlySceneContracts = [
+  "build_video_scene_summary",
+  "영상에서 확인된 사고 개요",
+  "confirmed_visual_facts",
+  "needs_user_confirmation",
+  "ego_vehicle_type",
+  "direct_collision_partner_type",
+  "speed_limit_kmh",
+  "oncoming_bicycle_present",
+  "child_candidate",
+  "overlay_text_hint",
+  "오토바이와 자전거 사고",
+  "is_video_only",
+];
+const videoOnlySceneSource = [
+  agentVideoSummarizer,
+  agentVideoRules,
+  workerFrameAnalysis,
+  easyReportView,
+  displaySanitizer,
+  caseWorkspacePayloads,
+].join("\n");
+const missingVideoOnlySceneContracts = videoOnlySceneContracts.filter((token) => !videoOnlySceneSource.includes(token));
+if (missingVideoOnlySceneContracts.length) {
+  console.error("video-only frame observation summary contract failed", missingVideoOnlySceneContracts);
   process.exit(1);
 }
 
@@ -134,6 +167,7 @@ const expertSource = [
   elderlyActionCard,
   expertGuidanceCard,
   videoFactExplanationCard,
+  frameEvidenceCard,
   easyLegalBasisCard,
   easyReportView,
   agentProcessCard,
@@ -144,6 +178,7 @@ const expertScopedSource = [
   elderlyActionCard,
   expertGuidanceCard,
   videoFactExplanationCard,
+  frameEvidenceCard,
   easyLegalBasisCard,
   agentProcessCard,
 ].join("\n");
@@ -165,6 +200,29 @@ const requiredExpertTokens = [
 const missingExpertTokens = requiredExpertTokens.filter((token) => !expertSource.includes(token));
 if (missingExpertTokens.length) {
   console.error("expert result UI contract missing", missingExpertTokens);
+  process.exit(1);
+}
+const frameEvidenceContracts = [
+  "확인된 영상 프레임 근거",
+  "아래 이미지는 모델이 판단에 참고한 선별 프레임입니다",
+  "display_allowed",
+  "frameImageUrl",
+  "image_ref",
+  "judgment_reason",
+  "event_probability",
+  "frame_interpretation_cards",
+  "FrameEvidenceCard",
+];
+const frameEvidenceSource = [frameEvidenceCard, easyReportView].join("\n");
+const missingFrameEvidenceContracts = frameEvidenceContracts.filter((token) => !frameEvidenceSource.includes(token));
+if (missingFrameEvidenceContracts.length) {
+  console.error("frame evidence card display contract missing", missingFrameEvidenceContracts);
+  process.exit(1);
+}
+const forbiddenFrameEvidenceTokens = ["local_cache_path", "raw_prompt", "storage_path"];
+const frameEvidenceLeaks = forbiddenFrameEvidenceTokens.filter((token) => frameEvidenceCard.includes(token));
+if (frameEvidenceLeaks.length) {
+  console.error("frame evidence component exposes internal frame details", frameEvidenceLeaks);
   process.exit(1);
 }
 const brokenDisplayTokens = ["12?", "? ? ?", ", =9", "=9", "=4"];
@@ -226,7 +284,7 @@ const requiredErrorUx = [
   "video_label",
   "영상 신뢰도"
 ];
-const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, topConclusionCard, relatedVideoCard, kniaVideoLinkCard, kniaFaultRatioBar, evidenceReliabilityCard, videoFactExplanationCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
+const displayFiles = [apiClient, styles, appView, dashboardView, caseDetailView, caseCreateView, caseWorkspaceHeader, analysisLoadingSpinner, loginView, signupView, routerIndex, sessionStore, resultView, evidenceView, easyReportView, topConclusionCard, relatedVideoCard, kniaVideoLinkCard, kniaFaultRatioBar, evidenceReliabilityCard, videoFactExplanationCard, frameEvidenceCard, kniaRankingView, kniaChartView, kniaJsonSearchBox, displaySanitizer, useCaseWorkspace, caseWorkspaceGuidance, caseWorkspaceGuidanceData, caseWorkspaceFormatters, caseWorkspaceProgress, caseWorkspaceFactMapping, caseWorkspaceOrchestration, caseWorkspacePayloads];
 const missingErrorUx = requiredErrorUx.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingErrorUx.length) {
   console.error("frontend error UX contract failed", missingErrorUx);
@@ -392,12 +450,15 @@ if (dashboardKniaSearchCardLeaks.length || !dashboardView.includes("많이 검�
 const userFriendlyKniaContracts = [
   "관련 KNIA 근거 및 영상",
   "simple_report?.knia_and_video?.primary",
+  "KniaDetailEvidenceCard",
+  "api.getKniaChart",
+  "dedupeSituationLines",
   "KNIA 관련 영상 보기",
   "KNIA 원문 기준 보기",
   "simpleKniaPartyLabel",
   "차대차 사고",
 ];
-const missingUserFriendlyKnia = userFriendlyKniaContracts.filter((token) => !easyReportView.includes(token) && !kniaVideoLinkCard.includes(token));
+const missingUserFriendlyKnia = userFriendlyKniaContracts.filter((token) => !easyReportView.includes(token) && !kniaVideoLinkCard.includes(token) && !kniaDetailEvidenceCard.includes(token));
 if (missingUserFriendlyKnia.length) {
   console.error("user-friendly KNIA display contract failed", missingUserFriendlyKnia);
   process.exit(1);
@@ -441,6 +502,7 @@ if (missingGuidedContracts.length) {
 
 const videoFirstFlowContracts = [
   "car_vs_two_wheeler",
+  "highway",
   "parking_or_stationary",
   "getGuidedAccidentSubtypeOptions",
   "guidedAccidentSubtypeOptionsByMajorCategory",
@@ -451,6 +513,35 @@ const videoFirstFlowContracts = [
 const missingVideoFirstFlowContracts = videoFirstFlowContracts.filter((token) => !displayFiles.some((text) => text.includes(token)));
 if (missingVideoFirstFlowContracts.length) {
   console.error("video-first intake contract failed", missingVideoFirstFlowContracts);
+  process.exit(1);
+}
+
+const kniaFiveCategoryQuestionContracts = [
+  "고속도로 사고",
+  "합류도로 사고",
+  "차로 감소도로 사고",
+  "갓길 진로 변경 사고",
+  "마주보는 방향 진행차량 사고",
+  "같은 방향 진행차량 사고",
+  "기타 유형 사고(주차장·회전교차로 등)",
+  "횡단보도 내(신호등 있음)",
+  "횡단보도 부근(신호등 있음)",
+  "횡단시설 부근(신호등 없음)",
+  "횡단보도 없음",
+  "자동차 대 이륜차 특수유형",
+  "직진 대(對) 직진 사고",
+  "직진 대(對) 좌회전 사고(맞은편)",
+  "삼거리(T자형) 교차로 사고",
+  "차대자전거",
+  "자전거 사고유형",
+  "bicycle_opposite_direction_collision",
+  "highwayGuidedQuestions",
+  "motorcycleGuidedQuestions",
+  "vehicleProgressGuidedQuestions",
+];
+const missingKniaFiveCategoryQuestions = kniaFiveCategoryQuestionContracts.filter((token) => !caseWorkspaceGuidanceData.includes(token));
+if (missingKniaFiveCategoryQuestions.length) {
+  console.error("KNIA myaccident1-5 guided question coverage failed", missingKniaFiveCategoryQuestions);
   process.exit(1);
 }
 

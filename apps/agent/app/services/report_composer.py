@@ -34,15 +34,16 @@ def compose_analysis_output(
 ) -> dict[str, Any]:
     final_report_usage = evaluate_llm_usage(section="final_report", evidence=evidence, facts=normalized_input.get("structured_facts") or {})
     final = generate_final_report(normalized_input=normalized_input, scenario=scenario, evidence=evidence, legal_analysis=legal_analysis, fault_ratio=fault_ratio, legal_liability=legal_liability, insurance_guide=insurance_guide, action_plan=action_plan) if final_report_usage["allowed"] else None
+    video_scene_summary = _video_scene_summary(video_context, normalized_input)
     accident_title = final.get("accident_title") if isinstance(final, dict) else None
     summary = final.get("accident_summary") if isinstance(final, dict) else None
     if final_report_usage["allowed"] and not summary:
         final_report_usage = mark_llm_output_unavailable(final_report_usage, stage="final_report")
     final_report_usage = {**final_report_usage, "used": bool(summary)}
     if not accident_title:
-        accident_title = _fallback_title(normalized_input)
+        accident_title = video_scene_summary.get("title") or _fallback_title(normalized_input)
     if not summary:
-        summary = _fallback_summary(normalized_input, scenario, legal_analysis)
+        summary = video_scene_summary.get("summary_text") or _fallback_summary(normalized_input, scenario, legal_analysis)
     uncertainty_level = evidence_audit.get("uncertainty_level", "medium")
     party_type_action_guide = party_type_action_guide or {}
     input_requirements = input_requirements or {}
@@ -70,6 +71,7 @@ def compose_analysis_output(
         "display_mode": analysis_mode,
         "accident_title": accident_title,
         "accident_summary": summary,
+        "video_scene_summary": video_scene_summary,
         "scenario_type": scenario["scenario_type"],
         "accident_party_type": scenario.get("accident_party_type", "unknown"),
         "accident_party_label": scenario.get("accident_party_label", "사고유형 확인 필요"),
@@ -189,6 +191,21 @@ def _as_confidence(value: Any, fallback: float) -> float:
         return round(max(0.0, min(1.0, float(value))), 2)
     except (TypeError, ValueError):
         return round(fallback, 2)
+
+
+def _video_scene_summary(video_context: dict[str, Any], normalized_input: dict[str, Any]) -> dict[str, Any]:
+    candidates = [
+        video_context.get("video_scene_summary") if isinstance(video_context, dict) else None,
+        (normalized_input.get("structured_facts") or {}).get("video_scene_summary"),
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, dict) and candidate.get("available") and candidate.get("summary_text"):
+            return {
+                **candidate,
+                "title": candidate.get("title") or "영상에서 확인된 사고 개요",
+                "summary_text": str(candidate.get("summary_text") or "").strip(),
+            }
+    return {}
 
 
 def _fallback_summary(normalized_input: dict[str, Any], scenario: dict[str, Any], legal_analysis: dict[str, Any]) -> str:

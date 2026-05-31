@@ -22,6 +22,9 @@ export type GuidedQuestionType =
     | "pedestrian"
     | "lane_change"
     | "intersection"
+    | "highway"
+    | "motorcycle"
+    | "vehicle_progress"
     | "bicycle"
     | "single_vehicle"
     | "car_vs_car_subtype"
@@ -51,6 +54,13 @@ export const guidedAccidentMajorCategoryOptions = [
         accident_party_type: "car_vs_car",
         major_category: "car_vs_car",
         hint: "자동차, 트럭, 버스, 주차·정차 차량 등 차량과 차량 사이의 사고",
+    },
+    {
+        label: "고속도로 사고",
+        scenario_type: "",
+        accident_party_type: "car_vs_car",
+        major_category: "highway",
+        hint: "고속도로·자동차전용도로에서 합류, 차로감소, 추돌, 낙하물, 갓길 관련 사고",
     },
     {
         label: "차대사람 사고",
@@ -106,6 +116,11 @@ export const guidedAccidentSubtypeOptionsByMajorCategory: Record<string, Array<{
     hint: string;
 }>> = {
     car_vs_car: [
+        { value: "intersection_general_collision", label: "교차로(+자로, T자로 등) 사고", scenario_type: "intersection_collision", hint: "신호, 우선순위, 직진·좌회전·우회전 관계가 중요한 사고" },
+        { value: "opposite_direction_vehicle_collision", label: "마주보는 방향 진행차량 사고", scenario_type: "opposite_direction_vehicle_collision", hint: "맞은편 차량, 중앙선, 회피 과정, 좌회전 관계가 중요한 사고" },
+        { value: "same_direction_vehicle_collision", label: "같은 방향 진행차량 사고", scenario_type: "same_direction_vehicle_collision", hint: "추돌, 차로변경, 앞지르기, 동일차로 주행 관계가 중요한 사고" },
+        { value: "vehicle_other_road_type_collision", label: "기타 유형 사고(주차장·회전교차로 등)", scenario_type: "vehicle_other_road_type_collision", hint: "주차장, 회전교차로, 좁은 도로, 기타 도로형태에서 발생한 사고" },
+        { value: "car_vs_motorcycle_special", label: "자동차 대 이륜차 특수유형", scenario_type: "motorcycle_collision", accident_party_type: "car_vs_motorcycle", hint: "오토바이·이륜차와의 충돌로 별도 기준 확인이 필요한 사고" },
         { value: "rear_end_collision", label: "후미추돌", scenario_type: "rear_end_collision", hint: "앞차·뒤차 관계가 쟁점인 추돌 사고" },
         { value: "lane_change_collision", label: "차로변경 중 충돌", scenario_type: "lane_change_collision", hint: "끼어들기, 진로변경, 방향지시등이 쟁점인 경우" },
         { value: "intersection_signal_violation", label: "교차로·신호 관련 충돌", scenario_type: "intersection_signal_violation", hint: "신호, 좌회전·직진, 선진입 여부가 중요한 경우" },
@@ -115,25 +130,45 @@ export const guidedAccidentSubtypeOptionsByMajorCategory: Record<string, Array<{
         { value: "door_open_collision", label: "문 개방 사고", scenario_type: "door_open_collision", hint: "문을 열면서 충돌한 경우" },
         { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "영상과 확인 질문으로 세부유형을 좁힙니다." },
     ],
+    highway: [
+        { value: "highway_merge_collision", label: "합류도로 사고", scenario_type: "highway_merge_collision", accident_party_type: "car_vs_car", hint: "본선 차량과 합류 차량의 우선관계가 쟁점인 사고" },
+        { value: "highway_lane_reduction_collision", label: "차로 감소도로 사고", scenario_type: "highway_lane_reduction_collision", accident_party_type: "car_vs_car", hint: "차로가 줄어드는 지점에서 양보와 진입 순서가 중요한 사고" },
+        { value: "highway_lane_change_collision", label: "차로변경(진로변경) 사고", scenario_type: "highway_lane_change_collision", accident_party_type: "car_vs_car", hint: "고속도로 주행 중 차로변경·진로변경이 관련된 사고" },
+        { value: "highway_rear_end_collision", label: "추돌 사고", scenario_type: "highway_rear_end_collision", accident_party_type: "car_vs_car", hint: "정체·감속·안전거리 확보 여부가 중요한 고속도로 추돌 사고" },
+        { value: "highway_falling_object_collision", label: "낙하물 사고", scenario_type: "highway_falling_object_collision", accident_party_type: "car_vs_object", hint: "적재물·낙하물·도로 장애물과 관련된 사고" },
+        { value: "highway_pedestrian_collision", label: "보행자 사고", scenario_type: "highway_pedestrian_collision", accident_party_type: "car_vs_person", hint: "고속도로 안의 보행자·작업자·사고 처리 인원과 관련된 사고" },
+        { value: "highway_shoulder_lane_change", label: "갓길 진로 변경 사고", scenario_type: "highway_shoulder_lane_change", accident_party_type: "car_vs_car", hint: "갓길 정차·진입·이탈 또는 갓길에서 본선으로 들어오는 사고" },
+        { value: "unknown", label: "잘 모르겠어요", scenario_type: "", accident_party_type: "car_vs_car", hint: "고속도로 위치와 차량 진행 상태를 추가 질문으로 확인합니다." },
+    ],
     car_vs_person: [
-        { value: "crosswalk_pedestrian", label: "횡단보도 보행자 사고", scenario_type: "pedestrian_crosswalk_accident", hint: "횡단보도, 보행자 신호가 쟁점인 경우" },
-        { value: "non_crosswalk_pedestrian", label: "횡단보도 밖 보행자 사고", scenario_type: "pedestrian_no_crosswalk_road_crossing", hint: "무단횡단, 차도 보행 등이 관련된 경우" },
+        { value: "crosswalk_signalized_pedestrian", label: "횡단보도 내(신호등 있음)", scenario_type: "pedestrian_crosswalk_signalized_accident", hint: "보행자 신호와 차량 신호가 핵심인 횡단보도 사고" },
+        { value: "crosswalk_unsignalized_pedestrian", label: "횡단보도 내(신호등 없음)", scenario_type: "pedestrian_crosswalk_unsignalized_accident", hint: "신호등 없는 횡단보도에서 일시정지·감속 여부가 중요한 사고" },
+        { value: "near_crosswalk_signalized_pedestrian", label: "횡단보도 부근(신호등 있음)", scenario_type: "pedestrian_near_crosswalk_signalized_accident", hint: "횡단보도 바로 주변과 신호 상태를 함께 확인해야 하는 사고" },
+        { value: "near_crossing_facility_unsignalized", label: "횡단시설 부근(신호등 없음)", scenario_type: "pedestrian_near_crossing_facility_accident", hint: "육교·지하도·횡단시설 주변에서 보행자 위치가 중요한 사고" },
+        { value: "non_crosswalk_pedestrian", label: "횡단보도 없음", scenario_type: "pedestrian_no_crosswalk_road_crossing", hint: "무단횡단, 차도 보행 등이 관련된 경우" },
+        { value: "pedestrian_other_type", label: "기타 사고유형", scenario_type: "pedestrian_other_accident", hint: "도로 작업자, 갓길 보행자, 어린이보호구역 등 별도 확인이 필요한 사고" },
         { value: "school_zone_child_accident", label: "어린이보호구역 사고", scenario_type: "school_zone_child_accident", hint: "어린이보호구역 또는 어린이 피해자가 관련된 경우" },
         { value: "sidewalk_or_shoulder", label: "인도·갓길 보행자 사고", scenario_type: "pedestrian_on_road_edge_accident", hint: "인도, 갓길, 도로 가장자리 보행자가 관련된 경우" },
         { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "보행자 위치와 신호를 후속 질문으로 확인합니다." },
     ],
     car_vs_bicycle: [
+        { value: "intersection_collision", label: "교차로(+자로, T자로 등) 사고", scenario_type: "bicycle_intersection_collision", hint: "교차로에서 차량과 자전거의 신호·진행방향이 중요한 사고" },
+        { value: "opposite_direction_collision", label: "마주보는 방향 진행 사고", scenario_type: "bicycle_opposite_direction_collision", hint: "차량과 자전거가 서로 마주보거나 대향 방향으로 진행한 사고" },
         { value: "same_direction_collision", label: "같은 방향 진행 중 충돌", scenario_type: "bicycle_collision", hint: "차량과 자전거가 같은 방향으로 움직인 경우" },
-        { value: "intersection_collision", label: "교차로 충돌", scenario_type: "bicycle_collision", hint: "교차로에서 차량과 자전거가 만난 경우" },
+        { value: "bicycle_other_type", label: "기타 유형 사고", scenario_type: "bicycle_other_accident", hint: "자전거도로, 보도, 기타 도로형태에서 세부 확인이 필요한 사고" },
         { value: "turning_collision", label: "회전 중 충돌", scenario_type: "bicycle_collision", hint: "우회전·좌회전 과정에서 자전거와 부딪힌 경우" },
         { value: "lane_change_collision", label: "차로변경 중 충돌", scenario_type: "bicycle_collision", hint: "차로 변경 또는 진로 변경 과정에서 자전거와 부딪힌 경우" },
         { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "자전거 위치와 진행 방향을 후속 질문으로 확인합니다." },
     ],
     car_vs_two_wheeler: [
-        { value: "same_direction_collision", label: "같은 방향 진행 중 충돌", scenario_type: "motorcycle_collision", hint: "차량과 이륜차가 같은 방향으로 진행한 경우" },
-        { value: "intersection_collision", label: "교차로 충돌", scenario_type: "motorcycle_collision", hint: "교차로에서 차량과 이륜차가 만난 경우" },
-        { value: "turning_collision", label: "회전 중 충돌", scenario_type: "motorcycle_collision", hint: "좌회전·우회전 중 이륜차와 부딪힌 경우" },
-        { value: "lane_change_collision", label: "차로변경 중 충돌", scenario_type: "motorcycle_collision", hint: "차로 변경 또는 진로 변경이 관련된 경우" },
+        { value: "straight_vs_straight", label: "직진 대(對) 직진 사고", scenario_type: "motorcycle_straight_vs_straight_collision", hint: "교차 또는 대향 직진 관계에서 차량과 이륜차가 충돌한 경우" },
+        { value: "straight_vs_left_opposite", label: "직진 대(對) 좌회전 사고(맞은편)", scenario_type: "motorcycle_straight_vs_left_opposite_collision", hint: "맞은편 좌회전 차량과 직진 이륜차·차량 관계가 중요한 사고" },
+        { value: "straight_vs_left_side", label: "직진 대(對) 좌회전 사고(측면)", scenario_type: "motorcycle_straight_vs_left_side_collision", hint: "측면에서 좌회전·직진 진행이 엇갈린 사고" },
+        { value: "straight_vs_right", label: "직진 대(對) 우회전 사고", scenario_type: "motorcycle_straight_vs_right_collision", hint: "우회전 차량과 직진 이륜차의 위치·신호가 중요한 사고" },
+        { value: "left_vs_left", label: "좌회전 대(對) 좌회전 사고", scenario_type: "motorcycle_left_vs_left_collision", hint: "양쪽 모두 좌회전하는 과정에서 발생한 사고" },
+        { value: "same_lane_collision", label: "동일차로 주행 중 사고", scenario_type: "motorcycle_same_lane_collision", hint: "같은 차로에서 앞뒤·병렬 진행 중 충돌한 사고" },
+        { value: "t_intersection_collision", label: "삼거리(T자형) 교차로 사고", scenario_type: "motorcycle_t_intersection_collision", hint: "T자형 교차로에서 진입·회전 우선관계가 중요한 사고" },
+        { value: "motorcycle_other_road_type", label: "기타 도로유형 사고", scenario_type: "motorcycle_other_accident", hint: "갓길, 차로 사이, 기타 도로형태에서 발생한 이륜차 사고" },
         { value: "unknown", label: "잘 모르겠어요", scenario_type: "", hint: "이륜차 위치와 진행 방향을 후속 질문으로 확인합니다." },
     ],
     single_vehicle: [
@@ -198,6 +233,12 @@ export const carVsCarSubtypeGuidedQuestions: GuidedQuestion[] = [
         plain_question: "차대차 사고 중 어떤 유형에 가장 가깝나요?",
         why_it_matters: "차대차 안에서도 후미추돌, 차선변경, 교차로, 주정차 차량 기준이 서로 다릅니다.",
         choices: [
+            { value: "intersection_collision", label: "교차로(+자로, T자로 등) 사고" },
+            { value: "opposite_direction_vehicle_collision", label: "마주보는 방향 진행차량 사고" },
+            { value: "same_direction_vehicle_collision", label: "같은 방향 진행차량 사고" },
+            { value: "vehicle_other_road_type_collision", label: "기타 유형 사고(주차장·회전교차로 등)" },
+            { value: "motorcycle_collision", label: "자동차 대 이륜차 특수유형" },
+            { value: "highway_collision", label: "고속도로 사고" },
             { value: "rear_end_collision", label: "후미추돌" },
             { value: "ego_hit_front", label: "내가 앞차 추돌" },
             { value: "lane_change_collision", label: "차선변경" },
@@ -502,6 +543,22 @@ export const objectCollisionGuidedQuestions: GuidedQuestion[] = [
 
 export const pedestrianGuidedQuestions: GuidedQuestion[] = [
     {
+        question_id: "pedestrian.knia_crossing_type",
+        title: "보행자 사고 위치",
+        plain_question: "보행자는 어디에서 또는 어느 부근에서 이동 중이었나요?",
+        why_it_matters: "KNIA 차대사람 기준은 횡단보도 안, 횡단보도 부근, 횡단시설 부근, 횡단보도 없음, 기타 유형을 나누어 봅니다.",
+        choices: [
+            { value: "crosswalk_signalized", label: "횡단보도 내(신호등 있음)" },
+            { value: "crosswalk_unsignalized", label: "횡단보도 내(신호등 없음)" },
+            { value: "near_crosswalk_signalized", label: "횡단보도 부근(신호등 있음)" },
+            { value: "near_crossing_facility_unsignalized", label: "횡단시설 부근(신호등 없음)" },
+            { value: "no_crosswalk", label: "횡단보도 없음" },
+            { value: "other", label: "기타 사고유형" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "pedestrian_knia_crossing_type",
+    },
+    {
         question_id: "pedestrian.crosswalk",
         title: "횡단보도 여부",
         plain_question: "보행자가 횡단보도나 보행자 신호 근처에 있었나요?",
@@ -666,7 +723,173 @@ export const intersectionGuidedQuestions: GuidedQuestion[] = [
     },
 ];
 
+export const highwayGuidedQuestions: GuidedQuestion[] = [
+    {
+        question_id: "highway.section",
+        title: "고속도로 위치",
+        plain_question: "사고가 난 지점은 어디에 가까웠나요?",
+        why_it_matters: "KNIA 고속도로 기준은 합류도로, 차로감소, 갓길, 본선 주행 중 사고를 나누어 봅니다.",
+        choices: [
+            { value: "merge", label: "합류도로" },
+            { value: "lane_reduction", label: "차로 감소 구간" },
+            { value: "mainline", label: "본선 주행 차로" },
+            { value: "shoulder", label: "갓길 또는 갓길 진입·이탈" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "highway_section",
+    },
+    {
+        question_id: "highway.event_type",
+        title: "고속도로 사고유형",
+        plain_question: "사고 상황은 어떤 유형에 가장 가까웠나요?",
+        why_it_matters: "고속도로에서는 차로변경, 추돌, 낙하물, 보행자·작업자 사고가 서로 다른 기준으로 검토됩니다.",
+        choices: [
+            { value: "merge_collision", label: "합류 중 충돌" },
+            { value: "lane_change_collision", label: "차로변경 또는 진로변경" },
+            { value: "rear_end_collision", label: "정체·감속 중 추돌" },
+            { value: "falling_object", label: "낙하물 또는 적재물" },
+            { value: "pedestrian_or_worker", label: "보행자·작업자 관련" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "highway_event_type",
+    },
+    {
+        question_id: "highway.traffic_flow",
+        title: "속도와 정체",
+        plain_question: "사고 직전 차량 흐름은 어땠나요?",
+        why_it_matters: "고속 주행인지, 정체·서행 중인지에 따라 안전거리와 회피 가능성 판단이 달라집니다.",
+        choices: [
+            { value: "free_flow", label: "정상 속도 또는 고속 주행" },
+            { value: "slow_or_congested", label: "정체·서행 중" },
+            { value: "sudden_slowdown", label: "갑작스러운 감속 또는 정지" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "highway_traffic_flow",
+    },
+    {
+        question_id: "highway.warning",
+        title: "경고와 식별 가능성",
+        plain_question: "비상등, 삼각대, 낙하물 표시 등 위험을 알 수 있는 조치가 있었나요?",
+        why_it_matters: "고속도로에서는 경고조치와 식별 가능성이 회피 가능성과 과실 조정에 중요합니다.",
+        choices: [
+            { value: "clear_warning", label: "비상등·삼각대 등으로 알 수 있었습니다" },
+            { value: "partial_warning", label: "일부만 보였습니다" },
+            { value: "no_warning", label: "거의 알 수 없었습니다" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "highway_warning_measures",
+    },
+];
+
+export const vehicleProgressGuidedQuestions: GuidedQuestion[] = [
+    {
+        question_id: "vehicle_progress.direction_relation",
+        title: "차량 진행관계",
+        plain_question: "두 차량은 서로 어떤 방향으로 진행 중이었나요?",
+        why_it_matters: "KNIA 차대차 기준은 교차로, 마주보는 방향, 같은 방향, 기타 도로유형을 먼저 나누어 봅니다.",
+        choices: [
+            { value: "intersection", label: "교차로에서 서로 만남" },
+            { value: "opposite_direction", label: "마주보는 방향" },
+            { value: "same_direction", label: "같은 방향" },
+            { value: "parking_or_roundabout", label: "주차장·회전교차로·기타 도로" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "vehicle_direction_relation",
+    },
+    {
+        question_id: "vehicle_progress.maneuver",
+        title: "충돌 직전 행동",
+        plain_question: "충돌 직전 어느 행동이 가장 중요했나요?",
+        why_it_matters: "직진, 좌회전, 우회전, 차로변경, 앞지르기 여부가 적용 기준을 좁히는 핵심입니다.",
+        choices: [
+            { value: "straight", label: "직진" },
+            { value: "left_turn", label: "좌회전" },
+            { value: "right_turn", label: "우회전" },
+            { value: "lane_change", label: "차로변경 또는 끼어들기" },
+            { value: "overtaking", label: "앞지르기 또는 추월" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "vehicle_maneuver",
+    },
+    {
+        question_id: "vehicle_progress.road_shape",
+        title: "도로 형태",
+        plain_question: "사고 장소의 도로 형태는 무엇에 가까웠나요?",
+        why_it_matters: "주차장, 회전교차로, 좁은 도로, T자형 교차로는 별도 기준으로 갈릴 수 있습니다.",
+        choices: [
+            { value: "cross_intersection", label: "+자 또는 일반 교차로" },
+            { value: "t_intersection", label: "T자형 교차로" },
+            { value: "roundabout", label: "회전교차로" },
+            { value: "parking_lot", label: "주차장" },
+            { value: "narrow_or_other", label: "좁은 도로 또는 기타" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "vehicle_road_shape",
+    },
+];
+
+export const motorcycleGuidedQuestions: GuidedQuestion[] = [
+    {
+        question_id: "motorcycle.road_relation",
+        title: "이륜차 진행관계",
+        plain_question: "차량과 이륜차는 어떤 관계로 진행 중이었나요?",
+        why_it_matters: "KNIA 차대이륜차 기준은 직진 대 직진, 직진 대 좌회전, 우회전, 동일차로, T자형 교차로를 나누어 봅니다.",
+        choices: [
+            { value: "straight_vs_straight", label: "직진 대 직진" },
+            { value: "straight_vs_left_opposite", label: "직진 대 맞은편 좌회전" },
+            { value: "straight_vs_left_side", label: "직진 대 측면 좌회전" },
+            { value: "straight_vs_right", label: "직진 대 우회전" },
+            { value: "left_vs_left", label: "좌회전 대 좌회전" },
+            { value: "same_lane", label: "동일차로 주행 중" },
+            { value: "t_intersection", label: "삼거리(T자형) 교차로" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "motorcycle_road_relation",
+    },
+    {
+        question_id: "motorcycle.position",
+        title: "이륜차 위치",
+        plain_question: "이륜차는 사고 직전 어디에 있었나요?",
+        why_it_matters: "차로 중앙, 차로 사이, 갓길, 우측 가장자리 위치는 회피 가능성과 주의의무 판단에 중요합니다.",
+        choices: [
+            { value: "lane_center", label: "차로 안" },
+            { value: "between_lanes", label: "차로 사이 또는 옆 공간" },
+            { value: "right_edge", label: "우측 가장자리" },
+            { value: "shoulder", label: "갓길" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "motorcycle_position",
+    },
+    {
+        question_id: "motorcycle.signal_and_visibility",
+        title: "신호와 식별 가능성",
+        plain_question: "신호, 방향지시등, 야간 등화 상태가 확인되나요?",
+        why_it_matters: "이륜차 사고에서는 신호위반, 방향지시등, 야간 등화 여부가 가감요소가 될 수 있습니다.",
+        choices: [
+            { value: "signals_clear", label: "신호와 등화가 확인됩니다" },
+            { value: "turn_signal_missing", label: "방향지시등이 불명확합니다" },
+            { value: "night_unlit", label: "야간 등화가 부족했습니다" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "motorcycle_signal_visibility",
+    },
+];
+
 export const bicycleGuidedQuestions: GuidedQuestion[] = [
+    {
+        question_id: "bicycle.knia_category",
+        title: "자전거 사고유형",
+        plain_question: "차량과 자전거의 관계는 어떤 유형에 가장 가까웠나요?",
+        why_it_matters: "KNIA 차대자전거 기준은 교차로, 마주보는 방향, 같은 방향, 기타 유형을 먼저 나누어 봅니다.",
+        choices: [
+            { value: "intersection", label: "교차로(+자로, T자로 등)" },
+            { value: "opposite_direction", label: "마주보는 방향 진행" },
+            { value: "same_direction", label: "같은 방향 진행" },
+            { value: "other", label: "기타 도로유형" },
+            { value: "unknown", label: "잘 모르겠어요" },
+        ],
+        fact_key: "bicycle_knia_category",
+    },
     {
         question_id: "bicycle.location",
         title: "자전거 위치",
@@ -782,6 +1005,9 @@ export const GUIDED_QUESTION_SETS: Record<GuidedQuestionType, GuidedQuestion[]> 
     pedestrian: pedestrianGuidedQuestions,
     lane_change: laneChangeGuidedQuestions,
     intersection: intersectionGuidedQuestions,
+    highway: highwayGuidedQuestions,
+    motorcycle: motorcycleGuidedQuestions,
+    vehicle_progress: vehicleProgressGuidedQuestions,
     bicycle: bicycleGuidedQuestions,
     single_vehicle: singleVehicleGuidedQuestions,
     car_vs_car_subtype: carVsCarSubtypeGuidedQuestions,
@@ -793,11 +1019,23 @@ export const caseKeywordPool = [
     "안전거리",
     "신호위반",
     "교차로",
+    "T자형 교차로",
+    "회전교차로",
     "차선변경",
     "방향지시등",
+    "마주보는 방향",
+    "같은 방향 진행",
+    "고속도로",
+    "합류도로",
+    "차로 감소",
+    "갓길",
+    "낙하물",
     "횡단보도",
+    "횡단시설",
     "보행자",
     "자전거",
+    "이륜차",
+    "오토바이",
     "주차",
     "정차",
     "스텔스",
