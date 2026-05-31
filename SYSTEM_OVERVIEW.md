@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P12-1 문서와 코드 일치 점검
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P12-1 단계를 완료했다. 문서에 적힌 핵심 파일, endpoint, job type, 실행 스크립트가 실제 코드와 맞는지 반복 확인할 수 있도록 `scripts/check_document_code_sync.py`와 `docs/DOCUMENT_CODE_SYNC_CHECK.md`를 추가했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 점검 스크립트 | `scripts/check_document_code_sync.py`가 핵심 문서, 실행 스크립트, Frontend/Gateway/Agent/Worker 주요 파일, route/job 문자열 존재를 검사한다. |
+| 점검 문서 | `docs/DOCUMENT_CODE_SYNC_CHECK.md`에 점검 범위, 실행 방법, P12-1 결과, 한계를 정리했다. |
+| 확인한 route/job | `/admin/agent-test`, `/api/v1/uploads/local`, `/health`, `/ready`, `/internal/v1/analyze/text`, `/internal/v1/analyze/video`, `video_preprocess`, `video_analyze`가 실제 코드에 존재한다. |
+| 비변경 범위 | 제품 코드 동작, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
+
+검증은 `python scripts/check_document_code_sync.py`, `git diff --check`, 표준 MCP pilot/gate 테스트로 완료했다. 다음 P12-2에서는 Agent 실행 품질을 점검한다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P11-3 팀원 인수인계
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P11-3 단계를 완료했다. 팀원 동시 작업에서 웹 디자인 변경과 영상/Agent 변경이 서로 롤백되지 않도록 `docs/GITHUB_COLLABORATION_WORKFLOW.md`의 역할 분리와 충돌 위험 경로를 보강했다.

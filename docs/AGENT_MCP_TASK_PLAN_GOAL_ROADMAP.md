@@ -1165,13 +1165,13 @@ P5-1 완료 기록:
 | P9 | 완료 | P9-1 단위 테스트 확장, P9-2 E2E 테스트 확장, P9-3 Reference 평가 확장, P9-4 CI/검증 명령 정리 완료 |
 | P10 | 완료 | P10-1 표준 MCP 요구사항 재평가, P10-2 표준 MCP pilot 설계, P10-3 도입 보류 결정 완료 |
 | P11 | 완료 | P11-1 문서 동기화, P11-2 발표 설명 정리, P11-3 팀원 인수인계 완료 |
-| P12 | 진행 중 | 다음은 P12-1 문서와 코드 일치 점검 |
+| P12 | 진행 중 | P12-1 문서와 코드 일치 점검 완료. 다음은 P12-2 Agent 실행 품질 점검 |
 
 ## 7. 바로 다음 작업
 
-다음 개발은 **P12-1. 문서와 코드 일치 점검**부터 진행한다.
+다음 개발은 **P12-2. Agent 실행 품질 점검**부터 진행한다.
 
-P12-1을 시작할 때는 문서에 적힌 구조가 실제 코드와 맞는지 확인하고, 존재하지 않는 파일, 사라진 endpoint, 오래된 실행 명령이 없는지 점검한다.
+P12-2를 시작할 때는 영상/텍스트 입력이 오염 없이 fact로 정리되는지, Agent별 결과가 독립적으로 남는지, 충돌과 불확실성이 final result에 올바르게 반영되는지 확인한다.
 
 ## 2026-05-31 진행 기록 보강
 
@@ -1377,3 +1377,13 @@ P12-1을 시작할 때는 문서에 적힌 구조가 실제 코드와 맞는지 
 - 이번 단계는 협업/인수인계 문서화이며 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 협업 문서 검색, `.gitignore` 제외 기준 확인, `git diff --check`로 완료한다.
 - 다음 개발은 **P12-1 문서와 코드 일치 점검**이다.
+
+### 2026-05-31 P12-1 진행 기록
+
+- P12-1 문서와 코드 일치 점검 완료: `scripts/check_document_code_sync.py`를 추가해 핵심 문서, 실행 스크립트, Frontend/Gateway/Agent/Worker 주요 파일, route/job 문자열이 실제 저장소에 존재하는지 검사한다.
+- `docs/DOCUMENT_CODE_SYNC_CHECK.md`에 점검 범위, 실행 방법, 확인 결과, false positive를 줄이기 위한 curated reference 방식의 한계를 정리했다.
+- `/admin/agent-test`, `/api/v1/uploads/local`, `/health`, `/ready`, `/internal/v1/analyze/text`, `/internal/v1/analyze/video`, `/internal/v1/analyze/scenario`, `video_preprocess`, `video_analyze`가 코드에 존재함을 점검했다.
+- 표준 MCP 표현은 Host/Client/Server 도입 완료가 아니라 내부 MCP-like registry/executor 유지와 보류 결정으로 유지되는지 확인했다.
+- 이번 단계는 문서/검증 스크립트 보강이며 제품 코드 동작, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
+- 검증은 `python scripts/check_document_code_sync.py`, `git diff --check`, 표준 MCP pilot/gate 테스트로 완료한다.
+- 다음 개발은 **P12-2 Agent 실행 품질 점검**이다.
