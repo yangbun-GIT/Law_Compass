@@ -262,6 +262,12 @@ P10-1 기준 결론은 **표준 MCP Host/Client/Server 즉시 도입 보류**다
 
 따라서 P10-2는 기능 전체 전환이 아니라 KNIA search, legal RAG search, evidence guard 중 하나를 대상으로 **호환성 pilot 설계**만 진행한다. pilot 결과가 위 문제 중 무엇을 해결하는지 명확하지 않으면 P10-3에서 표준 MCP 도입은 계속 보류한다.
 
+### 2026-05-31 P10-2 표준 MCP Pilot 설계 결과
+
+P10-2 pilot 대상은 `search_knia_json_rag_tool`로 정했다. 이 tool은 read-only KNIA 검색 도구이며, LawCompass의 사고축 근거 품질에 직접 연결되고, 기존 내부 `MCPToolSpec`으로 input schema, output schema, `knia.read` scope, timeout, side-effect, trace 안전성을 이미 표현할 수 있다.
+
+설계 산출물은 `docs/STANDARD_MCP_PILOT_DESIGN.md`와 `apps/agent/app/mcp/standard_mcp_pilot.py`다. 이 산출물은 표준 MCP server/client/transport를 추가하지 않고, future adapter가 내부 tool spec을 어떻게 mapping할 수 있는지만 검증한다. production tool 실행은 계속 내부 executor를 사용한다.
+
 ## 7. OpenAI API 사용 방식
 
 ### 현재 적용

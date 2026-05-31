@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-05-31 Agent/MCP/Task-Plan-Goal P10-2 표준 MCP Pilot 설계
+
+Agent/MCP/Task-Plan-Goal 구조 보강의 P10-2 단계를 완료했다. 이번 변경은 표준 MCP를 즉시 도입하지 않고, `search_knia_json_rag_tool`을 대상으로 future standard MCP adapter compatibility를 검증할 수 있는 설계 계약을 만든 작업이다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| Pilot 대상 | `search_knia_json_rag_tool`을 선택했다. read-only KNIA 검색 tool이고 사고 근거 품질에 직접 연결되며 기존 `MCPToolSpec` 계약을 갖고 있다. |
+| 코드 계약 | `apps/agent/app/mcp/standard_mcp_pilot.py`가 pilot plan metadata를 생성한다. 내부 executor를 source of truth로 유지하고 `standard_mcp_adapter_enabled=false`, `standard_mcp_runtime_changed=false`를 명시한다. |
+| 테스트 | `apps/agent/tests/test_standard_mcp_pilot.py`가 pilot 대상, tool contract 보존, failure mapping, unsupported tool 거부를 검증한다. |
+| 문서 | `docs/STANDARD_MCP_PILOT_DESIGN.md`에 pilot 대상, 공존 설계, adapter mapping, 금지 범위, 완료 기준을 정리했다. |
+| 비변경 범위 | 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
+
+검증은 Agent 컨테이너에서 표준 MCP pilot/gate/registry/executor/route boundary 테스트와 compileall로 완료했다. 다음 P10-3에서는 pilot 설계가 내부 executor 대비 구체적인 이득을 주는지 평가하고 도입/보류 결정을 내린다.
+
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P10-1 표준 MCP 요구사항 재평가
 
 Agent/MCP/Task-Plan-Goal 구조 보강의 P10-1 단계를 완료했다. 이번 변경은 내부 MCP-like 구조를 충분히 강화한 현재 상태에서 표준 MCP Host/Client/Server 도입이 실제로 필요한지 재평가한 문서화 작업이다.
