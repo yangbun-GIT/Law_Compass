@@ -55,7 +55,7 @@
 
       <p v-if="loading" class="kv loading-text">불러오는 중입니다...</p>
       <ul v-else class="evidence-list ranking-list">
-        <KniaRankingCard v-for="item in items" :key="`${item.rank}-${item.chart_no}-${selectedParty}`" :item="item" />
+        <KniaRankingCard v-for="(item, index) in items" :key="rankingItemKey(item, index)" :item="item" />
         <li v-if="!items.length" class="empty-state ranking-empty">
           <strong>{{ emptyTitle }}</strong>
           <span>{{ emptyDescription }}</span>
@@ -139,13 +139,97 @@ function describeDetailCollectResult(result: any) {
   return failed ? `상세 기준 수집에 실패한 항목이 ${failed}건 있습니다.` : '상세 기준 수집 결과가 없습니다.';
 }
 
+function numericValue(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function rankingDedupeKey(item: any) {
+  const chartNo = String(item?.chart_no ?? '').trim();
+  if (!chartNo) return '';
+  return `${chartNo}::${String(item?.chart_type ?? '1').trim() || '1'}`;
+}
+
+function betterRankingItem(left: any, right: any) {
+  if (!!right?.has_detail !== !!left?.has_detail) return right.has_detail ? right : left;
+  const leftCount = numericValue(left?.search_count) ?? -1;
+  const rightCount = numericValue(right?.search_count) ?? -1;
+  if (leftCount !== rightCount) return rightCount > leftCount ? right : left;
+  const leftPercent = numericValue(left?.percentage) ?? -1;
+  const rightPercent = numericValue(right?.percentage) ?? -1;
+  if (leftPercent !== rightPercent) return rightPercent > leftPercent ? right : left;
+  const leftRank = numericValue(left?.source_rank ?? left?.rank) ?? Number.MAX_SAFE_INTEGER;
+  const rightRank = numericValue(right?.source_rank ?? right?.rank) ?? Number.MAX_SAFE_INTEGER;
+  return rightRank < leftRank ? right : left;
+}
+
+function mergeRankingItem(left: any, right: any) {
+  const selected = betterRankingItem(left, right);
+  const leftRank = numericValue(left?.source_rank ?? left?.rank);
+  const rightRank = numericValue(right?.source_rank ?? right?.rank);
+  const sourceRank =
+    leftRank != null && rightRank != null
+      ? Math.min(leftRank, rightRank)
+      : leftRank ?? rightRank ?? null;
+  const searchCount = Math.max(numericValue(left?.search_count) ?? -1, numericValue(right?.search_count) ?? -1);
+  const percentage = Math.max(numericValue(left?.percentage) ?? -1, numericValue(right?.percentage) ?? -1);
+  return {
+    ...selected,
+    source_rank: sourceRank,
+    rank: sourceRank,
+    rank_no: sourceRank,
+    search_count: searchCount >= 0 ? searchCount : null,
+    percentage: percentage >= 0 ? percentage : null,
+    duplicate_merged_count: Number(left?.duplicate_merged_count ?? 1) + Number(right?.duplicate_merged_count ?? 1),
+  };
+}
+
+function uniqueRankingItems(rawItems: any[]) {
+  const byChart = new Map<string, any>();
+  const passthrough: any[] = [];
+  for (const item of rawItems) {
+    const key = rankingDedupeKey(item);
+    if (!key) {
+      passthrough.push(item);
+      continue;
+    }
+    const current = byChart.get(key);
+    byChart.set(key, current ? mergeRankingItem(current, item) : { ...item, source_rank: item.source_rank ?? item.rank ?? null });
+  }
+
+  return [...byChart.values(), ...passthrough]
+    .sort((left, right) => {
+      const leftRank = numericValue(left?.source_rank ?? left?.rank) ?? Number.MAX_SAFE_INTEGER;
+      const rightRank = numericValue(right?.source_rank ?? right?.rank) ?? Number.MAX_SAFE_INTEGER;
+      if (leftRank !== rightRank) return leftRank - rightRank;
+      const leftCount = numericValue(left?.search_count) ?? -1;
+      const rightCount = numericValue(right?.search_count) ?? -1;
+      if (leftCount !== rightCount) return rightCount - leftCount;
+      const leftPercent = numericValue(left?.percentage) ?? -1;
+      const rightPercent = numericValue(right?.percentage) ?? -1;
+      if (leftPercent !== rightPercent) return rightPercent - leftPercent;
+      return String(left?.chart_no ?? '').localeCompare(String(right?.chart_no ?? ''), 'ko');
+    })
+    .map((item, index) => ({
+      ...item,
+      source_rank: item.source_rank ?? item.rank ?? null,
+      rank: index + 1,
+      rank_no: index + 1,
+    }));
+}
+
+function rankingItemKey(item: any, index: number) {
+  const key = rankingDedupeKey(item);
+  return key ? `${selectedParty.value}-${key}` : `${selectedParty.value}-ranking-${index}`;
+}
+
 async function load(options: { preserveMessage?: boolean } = {}) {
   loading.value = true;
   error.value = '';
   if (!options.preserveMessage) message.value = '';
   try {
     const data = await api.getKniaRanking(20, selectedParty.value, searchQuery.value.trim());
-    items.value = data.items || [];
+    items.value = uniqueRankingItems(data.items || []);
     detailSummary.value = data.detail_summary || null;
     if (data.error) {
       error.value = rankingLoadError;

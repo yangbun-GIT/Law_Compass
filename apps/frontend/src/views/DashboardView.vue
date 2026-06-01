@@ -44,28 +44,41 @@
       <p v-if="loading" class="kv">케이스 목록을 불러오는 중입니다.</p>
       <p v-else-if="error" class="msg-error">{{ error }}</p>
 
-      <ul v-else-if="items.length" class="list-reset case-list">
-        <li v-for="item in items" :key="item.id" class="case-row">
-          <div class="case-main">
-            <div class="case-title-row">
-              <strong>{{ item.title }}</strong>
-              <span class="badge" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span>
-            </div>
-            <p class="kv">생성: {{ formatDate(item.created_at) }}</p>
-            <p>{{ item.description_text || "사고 설명이 아직 입력되지 않았습니다." }}</p>
-          </div>
-          <div class="btn-row case-actions">
-            <RouterLink class="btn secondary" :to="`/cases/${item.id}/wizard`">입력 이어가기</RouterLink>
-            <RouterLink class="btn secondary" :to="`/cases/${item.id}/result`">결과 보기</RouterLink>
-          </div>
-        </li>
-      </ul>
+      <template v-else>
+        <p v-if="deleteError" class="msg-error case-delete-error">{{ deleteError }}</p>
 
-      <div v-else class="empty-state">
-        <strong>등록된 케이스가 없습니다.</strong>
-        <p class="kv">첫 케이스를 만들고 사고 상황을 입력하면 분석 흐름을 시작할 수 있습니다.</p>
-        <RouterLink class="btn" to="/cases/new">첫 케이스 만들기</RouterLink>
-      </div>
+        <ul v-if="items.length" class="list-reset case-list">
+          <li v-for="item in items" :key="item.id" class="case-row">
+            <div class="case-main">
+              <div class="case-title-row">
+                <strong>{{ item.title }}</strong>
+                <span class="badge" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span>
+              </div>
+              <p class="kv">생성: {{ formatDate(item.created_at) }}</p>
+              <p>{{ item.description_text || "사고 설명이 아직 입력되지 않았습니다." }}</p>
+            </div>
+            <div class="btn-row case-actions">
+              <RouterLink class="btn secondary" :to="`/cases/${item.id}/wizard`">입력 이어가기</RouterLink>
+              <RouterLink class="btn secondary" :to="`/cases/${item.id}/result`">결과 보기</RouterLink>
+              <button
+                class="btn secondary danger case-delete-button"
+                type="button"
+                :disabled="deletingId === item.id"
+                :aria-label="`${item.title} 삭제`"
+                @click="deleteCase(item)"
+              >
+                {{ deletingId === item.id ? "삭제 중" : "삭제" }}
+              </button>
+            </div>
+          </li>
+        </ul>
+
+        <div v-else class="empty-state">
+          <strong>등록된 케이스가 없습니다.</strong>
+          <p class="kv">첫 케이스를 만들고 사고 상황을 입력하면 분석 흐름을 시작할 수 있습니다.</p>
+          <RouterLink class="btn" to="/cases/new">첫 케이스 만들기</RouterLink>
+        </div>
+      </template>
     </article>
   </section>
 </template>
@@ -77,6 +90,8 @@ import { api, formatApiError, type CaseItem } from "../api/client";
 const items = ref<CaseItem[]>([]);
 const loading = ref(false);
 const error = ref("");
+const deleteError = ref("");
+const deletingId = ref("");
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" });
@@ -102,6 +117,7 @@ function statusClass(status: string) {
 async function load() {
   loading.value = true;
   error.value = "";
+  deleteError.value = "";
   try {
     const data = await api.listCases();
     items.value = data.items;
@@ -109,6 +125,23 @@ async function load() {
     error.value = formatApiError(err, "케이스 목록을 불러오지 못했습니다.");
   } finally {
     loading.value = false;
+  }
+}
+
+async function deleteCase(item: CaseItem) {
+  if (deletingId.value) return;
+  const ok = window.confirm(`"${item.title}" 케이스를 삭제할까요?\n삭제한 케이스는 대시보드에서 더 이상 보이지 않습니다.`);
+  if (!ok) return;
+
+  deletingId.value = item.id;
+  deleteError.value = "";
+  try {
+    await api.deleteCase(item.id);
+    items.value = items.value.filter((existing) => existing.id !== item.id);
+  } catch (err) {
+    deleteError.value = formatApiError(err, "케이스를 삭제하지 못했습니다.");
+  } finally {
+    deletingId.value = "";
   }
 }
 
@@ -284,6 +317,26 @@ onMounted(load);
 
 .case-actions {
   justify-content: flex-end;
+}
+
+.case-delete-error {
+  margin: 0 0 10px;
+}
+
+.case-delete-button {
+  border-color: rgba(213, 137, 137, 0.36);
+  color: #f3c4bd;
+}
+
+.case-delete-button:hover:not(:disabled) {
+  border-color: rgba(213, 137, 137, 0.62);
+  background: rgba(139, 38, 53, 0.18);
+  color: #ffe1dc;
+}
+
+.case-delete-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .empty-state {

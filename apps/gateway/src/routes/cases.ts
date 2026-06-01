@@ -119,4 +119,33 @@ export function registerCaseRoutes(app: FastifyInstance, opts: CaseRouteOptions)
     if (!updated.rowCount) return reply.code(404).send(opts.errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
     return { case: updated.rows[0], trace_id: traceId };
   });
+
+  app.delete(`${opts.apiPrefix}/cases/:caseId`, async (req, reply) => {
+    if (!requireUser(req as any, reply)) return;
+    const traceId = trace(req);
+    const { caseId } = req.params as any;
+    const ownerId = (req as any).user.id;
+
+    const deleted = await opts.db.query(
+      `UPDATE cases
+       SET deleted_at=now()
+       WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL
+       RETURNING id`,
+      [caseId, ownerId]
+    );
+
+    if (!deleted.rowCount) {
+      return reply.code(404).send(opts.errorPayload("CASE_NOT_FOUND", "케이스를 찾을 수 없습니다.", traceId));
+    }
+
+    await opts.db.query(
+      `UPDATE uploads
+       SET status='deleted',
+           deleted_at=COALESCE(deleted_at, now())
+       WHERE case_id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`,
+      [caseId, ownerId]
+    );
+
+    return { ok: true, case_id: deleted.rows[0].id, trace_id: traceId };
+  });
 }

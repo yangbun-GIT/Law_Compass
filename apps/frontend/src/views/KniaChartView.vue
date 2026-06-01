@@ -107,6 +107,29 @@
                 <span v-if="factor.description || factor.condition_text" class="factor-desc factor-description">
                   {{ text(factor.description || factor.condition_text) }}
                 </span>
+                <details v-if="faultFactorGuide(factor)" class="factor-guide">
+                  <summary>
+                    <span class="factor-guide-icon" aria-hidden="true">i</span>
+                    {{ faultFactorGuide(factor)?.label }} 적용 기준 보기
+                  </summary>
+                  <div class="factor-guide-body">
+                    <p>{{ faultFactorGuide(factor)?.summary }}</p>
+                    <ul>
+                      <li v-for="example in faultFactorGuide(factor)?.examples || []" :key="example">
+                        {{ example }}
+                      </li>
+                    </ul>
+                    <p class="factor-guide-note">{{ faultFactorGuide(factor)?.note }}</p>
+                    <a
+                      class="factor-guide-source"
+                      :href="faultFactorGuide(factor)?.sourceUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {{ faultFactorGuide(factor)?.sourceLabel }}
+                    </a>
+                  </div>
+                </details>
                 <span class="factor-mobile-meta">
                   <span :class="deltaClass(factor.delta_a)">A {{ formatDelta(factor.delta_a) }}</span>
                   <span :class="deltaClass(factor.delta_b)">B {{ formatDelta(factor.delta_b) }}</span>
@@ -196,6 +219,7 @@ import KniaFaultRatioBar from "../components/knia/KniaFaultRatioBar.vue";
 import KniaVideoLinkCard from "../components/knia/KniaVideoLinkCard.vue";
 import { useSessionStore } from "../stores/session";
 import { sanitizeDisplayText } from "../utils/displaySanitizer";
+import { getKniaFaultFactorGuide } from "../utils/kniaFaultFactorGuide";
 
 const route = useRoute();
 const session = useSessionStore();
@@ -311,6 +335,7 @@ function numberOr(...values: any[]) {
   return null;
 }
 function text(value: unknown) { return sanitizeDisplayText(value); }
+function faultFactorGuide(factor: any) { return getKniaFaultFactorGuide(factor?.label || factor?.title); }
 function dedupeAccidentSituationLines(values: unknown[]) {
   const lines = values.map((value) => sanitizeDisplayText(value, "")).filter(Boolean);
   const out: string[] = [];
@@ -408,6 +433,16 @@ onMounted(load);
 .factor-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .factor-title, .factor-label { color: var(--text-main); font-size: 0.98rem; font-weight: 900; line-height: 1.35; word-break: keep-all; overflow-wrap: anywhere; }
 .factor-desc, .factor-description { color: var(--text-sub); font-size: 0.94rem; line-height: 1.55; }
+.factor-guide { margin-top: 4px; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(201, 169, 98, 0.24); background: rgba(28, 23, 20, 0.38); color: var(--text-sub); }
+.factor-guide summary { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--accent-strong); font-weight: 900; line-height: 1.35; word-break: keep-all; overflow-wrap: anywhere; }
+.factor-guide-icon { display: inline-grid; place-items: center; flex: 0 0 auto; width: 20px; height: 20px; border-radius: 999px; background: rgba(201, 169, 98, 0.16); border: 1px solid rgba(201, 169, 98, 0.38); color: var(--accent-strong); font-size: 0.78rem; font-weight: 950; }
+.factor-guide-body { display: grid; gap: 9px; margin-top: 10px; color: var(--text-sub); font-size: 0.92rem; line-height: 1.58; }
+.factor-guide-body p { margin: 0; }
+.factor-guide-body ul { display: grid; gap: 6px; margin: 0; padding-left: 18px; }
+.factor-guide-body li { word-break: keep-all; overflow-wrap: anywhere; }
+.factor-guide-note { color: #F1D99A; font-weight: 800; }
+.factor-guide-source { display: inline-flex; width: fit-content; align-items: center; justify-content: center; min-height: 30px; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(201, 169, 98, 0.30); background: rgba(201, 169, 98, 0.10); color: var(--accent-strong); font-weight: 900; text-decoration: none; }
+.factor-guide-source:hover { border-color: rgba(201, 169, 98, 0.62); color: var(--paper); }
 .factor-mobile-meta { display: none; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
 .delta, .factor-value, .factor-source, .mini-badge, .selection-status, .factor-state { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 30px; min-width: 5ch; padding: 5px 10px; border-radius: 999px; background: rgba(28, 23, 20, 0.42); border: 1px solid rgba(201, 169, 98, 0.26); color: var(--text-sub); font-size: 0.84rem; font-weight: 900; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 .delta.plus { color: #FFD3C9; background: rgba(139, 38, 53, 0.28); border-color: rgba(213, 137, 137, 0.32); }

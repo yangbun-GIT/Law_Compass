@@ -61,6 +61,7 @@ const kniaFaultRatioBar = readFileSync("src/components/knia/KniaFaultRatioBar.vu
 const kniaDetailEvidenceCard = readFileSync("src/components/knia/KniaDetailEvidenceCard.vue", "utf8");
 const kniaJsonSearchBox = readFileSync("src/components/knia/KniaJsonSearchBox.vue", "utf8");
 const displaySanitizer = readFileSync("src/utils/displaySanitizer.ts", "utf8");
+const kniaFaultFactorGuide = readFileSync("src/utils/kniaFaultFactorGuide.ts", "utf8");
 const styles = readFileSync("src/styles.css", "utf8");
 const agentVideoSummarizer = readFileSync("../agent/app/services/video_observation_summarizer.py", "utf8");
 const agentVideoRules = readFileSync("../agent/app/services/video_input_contract_rules.py", "utf8");
@@ -430,6 +431,30 @@ if (missingKniaUiTokens.length) {
   process.exit(1);
 }
 
+const kniaFaultFactorGuideSource = [kniaFaultFactorGuide, kniaChartView, kniaDetailEvidenceCard].join("\n");
+const requiredKniaFaultFactorGuideTokens = [
+  "getKniaFaultFactorGuide",
+  "현저한 과실",
+  "중대한 과실",
+  "전방주시의무",
+  "혈중알코올농도 0.03% 미만",
+  "혈중알코올농도 0.03% 이상",
+  "제한속도 10km/h 이상 20km/h 미만",
+  "제한속도 20km/h 초과",
+  "운전 중 휴대전화 사용",
+  "운전 중 영상표시장치 시청·조작",
+  "중대한 과실과 함께 적용하지 않습니다",
+  "현저한 과실과 함께 적용하지 않습니다",
+  "factor-guide",
+  "knia-detail-factor-guide",
+  "accident.knia.or.kr/myaccident-content?chartNo=205",
+];
+const missingKniaFaultFactorGuideTokens = requiredKniaFaultFactorGuideTokens.filter((token) => !kniaFaultFactorGuideSource.includes(token));
+if (missingKniaFaultFactorGuideTokens.length) {
+  console.error("KNIA remarkable/gross fault guide contract missing", missingKniaFaultFactorGuideTokens);
+  process.exit(1);
+}
+
 const ratioBarContracts = [
   ":style=\"{ flexBasis:",
   "min-width: 0",
@@ -489,6 +514,9 @@ const kniaRankingSearchContracts = [
   "검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
   "accident_party_label",
   "차대자전거 사고",
+  "uniqueRankingItems",
+  "rankingItemKey",
+  "duplicate_merged_count",
 ];
 const missingKniaRankingSearchContracts = kniaRankingSearchContracts.filter((token) => ![kniaRankingView, readFileSync("src/components/knia/KniaRankingCard.vue", "utf8")].some((text) => text.includes(token)));
 if (missingKniaRankingSearchContracts.length) {
@@ -508,6 +536,19 @@ const forbiddenDashboardKniaSearchCardCopy = [
 const dashboardKniaSearchCardLeaks = forbiddenDashboardKniaSearchCardCopy.filter((token) => dashboardView.includes(token));
 if (dashboardKniaSearchCardLeaks.length || !dashboardView.includes("많이 검색된 사고유형")) {
   console.error("dashboard must keep only the popular KNIA ranking entry card", dashboardKniaSearchCardLeaks);
+  process.exit(1);
+}
+
+const dashboardCaseDeleteContracts = [
+  "deleteCase(item)",
+  "api.deleteCase",
+  "case-delete-button",
+  "삭제한 케이스는 대시보드에서 더 이상 보이지 않습니다.",
+  "케이스를 삭제하지 못했습니다.",
+];
+const missingDashboardCaseDeleteContracts = dashboardCaseDeleteContracts.filter((token) => ![dashboardView, apiClient].some((text) => text.includes(token)));
+if (missingDashboardCaseDeleteContracts.length) {
+  console.error("dashboard recent case delete contract failed", missingDashboardCaseDeleteContracts);
   process.exit(1);
 }
 

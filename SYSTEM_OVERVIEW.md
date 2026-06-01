@@ -1,5 +1,27 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-06-01 대시보드 최근 케이스 삭제
+
+대시보드 최근 케이스 목록에서 사용자가 직접 케이스를 숨김 삭제할 수 있도록 Gateway와 Frontend 표시 계약을 보강했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| Gateway API | `DELETE /api/v1/cases/:caseId`는 로그인 사용자 소유 케이스만 `deleted_at`으로 soft-delete한다. |
+| 관련 업로드 | 케이스 삭제 시 같은 소유자의 관련 `uploads`도 `status='deleted'`, `deleted_at`으로 soft-delete해 일반 조회에서 제외한다. 원본 저장소 파일 물리 삭제는 수행하지 않는다. |
+| Frontend | `DashboardView.vue` 최근 케이스 row에 삭제 버튼을 추가했다. 확인 창을 거친 뒤 성공하면 목록에서 즉시 제거하고, 실패 시 row 영역 위에 안전한 오류 문구를 표시한다. |
+| 비변경 범위 | DB schema, storage path, Redis key, 분석 결과 payload, Agent/Worker 실행 흐름은 변경하지 않았다. |
+
+## 2026-06-01 KNIA 검색순위 중복 표시 방지
+
+KNIA 검색순위 화면에서 같은 기준번호가 여러 ranking source row로 들어와 `1위 차43-2`처럼 같은 항목이 반복 표시되는 문제를 Gateway와 Frontend 양쪽에서 방지했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| Gateway ranking 응답 | `/api/v1/knia/ranking`은 `chart_no + chart_type` 기준으로 중복 row를 병합하고, 표시용 `rank`/`rank_no`를 1부터 다시 매긴다. 같은 기준번호가 검색건수나 비율만 다르게 들어오면 높은 검색건수/비율 값을 유지하고 `duplicate_merged_count`를 남긴다. |
+| 조회량 보존 | 중복 row 병합 때문에 상위 항목이 줄어드는 것을 완화하기 위해 DB 조회 limit은 사용자 limit보다 넉넉하게 가져온 뒤 dedupe 후 사용자 limit으로 자른다. |
+| Frontend fallback | `KniaRankingView.vue`도 응답 items를 한 번 더 dedupe하고 stable key를 `chart_no + chart_type` 기준으로 만들어 중복 key와 반복 렌더링을 방지한다. |
+| 비변경 범위 | DB schema, Redis key, KNIA 수집 로직, KNIA 상세 화면 API, 외부 KNIA 원문 링크 구조는 변경하지 않았다. |
+
 ## 2026-05-31 비접촉 이륜차 단독 전도 분석 계약 보강
 
 비좁은 커브길에서 맞은편 오토바이가 직접 접촉 없이 단독 전도한 유형을 직접 차대오토바이 충돌로 오분류하지 않도록 Agent/Worker/Gateway/Frontend 표시 계약을 보강했다.

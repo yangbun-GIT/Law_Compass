@@ -208,6 +208,103 @@ function normalizeKniaRankingRow(row: any) {
   };
 }
 
+function finiteNumber(value: any) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function lowerPositiveNumber(left: any, right: any) {
+  const leftNumber = finiteNumber(left);
+  const rightNumber = finiteNumber(right);
+  const leftValid = leftNumber != null && leftNumber > 0;
+  const rightValid = rightNumber != null && rightNumber > 0;
+  if (leftValid && rightValid) return Math.min(leftNumber, rightNumber);
+  if (leftValid) return leftNumber;
+  if (rightValid) return rightNumber;
+  return null;
+}
+
+function higherNumber(left: any, right: any) {
+  const leftNumber = finiteNumber(left);
+  const rightNumber = finiteNumber(right);
+  if (leftNumber == null) return rightNumber;
+  if (rightNumber == null) return leftNumber;
+  return Math.max(leftNumber, rightNumber);
+}
+
+function rankingDedupeKey(item: any) {
+  const chartNo = String(item?.chart_no ?? "").trim();
+  if (!chartNo) return "";
+  return `${chartNo}::${String(item?.chart_type ?? "1").trim() || "1"}`;
+}
+
+function pickRicherRankingRow(left: any, right: any) {
+  if (!!right.has_detail !== !!left.has_detail) return right.has_detail ? right : left;
+  const rightSearchCount = finiteNumber(right.search_count) ?? -1;
+  const leftSearchCount = finiteNumber(left.search_count) ?? -1;
+  if (rightSearchCount !== leftSearchCount) return rightSearchCount > leftSearchCount ? right : left;
+  const rightPercentage = finiteNumber(right.percentage) ?? -1;
+  const leftPercentage = finiteNumber(left.percentage) ?? -1;
+  if (rightPercentage !== leftPercentage) return rightPercentage > leftPercentage ? right : left;
+  const rightRank = finiteNumber(right.rank) ?? Number.MAX_SAFE_INTEGER;
+  const leftRank = finiteNumber(left.rank) ?? Number.MAX_SAFE_INTEGER;
+  if (rightRank !== leftRank) return rightRank < leftRank ? right : left;
+  return left;
+}
+
+function mergeRankingDuplicate(left: any, right: any) {
+  const preferred = pickRicherRankingRow(left, right);
+  const rank = lowerPositiveNumber(left.source_rank ?? left.rank, right.source_rank ?? right.rank);
+  const searchCount = higherNumber(left.search_count, right.search_count);
+  const percentage = higherNumber(left.percentage, right.percentage);
+  return {
+    ...preferred,
+    source_rank: rank,
+    rank,
+    rank_no: rank,
+    search_count: searchCount,
+    percentage,
+    duplicate_merged_count: Number(left.duplicate_merged_count ?? 1) + Number(right.duplicate_merged_count ?? 1),
+  };
+}
+
+function sortRankingItems(left: any, right: any) {
+  const leftRank = finiteNumber(left.source_rank ?? left.rank) ?? Number.MAX_SAFE_INTEGER;
+  const rightRank = finiteNumber(right.source_rank ?? right.rank) ?? Number.MAX_SAFE_INTEGER;
+  if (leftRank !== rightRank) return leftRank - rightRank;
+  const leftSearchCount = finiteNumber(left.search_count) ?? -1;
+  const rightSearchCount = finiteNumber(right.search_count) ?? -1;
+  if (leftSearchCount !== rightSearchCount) return rightSearchCount - leftSearchCount;
+  const leftPercentage = finiteNumber(left.percentage) ?? -1;
+  const rightPercentage = finiteNumber(right.percentage) ?? -1;
+  if (leftPercentage !== rightPercentage) return rightPercentage - leftPercentage;
+  return String(left.chart_no ?? "").localeCompare(String(right.chart_no ?? ""), "ko");
+}
+
+function dedupeKniaRankingItems(items: any[], limit: number) {
+  const byChart = new Map<string, any>();
+  const passthrough: any[] = [];
+  for (const item of items) {
+    const key = rankingDedupeKey(item);
+    if (!key) {
+      passthrough.push(item);
+      continue;
+    }
+    const current = byChart.get(key);
+    byChart.set(key, current ? mergeRankingDuplicate(current, item) : { ...item, source_rank: item.rank ?? null, duplicate_merged_count: 1 });
+  }
+
+  return [...byChart.values(), ...passthrough]
+    .sort(sortRankingItems)
+    .slice(0, limit)
+    .map((item, index) => ({
+      ...item,
+      source_rank: item.source_rank ?? item.rank ?? null,
+      rank: index + 1,
+      rank_no: index + 1,
+    }));
+}
+
 export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions) {
   const { env, db, errorPayload } = opts;
 
@@ -239,12 +336,13 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
     let rows: any = { rowCount: 0, rows: [] };
     try {
       const params: any[] = [];
+      const fetchLimit = Math.min(limit * 4, 200);
       const where = [
         "1=1",
         buildKniaRankingPartyClause("r", params, selected.value, "r"),
         buildKniaRankingSearchClause(params, q, selected.value),
       ].join(" ");
-      const limitParam = parameter(params, limit);
+      const limitParam = parameter(params, fetchLimit);
       const orderBy =
         selected.value === "car_vs_bicycle"
           ? "CASE WHEN (r.chart_no LIKE '자%' OR r.chart_no LIKE '거%') THEN 0 ELSE 1 END, r.rank ASC, r.chart_no ASC"
@@ -276,17 +374,18 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       req.log?.error?.({ err, trace_id: traceId, q, accidentPartyType: selected.value }, "KNIA ranking query failed");
     }
 
-    let items = (rows.rows ?? []).map(normalizeKniaRankingRow);
+    let items = dedupeKniaRankingItems((rows.rows ?? []).map(normalizeKniaRankingRow), limit);
 
     if (!items.length) {
       try {
         const params: any[] = [];
+        const fetchLimit = Math.min(limit * 4, 200);
         const where = [
           "1=1",
           buildKniaRankingPartyClause("c", params, selected.value),
           buildKniaChartFallbackSearchClause(params, q, selected.value),
         ].join(" ");
-        const limitParam = parameter(params, limit);
+        const limitParam = parameter(params, fetchLimit);
         const orderBy =
           selected.value === "car_vs_bicycle"
             ? "CASE WHEN (c.chart_no LIKE '자%' OR c.chart_no LIKE '거%') THEN 0 ELSE 1 END, c.detail_collected_at DESC NULLS LAST, c.updated_at DESC NULLS LAST, c.chart_no ASC"
@@ -313,7 +412,7 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
            LIMIT ${limitParam}`,
           params,
         );
-        items = (fallbackRows.rows ?? []).map(normalizeKniaRankingRow);
+        items = dedupeKniaRankingItems((fallbackRows.rows ?? []).map(normalizeKniaRankingRow), limit);
       } catch (err) {
         req.log?.error?.({ err, rankingError, trace_id: traceId, q, accidentPartyType: selected.value }, "KNIA ranking fallback query failed");
         return reply.send({

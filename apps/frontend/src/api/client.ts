@@ -296,6 +296,8 @@ export const api = {
     request<{ case: CaseItem; trace_id: string }>(`/api/v1/cases/${caseId}`, { method: "PATCH", body: JSON.stringify(payload), headers: idempo() }),
   listCases: () => request<{ items: CaseItem[]; trace_id: string }>("/api/v1/cases"),
   getCase: (caseId: string) => request<{ case: CaseItem; trace_id: string }>(`/api/v1/cases/${caseId}`),
+  deleteCase: (caseId: string) =>
+    request<{ ok: boolean; case_id: string; trace_id: string }>(`/api/v1/cases/${caseId}`, { method: "DELETE", headers: idempo() }),
 
   localUpload: async (caseId: string, file: File) => {
     const form = new FormData();

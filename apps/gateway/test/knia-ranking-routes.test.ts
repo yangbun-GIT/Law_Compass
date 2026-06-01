@@ -68,6 +68,69 @@ describe("KNIA ranking route", () => {
     await app.close();
   });
 
+  it("deduplicates repeated ranking rows by chart number and assigns stable display ranks", async () => {
+    const app = buildApp({
+      async query() {
+        return {
+          rowCount: 3,
+          rows: [
+            {
+              rank: 1,
+              chart_no: "차43-2",
+              chart_type: "1",
+              title: "후행 직진 대 선행 진로변경",
+              accident_party_type: "car_vs_car",
+              search_count: 1673229,
+              percentage: 5.1,
+              has_detail: true,
+              matched_by: "ranking",
+            },
+            {
+              rank: 1,
+              chart_no: "차43-2",
+              chart_type: "1",
+              title: "후행 직진 대 선행 진로변경",
+              accident_party_type: "car_vs_car",
+              search_count: 1673229,
+              percentage: 10.6,
+              has_detail: true,
+              matched_by: "ranking",
+            },
+            {
+              rank: 2,
+              chart_no: "차41-1",
+              chart_type: "1",
+              title: "후미추돌",
+              accident_party_type: "car_vs_car",
+              search_count: 900,
+              percentage: 3.4,
+              has_detail: true,
+              matched_by: "ranking",
+            },
+          ],
+        };
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/knia/ranking?limit=20&accidentPartyType=car_vs_car",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.items).toHaveLength(2);
+    expect(body.items.map((item: any) => item.chart_no)).toEqual(["차43-2", "차41-1"]);
+    expect(body.items.map((item: any) => item.rank)).toEqual([1, 2]);
+    expect(body.items[0]).toMatchObject({
+      chart_no: "차43-2",
+      percentage: 10.6,
+      duplicate_merged_count: 2,
+    });
+    expect(body.detail_summary.displayed_count).toBe(2);
+    await app.close();
+  });
+
   it("falls back to fault charts when ranking rows are empty", async () => {
     let callCount = 0;
     const app = buildApp({

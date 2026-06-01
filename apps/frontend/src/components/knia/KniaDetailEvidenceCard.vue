@@ -52,7 +52,29 @@
       </div>
       <div class="knia-detail-factor-list">
         <div v-for="factor in adjustmentFactors" :key="factorKey(factor)" class="knia-detail-factor">
-          <strong>{{ text(factor.label || factor.title) }}</strong>
+          <div class="knia-detail-factor-main">
+            <strong>{{ text(factor.label || factor.title) }}</strong>
+            <details v-if="faultFactorGuide(factor)" class="knia-detail-factor-guide">
+              <summary>{{ faultFactorGuide(factor)?.label }} 적용 기준</summary>
+              <div class="knia-detail-factor-guide-body">
+                <p>{{ faultFactorGuide(factor)?.summary }}</p>
+                <ul>
+                  <li v-for="example in faultFactorGuide(factor)?.examples || []" :key="example">
+                    {{ example }}
+                  </li>
+                </ul>
+                <p class="guide-note">{{ faultFactorGuide(factor)?.note }}</p>
+                <a
+                  class="knia-detail-factor-guide-source"
+                  :href="faultFactorGuide(factor)?.sourceUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {{ faultFactorGuide(factor)?.sourceLabel }}
+                </a>
+              </div>
+            </details>
+          </div>
           <span v-if="deltaText(factor)" class="factor-delta">{{ deltaText(factor) }}</span>
         </div>
       </div>
@@ -76,6 +98,7 @@
 import { computed, ref, watch } from "vue";
 import { api, formatApiError } from "../../api/client";
 import { sanitizeDisplayText } from "../../utils/displaySanitizer";
+import { getKniaFaultFactorGuide } from "../../utils/kniaFaultFactorGuide";
 import KniaFaultRatioBar from "./KniaFaultRatioBar.vue";
 
 const props = withDefaults(
@@ -186,6 +209,10 @@ function dedupeSituationLines(lines: string[]) {
 
 function factorKey(factor: any) {
   return `${factor?.factor_order ?? ""}-${factor?.label ?? factor?.title ?? ""}-${factor?.delta_a ?? ""}-${factor?.delta_b ?? ""}`;
+}
+
+function faultFactorGuide(factor: any) {
+  return getKniaFaultFactorGuide(factor?.label || factor?.title);
 }
 
 function deltaText(factor: any) {
@@ -299,6 +326,74 @@ function resolveAccidentPartyLabel(input: { accident_party_label?: unknown; acci
   line-height: 1.4;
   word-break: keep-all;
   overflow-wrap: anywhere;
+}
+
+.knia-detail-factor-main {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.knia-detail-factor-guide {
+  padding: 9px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(201, 169, 98, 0.22);
+  background: rgba(28, 23, 20, 0.34);
+}
+
+.knia-detail-factor-guide summary {
+  cursor: pointer;
+  color: var(--accent-strong);
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.knia-detail-factor-guide-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
+  color: var(--text-sub);
+  font-size: 0.9rem;
+  line-height: 1.58;
+}
+
+.knia-detail-factor-guide-body p {
+  margin: 0;
+}
+
+.knia-detail-factor-guide-body ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.knia-detail-factor-guide-body li {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.guide-note {
+  color: #F1D99A;
+  font-weight: 800;
+}
+
+.knia-detail-factor-guide-source {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 169, 98, 0.28);
+  background: rgba(201, 169, 98, 0.10);
+  color: var(--accent-strong);
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-decoration: none;
 }
 
 .factor-delta {
