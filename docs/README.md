@@ -19,6 +19,7 @@
 | Agent/MCP/Task-Plan-Goal 현행 기준 | [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md) |
 | Agent/MCP/Task-Plan-Goal 상세 완료 기록 | [archive 완료 기록](archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md) |
 | 표준 MCP 도입 보류 결정 | [STANDARD_MCP_DECISION.md](STANDARD_MCP_DECISION.md) |
+| 표준 MCP pilot 설계 | [STANDARD_MCP_PILOT_DESIGN.md](STANDARD_MCP_PILOT_DESIGN.md) |
 | OSS 후속 MSA/MCP/Agent 전환 검토 | [FUTURE_MSA_MCP_AGENT_EVOLUTION.md](FUTURE_MSA_MCP_AGENT_EVOLUTION.md) |
 | 실행, 배포, 운영, import, 장애 대응 | [OPERATIONS.md](OPERATIONS.md) |
 | 로컬 실행과 빌드 방법 | [BUILD_AND_RUN_GUIDE.md](BUILD_AND_RUN_GUIDE.md) |

@@ -21,6 +21,7 @@ Agent/MCP/Task-Plan-Goal 로드맵의 현행 기준과 상세 완료 기록을 �
 | 현행 기준 | `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`는 Agent/MCP-like/Task-Plan-Goal 작업을 다시 열 때 확인하는 active/reference 문서로 축약했다. |
 | 완료 기록 | 기존 P0~P12 상세 구현 기록과 검증 로그는 `docs/archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md`에 보존했다. |
 | 표준 MCP 결정 | `docs/STANDARD_MCP_DECISION.md`는 표준 MCP Host/Client/Server 즉시 도입 보류와 재검토 trigger를 기록하는 active/reference 문서로 정리했다. |
+| 표준 MCP pilot | `docs/STANDARD_MCP_PILOT_DESIGN.md`는 `search_knia_json_rag_tool` 기반 future adapter compatibility와 금지 범위를 고정하는 active/reference 문서로 정리했다. |
 | 후속 전환 메모 | `docs/FUTURE_MSA_MCP_AGENT_EVOLUTION.md`가 OSS 후속 MSA 책임 경계, MCP pilot 순서, Specialist Agent 페르소나 고도화 기준을 정리한다. |
 | 링크 정합성 | `docs/README.md`와 `scripts/check_document_code_sync.py`가 새 문서 위치를 확인한다. |
 | 비변경 범위 | 제품 API route, DTO, DB schema, Redis key, storage path, 외부 API 계약, Agent 판단 로직은 변경하지 않았다. |

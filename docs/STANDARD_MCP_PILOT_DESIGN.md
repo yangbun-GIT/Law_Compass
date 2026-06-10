@@ -1,8 +1,19 @@
 # 표준 MCP Pilot 설계
 
+상태: active/reference
+용도: 표준 MCP를 즉시 도입하지 않는 상태에서 future adapter compatibility 기준을 고정하는 설계 문서
 작성일: 2026-05-31
+마지막 정리일: 2026-06-10
 
 이 문서는 P10-2 기준 표준 MCP 도입 pilot 설계를 정리한다. 현재 LawCompass는 표준 MCP Host/Client/Server를 구현한 상태가 아니라 Agent 내부 MCP-like tool registry/executor를 사용한다. 이 단계는 기능 전체 전환이 아니라 compatibility 검증 설계다.
+
+## 0. 문서 위치와 적용 범위
+
+- 이 문서는 `docs/STANDARD_MCP_PILOT_DESIGN.md`에서 관리한다.
+- 현재 Agent/MCP/Task-Plan-Goal 현행 기준은 [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)를 따른다.
+- 표준 MCP 즉시 도입 보류 결정과 재검토 trigger는 [STANDARD_MCP_DECISION.md](STANDARD_MCP_DECISION.md)를 따른다.
+- OSS 후속 MSA/MCP/Agent 분리 검토는 [FUTURE_MSA_MCP_AGENT_EVOLUTION.md](FUTURE_MSA_MCP_AGENT_EVOLUTION.md)를 참조한다.
+- 이 문서는 production runtime 전환 지시서가 아니라, 기존 내부 executor를 보존하면서 future standard MCP adapter가 잃으면 안 되는 계약을 정리한 기준 문서다.
 
 ## 1. Pilot 결론
 
@@ -79,4 +90,11 @@ P10-2에서는 아래를 하지 않는다.
 
 ## 7. 다음 단계
 
-P10-3에서는 이 pilot 설계가 내부 executor 대비 어떤 구체적 문제를 해결하는지 평가한다. 현재처럼 해결 문제가 명확하지 않으면 표준 MCP 도입은 계속 보류한다.
+P10-3 평가 결과 현재는 표준 MCP runtime 도입을 보류한다. 이 pilot 설계는 즉시 실행 계획이 아니라, 향후 외부 tool server, cross-host tool 재사용, 표준 MCP client 요구가 실제로 생겼을 때 검토할 adapter compatibility 기준으로 유지한다.
+
+## 8. 관련 문서
+
+- [Agent/MCP Task-Plan-Goal 구조 보강 로드맵](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)
+- [표준 MCP 도입 결정](STANDARD_MCP_DECISION.md)
+- [OSS 후속 MSA/MCP/Agent 전환 메모](FUTURE_MSA_MCP_AGENT_EVOLUTION.md)
+- [표준 MCP 관련 스택 판단 기록](STACK_DECISION_REVIEW.md)

@@ -98,6 +98,10 @@ REQUIRED_SNIPPETS = [
         "snippets": ["상태: active/reference", "FUTURE_MSA_MCP_AGENT_EVOLUTION.md", "docs/architecture/"],
     },
     {
+        "path": "docs/STANDARD_MCP_PILOT_DESIGN.md",
+        "snippets": ["상태: active/reference", "adapter compatibility", "STANDARD_MCP_DECISION.md"],
+    },
+    {
         "path": "docs/FUTURE_MSA_MCP_AGENT_EVOLUTION.md",
         "snippets": ["OSS 후속 구조 전환 메모", "Specialist Agent 페르소나", "표준 MCP 도입 Trigger"],
     },
