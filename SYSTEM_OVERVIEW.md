@@ -1,5 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-06-11 GitHub Pages 프론트엔드 배포 준비
+
+GitHub Pages에서 Vue 프론트엔드 정적 파일을 배포할 수 있도록 frontend base path와 Actions workflow를 보강했다. GitHub Pages는 정적 호스팅만 제공하므로 Gateway/Agent/Worker/PostgreSQL/Redis는 OCI Free Tier 같은 별도 서버 배포가 필요하다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| Pages workflow | `.github/workflows/pages.yml`이 `apps/frontend`를 빌드하고 `actions/upload-pages-artifact`/`actions/deploy-pages`로 배포한다. |
+| Vite base path | `apps/frontend/vite.config.ts`는 `VITE_BASE_PATH`를 받아 `/Law_Compass/` 같은 GitHub Pages project path에 맞게 asset 경로를 생성한다. |
+| Router base | `apps/frontend/src/router/index.ts`는 `import.meta.env.BASE_URL`을 `createWebHistory`에 전달해 하위 경로 배포 새로고침을 지원한다. |
+| API base | `apps/frontend/src/api/base.ts`가 `VITE_API_BASE_URL`을 정규화하고 API 요청/프레임 이미지 URL 생성에 공통 적용된다. |
+| Gateway cross-origin 설정 | `apps/gateway/src/config/env.ts`가 `CORS_ORIGINS`와 `COOKIE_SAME_SITE`를 읽는다. GitHub Pages처럼 다른 도메인에서 API를 호출할 때는 HTTPS Gateway와 함께 `CORS_ORIGINS=https://yangbun-git.github.io`, `COOKIE_SAME_SITE=none` 설정이 필요하다. |
+| 운영 문서 | `GITHUB_PAGES_FRONTEND_DEPLOYMENT.md`가 Pages 설정, `VITE_API_BASE_URL` 변수, 정적 호스팅 한계를 설명한다. |
+| 비변경 범위 | Gateway/Agent/Worker API route, DTO, DB schema, Redis key, storage path, KNIA/RAG 판단 로직은 변경하지 않았다. |
+
 ## 2026-06-11 Oracle Cloud Free Tier 운영 문서 추가
 
 Oracle Cloud Infrastructure Always Free 단일 VM에서 현재 Docker Compose 기반 LawCompass 스택을 운영하는 절차를 루트 문서로 추가했다.
@@ -9,6 +23,7 @@ Oracle Cloud Infrastructure Always Free 단일 VM에서 현재 Docker Compose �
 | 운영 문서 | `ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md`가 OCI A1 Flex 권장 사양, 보안 포트, Docker 설치, `.env` 준비, prod compose 실행, migration, KNIA import, 백업/복구, 장애 대응 절차를 설명한다. |
 | OCI env 예시 | `env.oci.example`은 OCI 단일 VM용 local storage, OpenAI/YOLO 기본 OFF, Caddy site address 값을 안전한 placeholder로 제공한다. |
 | 운영 스크립트 | `scripts/oci/deploy.sh`가 prod compose build/up, migration, KNIA import, health check를 묶고 `scripts/oci/backup_postgres.sh`가 DB 백업을 생성한다. |
+| 운영 env 검증 | `scripts/oci/deploy.sh`는 `.env`에 `<...>` 형태의 미치환 placeholder가 남아 있으면 배포를 중단한다. `compose.yaml`의 `env_file`은 `LAWCOMPASS_ENV_FILE`을 따르도록 맞췄다. |
 | 현재 배포 기준 | OCI 운영에서는 개발용 `compose.override.yaml` 자동 적용을 피하기 위해 `docker compose --env-file .env -f compose.yaml -f compose.prod.yaml ...` 형식을 사용한다. |
 | Edge 설정 | `infra/caddy/Caddyfile`은 `LAWCOMPASS_SITE_ADDRESS`와 `CADDY_ACME_EMAIL` 환경변수를 지원하며 기본값은 `:80`/`admin@example.com`이다. |
 | Free Tier 전제 | AMD 1 GB micro VM은 전체 스택 운영에 부적합하므로 Ampere A1 Flex 4 OCPU/24 GB 단일 VM을 권장한다. |

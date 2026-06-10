@@ -1,3 +1,5 @@
+import { apiUrl } from "./base";
+
 export type User = {
   id: string;
   email: string;
@@ -104,8 +106,6 @@ export type UploadItem = {
   created_at: string;
 };
 
-const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || "";
-const API_BASE = RAW_API_BASE.endsWith("/api/v1") ? RAW_API_BASE.slice(0, -"/api/v1".length) : RAW_API_BASE;
 const SESSION_STORAGE_KEY = "lawcompass:user";
 const AUTH_RETRY_HEADER = "x-lawcompass-auth-retry";
 export const AUTH_USER_EVENT = "lawcompass:auth-user";
@@ -229,7 +229,7 @@ async function request<T>(path: string, init?: ApiRequestInit): Promise<T> {
   }
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...init, credentials: "include", headers });
+    res = await fetch(apiUrl(path), { ...init, credentials: "include", headers });
   } catch {
     throw makeApiError("서버에 연결하지 못했습니다. Docker Compose와 gateway/edge 실행 상태를 확인해 주세요.", "NETWORK_ERROR");
   }

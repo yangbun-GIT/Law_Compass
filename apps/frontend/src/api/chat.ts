@@ -1,7 +1,6 @@
 ﻿import type { ChatContext, ChatMessage, ChatResponse } from "../types/chat";
 
-const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || "";
-const API_BASE = RAW_API_BASE.endsWith("/api/v1") ? RAW_API_BASE.slice(0, -"/api/v1".length) : RAW_API_BASE;
+import { apiUrl } from "./base";
 
 type ApiError = Error & { code?: string; status?: number; traceId?: string };
 
@@ -20,7 +19,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...init, credentials: "include", headers });
+    res = await fetch(apiUrl(path), { ...init, credentials: "include", headers });
   } catch {
     throw makeApiError("서버에 연결하지 못했습니다. Docker Compose와 gateway/edge 실행 상태를 확인해 주세요.", "NETWORK_ERROR");
   }

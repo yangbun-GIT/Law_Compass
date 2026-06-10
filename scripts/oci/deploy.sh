@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT_DIR"
 
 ENV_FILE="${LAWCOMPASS_ENV_FILE:-.env}"
+export LAWCOMPASS_ENV_FILE="$ENV_FILE"
 RUN_MIGRATIONS="${RUN_MIGRATIONS:-1}"
 IMPORT_KNIA="${IMPORT_KNIA:-1}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
@@ -13,6 +14,13 @@ ALLOW_REMOTE_STORAGE="${LAWCOMPASS_ALLOW_REMOTE_STORAGE:-0}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "[lawcompass-oci] missing $ENV_FILE. Copy env.oci.example to .env and fill server-local values." >&2
+  exit 1
+fi
+
+if awk 'BEGIN { found=0 } /^[[:space:]]*#/ || /^[[:space:]]*$/ { next } /<[^>]+>/ { print FNR ":" $0; found=1 } END { exit found ? 0 : 1 }' "$ENV_FILE" >/tmp/lawcompass-env-placeholders.txt; then
+  echo "[lawcompass-oci] unresolved placeholder values remain in $ENV_FILE:" >&2
+  cat /tmp/lawcompass-env-placeholders.txt >&2
+  echo "[lawcompass-oci] replace placeholders with server-local values or empty strings before deployment." >&2
   exit 1
 fi
 

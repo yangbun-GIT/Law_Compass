@@ -16,7 +16,7 @@ BLOCKED_PATH_PATTERNS = [
     re.compile(r"\.(mp4|mov|avi|mkv|webm|zip|7z|tar|gz|pt|onnx|weights)$", re.IGNORECASE),
 ]
 SECRET_PATTERNS = [
-    re.compile(r"\b(?:OPENAI_API_KEY|LAW_API_OC|JWT_SECRET|INTERNAL_TOKEN|SERVICE_KEY|API_KEY|PASSWORD)\s*[:=]\s*['\"]?[A-Za-z0-9_\-./+=]{12,}", re.IGNORECASE),
+    re.compile(r"\b(?:OPENAI_API_KEY|LAW_API_OC|JWT_SECRET|INTERNAL_TOKEN|SERVICE_KEY|API_KEY|PASSWORD)[ \t]*[:=][ \t]*['\"]?[A-Za-z0-9_\-./+=]{12,}", re.IGNORECASE),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY-----"),
 ]
 

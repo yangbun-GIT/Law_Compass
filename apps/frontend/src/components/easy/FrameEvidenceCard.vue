@@ -42,6 +42,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { apiUrl } from "../../api/base";
 import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 
 type FrameFact = {
@@ -79,13 +80,14 @@ function frameImageUrl(card: FrameCard) {
   if (explicit) return explicit;
   const ref = card.image_ref || {};
   if (!ref.case_id || !ref.upload_id || !ref.frame_ref) return "";
-  return `/api/v1/cases/${encodeURIComponent(ref.case_id)}/uploads/${encodeURIComponent(ref.upload_id)}/frames/${encodeURIComponent(ref.frame_ref)}`;
+  return apiUrl(`/api/v1/cases/${encodeURIComponent(ref.case_id)}/uploads/${encodeURIComponent(ref.upload_id)}/frames/${encodeURIComponent(ref.frame_ref)}`);
 }
 
 function safeFrameUrl(value: unknown) {
   const raw = String(value || "").trim();
   if (!raw || raw.startsWith("file:") || raw.includes("\\") || raw.includes("/app/storage")) return "";
-  return raw.startsWith("/api/") ? raw : "";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  return raw.startsWith("/api/") ? apiUrl(raw) : "";
 }
 
 function cardKey(card: FrameCard) {

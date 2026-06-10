@@ -26,8 +26,9 @@ const app = Fastify({ logger: { level: "info" } });
 const db = new Pool({ connectionString: env.dbUrl, max: 10 });
 const redis = new Redis(env.redisUrl, { maxRetriesPerRequest: 1 });
 const storage = createStorageAdapter(process.env);
+const corsOrigin = env.corsOrigins.length ? env.corsOrigins : true;
 
-await app.register(cors, { origin: true, credentials: true });
+await app.register(cors, { origin: corsOrigin, credentials: true });
 await app.register(cookie);
 await app.register(jwt, { secret: env.jwtAccessSecret, cookie: { cookieName: "lc_at", signed: false } });
 await app.register(multipart, { limits: { fileSize: env.maxUploadMb * 1024 * 1024, files: 1 } });
@@ -117,6 +118,7 @@ registerAuthRoutes(app, {
   apiPrefix: env.apiPrefix,
   db,
   cookieSecure,
+  cookieSameSite: env.cookieSameSite,
   jwtAccessTtlSec: env.jwtAccessTtlSec,
   jwtRefreshTtlSec: env.jwtRefreshTtlSec,
   errorPayload

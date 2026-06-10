@@ -48,7 +48,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
-      - .env
+      - ${LAWCOMPASS_ENV_FILE:-.env}
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
@@ -105,7 +105,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
-      - .env
+      - ${LAWCOMPASS_ENV_FILE:-.env}
     environment:
       PYTHONPATH: /app
       DATABASE_URL: ${DATABASE_URL:-postgresql://law:lawpass@postgres:5432/lawcompass}
@@ -154,7 +154,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
-      - .env
+      - ${LAWCOMPASS_ENV_FILE:-.env}
     environment:
       PYTHONPATH: /app
       DATABASE_URL: ${DATABASE_URL:-postgresql://law:lawpass@postgres:5432/lawcompass}
@@ -231,7 +231,7 @@ services:
     image: pgvector/pgvector:pg16
     restart: "no"
     env_file:
-      - .env
+      - ${LAWCOMPASS_ENV_FILE:-.env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -250,7 +250,7 @@ services:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     env_file:
-      - .env
+      - ${LAWCOMPASS_ENV_FILE:-.env}
     command:
       [
         "postgres",

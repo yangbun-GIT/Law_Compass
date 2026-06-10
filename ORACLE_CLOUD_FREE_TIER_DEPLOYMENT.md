@@ -289,6 +289,8 @@ DATABASE_URL=postgresql://law:<POSTGRES_PASSWORD>@postgres:5432/lawcompass
 JWT_ACCESS_SECRET=<generate-on-server>
 JWT_REFRESH_SECRET=<generate-on-server>
 INTERNAL_SERVICE_TOKEN=<generate-on-server>
+CORS_ORIGINS=
+COOKIE_SAME_SITE=lax
 
 REDIS_URL=redis://redis:6379
 VITE_API_BASE_URL=/api/v1
@@ -302,7 +304,7 @@ MAX_UPLOAD_MB=200
 ENABLE_OPENAI_ANALYSTS=0
 ENABLE_OPENAI_FRAME_ANALYSIS=0
 ENABLE_YOLO_FRAME_ANALYSIS=0
-OPENAI_API_KEY=<empty-by-default>
+OPENAI_API_KEY=
 
 KNIA_BASE_URL=https://accident.knia.or.kr
 KNIA_REQUEST_DELAY_MS=500
@@ -310,6 +312,10 @@ KNIA_TIMEOUT_SEC=15
 KNIA_COLLECT_MAX_CHARTS=50
 KNIA_FAULT_RATIO_JSON_PATH=/app/project_scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_review.json
 ```
+
+`<generate-on-server>`와 `<POSTGRES_PASSWORD>`는 설명용 placeholder다. 실제 `.env`에는 반드시 생성한 값으로 바꾸고, `OPENAI_API_KEY`, `LAW_API_OC`, `DATA_GO_SERVICE_KEY`처럼 아직 쓰지 않는 외부 API 값은 placeholder 문자열 대신 빈 값으로 둔다. `scripts/oci/deploy.sh`는 `<...>` 형태의 미치환 placeholder가 남아 있으면 배포를 중단한다.
+
+GitHub Pages 프론트엔드에서 별도 도메인의 Gateway를 호출하려면 Gateway `.env`에 `CORS_ORIGINS=https://yangbun-git.github.io`, `COOKIE_SAME_SITE=none`을 설정하고 HTTPS로 운영한다. 같은 OCI 도메인에서 Caddy가 `/api/*`를 reverse proxy하는 기본 운영은 `COOKIE_SAME_SITE=lax`를 유지한다.
 
 랜덤 값 생성 예시:
 

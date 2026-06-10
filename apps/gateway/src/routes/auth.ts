@@ -8,6 +8,7 @@ export type AuthRouteOptions = {
   apiPrefix: string;
   db: any;
   cookieSecure: boolean;
+  cookieSameSite: "lax" | "strict" | "none";
   jwtAccessTtlSec: number;
   jwtRefreshTtlSec: number;
   errorPayload: (code: string, message: string, traceId: string) => any;
@@ -17,9 +18,9 @@ function trace(req: FastifyRequest) {
   return (req.headers["x-correlation-id"] as string) || randomUUID();
 }
 
-function authCookies(reply: FastifyReply, accessToken: string, refreshRaw: string, secure: boolean) {
-  reply.setCookie("lc_at", accessToken, { httpOnly: true, sameSite: "lax", path: "/", secure });
-  reply.setCookie("lc_rt", refreshRaw, { httpOnly: true, sameSite: "lax", path: "/", secure });
+function authCookies(reply: FastifyReply, accessToken: string, refreshRaw: string, secure: boolean, sameSite: "lax" | "strict" | "none") {
+  reply.setCookie("lc_at", accessToken, { httpOnly: true, sameSite, path: "/", secure });
+  reply.setCookie("lc_rt", refreshRaw, { httpOnly: true, sameSite, path: "/", secure });
 }
 
 export function registerAuthRoutes(app: FastifyInstance, opts: AuthRouteOptions) {
@@ -80,7 +81,7 @@ export function registerAuthRoutes(app: FastifyInstance, opts: AuthRouteOptions)
       `INSERT INTO auth_refresh_tokens(user_id, token_hash, expires_at) VALUES($1,$2, now() + ($3 || ' seconds')::interval)`,
       [user.id, refreshHash, opts.jwtRefreshTtlSec]
     );
-    authCookies(reply, accessToken, refreshRaw, opts.cookieSecure);
+    authCookies(reply, accessToken, refreshRaw, opts.cookieSecure, opts.cookieSameSite);
     return { access_token: accessToken, user: { id: user.id, email: user.email, role: user.role, display_name: user.display_name }, trace_id: traceId };
   });
 
@@ -106,7 +107,7 @@ export function registerAuthRoutes(app: FastifyInstance, opts: AuthRouteOptions)
     );
     const user = await opts.db.query(`SELECT id,email,role,display_name FROM users WHERE id=$1`, [row.user_id]);
     const accessToken = await app.jwt.sign({ sub: row.user_id, role: user.rows[0].role }, { expiresIn: opts.jwtAccessTtlSec });
-    authCookies(reply, accessToken, newRaw, opts.cookieSecure);
+    authCookies(reply, accessToken, newRaw, opts.cookieSecure, opts.cookieSameSite);
     return { access_token: accessToken, user: user.rows[0], trace_id: traceId };
   });
 
