@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LawCompass 전체 MSA 아키텍처</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --base-300: #0f0d0a;
+        --base-200: #17130f;
+        --base-100: #211c16;
+        --card: #282219;
+        --card-strong: #302719;
+        --text: #f4f4f5;
+        --muted: #d6d3d1;
+        --subtle: #a8a29e;
+        --primary: #f59e0b;
+        --primary-soft: rgba(245, 158, 11, 0.16);
+        --teal: #4fd1c5;
+        --blue: #60a5fa;
+        --rose: #fb7185;
+        --green: #86efac;
+        --purple: #a78bfa;
+        --line: #7c6330;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--base-300);
+        font-family:
+          "Pretendard",
+          "Noto Sans KR",
+          "Malgun Gothic",
+          "Apple SD Gothic Neo",
+          system-ui,
+          sans-serif;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .slide {
+        position: relative;
+        width: min(1600px, 100vw);
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 24% 12%, rgba(245, 158, 11, 0.13), transparent 24%),
+          radial-gradient(circle at 79% 23%, rgba(167, 139, 250, 0.12), transparent 25%),
+          linear-gradient(135deg, #15120e 0%, #100e0b 54%, #17120e 100%);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+      }
+
+      .slide::before {
+        content: "";
+        position: absolute;
+        inset: 134px 160px 88px 160px;
+        border: 1px solid rgba(245, 158, 11, 0.08);
+        border-radius: 34px;
+        pointer-events: none;
+      }
+
+      .kicker {
+        position: absolute;
+        left: 56px;
+        top: 46px;
+        color: var(--primary);
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        position: absolute;
+        left: 56px;
+        top: 80px;
+        margin: 0;
+        color: var(--text);
+        font-size: 54px;
+        line-height: 1.08;
+        font-weight: 900;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        position: absolute;
+        left: 58px;
+        top: 154px;
+        margin: 0;
+        max-width: 1180px;
+        color: var(--muted);
+        font-size: 23px;
+        line-height: 1.45;
+        font-weight: 500;
+      }
+
+      .page-no {
+        position: absolute;
+        top: 34px;
+        right: 40px;
+        width: 70px;
+        height: 46px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(245, 158, 11, 0.48);
+        color: var(--primary);
+        background: rgba(245, 158, 11, 0.06);
+        font-weight: 800;
+      }
+
+      .route-chip,
+      .arrow-label {
+        position: absolute;
+        z-index: 5;
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 4px 14px;
+        border: 1px solid rgba(245, 158, 11, 0.34);
+        border-radius: 999px;
+        background: rgba(48, 39, 25, 0.95);
+        color: var(--primary);
+        font-size: 15px;
+        line-height: 1.2;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .route-chip.sync {
+        left: 60px;
+        top: 216px;
+      }
+
+      .route-chip.video {
+        left: 60px;
+        top: 472px;
+      }
+
+      .arrow-label.public {
+        left: 274px;
+        top: 326px;
+      }
+
+      .arrow-label.text {
+        left: 586px;
+        top: 316px;
+      }
+
+      .arrow-label.save {
+        left: 936px;
+        top: 318px;
+      }
+
+      .arrow-label.job {
+        left: 422px;
+        top: 430px;
+      }
+
+      .arrow-label.upload {
+        left: 260px;
+        top: 568px;
+      }
+
+      .arrow-label.file {
+        left: 565px;
+        top: 632px;
+      }
+
+      .arrow-label.lookup {
+        left: 1158px;
+        top: 464px;
+      }
+
+      .node {
+        position: absolute;
+        z-index: 3;
+        padding: 22px 24px;
+        border-radius: 20px;
+        background: rgba(40, 34, 25, 0.96);
+        border: 2px solid currentColor;
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+      }
+
+      .node .label {
+        margin-bottom: 14px;
+        font-size: 20px;
+        line-height: 1;
+        font-weight: 900;
+        letter-spacing: 0.02em;
+      }
+
+      .node .title {
+        margin-bottom: 14px;
+        color: var(--text);
+        font-size: 27px;
+        line-height: 1.1;
+        font-weight: 900;
+      }
+
+      .node .desc {
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.42;
+        font-weight: 500;
+      }
+
+      .frontend {
+        left: 60px;
+        top: 270px;
+        width: 230px;
+        height: 138px;
+        color: var(--teal);
+      }
+
+      .gateway {
+        left: 360px;
+        top: 270px;
+        width: 250px;
+        height: 138px;
+        color: var(--primary);
+      }
+
+      .agent {
+        left: 735px;
+        top: 270px;
+        width: 250px;
+        height: 138px;
+        color: var(--blue);
+      }
+
+      .db {
+        left: 1110px;
+        top: 270px;
+        width: 350px;
+        height: 138px;
+        color: var(--purple);
+      }
+
+      .storage {
+        left: 72px;
+        top: 525px;
+        width: 250px;
+        height: 126px;
+        color: var(--green);
+      }
+
+      .redis {
+        left: 360px;
+        top: 525px;
+        width: 260px;
+        height: 126px;
+        color: var(--rose);
+      }
+
+      .worker {
+        left: 675px;
+        top: 525px;
+        width: 300px;
+        height: 126px;
+        color: var(--rose);
+      }
+
+      .kb {
+        left: 1110px;
+        top: 525px;
+        width: 350px;
+        height: 126px;
+        color: var(--primary);
+      }
+
+      .connections {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      .panel {
+        position: absolute;
+        z-index: 4;
+        bottom: 36px;
+        width: 700px;
+        height: 150px;
+        padding: 24px 28px;
+        border: 1px solid rgba(245, 158, 11, 0.42);
+        border-radius: 20px;
+        background: rgba(48, 39, 25, 0.88);
+      }
+
+      .panel.left {
+        left: 60px;
+      }
+
+      .panel.right {
+        right: 60px;
+      }
+
+      .panel h2 {
+        margin: 0 0 14px;
+        color: var(--primary);
+        font-size: 26px;
+        line-height: 1.1;
+        font-weight: 900;
+      }
+
+      .panel ul {
+        display: grid;
+        gap: 6px;
+        margin: 0;
+        padding-left: 20px;
+        color: var(--text);
+        font-size: 17px;
+        line-height: 1.35;
+        font-weight: 600;
+      }
+
+      .panel li::marker {
+        color: var(--primary);
+      }
+
+      @media (max-width: 1100px) {
+        body {
+          padding: 0;
+          overflow: auto;
+        }
+
+        .slide {
+          width: 1600px;
+        }
+      }
+
+      @media print {
+        body {
+          padding: 0;
+          background: #fff;
+        }
+
+        .slide {
+          width: 100vw;
+          height: 100vh;
+          box-shadow: none;
+          border: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="slide" aria-label="LawCompass 전체 MSA 아키텍처 슬라이드">
+      <div class="kicker">Architecture</div>
+      <h1>LawCompass 전체 MSA 아키텍처</h1>
+      <p class="subtitle">
+        웹 요청·영상 장기 분석·AI 판단을 분리하고, KNIA/Legal RAG는
+        PostgreSQL+pgvector에 적재합니다.
+      </p>
+      <div class="page-no">13</div>
+
+      <div class="route-chip sync">동기 분석 경로: Frontend → Gateway → Agent</div>
+      <div class="route-chip video">영상 장기 분석 경로: Gateway → Redis Streams → Worker → Agent</div>
+
+      <div class="arrow-label public">공개 API</div>
+      <div class="arrow-label text">텍스트·채팅·재분석</div>
+      <div class="arrow-label save">근거·결과 저장</div>
+      <div class="arrow-label job">영상 비동기 Job</div>
+      <div class="arrow-label upload">업로드 파일</div>
+      <div class="arrow-label file">파일 읽기</div>
+      <div class="arrow-label lookup">RAG/Chart 조회</div>
+
+      <svg class="connections" viewBox="0 0 1600 900" aria-hidden="true">
+        <defs>
+          <marker id="arrow-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b" />
+          </marker>
+          <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa" />
+          </marker>
+          <marker id="arrow-rose" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185" />
+          </marker>
+          <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#86efac" />
+          </marker>
+          <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#a78bfa" />
+          </marker>
+        </defs>
+
+        <path d="M 290 339 L 360 339" stroke="#f59e0b" stroke-width="5" fill="none" marker-end="url(#arrow-gold)" />
+        <path d="M 610 339 L 735 339" stroke="#60a5fa" stroke-width="5" fill="none" marker-end="url(#arrow-blue)" />
+        <path d="M 985 339 L 1110 339" stroke="#a78bfa" stroke-width="5" fill="none" marker-end="url(#arrow-purple)" />
+        <path d="M 485 408 L 485 525" stroke="#fb7185" stroke-width="5" fill="none" marker-end="url(#arrow-rose)" />
+        <path d="M 620 588 L 675 588" stroke="#fb7185" stroke-width="5" fill="none" marker-end="url(#arrow-rose)" />
+        <path d="M 975 588 L 1040 588 L 1040 408" stroke="#60a5fa" stroke-width="5" fill="none" marker-end="url(#arrow-blue)" />
+        <path d="M 322 588 L 360 588" stroke="#86efac" stroke-width="5" fill="none" marker-end="url(#arrow-green)" />
+        <path d="M 620 622 L 675 622" stroke="#86efac" stroke-width="5" fill="none" marker-end="url(#arrow-green)" />
+        <path d="M 975 552 L 1110 408" stroke="#a78bfa" stroke-width="5" fill="none" marker-end="url(#arrow-purple)" />
+        <path d="M 1285 525 L 1285 408" stroke="#f59e0b" stroke-width="5" fill="none" marker-end="url(#arrow-gold)" />
+      </svg>
+
+      <section class="node frontend">
+        <div class="label">UI</div>
+        <div class="title">Frontend</div>
+        <div class="desc">Vue 3 / Vite<br />입력·업로드·결과 화면</div>
+      </section>
+
+      <section class="node gateway">
+        <div class="label">API</div>
+        <div class="title">Gateway</div>
+        <div class="desc">Fastify<br />인증·케이스·업로드<br />Agent 내부 호출</div>
+      </section>
+
+      <section class="node agent">
+        <div class="label">AI</div>
+        <div class="title">Agent</div>
+        <div class="desc">FastAPI<br />입력 정규화·근거 검색<br />과실비율 판단</div>
+      </section>
+
+      <section class="node db">
+        <div class="label">DB</div>
+        <div class="title">PostgreSQL + pgvector</div>
+        <div class="desc">Cases / Jobs / Results<br />KNIA Charts / Legal RAG<br />Vector Search</div>
+      </section>
+
+      <section class="node storage">
+        <div class="label">FILES</div>
+        <div class="title">Upload Storage</div>
+        <div class="desc">Local/NAS volume<br />원본 영상·추출 프레임</div>
+      </section>
+
+      <section class="node redis">
+        <div class="label">QUEUE</div>
+        <div class="title">Redis Streams</div>
+        <div class="desc">영상 분석 Job Queue<br />진행 상태·캐시</div>
+      </section>
+
+      <section class="node worker">
+        <div class="label">JOB</div>
+        <div class="title">Worker</div>
+        <div class="desc">Python / ffmpeg / YOLO<br />프레임 추출·영상 관찰값</div>
+      </section>
+
+      <section class="node kb">
+        <div class="label">KB</div>
+        <div class="title">Imported Knowledge</div>
+        <div class="desc">KNIA 2023 JSON<br />Legal docs → DB chunks<br />별도 서비스가 아닌 지식 데이터</div>
+      </section>
+
+      <section class="panel left">
+        <h2>핵심 흐름</h2>
+        <ul>
+          <li>Frontend는 Gateway만 호출합니다.</li>
+          <li>텍스트 분석·채팅·재분석은 Gateway가 Agent를 직접 호출합니다.</li>
+          <li>영상 업로드는 Worker가 전처리한 뒤 Agent 판단으로 연결됩니다.</li>
+        </ul>
+      </section>
+
+      <section class="panel right">
+        <h2>서비스 경계</h2>
+        <ul>
+          <li>Worker는 장기 영상 처리와 프레임 관찰값 생성 전용입니다.</li>
+          <li>Agent는 party guard, KNIA/Legal 근거 검색, 과실 판단을 담당합니다.</li>
+          <li>KNIA/Legal은 별도 MSA가 아니라 DB에 적재된 지식 소스입니다.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

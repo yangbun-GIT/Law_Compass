@@ -1,0 +1,1602 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LawCompass 기술 발표 대비 자료 - RAG와 전체 아키텍처</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #14110f;
+        --bg-soft: #1f1a16;
+        --panel: #282019;
+        --panel-2: #32281f;
+        --line: rgba(255, 196, 87, 0.22);
+        --line-strong: rgba(255, 196, 87, 0.44);
+        --text: #f6f3ee;
+        --muted: #d7cfc1;
+        --subtle: #a99f8f;
+        --primary: #ffb44c;
+        --primary-2: #ffd18a;
+        --accent: #70e08b;
+        --info: #7fb7ff;
+        --danger: #ff7777;
+        --purple: #c391ff;
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+        --radius: 22px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 12% 0%, rgba(255, 180, 76, 0.16), transparent 34rem),
+          radial-gradient(circle at 92% 8%, rgba(112, 224, 139, 0.10), transparent 28rem),
+          linear-gradient(180deg, #17120f 0%, #100e0d 100%);
+        color: var(--text);
+        font-family:
+          "Pretendard",
+          "Noto Sans KR",
+          "Apple SD Gothic Neo",
+          "Segoe UI",
+          sans-serif;
+        line-height: 1.7;
+        word-break: keep-all;
+      }
+
+      ::selection {
+        background: rgba(255, 180, 76, 0.32);
+        color: #fff;
+      }
+
+      .deck {
+        width: min(1180px, calc(100% - 36px));
+        margin: 0 auto;
+        padding: 46px 0 80px;
+      }
+
+      .hero {
+        padding: 46px;
+        border: 1px solid var(--line);
+        border-radius: 30px;
+        background:
+          linear-gradient(135deg, rgba(255, 180, 76, 0.16), transparent 42%),
+          linear-gradient(160deg, rgba(112, 224, 139, 0.09), transparent 55%),
+          rgba(31, 26, 22, 0.90);
+        box-shadow: var(--shadow);
+      }
+
+      .eyebrow {
+        color: var(--primary-2);
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4 {
+        margin: 0;
+        line-height: 1.22;
+      }
+
+      h1 {
+        margin-top: 14px;
+        max-width: 980px;
+        font-size: clamp(34px, 6vw, 68px);
+        letter-spacing: -0.02em;
+      }
+
+      .lead {
+        max-width: 900px;
+        margin: 22px 0 0;
+        color: var(--muted);
+        font-size: clamp(18px, 2vw, 24px);
+      }
+
+      .meta-grid,
+      .grid-2,
+      .grid-3,
+      .grid-4 {
+        display: grid;
+        gap: 18px;
+      }
+
+      .meta-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-top: 30px;
+      }
+
+      .grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .grid-4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .metric,
+      .card,
+      .mini-card,
+      .flow-card,
+      .script-box,
+      .compare,
+      details {
+        border: 1px solid var(--line);
+        background: rgba(40, 32, 25, 0.86);
+        border-radius: var(--radius);
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+      }
+
+      .metric {
+        padding: 18px;
+      }
+
+      .metric strong {
+        display: block;
+        color: var(--primary-2);
+        font-size: 14px;
+      }
+
+      .metric span {
+        display: block;
+        margin-top: 6px;
+        color: var(--text);
+        font-weight: 800;
+      }
+
+      section {
+        margin-top: 34px;
+      }
+
+      .section-title {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .section-title h2 {
+        font-size: clamp(26px, 3.6vw, 42px);
+      }
+
+      .section-title p {
+        max-width: 560px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .card {
+        padding: 26px;
+      }
+
+      .card h3 {
+        color: var(--primary-2);
+        font-size: 24px;
+      }
+
+      .card h4,
+      .mini-card h4 {
+        color: #fff4dd;
+        font-size: 18px;
+      }
+
+      .card p,
+      .card li,
+      .mini-card p,
+      .mini-card li,
+      .flow-card p,
+      details p,
+      details li {
+        color: var(--muted);
+      }
+
+      .mini-card {
+        padding: 18px;
+      }
+
+      .mini-card strong {
+        color: var(--text);
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 7px 12px;
+        border: 1px solid rgba(255, 209, 138, 0.28);
+        border-radius: 999px;
+        color: #ffe3ad;
+        background: rgba(255, 180, 76, 0.10);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .pill.green {
+        color: #c7ffd5;
+        border-color: rgba(112, 224, 139, 0.30);
+        background: rgba(112, 224, 139, 0.10);
+      }
+
+      .pill.blue {
+        color: #d7e9ff;
+        border-color: rgba(127, 183, 255, 0.32);
+        background: rgba(127, 183, 255, 0.11);
+      }
+
+      .pill.purple {
+        color: #eddcff;
+        border-color: rgba(195, 145, 255, 0.32);
+        background: rgba(195, 145, 255, 0.11);
+      }
+
+      .callout {
+        margin-top: 18px;
+        padding: 18px 20px;
+        border-left: 5px solid var(--primary);
+        border-radius: 16px;
+        background: rgba(255, 180, 76, 0.10);
+        color: var(--text);
+      }
+
+      .callout.green {
+        border-left-color: var(--accent);
+        background: rgba(112, 224, 139, 0.09);
+      }
+
+      .callout.blue {
+        border-left-color: var(--info);
+        background: rgba(127, 183, 255, 0.10);
+      }
+
+      .callout.red {
+        border-left-color: var(--danger);
+        background: rgba(255, 119, 119, 0.10);
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .flow-card {
+        min-height: 156px;
+        padding: 17px;
+        position: relative;
+      }
+
+      .flow-card::after {
+        content: "→";
+        position: absolute;
+        top: 50%;
+        right: -15px;
+        transform: translateY(-50%);
+        color: var(--primary);
+        font-size: 22px;
+        font-weight: 900;
+      }
+
+      .flow-card:last-child::after {
+        content: "";
+      }
+
+      .flow-card b {
+        color: var(--primary-2);
+      }
+
+      .flow-card p {
+        margin: 10px 0 0;
+        font-size: 14px;
+      }
+
+      .step-list {
+        counter-reset: step;
+        display: grid;
+        gap: 14px;
+        padding: 0;
+        margin: 16px 0 0;
+        list-style: none;
+      }
+
+      .step-list li {
+        position: relative;
+        padding: 16px 18px 16px 58px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(20, 17, 15, 0.46);
+      }
+
+      .step-list li::before {
+        counter-increment: step;
+        content: counter(step);
+        position: absolute;
+        left: 18px;
+        top: 17px;
+        display: grid;
+        width: 26px;
+        height: 26px;
+        place-items: center;
+        border-radius: 50%;
+        color: #16110e;
+        background: var(--primary);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      code,
+      .code {
+        color: #ffe3ad;
+        background: rgba(0, 0, 0, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        padding: 2px 6px;
+        font-family: "Cascadia Code", "Consolas", monospace;
+      }
+
+      pre {
+        overflow: auto;
+        margin: 16px 0 0;
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(0, 0, 0, 0.32);
+        color: #f8e8c6;
+        font-family: "Cascadia Code", "Consolas", monospace;
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .compare {
+        overflow: hidden;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--primary-2);
+        background: rgba(255, 180, 76, 0.08);
+        font-size: 14px;
+      }
+
+      td {
+        color: var(--muted);
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .script-box {
+        padding: 22px;
+        background:
+          linear-gradient(135deg, rgba(255, 180, 76, 0.10), transparent 45%),
+          rgba(40, 32, 25, 0.88);
+      }
+
+      .script-box strong {
+        color: var(--primary-2);
+      }
+
+      details {
+        padding: 0;
+        overflow: hidden;
+      }
+
+      summary {
+        cursor: pointer;
+        padding: 18px 22px;
+        color: var(--primary-2);
+        font-weight: 900;
+        list-style: none;
+      }
+
+      summary::-webkit-details-marker {
+        display: none;
+      }
+
+      summary::after {
+        content: "펼치기";
+        float: right;
+        color: var(--subtle);
+        font-size: 13px;
+      }
+
+      details[open] summary::after {
+        content: "접기";
+      }
+
+      .details-body {
+        padding: 0 22px 22px;
+      }
+
+      .divider {
+        height: 1px;
+        margin: 22px 0;
+        background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+      }
+
+      .tag {
+        color: #17110d;
+        background: var(--primary);
+        border-radius: 8px;
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .muted {
+        color: var(--subtle);
+      }
+
+      @media (max-width: 980px) {
+        .meta-grid,
+        .grid-4,
+        .grid-3,
+        .grid-2,
+        .flow {
+          grid-template-columns: 1fr;
+        }
+
+        .flow-card::after {
+          content: "↓";
+          right: 50%;
+          top: auto;
+          bottom: -22px;
+          transform: translateX(50%);
+        }
+
+        .hero,
+        .card {
+          padding: 24px;
+        }
+
+        .section-title {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+
+      @media print {
+        body {
+          background: #fff;
+          color: #111;
+        }
+
+        .deck {
+          width: 100%;
+          padding: 0;
+        }
+
+        .hero,
+        .card,
+        .mini-card,
+        .flow-card,
+        .script-box,
+        details,
+        .compare {
+          box-shadow: none;
+          break-inside: avoid;
+        }
+
+        details {
+          display: block;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="deck">
+      <header class="hero">
+        <div class="eyebrow">LawCompass 발표 대비 기술 딥다이브</div>
+        <h1>RAG, Agent, Gateway, Worker까지 한 번에 설명하는 전체 구조 자료</h1>
+        <p class="lead">
+          이 문서는 발표자가 “왜 이런 구조를 선택했는지”까지 답할 수 있도록, 실제 프로젝트의 서비스 구성,
+          RAG 동작 방식, 영상 분석 흐름, 과실비율 산정 흐름, 대체 기술과의 비교를 한 HTML 페이지에 정리한 자료입니다.
+        </p>
+
+        <div class="meta-grid">
+          <div class="metric">
+            <strong>Frontend</strong>
+            <span>Vue 3 + Vite</span>
+          </div>
+          <div class="metric">
+            <strong>Gateway</strong>
+            <span>Fastify + Redis Job</span>
+          </div>
+          <div class="metric">
+            <strong>Agent</strong>
+            <span>FastAPI + RAG Pipeline</span>
+          </div>
+          <div class="metric">
+            <strong>Storage</strong>
+            <span>PostgreSQL + pgvector</span>
+          </div>
+        </div>
+      </header>
+
+      <section>
+        <div class="section-title">
+          <h2>1. 발표에서 먼저 말할 핵심 요약</h2>
+          <p>처음 30초 안에 프로젝트 구조를 설명할 때 쓰기 좋은 요약입니다.</p>
+        </div>
+
+        <div class="card">
+          <h3>한 문장 요약</h3>
+          <p>
+            LawCompass는 사고 설명과 영상을 입력받아 <strong>사고 대분류를 먼저 고정</strong>하고,
+            그 대분류 안에서만 <strong>KNIA 과실비율 인정기준과 법률 근거를 RAG로 검색</strong>한 뒤,
+            Agent가 구조화된 판단 계약에 맞춰 사용자에게 이해 가능한 결과를 만드는 교통사고 분석 서비스입니다.
+          </p>
+          <div class="pill-row">
+            <span class="pill">대분류 우선</span>
+            <span class="pill green">KNIA 구조화 JSON</span>
+            <span class="pill blue">pgvector RAG</span>
+            <span class="pill purple">영상 관찰값 보조</span>
+            <span class="pill">LLM 숫자 생성 제한</span>
+          </div>
+          <div class="callout">
+            발표 포인트: “AI가 마음대로 과실비율을 찍는 서비스”가 아니라,
+            <strong>구조화된 KNIA 기준과 RAG 근거를 우선하고, AI는 분류·요약·질문·설명 보조에 쓰는 구조</strong>라고 설명하면 됩니다.
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>2. 전체 MSA 구성</h2>
+          <p>웹 요청, 장기 영상 분석, AI 판단, DB/RAG를 분리해 장애 범위와 책임을 나눴습니다.</p>
+        </div>
+
+        <div class="flow">
+          <div class="flow-card">
+            <b>Frontend</b>
+            <p>Vue 3 화면. 사고 설명, 영상 업로드, 질문 답변, 결과 확인을 담당합니다.</p>
+          </div>
+          <div class="flow-card">
+            <b>Gateway</b>
+            <p>Fastify API. 인증된 케이스 요청을 받고 DB 저장, Agent 호출, Worker Job 생성을 담당합니다.</p>
+          </div>
+          <div class="flow-card">
+            <b>Redis Stream</b>
+            <p>영상 전처리와 장기 분석 Job을 큐로 분리합니다. 사용자는 API 응답을 오래 기다리지 않습니다.</p>
+          </div>
+          <div class="flow-card">
+            <b>Worker</b>
+            <p>ffprobe/ffmpeg로 영상 메타와 프레임을 만들고 YOLO/OpenAI 관찰값을 생성합니다.</p>
+          </div>
+          <div class="flow-card">
+            <b>Agent</b>
+            <p>FastAPI 분석 엔진. 대분류 라우팅, KNIA/RAG 검색, 과실 분석, 결과 계약 생성을 담당합니다.</p>
+          </div>
+          <div class="flow-card">
+            <b>PostgreSQL</b>
+            <p>케이스, Job, 결과, KNIA 구조화 기준, RAG chunk, pgvector embedding을 저장합니다.</p>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 18px">
+          <div class="card">
+            <h3>왜 분리했나?</h3>
+            <ul>
+              <li><strong>영상 분석은 오래 걸립니다.</strong> 업로드 요청에서 바로 처리하면 timeout과 사용자 이탈이 커집니다.</li>
+              <li><strong>AI 판단은 Python 생태계가 유리합니다.</strong> FastAPI Agent에서 RAG, 임베딩, 영상 관찰값, 분석 파이프라인을 다룹니다.</li>
+              <li><strong>Gateway는 제품 API의 안정성을 담당합니다.</strong> 사용자 요청, 케이스 저장, Job 상태, 결과 조회를 TypeScript로 명확히 관리합니다.</li>
+              <li><strong>DB와 RAG를 한 저장소에 둡니다.</strong> PostgreSQL과 pgvector로 운영 복잡도를 줄이고 트랜잭션 데이터와 벡터 검색을 함께 다룹니다.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>발표용 설명</h3>
+            <p>
+              “저희는 모든 것을 하나의 서버에서 처리하지 않았습니다. 사용자가 바로 응답을 받아야 하는 요청은 Gateway가 처리하고,
+              오래 걸리는 영상 분석은 Worker로 넘깁니다. Agent는 판단과 근거 검색에 집중하도록 분리했습니다.
+              이 구조 덕분에 영상 분석 실패가 전체 API 장애로 번지지 않고, 분석 모델과 웹 API를 독립적으로 개선할 수 있습니다.”
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>3. 요청 흐름</h2>
+          <p>자연어 분석과 영상 분석은 진입점은 다르지만 결국 Agent의 공통 분석 파이프라인으로 모입니다.</p>
+        </div>
+
+        <div class="grid-3">
+          <div class="card">
+            <h3>자연어 분석</h3>
+            <ol class="step-list">
+              <li>Frontend가 사고 설명과 선택 답변을 Gateway에 보냅니다.</li>
+              <li>Gateway가 케이스 권한과 입력을 검증하고 초기 사실을 병합합니다.</li>
+              <li>Gateway가 Agent의 <code>/internal/v1/analyze/text</code>를 호출합니다.</li>
+              <li>Agent가 대분류, 시나리오, KNIA 기준, 법률 근거, 질문을 생성합니다.</li>
+              <li>Gateway가 결과를 DB에 저장하고 사용자용 report/easy-report로 반환합니다.</li>
+            </ol>
+          </div>
+
+          <div class="card">
+            <h3>영상 분석</h3>
+            <ol class="step-list">
+              <li>Frontend가 영상을 업로드하고 분석을 요청합니다.</li>
+              <li>Gateway가 <code>video_analyze</code> 또는 전처리 Job을 Redis Stream에 넣습니다.</li>
+              <li>Worker가 영상을 로컬에서 materialize하고 ffprobe/ffmpeg로 프레임을 추출합니다.</li>
+              <li>YOLO와 OpenAI 프레임 분석으로 차량, 보행자, 충돌 후보를 관찰값으로 만듭니다.</li>
+              <li>Worker가 관찰값을 Agent의 <code>/internal/v1/analyze/video</code>로 보내 결과를 저장합니다.</li>
+            </ol>
+          </div>
+
+          <div class="card">
+            <h3>추가 질문 후 재분석</h3>
+            <ol class="step-list">
+              <li>결과에서 부족한 사실을 질문으로 받습니다.</li>
+              <li>사용자 답변은 structured_facts로 저장됩니다.</li>
+              <li>Gateway의 reanalyze가 기존 결과와 새 답변을 합칩니다.</li>
+              <li>Agent는 같은 대분류 안에서 KNIA 기준과 가감요소를 다시 평가합니다.</li>
+              <li>결과는 확정값, 범위, 조건별 결과로 업데이트됩니다.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>4. RAG를 위해 한 작업</h2>
+          <p>핵심은 “문서를 그냥 벡터로 넣는 것”이 아니라, KNIA 기준을 구조화 chart와 설명 chunk로 나눠 연결한 점입니다.</p>
+        </div>
+
+        <div class="card">
+          <h3>RAG 데이터 모델</h3>
+          <p>
+            KNIA 2023.6 자동차사고 과실비율 인정기준 JSON은 크게 <code>charts</code>와 <code>rag_documents</code>로 나뉩니다.
+            <code>charts</code>는 과실비율 산정에 쓰는 구조화 기준이고, <code>rag_documents</code>는 사용자에게 근거를 설명하기 위한 RAG chunk입니다.
+          </p>
+
+          <div class="grid-2" style="margin-top: 18px">
+            <div class="mini-card">
+              <h4>charts</h4>
+              <ul>
+                <li><code>chart_no</code>: 차41, 차43, 보 계열 등 기준 번호</li>
+                <li><code>major_party_type</code>: car_vs_car, car_vs_person 등 대분류</li>
+                <li><code>scenario_type</code>: rear_end_collision, lane_change_collision 등 세부 사고유형</li>
+                <li><code>base_fault</code>: A/B 기본 과실 후보</li>
+                <li><code>adjustments</code>: 수정요소, 가감요소</li>
+                <li><code>review_required</code>: 검수 필요 여부</li>
+              </ul>
+            </div>
+            <div class="mini-card">
+              <h4>rag_documents</h4>
+              <ul>
+                <li><code>doc_id</code>: chunk 식별자</li>
+                <li><code>chart_no</code>: 어떤 기준에 연결되는지</li>
+                <li><code>major_party_type</code>: 대분류 필터링용 metadata</li>
+                <li><code>scenario_type</code>: 세부 사고유형 metadata</li>
+                <li><code>chunk_type</code>: 기준 설명, 법규, 활용 참고사항 등</li>
+                <li><code>body</code>: 임베딩과 근거 표시 대상 본문</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="callout green">
+            중요한 설계: <strong>과실비율 숫자는 RAG 본문에서 LLM이 새로 만들지 않습니다.</strong>
+            구조화 chart의 <code>base_fault</code>와 <code>adjustments</code>가 source of truth 후보이고,
+            RAG chunk는 그 기준을 설명하고 법규를 보강하는 용도입니다.
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 18px">
+          <div class="card">
+            <h3>Import 파이프라인</h3>
+            <ol class="step-list">
+              <li><code>knia_json_loader.py</code>가 JSON의 metadata, pages, charts, rag_documents를 읽습니다.</li>
+              <li>필수 필드가 없으면 import를 중단하지 않고 validation warning으로 기록합니다.</li>
+              <li><code>knia_json_repository.py</code>가 charts를 <code>knia_fault_charts</code>에 upsert합니다.</li>
+              <li>rag_documents는 reference document/chunk 구조로 저장하고 metadata에 chart_no, party, scenario를 보존합니다.</li>
+              <li><code>knia_json_vectorizer.py</code>가 chunk 본문을 embedding으로 변환해 pgvector 컬럼에 저장합니다.</li>
+            </ol>
+            <pre>python apps/agent/scripts/import_knia_fault_ratio_json.py \
+  --path scripts/knia_fault_ratio/knia_fault_ratio_2023_06.codex_review.json \
+  --rebuild-embeddings</pre>
+          </div>
+
+          <div class="card">
+            <h3>검색 파이프라인</h3>
+            <ol class="step-list">
+              <li>Agent가 사고 대분류를 먼저 확정합니다.</li>
+              <li><code>party_guard.py</code>가 대분류에 맞지 않는 검색어와 chart prefix를 제거합니다.</li>
+              <li><code>knia_matcher.py</code>가 구조화 chart를 먼저 검색합니다.</li>
+              <li>선택된 chart_no가 있으면 RAG 검색을 해당 chart_no chunk로 제한합니다.</li>
+              <li>chart_no가 없으면 같은 major_party_type 안에서만 fallback 검색합니다.</li>
+              <li>법률 RAG는 별도로 검색하되, 사고 축과 무관한 근거는 primary evidence에서 제외합니다.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>5. RAG 검색 세부 동작</h2>
+          <p>LawCompass의 RAG는 “정확한 대분류 안에서 구조화 기준을 찾고, 그 기준의 설명만 가져오는” 방식입니다.</p>
+        </div>
+
+        <div class="card">
+          <h3>RAG가 동작하는 순서</h3>
+          <div class="flow" style="grid-template-columns: repeat(5, minmax(0, 1fr))">
+            <div class="flow-card">
+              <b>1. 입력 정규화</b>
+              <p>자연어, 영상 관찰값, 선택 답변을 facts로 정리합니다.</p>
+            </div>
+            <div class="flow-card">
+              <b>2. Party Guard</b>
+              <p>car_vs_person이면 보 계열, car_vs_car이면 차 계열만 허용합니다.</p>
+            </div>
+            <div class="flow-card">
+              <b>3. Structured Chart</b>
+              <p>chart_no, scenario_type, base_fault를 가진 구조화 기준을 먼저 찾습니다.</p>
+            </div>
+            <div class="flow-card">
+              <b>4. RAG Chunk</b>
+              <p>선택 chart_no 또는 같은 party 안의 chunk만 pgvector/keyword로 검색합니다.</p>
+            </div>
+            <div class="flow-card">
+              <b>5. Evidence Routing</b>
+              <p>근거를 primary, secondary, excluded로 나눠 결과에 반영합니다.</p>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <h3>Two-stage cache를 둔 이유</h3>
+          <p>
+            <code>search_knia_json_cached</code>는 Redis exact cache, semantic query cache, pgvector 검색,
+            keyword fallback을 함께 사용합니다. 같은 질문을 반복할 때는 Redis로 빠르게 응답하고,
+            비슷한 질문은 semantic query cache로 재사용하며, 임베딩이 실패해도 keyword fallback으로 최소 근거를 찾습니다.
+          </p>
+
+          <div class="grid-4" style="margin-top: 18px">
+            <div class="mini-card">
+              <h4>Exact Redis Cache</h4>
+              <p>완전히 같은 query/party/scenario/chart_no 요청은 바로 응답합니다.</p>
+            </div>
+            <div class="mini-card">
+              <h4>Semantic Query Cache</h4>
+              <p>비슷한 임베딩 쿼리는 이전 결과를 재활용합니다.</p>
+            </div>
+            <div class="mini-card">
+              <h4>pgvector Search</h4>
+              <p>chunk embedding과 질의 embedding의 벡터 거리를 기준으로 검색합니다.</p>
+            </div>
+            <div class="mini-card">
+              <h4>Keyword Fallback</h4>
+              <p>임베딩 provider가 없어도 chart_no, title, body keyword로 검색합니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 18px">
+          <h3>대분류 누수 방지</h3>
+          <p>
+            과거 문제는 차대차 사고에서 보행자/자전거 기준이 섞이거나, 차대사람 사고에서 차대차 교차로 기준이 보이는 것이었습니다.
+            이를 막기 위해 <code>party_guard.py</code>가 chart prefix와 metadata를 모두 검사합니다.
+          </p>
+          <div class="grid-3" style="margin-top: 18px">
+            <div class="mini-card">
+              <h4>차대사람</h4>
+              <p><code>car_vs_person</code>이면 KNIA chart prefix <code>보</code> 계열만 최종 결과에 표시합니다.</p>
+            </div>
+            <div class="mini-card">
+              <h4>차대차</h4>
+              <p><code>car_vs_car</code>이면 <code>차41</code>, <code>차43</code> 같은 차 계열만 표시하고 보/거 기준은 제외합니다.</p>
+            </div>
+            <div class="mini-card">
+              <h4>차대자전거</h4>
+              <p><code>car_vs_bicycle</code>이면 <code>거</code> 계열을 우선하고 후미추돌 차대차 기준은 표시하지 않습니다.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>6. Agent 내부 동작 방식</h2>
+          <p>Agent는 완전 자율형 에이전트가 아니라, 사고 분석에 맞춘 통제형 파이프라인입니다.</p>
+        </div>
+
+        <div class="card">
+          <h3>분석 파이프라인</h3>
+          <ol class="step-list">
+            <li>
+              <strong>Input Normalizer</strong>:
+              자연어, 영상 관찰값, 프론트 선택값을 UTF-8 안전 문자열과 structured_facts로 정리합니다.
+            </li>
+            <li>
+              <strong>Party Agent Router</strong>:
+              직접 충돌 대상을 먼저 찾아 <code>car_vs_car</code>, <code>car_vs_person</code>, <code>car_vs_bicycle</code>,
+              <code>car_vs_motorcycle</code>, <code>car_vs_object</code>, <code>single_vehicle</code> 중 하나로 고정합니다.
+            </li>
+            <li>
+              <strong>Scenario Classifier</strong>:
+              대분류를 흔들지 않고 그 안에서 후미추돌, 차선변경, 교차로, 보행자 작업자 사고 같은 세부 시나리오를 고릅니다.
+            </li>
+            <li>
+              <strong>Evidence Stage</strong>:
+              KNIA 구조화 chart, KNIA RAG chunk, 법률 RAG, static fallback 근거를 모으고 사고 축에 맞게 필터링합니다.
+            </li>
+            <li>
+              <strong>Fault Ratio Analyst</strong>:
+              KNIA base_fault와 가감요소 registry를 바탕으로 base_fault, final_fault, range, conditional_outcomes를 만듭니다.
+            </li>
+            <li>
+              <strong>Judgment Contract</strong>:
+              충분한 근거가 있는지, 확정 가능한지, 추가 질문이 필요한지 판단 상태를 계약 형태로 정리합니다.
+            </li>
+            <li>
+              <strong>Report Composer</strong>:
+              내부 trace와 raw metadata를 숨기고 사용자가 읽을 수 있는 결론, 근거, 질문, 대응 문장으로 변환합니다.
+            </li>
+          </ol>
+
+          <div class="callout blue">
+            발표 포인트: “LLM이 자유롭게 판단하게 두는 대신, 직접 충돌 대상 → 대분류 → 시나리오 → KNIA chart → RAG 근거 → 가감요소 순서로
+            움직이는 통제형 Agent입니다. 그래서 잘못된 대분류 근거가 섞이는 위험을 줄였습니다.”
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>7. 예시로 보는 실제 판단</h2>
+          <p>발표 중 질문을 받았을 때 설명하기 쉬운 대표 입력 예시입니다.</p>
+        </div>
+
+        <div class="grid-3">
+          <div class="card">
+            <h3>예시 A. 후방추돌 피해자</h3>
+            <p class="muted">입력</p>
+            <pre>빨간불 신호대기 중 정차해 있었는데 뒤차가 추돌했다.
+브레이크등 작동 여부는 모르겠다.</pre>
+            <ul>
+              <li>대분류: <code>car_vs_car</code></li>
+              <li>시나리오: <code>rear_end_collision</code></li>
+              <li>사용자 역할: 앞차, 피해 차량</li>
+              <li>KNIA 후보: 차41 계열</li>
+              <li>기본 판단: 앞차 0, 뒤차 100 가능</li>
+              <li>브레이크등은 모름이므로 확정 반영하지 않고 조건별 결과로 둡니다.</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <h3>예시 B. 공사 담당자 사고</h3>
+            <p class="muted">입력</p>
+            <pre>공사 담당자가 도로 폭 측정을 위하여
+도로쪽의 차량을 보지도 않고 갑자기 튀어나와 발생한 사고입니다.</pre>
+            <ul>
+              <li>직접 충돌 대상: 공사 담당자, 도로 작업자, 사람</li>
+              <li>대분류: <code>car_vs_person</code></li>
+              <li>시나리오: 보행자/도로 작업자 갑작스러운 진입 사고</li>
+              <li>KNIA 허용 prefix: <code>보</code></li>
+              <li>차41, 차43, 차대차 교차로 기준은 최종 화면에서 제외합니다.</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <h3>예시 C. 차선변경 사고</h3>
+            <p class="muted">입력</p>
+            <pre>상대 차량이 깜빡이 없이 차선변경하다가
+내 차 옆을 충돌했다.</pre>
+            <ul>
+              <li>대분류: <code>car_vs_car</code></li>
+              <li>시나리오: <code>lane_change_collision</code></li>
+              <li>사용자 역할: 직진 차량</li>
+              <li>KNIA 후보: 차43 또는 차43-2 계열</li>
+              <li>방향지시등, 선진입, 충돌 부위는 가감요소 질문으로 이어집니다.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>8. Gateway 자세한 역할</h2>
+          <p>Gateway는 외부 API의 계약과 제품 데이터 흐름을 지키는 계층입니다.</p>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>주요 책임</h3>
+            <ul>
+              <li>케이스 생성, 목록, 상세, 수정 API를 제공합니다.</li>
+              <li>영상 업로드 초기화, 완료 처리, 케이스별 업로드 조회를 담당합니다.</li>
+              <li>자연어 분석 요청을 Agent 내부 API로 전달하고 결과를 DB에 저장합니다.</li>
+              <li>영상 분석은 Redis Stream Job으로 만들고 Worker가 처리하게 합니다.</li>
+              <li>사용자 화면용 report/easy-report를 구성하고 raw trace를 숨깁니다.</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <h3>대표 API 흐름</h3>
+            <pre>POST /api/v1/cases/:caseId/analyze-text
+POST /api/v1/cases/:caseId/analyze-video
+GET  /api/v1/cases/:caseId/analysis-progress
+GET  /api/v1/cases/:caseId/result
+GET  /api/v1/cases/:caseId/report
+GET  /api/v1/cases/:caseId/easy-report
+POST /api/v1/cases/:caseId/reanalyze</pre>
+            <p>
+              사용자에게는 하나의 서비스처럼 보이지만, 내부적으로는 Gateway가 요청을 정리하고 Agent/Worker/DB를 연결합니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>9. Worker와 영상 분석</h2>
+          <p>영상은 크고 오래 걸리므로 Gateway와 분리된 Worker에서 비동기로 처리합니다.</p>
+        </div>
+
+        <div class="card">
+          <h3>영상 분석 단계</h3>
+          <ol class="step-list">
+            <li>Gateway가 업로드 정보를 저장하고 Redis Stream에 Job을 넣습니다.</li>
+            <li>Worker가 영상을 로컬 작업 경로로 materialize합니다.</li>
+            <li><code>ffprobe</code>로 duration, fps, 해상도 등 메타데이터를 읽습니다.</li>
+            <li><code>ffmpeg</code>로 사고 전후 대표 프레임을 추출합니다.</li>
+            <li>YOLO가 차량, 사람, 자전거 등 객체 후보를 탐지합니다.</li>
+            <li>OpenAI 프레임 분석이 장면 설명과 사고 단서를 보강합니다.</li>
+            <li>Worker가 관찰값을 sanitize하고, YOLO 근거가 부족한 직접 충돌 후보는 낮춥니다.</li>
+            <li>정리된 video_input_contract를 Agent에 전달합니다.</li>
+          </ol>
+
+          <div class="callout green">
+            설계 이유: 영상 AI의 관찰값은 “최종 판단”이 아니라 <strong>분석에 넣는 증거 후보</strong>입니다.
+            예를 들어 영상에 보행자가 보였더라도 직접 충돌 대상이 아니라 context_only면 대분류를 바꾸지 않게 했습니다.
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>10. Frontend 동작 방식</h2>
+          <p>프론트는 분석 엔진이 아니라 사용자가 정확한 사실을 입력하도록 돕는 인터페이스입니다.</p>
+        </div>
+
+        <div class="grid-3">
+          <div class="card">
+            <h3>입력 단계</h3>
+            <ul>
+              <li>사고 설명을 자연어로 입력합니다.</li>
+              <li>영상 업로드를 선택할 수 있습니다.</li>
+              <li>사고 대분류와 세부 유형 선택을 보조합니다.</li>
+              <li>선택 답변은 structured_facts로 변환됩니다.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>질문 단계</h3>
+            <ul>
+              <li>Agent가 필요한 추가 질문을 내려줍니다.</li>
+              <li>차대차, 차대사람, 차대자전거 등 대분류별 질문이 달라집니다.</li>
+              <li>“잘 모르겠어요” 답변은 unknown_adjustments로 이어집니다.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>결과 단계</h3>
+            <ul>
+              <li>한 줄 결론, 대분류, 과실비율, KNIA 기준, 가감요소를 카드로 보여줍니다.</li>
+              <li>raw JSON, trace, chunk_id 같은 내부 정보는 일반 화면에서 숨깁니다.</li>
+              <li>고급 진단은 접힌 영역에서만 확인할 수 있게 정리합니다.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>11. 기술 선택 비교</h2>
+          <p>발표에서 “왜 이 기술을 썼나요?”라는 질문이 나왔을 때 바로 답할 수 있는 비교표입니다.</p>
+        </div>
+
+        <div class="compare">
+          <table>
+            <thead>
+              <tr>
+                <th>영역</th>
+                <th>현재 선택</th>
+                <th>대안</th>
+                <th>선택 이유</th>
+                <th>트레이드오프</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Frontend</td>
+                <td>Vue 3 + Vite</td>
+                <td>React, Next.js</td>
+                <td>컴포넌트 구조가 단순하고 Vite 빌드가 빠릅니다. SPA 중심 서비스에 적합합니다.</td>
+                <td>SEO 중심 공개 페이지가 핵심이면 Next.js가 더 유리할 수 있습니다.</td>
+              </tr>
+              <tr>
+                <td>Gateway</td>
+                <td>Fastify + TypeScript</td>
+                <td>Express, NestJS</td>
+                <td>Fastify는 빠르고 schema 기반 검증이 좋으며, Nest보다 구조가 가볍습니다.</td>
+                <td>대규모 조직형 DI 구조가 필요하면 NestJS가 더 익숙할 수 있습니다.</td>
+              </tr>
+              <tr>
+                <td>Agent API</td>
+                <td>FastAPI</td>
+                <td>Flask, Node.js</td>
+                <td>Python AI/RAG 생태계와 잘 맞고, 타입 힌트 기반 API 구현이 쉽습니다.</td>
+                <td>Node 단일 스택보다 런타임이 하나 더 늘어납니다.</td>
+              </tr>
+              <tr>
+                <td>장기 작업</td>
+                <td>Redis Streams</td>
+                <td>HTTP sync, Celery, RabbitMQ, Kafka</td>
+                <td>도입이 가볍고 이미 Redis를 캐시에도 활용하므로 운영 부담이 작습니다.</td>
+                <td>초대규모 이벤트 스트리밍은 Kafka가 더 강합니다.</td>
+              </tr>
+              <tr>
+                <td>RAG 저장소</td>
+                <td>PostgreSQL + pgvector</td>
+                <td>Pinecone, Weaviate, Elasticsearch, Chroma</td>
+                <td>케이스/Job/결과와 벡터 검색을 같은 DB에서 관리해 운영 복잡도를 낮춥니다.</td>
+                <td>전문 벡터 DB보다 대규모 벡터 운영 기능은 제한적일 수 있습니다.</td>
+              </tr>
+              <tr>
+                <td>영상 분석</td>
+                <td>ffmpeg + YOLO + OpenAI</td>
+                <td>OpenAI-only, YOLO-only</td>
+                <td>YOLO는 객체 후보를 안정적으로 잡고, OpenAI는 장면 해석을 보강합니다.</td>
+                <td>두 분석 결과를 병합하는 정책이 필요합니다.</td>
+              </tr>
+              <tr>
+                <td>Agent 설계</td>
+                <td>통제형 파이프라인 + 제한적 LLM</td>
+                <td>완전 자율 Agent</td>
+                <td>법률/보험 도메인에서는 재현성, 근거 추적, 대분류 guard가 중요합니다.</td>
+                <td>자유로운 탐색성은 낮지만 결과 안정성이 높습니다.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>12. 왜 PostgreSQL + pgvector인가?</h2>
+          <p>RAG만 생각하면 전문 벡터 DB도 가능하지만, 팀 프로젝트 운영 관점에서는 통합 저장소가 더 현실적입니다.</p>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>장점</h3>
+            <ul>
+              <li>케이스, 업로드, Job, 결과, KNIA chart, RAG chunk를 한 DB에서 트랜잭션으로 관리합니다.</li>
+              <li>SQL 필터와 벡터 검색을 같이 쓸 수 있어 party_type, scenario_type, chart_no 제한 검색이 쉽습니다.</li>
+              <li>외부 벡터 DB 비용과 네트워크 의존성을 줄입니다.</li>
+              <li>마이그레이션으로 schema를 추적할 수 있습니다.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>다른 선택지와 비교</h3>
+            <ul>
+              <li><strong>Pinecone</strong>: 운영 편의와 확장성은 좋지만 외부 비용과 벤더 의존성이 큽니다.</li>
+              <li><strong>Weaviate</strong>: 검색 기능은 강하지만 별도 운영 컴포넌트가 늘어납니다.</li>
+              <li><strong>Elasticsearch</strong>: 키워드 검색은 강하지만 벡터와 트랜잭션 데이터 통합은 복잡해질 수 있습니다.</li>
+              <li><strong>Chroma</strong>: 로컬 개발은 빠르지만 제품 DB와 분리되어 운영 일관성이 떨어질 수 있습니다.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>13. 왜 구조화 chart 우선인가?</h2>
+          <p>법률·보험 도메인에서 가장 위험한 것은 근거 없는 숫자 생성입니다.</p>
+        </div>
+
+        <div class="card">
+          <h3>LLM-only RAG의 문제</h3>
+          <p>
+            단순 RAG는 관련 문단을 가져온 뒤 LLM이 답변을 조합합니다. 하지만 과실비율은 숫자이기 때문에,
+            LLM이 문단을 잘못 해석하거나 없는 비율을 만들어내면 사용자에게 큰 오해를 줄 수 있습니다.
+          </p>
+          <div class="grid-2" style="margin-top: 18px">
+            <div class="mini-card">
+              <h4>단순 RAG</h4>
+              <ul>
+                <li>문서 chunk 검색</li>
+                <li>LLM이 근거와 숫자를 함께 생성</li>
+                <li>빠르게 만들 수 있지만 hallucination 위험</li>
+              </ul>
+            </div>
+            <div class="mini-card">
+              <h4>LawCompass 방식</h4>
+              <ul>
+                <li>구조화 chart에서 base_fault와 adjustments 추출</li>
+                <li>RAG는 설명과 법규 보강에 사용</li>
+                <li>숫자 생성은 chart 기반으로 제한</li>
+              </ul>
+            </div>
+          </div>
+          <div class="callout red">
+            발표 문장: “저희는 RAG를 했지만, RAG 문단에서 LLM이 과실비율을 새로 만들게 하지 않았습니다.
+            과실 숫자는 구조화 chart에서 가져오고, RAG는 왜 그 기준을 참고하는지 설명하는 데 사용했습니다.”
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>14. 판단 품질을 지키는 장치</h2>
+          <p>분류 오류, 근거 누수, 확정 표현을 줄이기 위한 안전장치입니다.</p>
+        </div>
+
+        <div class="grid-4">
+          <div class="card">
+            <h3>Party Router</h3>
+            <p>직접 충돌 대상을 먼저 확정해 대분류를 고정합니다. 환경 단어보다 직접 충돌 대상이 우선입니다.</p>
+          </div>
+          <div class="card">
+            <h3>Party Guard</h3>
+            <p>대분류 밖 KNIA chart와 RAG chunk가 최종 결과에 나오지 않도록 걸러냅니다.</p>
+          </div>
+          <div class="card">
+            <h3>Evidence Quality</h3>
+            <p>근거가 부족하면 judgment를 낮추고 추가 질문이나 참고용 기준으로 표시합니다.</p>
+          </div>
+          <div class="card">
+            <h3>Unknown Handling</h3>
+            <p>모르는 가감요소는 확정 과실에 바로 반영하지 않고 조건별 결과로 분리합니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>15. 발표 대본 예시</h2>
+          <p>슬라이드 설명처럼 바로 읽을 수 있는 짧은 대본입니다.</p>
+        </div>
+
+        <div class="grid-2">
+          <div class="script-box">
+            <strong>전체 구조 소개</strong>
+            <p>
+              “LawCompass는 Frontend, Gateway, Worker, Agent, PostgreSQL, Redis로 구성했습니다.
+              Frontend는 사용자의 입력과 결과 표시를 담당하고, Gateway는 케이스 API와 Job 생성을 담당합니다.
+              영상처럼 오래 걸리는 작업은 Worker가 비동기로 처리하고, Agent는 사고 분류와 RAG 기반 판단에 집중합니다.
+              PostgreSQL은 일반 데이터와 pgvector 기반 RAG 데이터를 함께 저장하고, Redis는 Job queue와 캐시에 사용합니다.”
+            </p>
+          </div>
+          <div class="script-box">
+            <strong>RAG 설명</strong>
+            <p>
+              “저희 RAG의 특징은 KNIA 기준을 단순 문서로만 넣지 않았다는 점입니다.
+              chart_no, 대분류, 사고유형, 기본 과실, 가감요소를 구조화해서 저장하고,
+              설명 문단은 rag_documents로 분리했습니다. 분석할 때는 구조화 chart를 먼저 찾고,
+              선택된 chart_no 또는 같은 대분류 안에서만 RAG chunk를 검색합니다.
+              그래서 차대사람 사고에 차대차 기준이 섞이는 문제를 줄였습니다.”
+            </p>
+          </div>
+          <div class="script-box">
+            <strong>영상 분석 설명</strong>
+            <p>
+              “영상은 Gateway에서 바로 분석하지 않고 Redis Stream Job으로 넘깁니다.
+              Worker는 ffmpeg로 프레임을 추출하고 YOLO와 OpenAI를 함께 사용해 관찰값을 만듭니다.
+              다만 영상 관찰값은 최종 판단이 아니라 보조 증거입니다.
+              사용자가 직접 입력한 충돌 대상과 영상 관찰값이 충돌하면 신뢰도와 conflict로 남기고 Agent가 판단합니다.”
+            </p>
+          </div>
+          <div class="script-box">
+            <strong>기술 선택 설명</strong>
+            <p>
+              “Fastify Gateway와 FastAPI Agent를 분리한 이유는 웹 API 안정성과 AI 분석 생태계를 모두 가져가기 위해서입니다.
+              Redis Streams는 Kafka보다 가볍고 팀 프로젝트 규모에 적합했습니다.
+              pgvector는 전문 벡터 DB보다 확장 기능은 적지만, 케이스 데이터와 RAG 데이터를 한 PostgreSQL 안에서
+              관리할 수 있어 구현과 운영이 단순해졌습니다.”
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>16. 예상 질문과 답변</h2>
+          <p>기술 심화 질문에 대비하기 위한 Q&A입니다.</p>
+        </div>
+
+        <div class="grid-2">
+          <details open>
+            <summary>Q1. 왜 RAG를 사용했나요?</summary>
+            <div class="details-body">
+              <p>
+                교통사고 과실 판단은 일반 상식이 아니라 KNIA 기준, 법률 근거, 사고 유형별 수정요소에 의존합니다.
+                모델의 일반 지식만 쓰면 근거가 불명확하고 최신 기준과 다를 수 있습니다.
+                그래서 KNIA 구조화 chart와 법률/해설 문서를 검색해 근거 기반으로 답하도록 RAG를 사용했습니다.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Q2. 왜 벡터 검색만 하지 않고 구조화 chart를 먼저 찾나요?</summary>
+            <div class="details-body">
+              <p>
+                과실비율은 숫자입니다. 벡터 검색 문단을 LLM이 읽고 숫자를 만들면 hallucination 위험이 있습니다.
+                LawCompass는 chart의 base_fault와 adjustments를 먼저 찾고, RAG는 설명을 보강하는 용도로 사용합니다.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Q3. 차대사람 사고에서 차대차 기준이 나오지 않게 어떻게 막나요?</summary>
+            <div class="details-body">
+              <p>
+                Party Router가 직접 충돌 대상을 기준으로 대분류를 고정하고, Party Guard가 대분류에 맞지 않는 chart prefix를 제거합니다.
+                예를 들어 car_vs_person이면 보 계열만 허용하고 차41, 차43 같은 차대차 기준은 rejected mismatch로 내부 기록만 남깁니다.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Q4. pgvector 대신 Pinecone을 쓰지 않은 이유는?</summary>
+            <div class="details-body">
+              <p>
+                Pinecone은 관리형 벡터 DB로 편하지만 외부 비용과 의존성이 생깁니다.
+                이 프로젝트는 케이스 데이터, Job, 분석 결과, RAG chunk가 모두 PostgreSQL에 있으므로 pgvector를 쓰면
+                SQL 필터와 벡터 검색을 한 DB에서 처리할 수 있어 구조가 단순합니다.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Q5. Redis Streams를 선택한 이유는?</summary>
+            <div class="details-body">
+              <p>
+                영상 분석은 시간이 오래 걸리므로 API 요청에서 동기 처리하면 timeout이 발생할 수 있습니다.
+                Redis Streams는 가볍게 Job queue를 만들 수 있고, 이미 Redis를 cache에 쓰기 때문에 운영 컴포넌트를 늘리지 않아도 됩니다.
+                Kafka는 대규모 이벤트 스트리밍에는 좋지만 팀 프로젝트 규모에서는 과합니다.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Q6. Agent가 MCP인가요?</summary>
+            <div class="details-body">
+              <p>
+                현재 구현은 표준 MCP 클라이언트/서버라기보다, MCP-like tool registry와 specialist pipeline을 가진 통제형 Agent 구조입니다.
+                발표에서는 “표준 MCP를 완전히 구현했다”라고 말하기보다 “도구 실행과 근거 라우팅을 분리한 MCP 지향 구조”라고 표현하는 것이 정확합니다.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Q7. 영상 분석 결과가 틀리면 어떻게 하나요?</summary>
+            <div class="details-body">
+              <p>
+                영상 관찰값은 최종 판단이 아니라 evidence 후보입니다.
+                YOLO와 OpenAI 관찰값이 충돌하거나 직접 충돌 대상 신뢰도가 낮으면 context_only 또는 conflict로 표시하고,
+                사용자 입력과 추가 질문을 통해 보정합니다.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Q8. review_required chart는 왜 사용하는가?</summary>
+            <div class="details-body">
+              <p>
+                review_required는 사람이 검수할 필요가 있다는 metadata입니다.
+                다만 party, scenario, chart_no, base_fault, raw_text가 충분히 맞는 대표 기준이면 참고 근거로 활용할 수 있습니다.
+                base_fault가 비어 있거나 대분류가 불일치하면 final 확정값으로 쓰지 않습니다.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Q9. LLM은 어디에 쓰이나요?</summary>
+            <div class="details-body">
+              <p>
+                LLM은 자연어 요약, 사고 설명 정리, 법률 근거 설명, 질문 생성, 보고서 문장화에 주로 사용합니다.
+                과실비율 숫자는 가능한 구조화 chart와 가감요소 계산 결과를 사용하고, LLM이 임의 생성하지 않도록 정책을 둡니다.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Q10. 이 구조의 한계는 무엇인가요?</summary>
+            <div class="details-body">
+              <p>
+                KNIA JSON의 검수 품질과 coverage에 영향을 받습니다.
+                영상 분석도 프레임 추출 위치나 화질에 따라 관찰값이 달라질 수 있습니다.
+                그래서 결과는 법적 확정이 아니라 보험 실무 참고와 추가 확인 항목 제시로 표현합니다.
+              </p>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>17. 발표 때 피해야 할 표현</h2>
+          <p>정확성을 위해 표현을 조심해야 하는 부분입니다.</p>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>피해야 할 표현</h3>
+            <ul>
+              <li>“AI가 과실비율을 판결합니다.”</li>
+              <li>“표준 MCP를 완전히 구현했습니다.”</li>
+              <li>“영상만 보고 사고 책임을 확정합니다.”</li>
+              <li>“KNIA 기준이 100% 정확히 모두 들어 있습니다.”</li>
+              <li>“RAG가 있으니 환각이 없습니다.”</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>추천 표현</h3>
+            <ul>
+              <li>“KNIA와 법률 근거를 바탕으로 참고 가능한 판단을 제공합니다.”</li>
+              <li>“MCP 지향의 도구 실행과 근거 라우팅 구조를 적용했습니다.”</li>
+              <li>“영상 관찰값은 직접 충돌 대상과 사고 정황을 보조하는 evidence로 사용합니다.”</li>
+              <li>“구조화 chart를 우선 사용하고, 검수 필요 항목은 참고 기준으로 표시합니다.”</li>
+              <li>“RAG와 party guard로 근거 누수와 임의 생성을 줄였습니다.”</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>18. 발표 마무리 문장</h2>
+          <p>7분 발표의 마지막 20초에 사용하기 좋은 정리입니다.</p>
+        </div>
+
+        <div class="script-box">
+          <p>
+            “정리하면 LawCompass는 단순 챗봇이 아니라, 사고 대분류를 먼저 확정하고,
+            그 대분류 안에서 KNIA 구조화 기준과 RAG 근거를 검색한 뒤,
+            영상 관찰값과 추가 질문을 통해 불확실성을 줄이는 서비스입니다.
+            Gateway, Worker, Agent, PostgreSQL/pgvector를 분리해 웹 응답성과 AI 분석 안정성을 모두 확보했고,
+            과실비율 숫자는 LLM이 임의 생성하지 않도록 구조화 chart 중심으로 제한했습니다.
+            이 점이 일반적인 LLM 챗봇형 법률 상담과 가장 큰 차이입니다.”
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>19. 코드 위치 치트시트</h2>
+          <p>질문을 받았을 때 “그 기능은 어느 파일에 있나요?”라고 바로 답하기 위한 표입니다.</p>
+        </div>
+
+        <div class="compare">
+          <table>
+            <thead>
+              <tr>
+                <th>기능</th>
+                <th>핵심 파일</th>
+                <th>설명</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Gateway 분석 API</td>
+                <td><code>apps/gateway/src/routes/analysis.ts</code></td>
+                <td>텍스트 분석, 영상 분석 Job 생성, 진행률 조회, 결과/report/easy-report 조회를 담당합니다.</td>
+              </tr>
+              <tr>
+                <td>영상 Worker</td>
+                <td><code>apps/worker/worker/job_processor.py</code></td>
+                <td>Redis Stream Job을 받아 영상 전처리, 프레임 추출, YOLO/OpenAI 관찰값 생성, Agent 호출을 수행합니다.</td>
+              </tr>
+              <tr>
+                <td>Agent Orchestrator</td>
+                <td><code>apps/agent/app/services/orchestrator.py</code></td>
+                <td>입력 정리, 근거 수집, 분석, reflection, judgment contract, 결과 조립을 연결하는 중심 파이프라인입니다.</td>
+              </tr>
+              <tr>
+                <td>직접 충돌 대상 라우팅</td>
+                <td><code>apps/agent/app/services/party_agents/router.py</code></td>
+                <td>사람, 차량, 자전거, 오토바이, 시설물, 단독 사고 대분류를 먼저 확정합니다.</td>
+              </tr>
+              <tr>
+                <td>시나리오 분류</td>
+                <td><code>apps/agent/app/services/scenario_classifier.py</code></td>
+                <td>확정된 대분류 안에서 후미추돌, 차선변경, 보행자 사고 등 세부 사고유형을 결정합니다.</td>
+              </tr>
+              <tr>
+                <td>KNIA chart 검색</td>
+                <td><code>apps/agent/app/services/knia/knia_matcher.py</code></td>
+                <td>구조화 chart 우선 검색, 같은 대분류 fallback, metadata 구성, static fallback을 처리합니다.</td>
+              </tr>
+              <tr>
+                <td>대분류 guard</td>
+                <td><code>apps/agent/app/services/knia/party_guard.py</code></td>
+                <td>차대사람은 보 계열, 차대차는 차 계열처럼 대분류 밖 KNIA 기준을 최종 결과에서 차단합니다.</td>
+              </tr>
+              <tr>
+                <td>KNIA JSON import</td>
+                <td><code>apps/agent/app/services/knia/knia_json_loader.py</code></td>
+                <td>codex_review JSON의 charts와 rag_documents를 검증하고 repository/vectorizer로 넘깁니다.</td>
+              </tr>
+              <tr>
+                <td>KNIA repository</td>
+                <td><code>apps/agent/app/services/knia/knia_json_repository.py</code></td>
+                <td>knia_fault_charts 저장/조회, chart별 RAG document 조회, local JSON fallback을 담당합니다.</td>
+              </tr>
+              <tr>
+                <td>KNIA RAG cache</td>
+                <td><code>apps/agent/app/services/rag/two_stage_cache.py</code></td>
+                <td>Redis exact cache, semantic query cache, pgvector 검색, keyword fallback을 처리합니다.</td>
+              </tr>
+              <tr>
+                <td>법률 RAG</td>
+                <td><code>apps/agent/app/services/rag_client.py</code></td>
+                <td>도로교통법 등 법률 근거 검색과 static legal fallback을 담당합니다.</td>
+              </tr>
+              <tr>
+                <td>과실비율 계산</td>
+                <td><code>apps/agent/app/services/analysts/fault_ratio_analyst.py</code></td>
+                <td>KNIA 기준, 가감요소, 조건별 결과, no match reason을 합쳐 fault payload를 만듭니다.</td>
+              </tr>
+              <tr>
+                <td>구조화 chart 계산</td>
+                <td><code>apps/agent/app/services/knia/knia_fault_adjuster.py</code></td>
+                <td>base_fault 후보 선택, 사용자 역할 매핑, confirmed/unknown adjustments 적용을 담당합니다.</td>
+              </tr>
+              <tr>
+                <td>동적 질문</td>
+                <td><code>apps/agent/app/services/dynamic_questionnaire.py</code></td>
+                <td>대분류와 시나리오별로 과실비율에 영향을 주는 추가 질문을 생성합니다.</td>
+              </tr>
+              <tr>
+                <td>Frontend workspace</td>
+                <td><code>apps/frontend/src/composables/useCaseWorkspace.ts</code></td>
+                <td>입력, 업로드, 분석 시작, 진행률, 결과 표시 상태를 관리합니다.</td>
+              </tr>
+              <tr>
+                <td>Frontend payload</td>
+                <td><code>apps/frontend/src/composables/caseWorkspacePayloads.ts</code></td>
+                <td>사용자 답변을 Agent/Gateway가 이해할 structured_facts 형태로 변환합니다.</td>
+              </tr>
+              <tr>
+                <td>사용자용 결과 정리</td>
+                <td><code>apps/gateway/src/lib/report-composer.ts</code></td>
+                <td>분석 결과를 사용자 화면용 카드와 문장으로 정리합니다.</td>
+              </tr>
+              <tr>
+                <td>인프라 구성</td>
+                <td><code>compose.yaml</code></td>
+                <td>frontend, gateway, agent, worker, postgres, redis, caddy 서비스를 정의합니다.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>20. End-to-End 동작 예시</h2>
+          <p>면접식 질문에 대비해 특정 입력이 내부에서 어떻게 이동하는지 단계별로 정리했습니다.</p>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>공사 담당자 사고</h3>
+            <ol class="step-list">
+              <li>사용자 입력에 “공사 담당자”, “도로 폭 측정”, “갑자기 튀어나와 사고”가 들어옵니다.</li>
+              <li>Party Router가 직접 충돌 대상을 사람/도로 작업자로 보고 <code>car_vs_person</code>을 확정합니다.</li>
+              <li>Scenario Classifier는 교차로나 도로 단어에 끌려가지 않고 보행자/작업자 사고 계열을 선택합니다.</li>
+              <li>Party Guard는 <code>보</code> 계열 chart만 허용하고 차43, 차41, 거 계열을 제외합니다.</li>
+              <li>KNIA Matcher는 같은 차대사람 대분류 안에서 가장 가까운 기준을 찾습니다.</li>
+              <li>동적 질문은 작업자 위치, 갑작스러운 진입, 안전조치, 시야, 차량 속도, CCTV를 묻습니다.</li>
+              <li>Report는 “직접 충돌 대상이 사람인 차대사람 사고”라고 설명하고 내부 정책 문구는 숨깁니다.</li>
+            </ol>
+          </div>
+
+          <div class="card">
+            <h3>차선변경 사고</h3>
+            <ol class="step-list">
+              <li>입력에 “상대 차량”, “깜빡이 없이 차선변경”, “내 차 옆 충돌”이 들어옵니다.</li>
+              <li>Party Router가 상대 차량과 직접 충돌했으므로 <code>car_vs_car</code>로 고정합니다.</li>
+              <li>Scenario Classifier가 <code>lane_change_collision</code>을 선택하고 사용자 역할을 직진 차량으로 매핑합니다.</li>
+              <li>검색어는 진로변경, 차로변경, 동일방향, 후행 직진차, 진로변경차로 확장됩니다.</li>
+              <li>KNIA Matcher가 차43 또는 차43-2 후보를 찾고 보행자/자전거 기준은 제외합니다.</li>
+              <li>Fault Adjuster는 차선변경 주체, 방향지시등, 선진입, 충돌 부위 같은 가감요소를 반영합니다.</li>
+              <li>결과는 내 과실이 낮은 방향의 기준을 사용자 관점으로 설명합니다.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <h2>21. 추가 예상 질문</h2>
+          <p>발표 후 Q&A에서 나올 수 있는 꼬리질문을 짧게 대비합니다.</p>
+        </div>
+
+        <div class="grid-2">
+          <details>
+            <summary>Q11. 기존 검색어 기반 분류와 무엇이 다른가요?</summary>
+            <div class="details-body">
+              <p>검색어만 보면 “도로”, “교차로”, “차량” 같은 환경 단어가 사고유형을 흔들 수 있습니다. 현재 구조는 직접 충돌 대상을 먼저 잡고, 그 다음 검색어와 시나리오를 제한합니다.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Q12. 같은 대분류 fallback은 왜 필요한가요?</summary>
+            <div class="details-body">
+              <p>정확히 같은 chart가 없더라도 사용자는 참고 기준을 기대합니다. 다만 다른 대분류 기준은 오해를 만들기 때문에 같은 대분류 안에서만 reference_only fallback을 제공합니다.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Q13. 법률 RAG와 KNIA RAG는 왜 나눴나요?</summary>
+            <div class="details-body">
+              <p>KNIA는 과실비율 실무 기준이고 법률 RAG는 도로교통법 등 법적 근거입니다. 숫자 산정과 법률 설명의 역할이 다르므로 evidence family를 나눠 관리합니다.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Q14. evidence_family_counts는 왜 중요한가요?</summary>
+            <div class="details-body">
+              <p>분석 결과가 법률 설명만 있고 KNIA 근거가 없으면 과실비율 판단 품질이 떨어질 수 있습니다. 그래서 회귀 테스트에서 필요한 시나리오는 KNIA family evidence가 포함되는지 확인합니다.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Q15. 후미추돌에서 브레이크등을 모르면 어떻게 처리하나요?</summary>
+            <div class="details-body">
+              <p>브레이크등 고장은 앞차 과실을 올릴 수 있는 요소지만, 모름이면 확정 반영하지 않습니다. unknown_adjustments와 conditional_outcomes로 보내 “확인되면 달라질 수 있음”으로 표시합니다.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Q16. Gateway가 Agent를 직접 호출하면 결합도가 높지 않나요?</summary>
+            <div class="details-body">
+              <p>텍스트 분석은 비교적 짧은 요청이므로 Gateway가 Agent 내부 API를 호출합니다. 영상처럼 긴 작업은 Worker와 Redis Stream으로 분리해 결합도와 timeout 위험을 낮췄습니다.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Q17. 왜 모든 작업을 Worker로 보내지 않았나요?</summary>
+            <div class="details-body">
+              <p>짧은 텍스트 분석까지 비동기로 보내면 사용자 경험과 상태 관리가 불필요하게 복잡해집니다. 오래 걸리는 영상 분석만 비동기로 분리했습니다.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Q18. OpenAI API 장애가 나면 어떻게 되나요?</summary>
+            <div class="details-body">
+              <p>KNIA structured chart, keyword fallback, static fallback을 둬 최소한의 기준 탐색이 가능하도록 설계했습니다. 다만 자연어 설명 품질과 영상 장면 해석은 제한될 수 있습니다.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Q19. RAG chunk가 잘못 매칭되면요?</summary>
+            <div class="details-body">
+              <p>chart_no와 major_party_type으로 먼저 제한하고, evidence routing에서 사고 축과 맞지 않는 근거는 primary에서 제외합니다. 사용자 화면에는 불일치 근거를 표시하지 않습니다.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Q20. 이 서비스가 법률 자문인가요?</summary>
+            <div class="details-body">
+              <p>아닙니다. 보험 실무 기준과 법률 근거를 바탕으로 참고 가능한 분석을 제공하는 도구입니다. 최종 판단은 보험사 협의, 분쟁심의, 경찰 조사, 법원 판단에 따라 달라질 수 있습니다.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
