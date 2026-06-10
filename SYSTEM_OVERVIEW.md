@@ -1,5 +1,16 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-06-11 Oracle Cloud Free Tier 운영 문서 추가
+
+Oracle Cloud Infrastructure Always Free 단일 VM에서 현재 Docker Compose 기반 LawCompass 스택을 운영하는 절차를 루트 문서로 추가했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 운영 문서 | `ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md`가 OCI A1 Flex 권장 사양, 보안 포트, Docker 설치, `.env` 준비, prod compose 실행, migration, KNIA import, 백업/복구, 장애 대응 절차를 설명한다. |
+| 현재 배포 기준 | OCI 운영에서는 개발용 `compose.override.yaml` 자동 적용을 피하기 위해 `docker compose --env-file .env -f compose.yaml -f compose.prod.yaml ...` 형식을 사용한다. |
+| Free Tier 전제 | AMD 1 GB micro VM은 전체 스택 운영에 부적합하므로 Ampere A1 Flex 4 OCPU/24 GB 단일 VM을 권장한다. |
+| 비변경 범위 | 제품 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API 계약, Docker Compose 서비스 정의는 변경하지 않았다. |
+
 ## 2026-06-10 프로젝트 원칙 준수 점검 보강
 
 외부 백로그로 관리되던 프로젝트 원칙 준수 항목을 저장소 안에서 반복 점검할 수 있도록 문서 허브와 경량 자동 점검 스크립트를 추가했다.

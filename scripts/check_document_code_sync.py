@@ -19,6 +19,7 @@ REQUIRED_PATHS = [
     "DEVELOPMENT_PROMPT.md",
     "SYSTEM_OVERVIEW.md",
     "AGENTS.md",
+    "ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md",
     "compose.yaml",
     "env.example",
     "docs/README.md",
@@ -79,6 +80,15 @@ REQUIRED_SNIPPETS = [
             "AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md",
             "STANDARD_MCP_DECISION.md",
             "check_principle_compliance.py",
+        ],
+    },
+    {
+        "path": "ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md",
+        "snippets": [
+            "VM.Standard.A1.Flex",
+            "docker compose --env-file .env -f compose.yaml -f compose.prod.yaml",
+            "STORAGE_DRIVER=local",
+            "KNIA_FAULT_RATIO_JSON_PATH",
         ],
     },
     {

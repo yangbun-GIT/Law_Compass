@@ -17,3 +17,4 @@
 4. 브라우저 `http://localhost` 접속
 
 자세한 운영 절차는 `docs/OPERATIONS.md` 참고.
+Oracle Cloud Free Tier 단일 VM 운영 절차는 `ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md` 참고.
