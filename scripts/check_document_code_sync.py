@@ -24,6 +24,8 @@ REQUIRED_PATHS = [
     "docs/README.md",
     "docs/GITHUB_COLLABORATION_WORKFLOW.md",
     "docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md",
+    "docs/archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md",
+    "docs/FUTURE_MSA_MCP_AGENT_EVOLUTION.md",
     "docs/STANDARD_MCP_DECISION.md",
     "docs/STANDARD_MCP_PILOT_DESIGN.md",
     "docs/PRESENTATION_ARCHITECTURE_NOTES.md",
@@ -71,7 +73,20 @@ REQUIRED_PATHS = [
 REQUIRED_SNIPPETS = [
     {
         "path": "docs/README.md",
-        "snippets": ["문서 선택 가이드", "PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md", "check_principle_compliance.py"],
+        "snippets": [
+            "문서 선택 가이드",
+            "PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md",
+            "AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md",
+            "check_principle_compliance.py",
+        ],
+    },
+    {
+        "path": "docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md",
+        "snippets": ["상태: active/reference", "완료된 구조 보강 요약", "FUTURE_MSA_MCP_AGENT_EVOLUTION.md"],
+    },
+    {
+        "path": "docs/archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md",
+        "snippets": ["P0-1", "P12-3", "Agent/MCP Task-Plan-Goal 구조 보강 로드맵"],
     },
     {
         "path": "docs/PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md",
@@ -112,10 +127,6 @@ REQUIRED_SNIPPETS = [
     {
         "path": "apps/worker/worker/job_processor.py",
         "snippets": ["video_preprocess", "video_analyze", "/internal/v1/analyze/video"],
-    },
-    {
-        "path": "docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md",
-        "snippets": ["P12-1. 1차 점검: 문서와 코드 일치", "P12-2. 2차 점검: Agent 실행 품질"],
     },
     {
         "path": "docs/STANDARD_MCP_DECISION.md",

@@ -12,6 +12,18 @@
 | 보안 점검 | `scripts/check_staged_safety.py`가 staged 파일에서 `.env`, storage/log/cache/generated 산출물, 대표 secret 패턴을 차단한다. |
 | 비변경 범위 | 제품 API route, DTO, DB schema, Redis key, storage path, 외부 API 계약, Agent 판단 로직은 변경하지 않았다. |
 
+## 2026-06-10 Agent/MCP 로드맵 active/archive 분리
+
+Agent/MCP/Task-Plan-Goal 로드맵의 현행 기준과 상세 완료 기록을 분리했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 현행 기준 | `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`는 Agent/MCP-like/Task-Plan-Goal 작업을 다시 열 때 확인하는 active/reference 문서로 축약했다. |
+| 완료 기록 | 기존 P0~P12 상세 구현 기록과 검증 로그는 `docs/archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md`에 보존했다. |
+| 후속 전환 메모 | `docs/FUTURE_MSA_MCP_AGENT_EVOLUTION.md`가 OSS 후속 MSA/MCP/Agent 분리 검토 트리거와 원칙을 정리한다. |
+| 링크 정합성 | `docs/README.md`와 `scripts/check_document_code_sync.py`가 새 문서 위치를 확인한다. |
+| 비변경 범위 | 제품 API route, DTO, DB schema, Redis key, storage path, 외부 API 계약, Agent 판단 로직은 변경하지 않았다. |
+
 ## 2026-06-01 대시보드 최근 케이스 삭제
 
 대시보드 최근 케이스 목록에서 사용자가 직접 케이스를 숨김 삭제할 수 있도록 Gateway와 Frontend 표시 계약을 보강했다.

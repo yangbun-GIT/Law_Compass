@@ -16,7 +16,9 @@
 | 현재 시스템 구조, route, DTO, DB, Redis, storage, 외부 연동 변경 | [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md) |
 | 개발 원칙, 역할 정의, 검증 정책, 보안 정책, 서비스 책임 경계 변경 | [DEVELOPMENT_PROMPT.md](../DEVELOPMENT_PROMPT.md) |
 | GitHub 브랜치, PR, merge notification, 동료 동기화 규칙 변경 | [GITHUB_COLLABORATION_WORKFLOW.md](GITHUB_COLLABORATION_WORKFLOW.md) |
-| Agent/MCP/Task-Plan-Goal 장기 구조 보강 | [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md) |
+| Agent/MCP/Task-Plan-Goal 현행 기준 | [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md) |
+| Agent/MCP/Task-Plan-Goal 상세 완료 기록 | [archive 완료 기록](archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md) |
+| OSS 후속 MSA/MCP/Agent 전환 검토 | [FUTURE_MSA_MCP_AGENT_EVOLUTION.md](FUTURE_MSA_MCP_AGENT_EVOLUTION.md) |
 | 실행, 배포, 운영, import, 장애 대응 | [OPERATIONS.md](OPERATIONS.md) |
 | 로컬 실행과 빌드 방법 | [BUILD_AND_RUN_GUIDE.md](BUILD_AND_RUN_GUIDE.md) |
 | 검증 명령 모음 | [VERIFICATION_COMMANDS.md](VERIFICATION_COMMANDS.md) |
@@ -27,6 +29,7 @@
 - 새 문서가 실행 명령, 구조, API, DB, Redis, 외부 연동, 검증 절차를 설명하면 이 파일 또는 관련 상위 문서에서 링크한다.
 - 문서에 경로를 추가하면 실제 파일이 있는지 확인한다.
 - 큰 구조 변경 없이 특정 기능만 설명하는 문서는 `docs/` 아래에 기능명 중심으로 둔다.
+- 완료 기록과 날짜별 상세 로그는 현행 기준 문서와 섞이지 않도록 `docs/archive/` 아래에 둔다.
 - 발표용 산출물은 `docs/presentation/` 아래에 둔다.
 - 원본 PDF, 원본 영상, 대용량 로그, secret 값, `.env` 값은 문서에 직접 포함하지 않는다.
 
