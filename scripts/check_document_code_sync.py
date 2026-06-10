@@ -21,17 +21,23 @@ REQUIRED_PATHS = [
     "AGENTS.md",
     "compose.yaml",
     "env.example",
+    "docs/README.md",
     "docs/GITHUB_COLLABORATION_WORKFLOW.md",
     "docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md",
     "docs/STANDARD_MCP_DECISION.md",
     "docs/STANDARD_MCP_PILOT_DESIGN.md",
     "docs/PRESENTATION_ARCHITECTURE_NOTES.md",
+    "docs/PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md",
     "docs/AGENT_EXECUTION_QUALITY_CHECK.md",
     "docs/USER_VALUE_READINESS_CHECK.md",
     "docs/BUILD_AND_RUN_GUIDE.md",
     "docs/OPERATIONS.md",
     "docs/VERIFICATION_COMMANDS.md",
+    "scripts/check_markdown_links.py",
+    "scripts/check_principle_compliance.py",
     "scripts/check_agent_execution_quality.ps1",
+    "scripts/check_srp_file_sizes.py",
+    "scripts/check_staged_safety.py",
     "scripts/check_user_value_readiness.ps1",
     "scripts/verify_core.ps1",
     "scripts/verify_agent_regression.ps1",
@@ -63,6 +69,18 @@ REQUIRED_PATHS = [
 
 
 REQUIRED_SNIPPETS = [
+    {
+        "path": "docs/README.md",
+        "snippets": ["문서 선택 가이드", "PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md", "check_principle_compliance.py"],
+    },
+    {
+        "path": "docs/PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md",
+        "snippets": ["P0. 문서 시작점", "P1. SRP 위험 파일", "2026-06-10"],
+    },
+    {
+        "path": "docs/VERIFICATION_COMMANDS.md",
+        "snippets": ["check_principle_compliance.py", "check_staged_safety.py"],
+    },
     {
         "path": "apps/frontend/src/router/index.ts",
         "snippets": ["/admin/agent-test"],

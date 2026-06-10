@@ -475,6 +475,12 @@ The updated Agentic Design Pattern lecture should be applied as durable engineer
 - Verification honesty: do not report unresolved or unverified work as fixed. If a metric, test, real-video run, external API call, or regression check fails or was not run, say that directly and keep it in the next-step list instead of moving on as if it passed.
 - Expert lawyer opinions, insurer/police outcomes, or real dispute results may be used as calibration references, but they must not be injected into the user case payload as observed facts. Keep them in evaluation manifests or test expectations and compare whether the Agent can reach a reasonable guidance range through video facts, user facts, KNIA/legal evidence, and uncertainty handling.
 
+### Principle Compliance Checks
+
+- For documentation, workflow, architecture-boundary, or repository-policy changes, run `python scripts/check_principle_compliance.py` in addition to the service-specific checks listed in `docs/VERIFICATION_COMMANDS.md`.
+- Before committing staged changes, run `python scripts/check_staged_safety.py` when the task touches docs, scripts, environment guidance, generated artifacts, uploads, logs, storage paths, or external integration notes.
+- Treat SRP line-count warnings from `scripts/check_srp_file_sizes.py` as a review prompt, not an automatic refactor mandate. Split files when the touched behavior has a natural smaller owner.
+
 ### Escalation Patterns
 
 - Add ReAct-style `LLM -> tool_call -> observation -> LLM` loops only when a fixed deterministic stage pipeline cannot express the required workflow safely.

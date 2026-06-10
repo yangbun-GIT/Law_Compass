@@ -1,5 +1,17 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-06-10 프로젝트 원칙 준수 점검 보강
+
+외부 백로그로 관리되던 프로젝트 원칙 준수 항목을 저장소 안에서 반복 점검할 수 있도록 문서 허브와 경량 자동 점검 스크립트를 추가했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 문서 시작점 | `docs/README.md`가 작업 성격별로 먼저 읽을 문서와 새 문서 배치 기준을 안내한다. |
+| 백로그 추적 | `docs/PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md`가 P0~P3 원칙 보강 항목과 2026-06-10 반영 상태를 기록한다. |
+| 자동 점검 | `scripts/check_principle_compliance.py`가 문서-코드 동기화, Markdown link 보고, SRP watchlist, staged safety 점검을 묶어 실행한다. |
+| 보안 점검 | `scripts/check_staged_safety.py`가 staged 파일에서 `.env`, storage/log/cache/generated 산출물, 대표 secret 패턴을 차단한다. |
+| 비변경 범위 | 제품 API route, DTO, DB schema, Redis key, storage path, 외부 API 계약, Agent 판단 로직은 변경하지 않았다. |
+
 ## 2026-06-01 대시보드 최근 케이스 삭제
 
 대시보드 최근 케이스 목록에서 사용자가 직접 케이스를 숨김 삭제할 수 있도록 Gateway와 Frontend 표시 계약을 보강했다.

@@ -249,3 +249,29 @@ $runs | Select-Object name,status,conclusion,html_url | ConvertTo-Json -Depth 4
 - 비용이나 환경 문제로 보류한 경우의 재실행 조건
 
 검증 기준이 새로 바뀌면 이 문서와 `DEVELOPMENT_PROMPT.md`의 verification policy를 함께 확인한다.
+
+## 9. Principle compliance checks
+
+Run this lightweight bundle after documentation, workflow, repository-policy, or architecture-boundary changes:
+
+```powershell
+python scripts/check_principle_compliance.py
+```
+
+Use strict Markdown link checking when moving or adding many documentation links:
+
+```powershell
+python scripts/check_markdown_links.py --strict
+```
+
+Use the SRP watchlist before or after touching known large files:
+
+```powershell
+python scripts/check_srp_file_sizes.py
+```
+
+Before committing staged changes, verify that common generated files and secret-like patterns are not staged:
+
+```powershell
+python scripts/check_staged_safety.py
+```
