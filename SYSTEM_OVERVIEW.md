@@ -7,9 +7,12 @@ Oracle Cloud Infrastructure Always Free 단일 VM에서 현재 Docker Compose �
 | 항목 | 현재 상태 |
 | --- | --- |
 | 운영 문서 | `ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md`가 OCI A1 Flex 권장 사양, 보안 포트, Docker 설치, `.env` 준비, prod compose 실행, migration, KNIA import, 백업/복구, 장애 대응 절차를 설명한다. |
+| OCI env 예시 | `env.oci.example`은 OCI 단일 VM용 local storage, OpenAI/YOLO 기본 OFF, Caddy site address 값을 안전한 placeholder로 제공한다. |
+| 운영 스크립트 | `scripts/oci/deploy.sh`가 prod compose build/up, migration, KNIA import, health check를 묶고 `scripts/oci/backup_postgres.sh`가 DB 백업을 생성한다. |
 | 현재 배포 기준 | OCI 운영에서는 개발용 `compose.override.yaml` 자동 적용을 피하기 위해 `docker compose --env-file .env -f compose.yaml -f compose.prod.yaml ...` 형식을 사용한다. |
+| Edge 설정 | `infra/caddy/Caddyfile`은 `LAWCOMPASS_SITE_ADDRESS`와 `CADDY_ACME_EMAIL` 환경변수를 지원하며 기본값은 `:80`/`admin@example.com`이다. |
 | Free Tier 전제 | AMD 1 GB micro VM은 전체 스택 운영에 부적합하므로 Ampere A1 Flex 4 OCPU/24 GB 단일 VM을 권장한다. |
-| 비변경 범위 | 제품 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API 계약, Docker Compose 서비스 정의는 변경하지 않았다. |
+| 비변경 범위 | 제품 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API 계약은 변경하지 않았다. |
 
 ## 2026-06-10 프로젝트 원칙 준수 점검 보강
 

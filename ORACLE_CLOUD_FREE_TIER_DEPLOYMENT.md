@@ -2,7 +2,7 @@
 
 작성일: 2026-06-11
 대상: Oracle Cloud Infrastructure, 이하 OCI, Always Free VM 한 대에서 LawCompass MVP를 운영하려는 배포자
-범위: 현재 저장소의 `compose.yaml`, `compose.prod.yaml`, `infra/caddy/Caddyfile`, `env.example` 기준 운영 절차
+범위: 현재 저장소의 `compose.yaml`, `compose.prod.yaml`, `infra/caddy/Caddyfile`, `env.oci.example`, `scripts/oci/*` 기준 운영 절차
 
 이 문서는 LawCompass를 OCI Free Tier에서 최대한 안전하게 실행하기 위한 실무 절차다. 실제 API key, JWT secret, DB password, 내부 토큰, SSH private key, 사용자 사고 영상 원본은 이 문서나 Git에 절대 기록하지 않는다.
 
@@ -50,6 +50,12 @@ Internet
 
 ```bash
 docker compose --env-file .env -f compose.yaml -f compose.prod.yaml up -d --build
+```
+
+반복 운영에서는 같은 기준을 감싼 스크립트를 사용할 수 있다.
+
+```bash
+bash scripts/oci/deploy.sh
 ```
 
 ## 3. OCI Free Tier 리소스 설계
@@ -150,16 +156,23 @@ OCI Ubuntu 이미지는 VCN 보안 규칙과 VM 내부 firewall을 모두 봐야
 lawcompass.example.com -> OCI public IPv4
 ```
 
-현재 저장소의 `infra/caddy/Caddyfile`은 기본적으로 `:80` HTTP site다. IP만으로 테스트할 때는 그대로 둘 수 있다. 실제 도메인 HTTPS 운영은 Caddy site address를 도메인으로 바꾼다.
+현재 저장소의 `infra/caddy/Caddyfile`은 `LAWCOMPASS_SITE_ADDRESS` 환경변수를 읽는다. 기본값은 `:80`이므로 IP만으로 HTTP 테스트할 때는 그대로 둘 수 있다. 실제 도메인 HTTPS 운영은 `.env`에서 `LAWCOMPASS_SITE_ADDRESS`를 도메인으로 바꾼다.
 
-예시:
+도메인 운영 `.env` 예시:
+
+```env
+LAWCOMPASS_SITE_ADDRESS=lawcompass.example.com
+CADDY_ACME_EMAIL=admin@example.com
+```
+
+Caddyfile의 핵심 형태:
 
 ```caddyfile
 {
-  email admin@example.com
+  email {$CADDY_ACME_EMAIL:admin@example.com}
 }
 
-lawcompass.example.com {
+{$LAWCOMPASS_SITE_ADDRESS::80} {
   encode zstd gzip
 
   @health path /health /ready
@@ -258,7 +271,7 @@ chmod 700 storage logs backups
 ### 7.3 `.env` 만들기
 
 ```bash
-cp env.example .env
+cp env.oci.example .env
 chmod 600 .env
 ```
 
@@ -307,13 +320,32 @@ openssl rand -base64 32
 
 주의:
 
-- `env.example`에는 NAS 예시가 남아 있지만 OCI 단일 VM 기본 운영은 `local` storage가 맞다.
+- OCI 단일 VM 기본 운영은 `env.oci.example`을 사용한다.
+- 기존 `env.example`에는 NAS 예시가 남아 있으므로 OCI 서버에서 그대로 복사하지 않는다.
 - `.env`의 실제 값은 터미널 출력, 문서, 커밋, 스크린샷에 남기지 않는다.
 - OpenAI key를 넣지 않아도 deterministic fallback과 구조화 KNIA JSON 기반 기능은 일부 동작한다.
 
-### 7.4 이미지 build와 기동
+### 7.4 권장 배포 스크립트
 
-운영에서는 반드시 override를 제외하고 prod compose를 명시한다.
+반복 운영에서는 아래 스크립트를 권장한다. 이 스크립트는 운영 디렉터리를 만들고, `STORAGE_DRIVER=local`을 확인하고, `compose.yaml + compose.prod.yaml` 조합만 사용해 build/up/migration/KNIA import/health check를 순서대로 실행한다.
+
+```bash
+cd /opt/lawcompass
+bash scripts/oci/deploy.sh
+```
+
+선택 옵션:
+
+```bash
+SKIP_BUILD=1 bash scripts/oci/deploy.sh
+RUN_MIGRATIONS=0 bash scripts/oci/deploy.sh
+IMPORT_KNIA=0 bash scripts/oci/deploy.sh
+LAWCOMPASS_ENV_FILE=.env bash scripts/oci/deploy.sh
+```
+
+### 7.5 수동 이미지 build와 기동
+
+스크립트 대신 직접 실행할 때도 반드시 override를 제외하고 prod compose를 명시한다.
 
 ```bash
 cd /opt/lawcompass
@@ -329,7 +361,7 @@ docker compose --env-file .env -f compose.yaml -f compose.prod.yaml ps
 docker compose --env-file .env -f compose.yaml -f compose.prod.yaml logs -f --tail=100 edge gateway agent worker
 ```
 
-### 7.5 DB migration
+### 7.6 DB migration
 
 새 `postgres_data` 볼륨으로 처음 시작하면 `infra/postgres/migrations`가 `/docker-entrypoint-initdb.d`로 들어가 초기 schema가 적용된다.
 
@@ -339,7 +371,7 @@ docker compose --env-file .env -f compose.yaml -f compose.prod.yaml logs -f --ta
 docker compose --env-file .env -f compose.yaml -f compose.prod.yaml --profile migrate run --rm db-migrate
 ```
 
-### 7.6 KNIA/법률 데이터 적재
+### 7.7 KNIA/법률 데이터 적재
 
 기본 KB seed:
 
@@ -451,6 +483,14 @@ curl -i http://localhost/ready
 | `.env` | 서버 로컬만 | secret. Git에 올리지 않음 |
 
 ### 10.2 DB 백업
+
+권장 스크립트:
+
+```bash
+bash scripts/oci/backup_postgres.sh
+```
+
+수동 실행:
 
 ```bash
 mkdir -p backups
@@ -607,6 +647,12 @@ docker compose --env-file .env -f compose.yaml -f compose.prod.yaml logs worker 
 ```bash
 cd /opt/lawcompass
 
+# 권장 배포
+bash scripts/oci/deploy.sh
+
+# 권장 DB 백업
+bash scripts/oci/backup_postgres.sh
+
 # 상태
 docker compose --env-file .env -f compose.yaml -f compose.prod.yaml ps
 
@@ -634,11 +680,11 @@ docker compose --env-file .env -f compose.yaml -f compose.prod.yaml --profile mi
 - [ ] UFW: OpenSSH, 80/tcp, 443/tcp 허용.
 - [ ] Docker Engine과 Compose V2 설치.
 - [ ] `/opt/lawcompass`에 repository clone.
-- [ ] `.env` 생성, 기본 secret 교체, `chmod 600 .env`.
+- [ ] `cp env.oci.example .env` 후 기본 secret 교체, `chmod 600 .env`.
 - [ ] OCI 운영은 `STORAGE_DRIVER=local`.
 - [ ] 비용 방지를 위해 OpenAI frame analysis 기본 OFF.
-- [ ] 도메인 운영 시 `infra/caddy/Caddyfile`을 도메인 site address로 수정.
-- [ ] `docker compose --env-file .env -f compose.yaml -f compose.prod.yaml up -d --build`.
+- [ ] 도메인 운영 시 `.env`의 `LAWCOMPASS_SITE_ADDRESS`와 `CADDY_ACME_EMAIL` 설정.
+- [ ] `bash scripts/oci/deploy.sh`.
 - [ ] `/health`, `/ready`, 브라우저 접속 확인.
 - [ ] DB/스토리지 백업 명령을 한 번 실행해 성공 확인.
 

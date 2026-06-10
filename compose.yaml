@@ -2,6 +2,9 @@ services:
   edge:
     image: caddy:2.8
     restart: unless-stopped
+    environment:
+      LAWCOMPASS_SITE_ADDRESS: ${LAWCOMPASS_SITE_ADDRESS:-:80}
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:-admin@example.com}
     depends_on:
       gateway:
         condition: service_healthy
