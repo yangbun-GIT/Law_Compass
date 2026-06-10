@@ -34,10 +34,7 @@ COOKIE_SAME_SITE=none
 
 ## 자동 배포
 
-`main` 브랜치에 아래 경로가 push되면 `.github/workflows/pages.yml`이 실행된다.
-
-- `apps/frontend/**`
-- `.github/workflows/pages.yml`
+`.github/workflows/pages.yml`은 GitHub Pages 설정이 `GitHub Actions`로 활성화된 뒤 Actions 탭에서 수동 실행한다. 저장소 Settings에서 Pages가 아직 켜져 있지 않으면 GitHub의 Pages API가 404 또는 권한 오류를 반환하므로 workflow가 배포를 시작할 수 없다.
 
 workflow는 다음 순서로 동작한다.
 
@@ -46,6 +43,8 @@ workflow는 다음 순서로 동작한다.
 3. SPA 새로고침 fallback을 위해 `dist/index.html`을 `dist/404.html`로 복사한다.
 4. `actions/upload-pages-artifact`로 `apps/frontend/dist`를 업로드한다.
 5. `actions/deploy-pages`로 GitHub Pages에 배포한다.
+
+대안으로 `gh-pages` 브랜치에 정적 빌드 산출물을 직접 push한 뒤 `Settings > Pages > Build and deployment > Source`를 `Deploy from a branch`, branch를 `gh-pages`, folder를 `/ (root)`로 선택할 수 있다.
 
 ## 배포 URL
 
