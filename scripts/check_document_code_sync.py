@@ -77,6 +77,7 @@ REQUIRED_SNIPPETS = [
             "문서 선택 가이드",
             "PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md",
             "AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md",
+            "STANDARD_MCP_DECISION.md",
             "check_principle_compliance.py",
         ],
     },
@@ -91,6 +92,10 @@ REQUIRED_SNIPPETS = [
     {
         "path": "docs/PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md",
         "snippets": ["P0. 문서 시작점", "P1. SRP 위험 파일", "2026-06-10"],
+    },
+    {
+        "path": "docs/STANDARD_MCP_DECISION.md",
+        "snippets": ["상태: active/reference", "FUTURE_MSA_MCP_AGENT_EVOLUTION.md", "docs/architecture/"],
     },
     {
         "path": "docs/VERIFICATION_COMMANDS.md",
@@ -127,10 +132,6 @@ REQUIRED_SNIPPETS = [
     {
         "path": "apps/worker/worker/job_processor.py",
         "snippets": ["video_preprocess", "video_analyze", "/internal/v1/analyze/video"],
-    },
-    {
-        "path": "docs/STANDARD_MCP_DECISION.md",
-        "snippets": ["표준 MCP Host/Client/Server를 도입하지 않는다", "Agent 내부 MCP-like tool registry/executor"],
     },
 ]
 

@@ -1,6 +1,17 @@
 # 표준 MCP 도입 결정 기록
 
+상태: active/reference
+용도: LawCompass가 표준 MCP Host/Client/Server를 지금 도입하지 않는 이유와 재검토 trigger를 고정하는 기준 문서
 작성일: 2026-05-31
+마지막 정리일: 2026-06-10
+
+## 0. 문서 위치와 적용 범위
+
+- 이 문서는 `docs/STANDARD_MCP_DECISION.md`에서 관리한다.
+- 현재 Agent/MCP/Task-Plan-Goal 현행 기준은 [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)를 따른다.
+- P0~P12 상세 완료 기록은 [archive 완료 기록](archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md)을 참조한다.
+- OSS 후속 MSA/MCP/Agent 분리 검토는 [FUTURE_MSA_MCP_AGENT_EVOLUTION.md](FUTURE_MSA_MCP_AGENT_EVOLUTION.md)를 참조한다.
+- 현재 저장소에는 `docs/architecture/` 폴더를 두지 않았으므로, 관련 architecture 문서는 `docs/` 루트의 실제 경로를 기준으로 링크한다.
 
 ## 1. 결정
 
