@@ -37,6 +37,130 @@ function publicKniaThumbnail(value: any) {
   return text;
 }
 
+function asArray(value: any): any[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function safeText(value: any) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeAdjustmentFactors(value: any, sourceDetailUrl?: any) {
+  return asArray(value)
+    .map((item: any, index: number) => {
+      const delta = finiteNumber(item?.delta);
+      const target = safeText(item?.applies_to_candidate ?? item?.applies_to ?? item?.target).toUpperCase();
+      let deltaA = finiteNumber(item?.delta_a);
+      let deltaB = finiteNumber(item?.delta_b);
+      if (delta != null && deltaA == null && deltaB == null) {
+        if (target.includes("B")) deltaB = delta;
+        else deltaA = delta;
+      }
+      const rawLabel = safeText(item?.label ?? item?.title ?? item?.label_candidate ?? item?.source_line);
+      const label = rawLabel && /^[+-]?\d+$/.test(rawLabel)
+        ? `조정값 ${rawLabel}`
+        : rawLabel || `가감요소 ${index + 1}`;
+      const description = safeText(item?.description ?? item?.condition_text ?? item?.source_text ?? item?.source_line);
+      return {
+        label,
+        title: label,
+        description,
+        condition_text: description,
+        condition_code: item?.condition_code ?? null,
+        checkbox_value: item?.checkbox_value ?? label,
+        delta_a: deltaA ?? 0,
+        delta_b: deltaB ?? 0,
+        source_case_id: item?.source_case_id ?? item?.subchart_no ?? "structured-json",
+        factor_order: finiteNumber(item?.factor_order ?? item?.source_line_index) ?? index + 1,
+        source_detail_url: item?.source_detail_url ?? sourceDetailUrl ?? null,
+        review_required: !!item?.review_required,
+      };
+    })
+    .filter((item: any) => safeText(item.label));
+}
+
+function normalizeRelatedLaws(value: any, sourceDetailUrl?: any) {
+  return asArray(value)
+    .map((item: any, index: number) => {
+      if (typeof item === "string") {
+        return {
+          section_type: "related_law",
+          law_title: "관련 법규",
+          law_text: safeText(item),
+          item_order: index + 1,
+          source_detail_url: sourceDetailUrl ?? null,
+        };
+      }
+      return {
+        section_type: "related_law",
+        law_title: safeText(item?.law_title ?? item?.title ?? "관련 법규"),
+        law_text: safeText(item?.law_text ?? item?.body ?? item?.text),
+        item_order: finiteNumber(item?.item_order) ?? index + 1,
+        source_detail_url: item?.source_detail_url ?? sourceDetailUrl ?? null,
+      };
+    })
+    .filter((item: any) => safeText(item.law_text));
+}
+
+function normalizeAdjustmentExplanations(value: any, chart: any) {
+  const sourceDetailUrl = chart?.source_detail_url ?? chart?.source_url;
+  const rows = asArray(value)
+    .map((item: any, index: number) => ({
+      section_type: "adjustment_explanation",
+      title: safeText(item?.title ?? "수정요소 해설"),
+      body: safeText(item?.body ?? item?.text ?? item?.summary),
+      item_order: finiteNumber(item?.item_order) ?? index + 1,
+      source_detail_url: item?.source_detail_url ?? sourceDetailUrl ?? null,
+    }))
+    .filter((item: any) => safeText(item.body));
+  const baseFaultExplanation = safeText(chart?.base_fault_explanation);
+  if (!rows.length && baseFaultExplanation) {
+    rows.push({
+      section_type: "adjustment_explanation",
+      title: "기본 과실 해설",
+      body: baseFaultExplanation,
+      item_order: 1,
+      source_detail_url: sourceDetailUrl ?? null,
+    });
+  }
+  const usageNotes = safeText(chart?.usage_notes);
+  if (usageNotes && !rows.some((item: any) => item.body === usageNotes)) {
+    rows.push({
+      section_type: "adjustment_explanation",
+      title: "활용 참고사항",
+      body: usageNotes,
+      item_order: rows.length + 1,
+      source_detail_url: sourceDetailUrl ?? null,
+    });
+  }
+  return rows;
+}
+
+function normalizeCaseReferences(value: any, sourceDetailUrl?: any) {
+  return asArray(value)
+    .map((item: any, index: number) => {
+      if (typeof item === "string") {
+        return {
+          section_type: "case_reference",
+          case_title: "판례·조정사례",
+          case_body: safeText(item),
+          decision_summary: null,
+          item_order: index + 1,
+          source_detail_url: sourceDetailUrl ?? null,
+        };
+      }
+      return {
+        section_type: "case_reference",
+        case_title: safeText(item?.case_title ?? item?.title ?? "판례·조정사례"),
+        case_body: safeText(item?.case_body ?? item?.body ?? item?.text),
+        decision_summary: safeText(item?.decision_summary),
+        item_order: finiteNumber(item?.item_order) ?? index + 1,
+        source_detail_url: item?.source_detail_url ?? sourceDetailUrl ?? null,
+      };
+    })
+    .filter((item: any) => safeText(item.case_body));
+}
+
 const KNIA_RANKING_CATEGORIES = [
   { label: "전체", value: "all", source_value: "전체" },
   { label: "차대차", value: "car_vs_car", source_value: "차대차" },
@@ -355,11 +479,28 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
                 r.collected_at,
                 c.accident_party_label, c.accident_summary, c.basic_fault_text,
                 c.base_fault_a, c.base_fault_b,
-                CASE WHEN c.detail_collected_at IS NOT NULL THEN true ELSE false END AS has_detail,
-                (SELECT COUNT(*)::int FROM knia_adjustment_factors af
-                  WHERE af.chart_no=r.chart_no AND af.chart_type=COALESCE(r.chart_type, '1')) AS adjustment_factor_count,
-                (SELECT COUNT(*)::int FROM knia_chart_reference_sections rs
-                  WHERE rs.chart_no=r.chart_no AND rs.chart_type=COALESCE(r.chart_type, '1')) AS reference_section_count,
+                CASE WHEN c.detail_collected_at IS NOT NULL
+                       OR c.base_fault_a IS NOT NULL
+                       OR c.base_fault_b IS NOT NULL
+                       OR jsonb_array_length(COALESCE(c.adjustment_factors, '[]'::jsonb)) > 0
+                       OR jsonb_array_length(COALESCE(c.adjustment_explanations, '[]'::jsonb)) > 0
+                       OR jsonb_array_length(COALESCE(c.related_laws, '[]'::jsonb)) > 0
+                       OR jsonb_array_length(COALESCE(c.case_references, '[]'::jsonb)) > 0
+                       OR COALESCE(c.accident_situation, '') <> ''
+                       OR COALESCE(c.base_fault_explanation, '') <> ''
+                     THEN true ELSE false END AS has_detail,
+                GREATEST(
+                  (SELECT COUNT(*)::int FROM knia_adjustment_factors af
+                    WHERE af.chart_no=r.chart_no AND af.chart_type=COALESCE(r.chart_type, '1')),
+                  jsonb_array_length(COALESCE(c.adjustment_factors, '[]'::jsonb))
+                ) AS adjustment_factor_count,
+                GREATEST(
+                  (SELECT COUNT(*)::int FROM knia_chart_reference_sections rs
+                    WHERE rs.chart_no=r.chart_no AND rs.chart_type=COALESCE(r.chart_type, '1')),
+                  jsonb_array_length(COALESCE(c.adjustment_explanations, '[]'::jsonb))
+                    + jsonb_array_length(COALESCE(c.related_laws, '[]'::jsonb))
+                    + jsonb_array_length(COALESCE(c.case_references, '[]'::jsonb))
+                ) AS reference_section_count,
                 'ranking' AS matched_by
          FROM knia_ranking_items r
          LEFT JOIN knia_fault_charts c
@@ -400,11 +541,28 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
                   c.updated_at AS collected_at,
                   c.accident_summary, c.basic_fault_text,
                   c.base_fault_a, c.base_fault_b,
-                  CASE WHEN c.detail_collected_at IS NOT NULL THEN true ELSE false END AS has_detail,
-                  (SELECT COUNT(*)::int FROM knia_adjustment_factors af
-                    WHERE af.chart_no=c.chart_no AND af.chart_type=COALESCE(c.chart_type, '1')) AS adjustment_factor_count,
-                  (SELECT COUNT(*)::int FROM knia_chart_reference_sections rs
-                    WHERE rs.chart_no=c.chart_no AND rs.chart_type=COALESCE(c.chart_type, '1')) AS reference_section_count,
+                  CASE WHEN c.detail_collected_at IS NOT NULL
+                         OR c.base_fault_a IS NOT NULL
+                         OR c.base_fault_b IS NOT NULL
+                         OR jsonb_array_length(COALESCE(c.adjustment_factors, '[]'::jsonb)) > 0
+                         OR jsonb_array_length(COALESCE(c.adjustment_explanations, '[]'::jsonb)) > 0
+                         OR jsonb_array_length(COALESCE(c.related_laws, '[]'::jsonb)) > 0
+                         OR jsonb_array_length(COALESCE(c.case_references, '[]'::jsonb)) > 0
+                         OR COALESCE(c.accident_situation, '') <> ''
+                         OR COALESCE(c.base_fault_explanation, '') <> ''
+                       THEN true ELSE false END AS has_detail,
+                  GREATEST(
+                    (SELECT COUNT(*)::int FROM knia_adjustment_factors af
+                      WHERE af.chart_no=c.chart_no AND af.chart_type=COALESCE(c.chart_type, '1')),
+                    jsonb_array_length(COALESCE(c.adjustment_factors, '[]'::jsonb))
+                  ) AS adjustment_factor_count,
+                  GREATEST(
+                    (SELECT COUNT(*)::int FROM knia_chart_reference_sections rs
+                      WHERE rs.chart_no=c.chart_no AND rs.chart_type=COALESCE(c.chart_type, '1')),
+                    jsonb_array_length(COALESCE(c.adjustment_explanations, '[]'::jsonb))
+                      + jsonb_array_length(COALESCE(c.related_laws, '[]'::jsonb))
+                      + jsonb_array_length(COALESCE(c.case_references, '[]'::jsonb))
+                  ) AS reference_section_count,
                   'chart_fallback' AS matched_by
            FROM knia_fault_charts c
            WHERE ${where}
@@ -456,7 +614,9 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
               media_provider, license_status, attribution, updated_at,
               accident_party_type, accident_party_label, vehicle_a_role, vehicle_b_role,
               vulnerable_road_user_type, object_type, scenario_summary_easy,
-              recommended_user_actions, display_tags, detail_collected_at
+              recommended_user_actions, display_tags, detail_collected_at,
+              base_fault, adjustments, accident_situation, base_fault_explanation,
+              usage_notes, raw_text, parsing_confidence, review_required
        FROM knia_fault_charts
        WHERE chart_no=$1 AND chart_type=$2
        LIMIT 1`,
@@ -538,6 +698,30 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       };
     }
     const chart = row.rows[0];
+    const sourceDetailUrl = chart.source_detail_url ?? chart.source_url;
+    const adjustmentFactors = normalizeAdjustmentFactors(
+      asArray(chart.adjustment_factors).length ? chart.adjustment_factors : chart.adjustments,
+      sourceDetailUrl,
+    );
+    const adjustmentExplanations = normalizeAdjustmentExplanations(chart.adjustment_explanations, chart);
+    const relatedLaws = normalizeRelatedLaws(chart.related_laws, sourceDetailUrl);
+    const caseReferences = normalizeCaseReferences(chart.case_references, sourceDetailUrl);
+    const accidentSituationLines = asArray(chart.accident_situation_lines);
+    const structuredSituation = safeText(chart.accident_situation);
+    const publicSituationLines = accidentSituationLines.length
+      ? accidentSituationLines
+      : structuredSituation
+        ? structuredSituation.split(/\n+/).map((line: string) => safeText(line)).filter(Boolean)
+        : [];
+    const hasStructuredDetail = !!(
+      chart.detail_collected_at ||
+      adjustmentFactors.length ||
+      adjustmentExplanations.length ||
+      relatedLaws.length ||
+      caseReferences.length ||
+      safeText(chart.accident_situation) ||
+      safeText(chart.base_fault_explanation)
+    );
     return {
       chart: {
         chart_no: chart.chart_no,
@@ -564,13 +748,13 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
         applied_fault_a: chart.applied_fault_a,
         applied_fault_b: chart.applied_fault_b,
         accident_explanation: chart.accident_explanation,
-        accident_situation_lines: chart.accident_situation_lines ?? [],
-        adjustment_factors: chart.adjustment_factors ?? [],
-        adjustment_explanations: chart.adjustment_explanations ?? [],
-        related_laws: chart.related_laws ?? [],
-        case_references: chart.case_references ?? [],
+        accident_situation_lines: publicSituationLines,
+        adjustment_factors: adjustmentFactors,
+        adjustment_explanations: adjustmentExplanations,
+        related_laws: relatedLaws,
+        case_references: caseReferences,
         source_url: chart.source_url,
-        source_detail_url: chart.source_detail_url ?? chart.source_url,
+        source_detail_url: sourceDetailUrl,
         thumbnail_url: publicKniaThumbnail(chart.thumbnail_url),
         video_url: chart.video_url,
         media_embed_url: chart.media_embed_url,
@@ -587,11 +771,14 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
         attribution: chart.attribution ?? "자료 출처: 손해보험협회 자동차사고 과실비율 분쟁심의위원회 과실비율정보포털",
         updated_at: chart.updated_at,
         detail_collected_at: chart.detail_collected_at,
+        has_structured_detail: hasStructuredDetail,
+        source_detail_status: chart.detail_collected_at ? "portal_detail_collected" : hasStructuredDetail ? "structured_json_available" : "summary_only",
+        review_status_label: chart.review_required ? "추가 검토가 필요한 참고 기준" : "구조화 기준",
         adjustment_summary: {
-          adjustment_factor_count: Array.isArray(chart.adjustment_factors) ? chart.adjustment_factors.length : 0,
-          adjustment_explanation_count: Array.isArray(chart.adjustment_explanations) ? chart.adjustment_explanations.length : 0,
-          related_law_count: Array.isArray(chart.related_laws) ? chart.related_laws.length : 0,
-          case_reference_count: Array.isArray(chart.case_references) ? chart.case_references.length : 0,
+          adjustment_factor_count: adjustmentFactors.length,
+          adjustment_explanation_count: adjustmentExplanations.length,
+          related_law_count: relatedLaws.length,
+          case_reference_count: caseReferences.length,
         }
       },
       trace_id: traceId
@@ -659,7 +846,22 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
        ORDER BY factor_order ASC, id ASC`,
       [chartNo, chartType]
     );
-    return { chart_no: chartNo, chart_type: chartType, items: rows.rows, trace_id: traceId };
+    if (rows.rowCount) {
+      return { chart_no: chartNo, chart_type: chartType, items: rows.rows, trace_id: traceId };
+    }
+    const chartRow = await db.query(
+      `SELECT adjustment_factors, adjustments, source_detail_url, source_url
+       FROM knia_fault_charts
+       WHERE chart_no=$1 AND chart_type=$2
+       LIMIT 1`,
+      [chartNo, chartType]
+    ).catch(() => ({ rowCount: 0, rows: [] as any[] }));
+    const chart = chartRow.rows?.[0] ?? {};
+    const items = normalizeAdjustmentFactors(
+      asArray(chart.adjustment_factors).length ? chart.adjustment_factors : chart.adjustments,
+      chart.source_detail_url ?? chart.source_url,
+    );
+    return { chart_no: chartNo, chart_type: chartType, items, source: items.length ? "structured_json" : "empty", trace_id: traceId };
   });
 
   app.get(`${env.apiPrefix}/knia/charts/:chartNo/references`, async (req, reply) => {
@@ -678,6 +880,20 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       if (row.section_type === "adjustment_explanation") grouped.adjustment_explanations.push(row);
       if (row.section_type === "related_law") grouped.related_laws.push(row);
       if (row.section_type === "case_reference") grouped.case_references.push(row);
+    }
+    if (!rows.rowCount) {
+      const chartRow = await db.query(
+        `SELECT adjustment_explanations, related_laws, case_references,
+                source_detail_url, source_url, base_fault_explanation, usage_notes
+         FROM knia_fault_charts
+         WHERE chart_no=$1 AND chart_type=$2
+         LIMIT 1`,
+        [chartNo, chartType]
+      ).catch(() => ({ rowCount: 0, rows: [] as any[] }));
+      const chart = chartRow.rows?.[0] ?? {};
+      grouped.adjustment_explanations = normalizeAdjustmentExplanations(chart.adjustment_explanations, chart);
+      grouped.related_laws = normalizeRelatedLaws(chart.related_laws, chart.source_detail_url ?? chart.source_url);
+      grouped.case_references = normalizeCaseReferences(chart.case_references, chart.source_detail_url ?? chart.source_url);
     }
     return { chart_no: chartNo, chart_type: chartType, ...grouped, trace_id: traceId };
   });

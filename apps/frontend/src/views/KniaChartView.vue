@@ -18,7 +18,7 @@
           <span class="chip selected">기준번호 {{ text(chart.chart_no) }}</span>
           <span class="chip selected">{{ text(chart.accident_party_label || '사고유형 확인 필요') }}</span>
           <span v-if="baseFaultLabel" class="chip">{{ baseFaultLabel }}</span>
-          <span v-if="chart.detail_collected_at" class="chip detail-ok">상세 수집 완료</span>
+          <span v-if="hasVisibleDetail" class="chip detail-ok">{{ chart.detail_collected_at ? '상세 수집 완료' : '구조화 기준 준비됨' }}</span>
           <span v-else class="chip detail-needed">상세 기준 수집 필요</span>
         </div>
         <p v-if="chart.category_path?.length" class="kv">메뉴 경로: {{ chart.category_path.map(text).join(' > ') }}</p>
@@ -252,6 +252,16 @@ const caseReferences = computed(() => Array.isArray(chart.value?.case_references
 const accidentSituationLines = computed(() => dedupeAccidentSituationLines(
   Array.isArray(chart.value?.accident_situation_lines) ? chart.value.accident_situation_lines : [],
 ));
+const hasVisibleDetail = computed(() => Boolean(
+  chart.value?.detail_collected_at ||
+  chart.value?.has_structured_detail ||
+  adjustmentFactors.value.length ||
+  adjustmentExplanations.value.length ||
+  relatedLaws.value.length ||
+  caseReferences.value.length ||
+  accidentSituationLines.value.length ||
+  hasBaseFault.value,
+));
 const isAdmin = computed(() => session.user?.role === "admin");
 const canCollectDetail = computed(() => Boolean(chart.value?.chart_no) && isAdmin.value && !chart.value?.detail_collected_at);
 const selectedAdjustmentCount = computed(() => manualSelected.value.length);
@@ -388,7 +398,7 @@ function deltaClass(value: any) {
   return { delta: true, plus: n > 0, minus: n < 0 };
 }
 function missingDetailText(label: string) {
-  return chart.value?.detail_collected_at
+  return hasVisibleDetail.value
     ? `수집된 ${label}가 없습니다. KNIA 원문에 해당 항목이 없거나 파싱 가능한 표/문단이 없을 수 있습니다.`
     : `${label}는 상세 기준 수집 후 표시됩니다. 현재는 ranking 또는 기본 기준 정보만 저장된 상태입니다.`;
 }

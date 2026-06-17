@@ -33,6 +33,8 @@ htmlcov/
 /storage/
 /logs/
 /.local/
+/models/
+*.pt
 *.log
 
 # Local AI Hub / vision datasets. Keep folder guides only.

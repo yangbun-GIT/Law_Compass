@@ -18,7 +18,7 @@
       <span v-if="chartNoText" class="chip selected">기준번호 {{ chartNoText }}</span>
       <span v-if="partyLabel" class="chip">대분류: {{ partyLabel }}</span>
       <span v-if="baseFaultLabel" class="chip">{{ baseFaultLabel }}</span>
-      <span v-if="chart?.detail_collected_at" class="chip detail-ok">상세 수집 완료</span>
+      <span v-if="hasVisibleDetail" class="chip detail-ok">{{ chart?.detail_collected_at ? '상세 수집 완료' : '구조화 기준 준비됨' }}</span>
     </div>
 
     <p v-if="menuPath.length" class="kv">{{ menuPath.join(" > ") }}</p>
@@ -157,6 +157,13 @@ const hasBaseFault = computed(() => baseFaultA.value !== null && baseFaultB.valu
 const baseFaultLabel = computed(() => hasBaseFault.value ? `기본 A ${baseFaultA.value}% / B ${baseFaultB.value}%` : "");
 const adjustmentFactors = computed(() => Array.isArray(chart.value?.adjustment_factors) ? chart.value.adjustment_factors : []);
 const sourceUrl = computed(() => safeKniaUrl(chart.value?.source_detail_url || chart.value?.source_url || props.fallbackStandard?.source_url || props.fallbackStandard?.button_url));
+const hasVisibleDetail = computed(() => Boolean(
+  chart.value?.detail_collected_at ||
+  chart.value?.has_structured_detail ||
+  hasBaseFault.value ||
+  adjustmentFactors.value.length ||
+  situationLines.value.length,
+));
 
 watch(
   () => [chartNoText.value, chartTypeText.value],

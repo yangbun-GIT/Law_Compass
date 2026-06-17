@@ -1,5 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-06-18 JCloud 운영 KNIA/YOLO 런타임 보강
+
+JCloud 단일 VM 배포에서 KNIA 상세 기준과 영상 보조 관찰이 로컬과 다르게 동작하지 않도록 운영 compose와 Worker 이미지를 저장소 기준으로 정리했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| JCloud compose | `compose.jcloud.yaml`을 추가해 8080 edge 포트, 2GB RAM 기준 Gateway/Agent/Worker/Postgres/Redis 완화 설정을 관리한다. |
+| Worker 이미지 | `apps/worker/Dockerfile.jcloud`와 `apps/worker/requirements.jcloud.txt`는 Ubuntu 24.04, ffmpeg, CPU PyTorch, Ultralytics YOLO를 포함한다. |
+| YOLO 모델 | `compose.jcloud.yaml`은 `./models:/app/models`를 마운트하고 기본 `YOLO_MODEL_PATH=/app/models/yolov8n.pt`를 사용한다. 모델 가중치는 `/models/` 및 `*.pt` ignore 정책으로 Git에 포함하지 않는다. |
+| KNIA 표시 | Gateway KNIA 상세 API는 포털 상세 테이블이 비어 있어도 `knia_fault_charts`의 구조화 JSON 가감요소, 관련 법규, 기본과실 해설을 사용자용 필드로 정규화해 반환한다. |
+| 수집 안전장치 | Agent KNIA collector는 포털이 실제 상세 기준이 아닌 일반 사이트 페이지를 반환하면 기존 구조화 기준을 빈 상세로 덮어쓰지 않는다. |
+| 비변경 범위 | Public API path, DB schema, Redis key, storage path, 인증 계약은 변경하지 않았다. |
+
 ## 2026-06-18 코드 리뷰 프롬프트 참조 규칙 추가
 
 교수님 코드리뷰와 팀원 커밋 점검을 같은 기준으로 수행할 수 있도록 `docs/CODE_REVIEW_PROMPT.md`를 추가하고, `AGENTS.md`, `DEVELOPMENT_PROMPT.md`, `docs/README.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md`에서 리뷰 요청 시 우선 참조하도록 연결했다.

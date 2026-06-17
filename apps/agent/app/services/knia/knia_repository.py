@@ -192,6 +192,21 @@ class KniaRepository:
                     chart.get("chart_type") or "1",
                 ),
             )
+            cur.execute(
+                """
+                UPDATE knia_fault_charts SET
+                  major_party_type=COALESCE(NULLIF(major_party_type, ''), NULLIF(%s, ''), NULLIF(accident_party_type, '')),
+                  scenario_type=COALESCE(NULLIF(scenario_type, ''), NULLIF(%s, '')),
+                  updated_at=now()
+                WHERE chart_no=%s AND chart_type=%s
+                """,
+                (
+                    chart.get("major_party_type") or chart.get("accident_party_type") or "",
+                    chart.get("scenario_type") or _infer_chart_scenario_type(chart),
+                    chart["chart_no"],
+                    chart.get("chart_type") or "1",
+                ),
+            )
             self.replace_chart_chunks(cur, chart_id, chart)
             self.replace_adjustment_factors(cur, chart)
             self.replace_reference_sections(cur, chart)
@@ -615,3 +630,24 @@ def _summary_for(chart: dict[str, Any]) -> str:
     if chart.get("base_fault_a") is not None and chart.get("base_fault_b") is not None:
         return f"기본 과실은 A차량 {chart['base_fault_a']}%, B차량 {chart['base_fault_b']}%로 표시된 KNIA 참고 기준입니다."
     return "사고 상황과 유사한 과실비율 인정기준입니다."
+
+
+def _infer_chart_scenario_type(chart: dict[str, Any]) -> str:
+    text = " ".join([
+        str(chart.get("chart_no") or ""),
+        str(chart.get("title") or ""),
+        str(chart.get("accident_summary") or ""),
+        str(chart.get("basic_fault_text") or ""),
+        " ".join(str(item) for item in chart.get("category_path") or []),
+    ])
+    if "차43" in text or "진로변경" in text or "차로변경" in text or "차선변경" in text:
+        return "lane_change_collision"
+    if "차41" in text or "후방" in text or "추돌" in text:
+        return "rear_end_collision"
+    if "교차로" in text or "신호" in text:
+        return "intersection_collision"
+    if "보행" in text or str(chart.get("chart_no") or "").startswith("보"):
+        return "pedestrian_accident"
+    if "자전거" in text or str(chart.get("chart_no") or "").startswith(("거", "자")):
+        return "bicycle_collision"
+    return ""

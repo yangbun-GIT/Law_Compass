@@ -286,6 +286,8 @@ class KniaCollector:
         source_url = f"{self.base_url.rstrip('/')}/myaccident-content?chartNo={encoded_chart_no}&chartType={encoded_chart_type}&arrayItem="
         html = self.client.get(source_url)
         chart = parse_fault_chart(html, source_url, chart_no=chart_no, chart_type=chart_type or "1")
+        if _looks_like_empty_portal_chart(chart):
+            raise ValueError(f"{chart_no}: KNIA 상세 본문을 찾지 못했습니다.")
         tags, keywords = infer_tags_keywords(" ".join([
             chart.get("title") or "",
             chart.get("accident_summary") or "",
@@ -414,3 +416,17 @@ def category_label(accident_party_type: str) -> str:
         "car_vs_person": "\ucc28\ub300\uc0ac\ub78c",
         "car_vs_bicycle": "\ucc28\ub300\uc790\uc804\uac70",
     }.get(accident_party_type, "\uc804\uccb4")
+
+
+def _looks_like_empty_portal_chart(chart: dict[str, Any]) -> bool:
+    title = str(chart.get("title") or "").strip()
+    has_fault = chart.get("base_fault_a") is not None or chart.get("base_fault_b") is not None
+    has_adjustments = bool(chart.get("adjustment_factors"))
+    has_references = bool(chart.get("adjustment_explanations") or chart.get("related_laws") or chart.get("case_references"))
+    has_text = bool(
+        str(chart.get("accident_summary") or "").strip()
+        or str(chart.get("accident_explanation") or "").strip()
+        or str(chart.get("basic_fault_text") or "").strip()
+    )
+    generic_titles = {"손해보험협회", "과실비율정보포털", "자동차사고 과실비율 분쟁심의위원회"}
+    return title in generic_titles and not (has_fault or has_adjustments or has_references or has_text)

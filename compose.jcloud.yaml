@@ -1,0 +1,51 @@
+services:
+  edge:
+    ports: !override
+      - "8080:80"
+    environment:
+      LAWCOMPASS_SITE_ADDRESS: ":80"
+
+  gateway:
+    environment:
+      NODE_ENV: development
+      NODE_OPTIONS: --max-old-space-size=160
+
+  agent:
+    environment:
+      UVICORN_WORKERS: 1
+
+  worker:
+    build:
+      context: ./apps/worker
+      dockerfile: Dockerfile.jcloud
+      network: host
+    environment:
+      WORKER_CONCURRENCY: 1
+      ENABLE_YOLO_FRAME_ANALYSIS: ${ENABLE_YOLO_FRAME_ANALYSIS:-1}
+      YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-/app/models/yolov8n.pt}
+      YOLO_DEVICE: ${YOLO_DEVICE:-cpu}
+      YOLO_FRAME_ANALYSIS_MAX_FRAMES: ${YOLO_FRAME_ANALYSIS_MAX_FRAMES:-24}
+      YOLO_CONFIG_DIR: ${YOLO_CONFIG_DIR:-/tmp/ultralytics}
+      MPLCONFIGDIR: ${MPLCONFIGDIR:-/tmp/matplotlib}
+    volumes:
+      - ./models:/app/models
+
+  postgres:
+    command: !override
+      - postgres
+      - -c
+      - shared_buffers=96MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - max_connections=40
+
+  redis:
+    command: !override
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 64mb
+      - --maxmemory-policy
+      - allkeys-lru
