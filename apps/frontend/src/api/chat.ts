@@ -1,6 +1,7 @@
 ﻿import type { ChatContext, ChatMessage, ChatResponse } from "../types/chat";
 
 import { apiUrl } from "./base";
+import { idempotencyHeaders } from "./idempotency";
 
 type ApiError = Error & { code?: string; status?: number; traceId?: string };
 
@@ -37,7 +38,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 function idempo() {
-  return { "Idempotency-Key": crypto.randomUUID() };
+  return idempotencyHeaders();
 }
 
 export const chatApi = {

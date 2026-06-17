@@ -1,4 +1,5 @@
 import { apiUrl } from "./base";
+import { idempotencyHeaders } from "./idempotency";
 
 export type User = {
   id: string;
@@ -262,7 +263,7 @@ async function request<T>(path: string, init?: ApiRequestInit): Promise<T> {
 }
 
 function idempo() {
-  return { "Idempotency-Key": crypto.randomUUID() };
+  return idempotencyHeaders();
 }
 
 export const api = {
