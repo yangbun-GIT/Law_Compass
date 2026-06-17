@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LawCompass 코드리뷰용 최종 구조 검토 자료</title>
+  <style>
+    :root { --bg:#11100e; --panel:#1d1a16; --line:#5b4931; --text:#f7f1e8; --muted:#d8cbbb; --primary:#f5a524; --ok:#86efac; --warn:#fde68a; --info:#93c5fd; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:"Malgun Gothic","Noto Sans KR",Arial,sans-serif; line-height:1.62; }
+    main { width:min(1120px, calc(100% - 40px)); margin:0 auto; padding:40px 0 70px; }
+    header, section { border:1px solid var(--line); border-radius:22px; background:var(--panel); padding:30px; margin:24px 0; page-break-inside:avoid; }
+    header { background:linear-gradient(135deg, rgba(245,165,36,.22), rgba(29,26,22,.98) 48%, rgba(96,165,250,.16)); padding:42px; }
+    h1 { margin:0; font-size:48px; line-height:1.16; letter-spacing:0; }
+    h2 { margin:0 0 16px; font-size:28px; }
+    h3 { color:var(--primary); margin:22px 0 8px; font-size:20px; }
+    p { margin:9px 0; }
+    .sub { color:var(--muted); font-size:19px; margin-top:16px; max-width:900px; }
+    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:26px; }
+    .grid2 { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+    .box { border:1px solid var(--line); background:#262017; border-radius:16px; padding:16px; }
+    .box b { color:var(--primary); display:block; margin-bottom:4px; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; font-size:14px; }
+    th,td { border:1px solid var(--line); padding:11px; vertical-align:top; }
+    th { background:#342816; color:#ffe4ab; text-align:left; }
+    td { background:rgba(0,0,0,.18); }
+    code { background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.14); border-radius:7px; padding:1px 5px; color:#fff7df; }
+    .pill { display:inline-block; border-radius:999px; padding:5px 10px; margin:3px 4px 3px 0; font-weight:800; font-size:13px; }
+    .ok { background:var(--ok); color:#052e16; }
+    .warn { background:var(--warn); color:#422006; }
+    .info { background:var(--info); color:#082f49; }
+    .note { border-left:5px solid var(--primary); background:rgba(245,165,36,.12); padding:13px 15px; border-radius:12px; }
+    .flow { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin:16px 0; }
+    .flow div { border:1px solid var(--line); background:#272116; border-radius:14px; min-height:74px; display:flex; align-items:center; justify-content:center; text-align:center; font-weight:800; padding:10px; }
+    .small { color:var(--muted); font-size:13px; }
+    @media(max-width:800px){ main{width:calc(100% - 24px)} header{padding:28px} h1{font-size:34px} .grid,.grid2,.flow{grid-template-columns:1fr} }
+    @media print {
+      :root { --bg:#fff; --panel:#fff; --line:#d6c5aa; --text:#17120b; --muted:#4b5563; --primary:#9a5b00; }
+      body{background:#fff;color:var(--text)} main{width:auto;padding:0} header,section,.box{box-shadow:none} section{margin:16px 0}
+      code{color:#111827;background:#f7f0e4;border-color:#e6d5b9}
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p style="color:var(--primary);font-weight:800;margin:0 0 10px">Professor Code Review Pack</p>
+    <h1>LawCompass 최종 구조 검토 및 발표 자료</h1>
+    <p class="sub">다섯 가지 구조 문서가 요구하는 경량 MSA, Agent/MCP-like, Task-Plan-Goal, 표준 MCP 보류 결정, 프로젝트 원칙 준수 기준을 현재 저장소가 만족하는지 점검한 코드리뷰용 자료다.</p>
+    <div class="grid">
+      <div class="box"><b>작성 기준</b>2026-06-18</div>
+      <div class="box"><b>브랜치</b>main / origin 동기화</div>
+      <div class="box"><b>검토 범위</b>문서, Agent, MCP-like, 배포</div>
+      <div class="box"><b>결론</b>핵심 구조 만족</div>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 최종 판정</h2>
+    <p>현재 LawCompass는 다섯 구조 문서의 핵심 방향을 충족한다. 단, 완전한 표준 MCP 서버/클라이언트나 독립 Multi-Agent 프로세스가 아니라, Docker Compose 기반 경량 MSA형 모노레포 위에 Agent 내부 role-based specialist pipeline, MCP-like tool registry/executor, Task-Plan-Goal packet/trace 구조를 결합한 형태로 설명해야 한다.</p>
+    <p><span class="pill ok">구조 기준 만족</span><span class="pill ok">문서-코드 싱크 통과</span><span class="pill ok">Agent 계약 테스트 통과</span><span class="pill warn">SRP watchlist 경고 존재</span><span class="pill info">표준 MCP 도입 보류</span></p>
+    <div class="note"><b>교수님께 말할 핵심:</b> 표준 MCP를 붙였다고 과장하지 않고, 현재 문제에 맞게 내부 MCP-like executor와 Agent packet 구조를 먼저 안정화했다. 외부 tool server나 다중 host 재사용 요구가 생기면 표준 MCP로 확장할 수 있게 pilot 계약을 남겼다.</div>
+  </section>
+
+  <section>
+    <h2>2. 다섯 구조 문서 만족 여부</h2>
+    <table>
+      <thead><tr><th>문서</th><th>핵심 요구</th><th>현재 만족 근거</th><th>판정</th></tr></thead>
+      <tbody>
+        <tr><td><code>AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md</code></td><td>role-based specialist pipeline, MCP-like registry/executor, Task-Plan-Goal packet</td><td><code>agent_contracts.py</code>, <code>planner.py</code>, <code>agent_goal_aggregator.py</code>, <code>tool_registry.py</code>, <code>tool_executor.py</code> 존재. 관련 테스트 73개 통과.</td><td><span class="pill ok">만족</span></td></tr>
+        <tr><td><code>PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md</code></td><td>문서 흐름, 보안, 책임 경계, SRP watchlist, fallback/finality 관리</td><td><code>check_principle_compliance.py</code> 통과. SRP watchlist는 경고로 남아 있으나 “수정 시 분리” 전략과 일치.</td><td><span class="pill ok">만족</span><span class="pill warn">경고 보존</span></td></tr>
+        <tr><td><code>STANDARD_MCP_DECISION.md</code></td><td>표준 MCP 즉시 도입 보류, 내부 executor 유지, 도입 trigger 명시</td><td><code>standard_mcp_gate.py</code>와 테스트가 trigger 조건 없을 때 내부 계층 유지 결정을 검증.</td><td><span class="pill ok">만족</span></td></tr>
+        <tr><td><code>STANDARD_MCP_PILOT_DESIGN.md</code></td><td><code>search_knia_json_rag_tool</code> read-only pilot, production runtime 미변경</td><td><code>standard_mcp_pilot.py</code>가 adapter contract를 생성하고 runtime 미변경을 검증.</td><td><span class="pill ok">만족</span></td></tr>
+        <tr><td><code>FUTURE_MSA_MCP_AGENT_EVOLUTION.md</code></td><td>후속 전환 방향은 남기되 현재 안정화 범위를 깨지 않음</td><td>컨테이너 분리 구조 유지. 독립 Agent process, Kubernetes, 서비스별 DB 분리는 후속 검토로 보류.</td><td><span class="pill ok">만족</span></td></tr>
+      </tbody>
+    </table>
+    <p class="small">카카오톡 받은 파일 원본과 저장소 문서는 해시가 다르다. 저장소 문서는 현재 <code>docs/</code> 구조와 링크 기준에 맞게 정리된 반영본이므로 프로젝트 현재 구조에 맞게 최신화된 상태로 보는 것이 맞다.</p>
+  </section>
+
+  <section>
+    <h2>3. 현재 최종 아키텍처</h2>
+    <div class="flow"><div>사용자<br>자연어/영상</div><div>Vue 3<br>Frontend</div><div>Fastify<br>Gateway</div><div>Redis Streams<br>Queue</div><div>Python<br>Worker</div><div>FastAPI<br>Agent</div><div>PostgreSQL<br>pgvector</div></div>
+    <div class="grid2">
+      <div class="box"><b>Frontend</b>사용자 입력, 영상 업로드, 대분류/질문 UI, 결과 카드, KNIA/법률 근거 표시.</div>
+      <div class="box"><b>Gateway</b>인증, 세션, 공개 API, DB 저장, Redis queue 생성, Agent 내부 호출, report 조립.</div>
+      <div class="box"><b>Worker</b>영상 전처리, ffmpeg/ffprobe 대표 프레임 추출, OpenAI/YOLO 보조 관찰값 생성.</div>
+      <div class="box"><b>Agent</b>입력 정규화, 직접 충돌 대상 판정, KNIA/RAG 검색, 과실비율/가감요소 분석.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. Agent 내부 동작 방식</h2>
+    <ol>
+      <li>자연어, structured facts, 영상 metadata를 합쳐 분석 가능한 fact로 정리한다.</li>
+      <li>직접 충돌 대상을 먼저 판정해 KNIA 대분류를 고정한다.</li>
+      <li>영상 관찰값은 후보/확인/확정/충돌/무시 상태로 분리한다.</li>
+      <li>대분류가 정해지면 다른 대분류 chart/RAG가 최종 결과에 섞이지 않게 party guard를 적용한다.</li>
+      <li>KNIA structured chart를 우선 검색하고 같은 chart 또는 같은 대분류 RAG만 사용한다.</li>
+      <li>과실비율은 base fault, final fault, range, applied/unknown adjustment, conditional outcome으로 분리한다.</li>
+      <li>사용자 화면에는 raw trace와 내부 key를 숨기고 참고/조건부/추가 확인 필요 표현으로 변환한다.</li>
+    </ol>
+    <div class="note">핵심은 AI가 과실 숫자를 임의 생성하지 않는다는 점이다. 숫자는 구조화 KNIA chart와 deterministic adjustment policy를 우선하고, 근거가 부족하면 reference-only 또는 needs-review로 낮춘다.</div>
+  </section>
+
+  <section>
+    <h2>5. MCP-like 구조 설명</h2>
+    <table>
+      <thead><tr><th>항목</th><th>현재 구현</th><th>교수님 질문 대응</th></tr></thead>
+      <tbody>
+        <tr><td>Tool schema</td><td><code>MCPToolSpec</code>로 name, description, input/output schema, scope, timeout, side effect 정의</td><td>표준 MCP 전환 전에도 tool 계약과 권한을 명시적으로 관리한다.</td></tr>
+        <tr><td>Executor</td><td>입력 검증, scope 검증, timeout, output schema 검증, failure packet 생성</td><td>raw exception을 사용자 결과에 섞지 않고 안전한 실패 packet으로 남긴다.</td></tr>
+        <tr><td>Gate</td><td>외부 tool 수, 표준 client 요구, 보안 격리 요구가 생길 때만 도입 trigger</td><td>현재 규모에서 표준 MCP runtime은 운영 복잡도 대비 이득이 작아 보류했다.</td></tr>
+        <tr><td>Pilot</td><td><code>search_knia_json_rag_tool</code>을 future adapter compatibility 대상으로 설계</td><td>read-only tool부터 전환 가능성을 검토하는 안전한 migration 전략이다.</td></tr>
+      </tbody>
+    </table>
+    <div class="note"><b>발표 금지 표현:</b> 표준 MCP 구현 완료, 외부 MCP 서버 연동 완료, 독립 Multi-Agent 프로세스 완성.</div>
+  </section>
+
+  <section>
+    <h2>6. 코드리뷰 Findings</h2>
+    <h3>Critical/High 결함</h3>
+    <p><span class="pill ok">명확한 결함 발견하지 못함</span></p>
+    <p>문서 링크, 문서-코드 싱크, Agent/MCP 계약 테스트 기준으로 다섯 구조 문서의 핵심 요구와 실제 코드가 어긋나는 치명적 결함은 발견하지 못했다.</p>
+    <h3>Medium: SRP watchlist 경고</h3>
+    <table>
+      <thead><tr><th>파일</th><th>라인 수</th><th>후속 분리 방향</th></tr></thead>
+      <tbody>
+        <tr><td><code>apps/gateway/src/lib/report-composer.ts</code></td><td>2894</td><td>summary, fault, evidence, KNIA, presentation mapper 분리</td></tr>
+        <tr><td><code>apps/frontend/src/composables/useCaseWorkspace.ts</code></td><td>1039</td><td>state, upload, polling, hydration composable 분리</td></tr>
+        <tr><td><code>apps/agent/app/services/knia/knia_matcher.py</code></td><td>1181</td><td>candidate retrieval, party/scenario guard, scorer, fallback policy 분리</td></tr>
+        <tr><td><code>apps/worker/worker/frame_analysis.py</code></td><td>1439</td><td>provider adapter, prompt builder, retry policy, usage tracker 분리</td></tr>
+        <tr><td><code>apps/worker/worker/yolo_frame_analysis.py</code></td><td>1103</td><td>detector runner, event selector, observation mapper 분리</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. 검증 결과</h2>
+    <table>
+      <thead><tr><th>검증</th><th>명령</th><th>결과</th></tr></thead>
+      <tbody>
+        <tr><td>문서-코드 싱크</td><td><code>python scripts/check_document_code_sync.py</code></td><td><span class="pill ok">passed</span> required paths 56, snippet groups 19</td></tr>
+        <tr><td>Markdown 링크</td><td><code>python scripts/check_markdown_links.py --strict</code></td><td><span class="pill ok">passed</span> checked links 49, broken 0</td></tr>
+        <tr><td>원칙 준수</td><td><code>python scripts/check_principle_compliance.py</code></td><td><span class="pill ok">passed</span> check count 4, failed 0</td></tr>
+        <tr><td>Agent/MCP 계약 테스트</td><td><code>cd apps/agent; python -m pytest ... -q</code></td><td><span class="pill ok">73 passed</span></td></tr>
+        <tr><td>SRP watchlist</td><td><code>python scripts/check_srp_file_sizes.py</code></td><td><span class="pill warn">warning</span> 9 files over threshold, non-failing</td></tr>
+      </tbody>
+    </table>
+    <p class="small">루트에서 Agent pytest를 실행하면 <code>ModuleNotFoundError: No module named 'app'</code>가 발생한다. 이는 실행 위치/PYTHONPATH 문제이며, <code>apps/agent</code>에서 실행한 실제 검증은 통과했다.</p>
+  </section>
+
+  <section>
+    <h2>8. 발표용 설명 흐름</h2>
+    <ol>
+      <li><b>문제:</b> 교통사고 사용자는 사고 사실, 영상, 보험 기준, KNIA 기준을 따로 확인해야 한다.</li>
+      <li><b>구조:</b> 화면, API, 영상 처리, AI 판단, DB/RAG를 컨테이너 단위로 분리한 경량 MSA형 모노레포다.</li>
+      <li><b>핵심 설계:</b> 사고 대분류와 직접 충돌 대상을 먼저 고정해 잘못된 KNIA 기준 혼선을 막았다.</li>
+      <li><b>RAG:</b> 구조화 KNIA chart를 우선 선택하고, 선택된 chart 또는 같은 대분류의 RAG chunk만 검색한다.</li>
+      <li><b>Agent:</b> 완전 독립 Agent process가 아니라 역할 기반 specialist result와 consensus packet을 붙인 내부 pipeline이다.</li>
+      <li><b>MCP:</b> 표준 MCP runtime은 보류하고, 내부 MCP-like registry/executor로 schema, scope, timeout, failure packet을 관리한다.</li>
+      <li><b>품질:</b> finality, 조건부 결과, 표시 sanitizer, regression test로 근거 없는 확정 판단을 제한한다.</li>
+      <li><b>한계:</b> 일부 중심 파일이 크며, 표준 MCP/독립 Agent process/Kubernetes/서비스별 DB 분리는 후속 과제다.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>9. 교수님 예상 질문과 답변</h2>
+    <h3>Q. 왜 완전한 MSA가 아니라 경량 MSA형 모노레포인가?</h3>
+    <p>현재 규모에서는 서비스별 독립 저장소와 DB 분리보다 컨테이너 단위 책임 분리와 명확한 API/DTO 계약이 더 실용적이다. Frontend/Gateway/Agent/Worker/PostgreSQL/Redis는 분리했지만 운영 복잡도를 줄이기 위해 Docker Compose 기반 단일 배포 단위로 유지했다.</p>
+    <h3>Q. MCP를 구현한 것인가?</h3>
+    <p>표준 MCP 서버/클라이언트를 구현한 것은 아니다. 내부 MCP-like tool registry/executor를 구현했고, 표준 MCP 도입 조건과 read-only pilot adapter 설계를 문서화했다. 현재는 내부 executor가 production source of truth다.</p>
+    <h3>Q. AI가 과실비율을 마음대로 생성하지 않는가?</h3>
+    <p>과실 숫자는 구조화 KNIA chart와 deterministic adjustment policy를 우선한다. LLM은 근거 설명과 요약을 보조하고, base fault가 없거나 review_required이면 reference-only 또는 needs-review로 낮춘다.</p>
+    <h3>Q. 영상 분석이 사고 결론을 바로 내리는가?</h3>
+    <p>아니다. Worker는 프레임과 객체/장면 관찰 후보를 만들고, Agent는 이를 사용자 입력, KNIA, 법령 근거와 함께 조율한다. 보행자나 자전거가 화면에 보인다는 이유만으로 사고 당사자로 승격하지 않는다.</p>
+    <h3>Q. 현재 가장 큰 리스크는?</h3>
+    <p>일부 핵심 조립 파일의 규모, KNIA/판례 원문 coverage, GitHub Pages가 정적 프론트만 제공한다는 배포 한계다. 이들은 모두 문서와 후속 백로그에 분리해 두었다.</p>
+  </section>
+
+  <section>
+    <h2>10. 최종 요약</h2>
+    <div class="grid2">
+      <div class="box"><b>구조</b>경량 MSA형 모노레포 + Agent 내부 specialist pipeline + MCP-like executor.</div>
+      <div class="box"><b>근거</b>KNIA structured chart와 RAG를 대분류/시나리오 기준으로 제한 검색.</div>
+      <div class="box"><b>품질</b>Task-Plan-Goal, finality, 조건부 판단, trace/usage/failure 관측성, 회귀 테스트.</div>
+      <div class="box"><b>결론</b>다섯 문서의 구조 기준을 만족한다. 구현한 것과 후속 전환 후보를 명확히 분리해 설명한다.</div>
+    </div>
+  </section>
+</main>
+</body>
+</html>
