@@ -7,7 +7,8 @@
 1. [DEVELOPMENT_PROMPT.md](../DEVELOPMENT_PROMPT.md)를 읽고 개발 원칙, 검증 원칙, 보안 원칙을 확인한다.
 2. [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md)를 읽고 현재 서비스 구조, 변경 이력, 비변경 범위를 확인한다.
 3. [GITHUB_COLLABORATION_WORKFLOW.md](GITHUB_COLLABORATION_WORKFLOW.md)를 읽고 최신 `main`, 커밋, 푸시, 동료 동기화 규칙을 확인한다.
-4. Agent 구조, MCP 유사 실행, Task-Plan-Goal, evidence routing, video observation, judgment contract를 건드리면 [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)를 추가로 읽는다.
+4. 코드 리뷰, PR 리뷰, 팀원 커밋 점검, 교수님 리뷰 대비 점검이면 [CODE_REVIEW_PROMPT.md](CODE_REVIEW_PROMPT.md)를 추가로 읽고 리뷰 모드로 진행한다.
+5. Agent 구조, MCP 유사 실행, Task-Plan-Goal, evidence routing, video observation, judgment contract를 건드리면 [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)를 추가로 읽는다.
 
 ## 문서 위치 기준
 
@@ -16,6 +17,7 @@
 | 현재 시스템 구조, route, DTO, DB, Redis, storage, 외부 연동 변경 | [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md) |
 | 개발 원칙, 역할 정의, 검증 정책, 보안 정책, 서비스 책임 경계 변경 | [DEVELOPMENT_PROMPT.md](../DEVELOPMENT_PROMPT.md) |
 | GitHub 브랜치, PR, merge notification, 동료 동기화 규칙 변경 | [GITHUB_COLLABORATION_WORKFLOW.md](GITHUB_COLLABORATION_WORKFLOW.md) |
+| 코드 리뷰, PR 리뷰, 팀원 커밋 점검, 교수님 리뷰 대비 점검 | [CODE_REVIEW_PROMPT.md](CODE_REVIEW_PROMPT.md) |
 | Agent/MCP/Task-Plan-Goal 현행 기준 | [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md) |
 | Agent/MCP/Task-Plan-Goal 상세 완료 기록 | [archive 완료 기록](archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md) |
 | 표준 MCP 도입 보류 결정 | [STANDARD_MCP_DECISION.md](STANDARD_MCP_DECISION.md) |

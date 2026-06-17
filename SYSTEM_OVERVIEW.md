@@ -1,5 +1,15 @@
 ﻿# LawCompass 시스템 구성 명세서
 
+## 2026-06-18 코드 리뷰 프롬프트 참조 규칙 추가
+
+교수님 코드리뷰와 팀원 커밋 점검을 같은 기준으로 수행할 수 있도록 `docs/CODE_REVIEW_PROMPT.md`를 추가하고, `AGENTS.md`, `DEVELOPMENT_PROMPT.md`, `docs/README.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md`에서 리뷰 요청 시 우선 참조하도록 연결했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| 리뷰 기준 문서 | `docs/CODE_REVIEW_PROMPT.md`가 findings 우선 출력, 심각도 기준, LawCompass 특화 체크리스트, 검증 기준을 정의한다. |
+| 적용 트리거 | 코드 리뷰, PR 리뷰, 팀원 커밋 점검, 교수님 리뷰 대비 점검, 변경사항 검토 요청에 적용한다. |
+| 비변경 범위 | 제품 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API 계약, Agent 판단 로직은 변경하지 않았다. |
+
 ## 2026-06-11 GitHub Pages 프론트엔드 배포 준비
 
 GitHub Pages에서 Vue 프론트엔드 정적 파일을 배포할 수 있도록 frontend base path와 Actions workflow를 보강했다. GitHub Pages는 정적 호스팅만 제공하므로 Gateway/Agent/Worker/PostgreSQL/Redis는 OCI Free Tier 같은 별도 서버 배포가 필요하다.
