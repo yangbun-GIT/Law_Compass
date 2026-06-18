@@ -1,4 +1,15 @@
 ﻿# LawCompass 시스템 구성 명세서
+## 2026-06-18 Worker Contracts CI 의존성 분리
+
+GitHub Actions의 `Worker Contracts` job은 운영용 YOLO/Torch 전체 런타임을 설치하지 않고, 계약 테스트 import에 필요한 최소 Python 패키지만 설치한다.
+
+| 영역 | 현재 구조 |
+| --- | --- |
+| CI workflow | `.github/workflows/ci.yml`의 Worker job은 `apps/worker/requirements.test.txt`를 설치한 뒤 `python -m unittest discover -s tests`와 `python -m compileall worker tests`를 실행한다. |
+| Test requirements | `apps/worker/requirements.test.txt`는 현재 `redis==5.2.1`만 포함한다. `worker/main.py` import 계약 테스트에 필요한 패키지다. |
+| Runtime requirements | `apps/worker/requirements.txt`와 `requirements.jcloud.txt`는 운영 Worker runtime용으로 유지한다. Torch/Ultralytics 같은 무거운 패키지는 CI 계약 테스트 job에 설치하지 않는다. |
+| 비변경 범위 | Worker runtime 코드, Redis stream key, job payload, storage path, Docker image runtime 의존성은 변경하지 않았다. |
+
 ## 2026-06-18 케이스 작성 3단계 흐름 정리
 
 케이스 생성 후 프론트 입력 흐름을 `영상/설명 → 대분류·확인질문 → 결과` 3단계로 정리했다. 사용자는 영상 또는 사고 설명을 먼저 넣고, 이어서 직접 충돌 상대 기준의 KNIA 대분류를 고른 뒤 해당 대분류에 맞는 과실비율 영향 질문만 답한다.
