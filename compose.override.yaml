@@ -19,7 +19,7 @@
       - ./apps/agent:/app
 
   worker:
-    command: ["python", "-m", "worker.main"]
+    command: ["python3", "-m", "worker.main"]
     volumes:
       - ./apps/worker:/app
 
