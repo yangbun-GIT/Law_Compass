@@ -1,4 +1,15 @@
 ﻿# LawCompass 시스템 구성 명세서
+## 2026-06-19 README 실행 안내 배포 상태 반영
+
+루트 `README.md`의 실행 안내를 현재 배포 상태 기준으로 정리했다. 사용자는 JCloud 배포 URL로 바로 접속하고, 운영자는 JCloud 서버에서 `compose.yaml` + `compose.jcloud.yaml`로 서비스를 갱신하며, 로컬 Docker 실행은 개발/검증용 흐름으로 분리했다.
+
+| 영역 | 현재 구조 |
+| --- | --- |
+| 배포 접속 | README는 현재 배포 URL `http://113.198.66.75:19232`를 우선 안내한다. |
+| 운영 실행 | JCloud 서버의 `/home/ubuntu/lawcompass`에서 `git pull --ff-only origin main` 후 `docker compose -f compose.yaml -f compose.jcloud.yaml up -d --build`로 갱신한다. |
+| 로컬 실행 | `.env`를 준비한 뒤 `docker compose --env-file .env up --build`로 전체 스택을 개발용으로 실행한다. |
+| 비변경 범위 | 제품 코드, API route, DTO, DB schema, Redis key, storage path, Docker service 정의는 변경하지 않았다. 문서 실행 안내만 갱신했다. |
+
 ## 2026-06-18 Worker Contracts CI 의존성 분리
 
 GitHub Actions의 `Worker Contracts` job은 운영용 YOLO/Torch 전체 런타임을 설치하지 않고, 계약 테스트 import에 필요한 최소 Python 패키지만 설치한다.
