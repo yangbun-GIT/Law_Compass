@@ -17,7 +17,7 @@ $email = "smoke.user@example.com"
 $pass = "password123"
 
 try {
-  Invoke-Api "POST" "/api/v1/auth/signup" @{ email=$email; password=$pass; display_name="½º¸ğÅ©À¯Àú" } | Out-Null
+  Invoke-Api "POST" "/api/v1/auth/signup" @{ email=$email; password=$pass; display_name="ìŠ¤ëª¨í¬ìœ ì €" } | Out-Null
 } catch {
   Write-Host "signup skip: $($_.Exception.Message)"
 }
@@ -25,9 +25,9 @@ try {
 $login = Invoke-Api "POST" "/api/v1/auth/login" @{ email=$email; password=$pass }
 $token = $login.access_token
 
-$case = Invoke-Api "POST" "/api/v1/cases" @{ title="½º¸ğÅ© Å×½ºÆ® ÄÉÀÌ½º"; description_text="½ÅÈ£´ë±â ÈÄ ÈÄ¹Ì Ãßµ¹" } $token
+$case = Invoke-Api "POST" "/api/v1/cases" @{ title="ìŠ¤ëª¨í¬ í…ŒìŠ¤íŠ¸ ì¼€ì´ìŠ¤"; description_text="ì‹ í˜¸ëŒ€ê¸° í›„ í›„ë¯¸ ì¶”ëŒ" } $token
 $caseId = $case.case.id
 
-$result = Invoke-Api "POST" "/api/v1/cases/$caseId/analyze-text" @{ description_text="½ÅÈ£´ë±â Áß ÈÄ¹æ Â÷·® Ãßµ¹" } $token
+$result = Invoke-Api "POST" "/api/v1/cases/$caseId/analyze-text" @{ description_text="ì‹ í˜¸ëŒ€ê¸° ì¤‘ í›„ë°© ì°¨ëŸ‰ ì¶”ëŒ" } $token
 
 Write-Host "[OK] case_id=$caseId result_id=$($result.result_id) trace_id=$($result.trace_id)"
