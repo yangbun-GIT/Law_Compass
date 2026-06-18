@@ -2279,12 +2279,17 @@ const SITUATION_NOISE_PATTERNS = [
     /KNIA\s*직접\s*기준이\s*아닌\s*간접\s*근거가\s*포함되어\s*과실비율\s*확정에는\s*추가\s*확인이\s*필요합니다\.?/g,
     /입력하신\s*사고는\s*근거가\s*더\s*필요해\s*과실과\s*신고\s*필요\s*여부를\s*조심스럽게\s*확인해야\s*합니다\.?/g,
     /입력하신\s*사고는\s*추가\s*사실을\s*확인하면서\s*과실과\s*신고\s*필요\s*여부를\s*살펴봐야\s*합니다\.?/g,
+    /Local\s+video\s+verified\.[^ㄱ-ㅎ가-힣]*/gi,
+    /\bduration=\d+(?:\.\d+)?s?\b/gi,
+    /\bresolution=\d+x\d+\b/gi,
+    /\bframes=\d+\b/gi,
+    /\b(?:frame|openai|yolo)_observations=\d+\b/gi,
 ];
 
 function isWeakSituationSummary(value: string): boolean {
     const text = String(value || "").trim();
     if (!text) return true;
-    return /^(교통사고|사고|분석 결과|확인이 필요합니다\.?|입력한 사고 상황|입력한 영상과 답변을 바탕으로 사고 상황을 정리했습니다\.?|입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다\.?|입력하신 사고 내용을 바탕으로 대응 방향을 정리했습니다\.?)$/i.test(text);
+    return /^(교통사고|사고|분석 결과|확인이 필요합니다\.?|Local video verified\.?|입력한 사고 상황|입력한 영상과 답변을 바탕으로 사고 상황을 정리했습니다\.?|입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다\.?|입력하신 사고 내용을 바탕으로 대응 방향을 정리했습니다\.?)$/i.test(text);
 }
 
 function rawSituationText(value: any): string {

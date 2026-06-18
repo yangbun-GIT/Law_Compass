@@ -179,13 +179,15 @@ const isPersonAccident = computed(() =>
   partyCode.value === "car_vs_person" ||
   facts.value?.collision_partner_type === "pedestrian" ||
   facts.value?.direct_collision_partner_type === "pedestrian" ||
+  /보행자|차대사람|작업자|공사 담당자/.test(primaryPartyLabel.value) ||
   /보행자|차대사람|작업자|공사 담당자/.test(scenarioLabel.value)
 );
 const isVehicleAccident = computed(() =>
   partyCode.value === "car_vs_car" ||
   facts.value?.collision_partner_type === "vehicle" ||
   facts.value?.direct_collision_partner_type === "vehicle" ||
-  facts.value?.primary_collision_target === "vehicle"
+  facts.value?.primary_collision_target === "vehicle" ||
+  /차대차|차량/.test(primaryPartyLabel.value)
 );
 const isBicycleAccident = computed(() => partyCode.value === "car_vs_bicycle" || facts.value?.direct_collision_partner_type === "bicycle");
 const isMotorcycleAccident = computed(() => partyCode.value === "car_vs_motorcycle" || facts.value?.direct_collision_partner_type === "motorcycle");
@@ -248,6 +250,9 @@ function isDefaultCaseNoise(value: string) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (!text) return false;
   return /^(영상 사고 분석 케이스|영상 자료 기반 사고 분석|블랙박스 과실비율|영상 사고 분석 케이스 영상 자료 기반 사고 분석 블랙박스 과실비율|입력한 영상과 답변을 바탕으로 사고 상황을 정리했습니다\.?|입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다\.?|입력하신 사고 내용을 바탕으로 대응 방향을 정리했습니다\.?)$/i.test(text) ||
+    /^Local video verified\./i.test(text) ||
+    /duration=\d/i.test(text) ||
+    /frame_observations=\d/i.test(text) ||
     /입력하신 사고는 .*과실.*신고 필요 여부/.test(text);
 }
 </script>
