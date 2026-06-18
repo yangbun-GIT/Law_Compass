@@ -2254,6 +2254,7 @@ function cleanSituationSummary(value: any): string {
         "교통법규 근거를 바탕으로 과실, 신고 필요 여부, 보험 대응을 검토했습니다.",
     ];
     for (const tail of legalTails) text = text.replace(tail, "").trim();
+    if (isWeakSituationSummary(text)) return "";
 
     const mixed = text.match(/^(.+?\s*사고)\s*상황은\s*[^,.。]*로 보이며(?:,|\s|$)/);
     if (mixed?.[1]) return `${mixed[1].trim()} 상황입니다.`;
@@ -2271,17 +2272,35 @@ function cleanSituationSummary(value: any): string {
     return text;
 }
 
+const SITUATION_NOISE_PATTERNS = [
+    /영상\s*사고\s*분석\s*케이스/g,
+    /영상\s*자료\s*기반\s*사고\s*분석/g,
+    /블랙박스\s*과실비율/g,
+    /KNIA\s*직접\s*기준이\s*아닌\s*간접\s*근거가\s*포함되어\s*과실비율\s*확정에는\s*추가\s*확인이\s*필요합니다\.?/g,
+    /입력하신\s*사고는\s*근거가\s*더\s*필요해\s*과실과\s*신고\s*필요\s*여부를\s*조심스럽게\s*확인해야\s*합니다\.?/g,
+    /입력하신\s*사고는\s*추가\s*사실을\s*확인하면서\s*과실과\s*신고\s*필요\s*여부를\s*살펴봐야\s*합니다\.?/g,
+];
+
+function isWeakSituationSummary(value: string): boolean {
+    const text = String(value || "").trim();
+    if (!text) return true;
+    return /^(교통사고|사고|분석 결과|확인이 필요합니다\.?|입력한 사고 상황|입력한 영상과 답변을 바탕으로 사고 상황을 정리했습니다\.?|입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다\.?|입력하신 사고 내용을 바탕으로 대응 방향을 정리했습니다\.?)$/i.test(text);
+}
+
 function rawSituationText(value: any): string {
     if (value === null || value === undefined) return "";
     const raw = String(value).replace(/\u0000/g, "").trim();
     if (!raw || raw === "unknown" || raw === "null") return "";
     if ((raw.startsWith("{") && raw.endsWith("}")) || (raw.startsWith("[") && raw.endsWith("]"))) return "";
-    return cleanUserFacingCopy(raw)
+    let text = cleanUserFacingCopy(raw);
+    for (const pattern of SITUATION_NOISE_PATTERNS) text = text.replace(pattern, " ");
+    text = text
         .replace(/(?:^|,\s*)=\d+(?:\s*,\s*=\d+)+(?:\.)?/g, " ")
         .replace(/(?:^|[\s,])=\d+(?=$|[\s,.;])/g, " ")
         .replace(/\s+\./g, ".")
         .replace(/\s+/g, " ")
         .trim();
+    return isWeakSituationSummary(text) ? "" : text;
 }
 
 function collectSimpleKniaCandidates(report: AnyRecord = {}, result: AnyRecord = {}): AnyRecord[] {
@@ -2776,6 +2795,7 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
   const insurance = result.insurance_guide ?? {};
   const centerlineContext = isCenterlineObstacleContext(facts, result);
   const signalUncertaintyContext = isSignalUncertaintyContext(facts, result);
+  const situationSummary = composeSimpleSituationSummary({ structured_facts: facts }, result);
   const headline = centerlineContext
     ? "중앙선·도로 장애물 회피 중 대향 차량과 충돌한 사고로 보이며, 회피 사유와 상대 차량의 감속 가능성을 함께 봐야 합니다."
     : signalUncertaintyContext
@@ -2803,7 +2823,7 @@ export function composeEasyFallback(result: AnyRecord = {}, context: AnyRecord =
       : "입력하신 사고 내용과 근거를 바탕으로 참고용 과실비율을 추정했습니다.";
   return enrichEasyReport(sanitizeEasyReport({
     headline,
-    summary_for_user: { accident_type_label: scenarioLabel(scenario), short_summary: cleanText(result.accident_summary, "입력하신 사고 내용을 바탕으로 대응 방향을 정리했습니다."), confidence_label: Number(fault.confidence ?? 0) >= 0.65 ? "비교적 신뢰할 수 있음" : "보통", warning: "정확한 과실비율은 보험사나 분쟁심의 결과에 따라 달라질 수 있습니다." },
+    summary_for_user: { accident_type_label: scenarioLabel(scenario), short_summary: situationSummary || cleanText(result.accident_summary, "입력하신 사고 내용을 바탕으로 대응 방향을 정리했습니다."), confidence_label: Number(fault.confidence ?? 0) >= 0.65 ? "비교적 신뢰할 수 있음" : "보통", warning: "정확한 과실비율은 보험사나 분쟁심의 결과에 따라 달라질 수 있습니다." },
     top_actions: [
       { order: 1, title: "블랙박스 원본 보관", description: "영상 파일을 삭제하지 말고 따로 저장해 두세요.", importance: "매우 중요" },
       { order: 2, title: facts.injury ? "병원 진료 확인" : "사고 관련 자료 정리", description: facts.injury ? "통증이 있으면 병원 진료를 받고 진단서 또는 진료확인서를 받아두세요." : "차량 파손 사진, 사고 현장 사진, 수리 견적서를 모아두세요.", importance: "중요" },

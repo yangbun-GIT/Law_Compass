@@ -9,8 +9,8 @@
         </p>
       </div>
       <div class="btn-row">
-        <button class="btn secondary" :disabled="loading" @click="$emit('refresh')">
-          {{ loading ? "링크 발급 중..." : "영상 링크 새로고침" }}
+        <button class="btn" :disabled="loading" @click="$emit('refresh')">
+          {{ viewUrl ? "블랙박스 영상 다시 보기" : "블랙박스 영상 보기" }}
         </button>
         <button class="btn secondary" :disabled="loading" @click="$emit('download')">다운로드</button>
       </div>
@@ -24,19 +24,31 @@
 
     <p v-if="error" class="msg-error">{{ error }}</p>
 
-    <video
-      v-if="viewUrl"
-      class="video-preview result-video-preview"
-      controls
-      playsinline
-      preload="metadata"
-      :src="viewUrl"
-      @error="$emit('refresh')"
-    ></video>
+    <div v-if="loading" class="upload-video-loading" role="status" aria-live="polite">
+      <span class="upload-video-spinner" aria-hidden="true"></span>
+      <div>
+        <strong>보안 재생 토큰을 발급하고 있습니다</strong>
+        <p>짧게 만료되는 HMAC 링크를 준비하는 중입니다. 잠시만 기다려 주세요.</p>
+      </div>
+    </div>
+
+    <div v-if="viewUrl" class="upload-video-player-shell">
+      <video
+        class="video-preview result-video-preview"
+        controls
+        playsinline
+        preload="metadata"
+        :src="viewUrl"
+        @error="$emit('token-expired')"
+      ></video>
+      <p class="kv">재생 링크가 만료되면 위의 “블랙박스 영상 다시 보기”를 눌러 새 보안 링크를 발급하세요.</p>
+    </div>
 
     <div v-else class="upload-video-placeholder">
-      <p>{{ loading ? "영상 재생 링크를 준비하고 있습니다." : "영상 링크가 만료되었거나 아직 발급되지 않았습니다." }}</p>
-      <button class="btn" :disabled="loading" @click="$emit('refresh')">영상 보기</button>
+      <p>
+        영상은 바로 공개하지 않고, 버튼을 누를 때마다 짧게 만료되는 HMAC 보안 링크를 발급해 재생합니다.
+      </p>
+      <button class="btn" :disabled="loading" @click="$emit('refresh')">블랙박스 영상 보기</button>
     </div>
   </article>
 </template>
@@ -55,6 +67,7 @@ defineProps<{
 defineEmits<{
   refresh: [];
   download: [];
+  "token-expired": [];
 }>();
 
 function statusLabel(status?: string) {
@@ -97,6 +110,44 @@ function statusLabel(status?: string) {
   background: #000;
 }
 
+.upload-video-player-shell {
+  display: grid;
+  gap: 10px;
+}
+
+.upload-video-loading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(201, 169, 98, 0.38);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(201, 169, 98, 0.16), rgba(37, 30, 25, 0.76)),
+    rgba(28, 23, 20, 0.84);
+  color: var(--text-main);
+}
+
+.upload-video-loading strong,
+.upload-video-loading p {
+  margin: 0;
+}
+
+.upload-video-loading p {
+  color: var(--text-sub);
+  line-height: 1.55;
+}
+
+.upload-video-spinner {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 3px solid rgba(201, 169, 98, 0.28);
+  border-top-color: var(--accent-strong);
+  animation: upload-token-spin 0.9s linear infinite;
+}
+
 .upload-video-placeholder {
   display: grid;
   justify-items: start;
@@ -115,6 +166,16 @@ function statusLabel(status?: string) {
 @media (max-width: 760px) {
   .upload-video-head {
     flex-direction: column;
+  }
+
+  .upload-video-loading {
+    align-items: flex-start;
+  }
+}
+
+@keyframes upload-token-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

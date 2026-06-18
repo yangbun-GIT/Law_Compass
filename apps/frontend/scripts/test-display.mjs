@@ -43,6 +43,7 @@ const routerIndex = readFileSync("src/router/index.ts", "utf8");
 const sessionStore = readFileSync("src/stores/session.ts", "utf8");
 const resultView = readFileSync("src/views/CaseResultView.vue", "utf8");
 const evidenceView = readFileSync("src/views/EvidenceDetailView.vue", "utf8");
+const uploadVideoReplayCard = readFileSync("src/components/result/UploadVideoReplayCard.vue", "utf8");
 const easyReportView = readFileSync("src/components/easy/EasyReportView.vue", "utf8");
 const relatedVideoCard = readFileSync("src/components/knia/RelatedVideoCard.vue", "utf8");
 const kniaVideoLinkCard = readFileSync("src/components/knia/KniaVideoLinkCard.vue", "utf8");
@@ -178,6 +179,9 @@ const forbiddenPublicPhrases = [
 ];
 const publicReportFiles = [easyReportView, relatedVideoCard, kniaVideoLinkCard, topConclusionCard].join("\n");
 const forbiddenGeneralReportPhrases = [
+  "입력하신 사고는 추가 사실을 확인하면서 과실과 신고 필요 여부를 살펴봐야 합니다",
+  "입력하신 사고는 근거가 더 필요해 과실과 신고 필요 여부를 조심스럽게 확인해야 합니다",
+  "예상 과실:",
   "영상 파일은 LawCompass 서버에 저장하지 않고",
   "과실비율정보포털에서 제공하는 유사 사고 기준을 원문 링크로 확인할 수 있습니다",
   "참고용 분석입니다",
@@ -200,6 +204,36 @@ if (publicPhraseLeaks.length) {
 const publicReportPhraseLeaks = forbiddenGeneralReportPhrases.filter((token) => publicReportFiles.includes(token));
 if (publicReportPhraseLeaks.length) {
   console.error("general user report exposes hidden copy", publicReportPhraseLeaks);
+  process.exit(1);
+}
+const topConclusionContracts = [
+  "KniaFaultRatioBar",
+  "synthesizedAccidentSummary",
+  "cleanAccidentSummaryText",
+  "차대사람 사고로 보입니다",
+  "left-label=\"내 과실\"",
+  "right-label=\"상대 과실\"",
+];
+const missingTopConclusionContracts = topConclusionContracts.filter((token) => !topConclusionCard.includes(token));
+if (missingTopConclusionContracts.length) {
+  console.error("top conclusion must show a user-readable accident summary and visual fault bar", missingTopConclusionContracts);
+  process.exit(1);
+}
+const uploadReplaySource = [resultView, uploadVideoReplayCard].join("\n");
+const uploadReplayContracts = [
+  "블랙박스 영상 보기",
+  "보안 재생 토큰을 발급하고 있습니다",
+  "HMAC 링크를 준비하는 중입니다",
+  "@token-expired",
+  "handleVideoTokenExpired",
+];
+const missingUploadReplayContracts = uploadReplayContracts.filter((token) => !uploadReplaySource.includes(token));
+if (missingUploadReplayContracts.length) {
+  console.error("secure upload replay contract failed", missingUploadReplayContracts);
+  process.exit(1);
+}
+if (resultView.includes("await refreshVideoViewUrl();")) {
+  console.error("result screen must not auto-issue upload HMAC view URLs before the user requests replay");
   process.exit(1);
 }
 if (accidentPartyTypeActionCard.includes("먼저 해 주세요") || accidentPartyTypeActionCard.includes("top_actions")) {

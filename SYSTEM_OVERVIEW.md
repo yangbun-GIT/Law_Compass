@@ -46,7 +46,7 @@ DB migration, public API path, Redis stream key, storage path는 변경하지 �
 | --- | --- |
 | Gateway signed URL | `/api/v1/uploads/:uploadId/view-url`과 `/download-url`은 `UPLOAD_ACCESS_TOKEN_SECRET`(미설정 시 `JWT_ACCESS_SECRET`)으로 서명한 짧은 만료 HMAC 토큰을 포함한 Gateway 프록시 URL을 발급한다. |
 | Content proxy | `/api/v1/uploads/:uploadId/download`는 기존 로그인 세션 또는 유효한 HMAC 토큰을 통해서만 영상을 스트리밍하며, NAS/local storage key와 내부 경로는 사용자 응답에 노출하지 않는다. |
-| Frontend result replay | `CaseResultView.vue`는 케이스 업로드 목록에서 최신 영상 업로드를 찾아 `UploadVideoReplayCard`로 표시하고, 재생 URL 만료 전에 자동 갱신한다. |
+| Frontend result replay | `CaseResultView.vue`는 케이스 업로드 목록에서 최신 영상 업로드를 찾아 `UploadVideoReplayCard`로 표시한다. 영상은 즉시 노출하지 않고 사용자가 “블랙박스 영상 보기”를 누를 때 `/view-url`을 호출해 짧은 만료 HMAC 재생 URL을 발급한다. 발급 중에는 HMAC 토큰 준비 로딩 패널을 표시하고, 링크 만료 시 사용자가 다시 버튼을 눌러 새 링크를 발급한다. |
 | Storage boundary | NAS 파일은 직접 공개하지 않고 Gateway가 storage adapter를 통해 읽어 브라우저로 전달한다. NAS 설정 변경 없이 Gateway 토큰 정책으로 접근 제어한다. |
 | 운영 env | 운영 환경에서는 `UPLOAD_ACCESS_TOKEN_SECRET`을 강한 값으로 설정해야 하며, 설정하지 않으면 강한 `JWT_ACCESS_SECRET`을 공유 secret으로 사용한다. |
 

@@ -417,7 +417,7 @@ import RelatedVideoCard from "../knia/RelatedVideoCard.vue";
 import KniaFaultRatioBar from "../knia/KniaFaultRatioBar.vue";
 import KniaDetailEvidenceCard from "../knia/KniaDetailEvidenceCard.vue";
 import AccidentPartyTypeActionCard from "../result/AccidentPartyTypeActionCard.vue";
-import { formatKniaBody, removeTechnicalFields, sanitizeDisplayText, sanitizeOptionalDisplayText } from "../../utils/displaySanitizer";
+import { cleanAccidentSummaryText, formatKniaBody, removeTechnicalFields, sanitizeDisplayText, sanitizeOptionalDisplayText } from "../../utils/displaySanitizer";
 
 const props = defineProps<{ report: any; followupSubmitting?: boolean; followupError?: string }>();
 const emit = defineEmits<{ submitFollowup: [answers: Record<string, string>] }>();
@@ -476,7 +476,7 @@ const hasMissingInfo = computed(() => {
   );
 });
 
-const simpleSituationTitle = computed(() => textOrFallback(
+const simpleSituationTitle = computed(() => accidentTextOrFallback(
   safeReport.value?.video_scene_summary?.title,
   safeReport.value?.structured_facts?.video_scene_summary?.title,
   safeReport.value?.simple_report?.situation_title,
@@ -487,7 +487,7 @@ const simpleSituationTitle = computed(() => textOrFallback(
   "영상에서 확인된 사고 개요",
   "입력한 사고 상황"
 ));
-const simpleSituationSummary = computed(() => textOrFallback(
+const simpleSituationSummary = computed(() => accidentTextOrFallback(
   safeReport.value?.video_scene_summary?.summary_text,
   safeReport.value?.structured_facts?.video_scene_summary?.summary_text,
   safeReport.value?.simple_report?.situation_summary,
@@ -499,8 +499,8 @@ const simpleSituationSummary = computed(() => textOrFallback(
   "입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다."
 ));
 const simpleSituationDetail = computed(() => {
-  const detail = sanitizeDisplayText(simpleSituationSummary.value);
-  const title = sanitizeDisplayText(simpleSituationTitle.value);
+  const detail = cleanAccidentSummaryText(simpleSituationSummary.value, "");
+  const title = cleanAccidentSummaryText(simpleSituationTitle.value, "");
   if (!detail || detail === title || detail === `${title} 상황입니다.`) return "";
   return detail;
 });
@@ -681,6 +681,15 @@ function textOrFallback(...values: any[]) {
   return "";
 }
 
+function accidentTextOrFallback(...values: any[]) {
+  for (const value of values) {
+    if (typeof value !== "string" || !value.trim()) continue;
+    const cleaned = cleanAccidentSummaryText(value, "");
+    if (cleaned) return cleaned;
+  }
+  return "";
+}
+
 function userVisibleFactList(value: any, limit = 6) {
   const source = Array.isArray(value) ? value : [];
   const seen = new Set<string>();
@@ -756,14 +765,15 @@ function resolveAccidentPartyLabel(input: { accident_party_label?: unknown; acci
 }
 
 function extractSituationTitle(value: unknown) {
-  let raw = sanitizeDisplayText(value);
+  let raw = cleanAccidentSummaryText(value, "");
   if (!raw) return "";
   raw = raw.replace(/^[\s,，.]+/, "").trim();
   const mixed = raw.match(/^(.+?\s*사고)\s*상황은\s*[^,.。]*로 보이며(?:,|\s|$)/);
   if (mixed?.[1]) return mixed[1].trim();
   const sentence = raw.split(/[.!?。]\s*/)[0]?.trim() || raw;
   const title = sentence.match(/^(.+?\s*사고)(?:\s|$)/);
-  return sanitizeDisplayText(title?.[1] || sentence);
+  const cleaned = cleanAccidentSummaryText(title?.[1] || sentence, "");
+  return cleaned.length > 72 ? "" : cleaned;
 }
 
 function percentText(value: unknown) {

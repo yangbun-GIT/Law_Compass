@@ -4,6 +4,12 @@
   intersection_signal_violation: "교차로 신호위반 사고",
   lane_change_collision: "차선변경 사고",
   pedestrian_crosswalk_accident: "보행자 사고",
+  pedestrian_near_crosswalk_accident: "횡단보도 부근 보행자 사고",
+  pedestrian_no_crosswalk_road_crossing: "횡단보도 없는 도로 보행자 사고",
+  pedestrian_road_work_worker_accident: "도로 작업자와의 충돌 사고",
+  pedestrian_sudden_entry_accident: "보행자 갑작스러운 진입 사고",
+  pedestrian_on_road_edge_accident: "도로 가장자리 보행자 사고",
+  pedestrian_construction_zone_accident: "공사구역 보행자 사고",
   bicycle_collision: "차대자전거 사고",
   motorcycle_bicycle_collision: "오토바이와 자전거 사고",
   non_contact_motorcycle_single_fall: "비접촉 이륜차 단독 전도",
@@ -234,6 +240,50 @@ export function isMeaningfulKniaAdjustmentFactor(value: unknown): boolean {
 
 export function sanitizeUserVisibleText(value: unknown): string {
   return sanitizeDisplayText(value);
+}
+
+const ACCIDENT_SUMMARY_NOISE_PATTERNS = [
+  /영상\s*사고\s*분석\s*케이스/g,
+  /영상\s*자료\s*기반\s*사고\s*분석/g,
+  /블랙박스\s*과실비율/g,
+  /KNIA\s*직접\s*기준이\s*아닌\s*간접\s*근거가\s*포함되어\s*과실비율\s*확정에는\s*추가\s*확인이\s*필요합니다\.?/g,
+  /입력하신\s*사고는\s*근거가\s*더\s*필요해\s*과실과\s*신고\s*필요\s*여부를\s*조심스럽게\s*확인해야\s*합니다\.?/g,
+  /입력하신\s*사고는\s*추가\s*사실을\s*확인하면서\s*과실과\s*신고\s*필요\s*여부를\s*살펴봐야\s*합니다\.?/g,
+];
+
+const WEAK_ACCIDENT_SUMMARY_PATTERNS = [
+  /^교통사고$/,
+  /^사고$/,
+  /^분석 결과$/,
+  /^확인이 필요합니다\.?$/,
+  /^입력한 사고 상황$/,
+  /^현재 입력 기준 핵심 결론입니다\.?$/,
+  /^입력한 영상과 답변을 바탕으로 사고 상황을 정리했습니다\.?$/,
+  /^입력한 사고 설명과 영상 자료를 바탕으로 사고 상황을 정리했습니다\.?$/,
+  /^입력하신 사고 내용을 바탕으로 대응 방향을 정리했습니다\.?$/,
+];
+
+export function cleanAccidentSummaryText(value: unknown, fallback = ""): string {
+  let text = sanitizeDisplayText(value, "");
+  if (!text) return fallback;
+
+  for (const pattern of ACCIDENT_SUMMARY_NOISE_PATTERNS) {
+    text = text.replace(pattern, " ");
+  }
+
+  text = text
+    .replace(/^(?:=\s*\d+\s*[,.)]\s*)+/g, "")
+    .replace(/^(?:교통사고\s*)?(?:영상\s*사고\s*분석\s*케이스\s*)+/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.])/g, "$1")
+    .replace(/^[\s,.;:·|-]+|[\s,.;:·|-]+$/g, "")
+    .trim();
+
+  if (!text || WEAK_ACCIDENT_SUMMARY_PATTERNS.some((pattern) => pattern.test(text))) {
+    return fallback;
+  }
+
+  return text;
 }
 
 export function formatKniaBody(value: unknown): string[] {

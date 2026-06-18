@@ -32,6 +32,7 @@
         :expires-at="videoExpiresAtLabel"
         @refresh="refreshVideoViewUrl"
         @download="downloadVideo"
+        @token-expired="handleVideoTokenExpired"
       />
 
       <GroupedResultReportView
@@ -52,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import GroupedResultReportView from "../components/easy/GroupedResultReportView.vue";
 import UploadVideoReplayCard from "../components/result/UploadVideoReplayCard.vue";
@@ -70,7 +71,6 @@ const videoViewUrl = ref("");
 const videoExpiresAt = ref("");
 const videoLoading = ref(false);
 const videoError = ref("");
-let videoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 const selectedVideoUpload = computed(() => {
   const allowed = new Set(["uploaded", "verified", "processing", "ready"]);
@@ -105,11 +105,10 @@ async function load() {
 
 async function loadVideoUploads() {
   videoError.value = "";
+  videoViewUrl.value = "";
+  videoExpiresAt.value = "";
   try {
     uploads.value = (await api.getCaseUploads(caseId)).items || [];
-    if (selectedVideoUpload.value) {
-      await refreshVideoViewUrl();
-    }
   } catch (e: any) {
     uploads.value = [];
     videoError.value = formatApiError(e, "업로드 영상을 불러오지 못했습니다.");
@@ -119,14 +118,12 @@ async function loadVideoUploads() {
 async function refreshVideoViewUrl() {
   const upload = selectedVideoUpload.value;
   if (!upload) return;
-  clearVideoRefreshTimer();
   videoLoading.value = true;
   videoError.value = "";
   try {
     const data = await api.getViewUrl(upload.id);
     videoViewUrl.value = data.view_url;
     videoExpiresAt.value = data.expires_at || new Date(Date.now() + data.expires_in_sec * 1000).toISOString();
-    scheduleVideoRefresh(data.expires_in_sec);
   } catch (e: any) {
     videoViewUrl.value = "";
     videoError.value = formatApiError(e, "영상 재생 링크를 발급하지 못했습니다.");
@@ -146,19 +143,10 @@ async function downloadVideo() {
   }
 }
 
-function scheduleVideoRefresh(expiresInSec: number) {
-  const seconds = Number(expiresInSec || 0);
-  if (!seconds || seconds < 20) return;
-  const refreshMs = Math.max(15_000, Math.floor(seconds * 0.75 * 1000));
-  videoRefreshTimer = setTimeout(() => {
-    void refreshVideoViewUrl();
-  }, refreshMs);
-}
-
-function clearVideoRefreshTimer() {
-  if (!videoRefreshTimer) return;
-  clearTimeout(videoRefreshTimer);
-  videoRefreshTimer = null;
+function handleVideoTokenExpired() {
+  videoViewUrl.value = "";
+  videoExpiresAt.value = "";
+  videoError.value = "영상 재생 링크가 만료되었습니다. 블랙박스 영상 보기를 눌러 새 보안 링크를 발급해 주세요.";
 }
 
 async function submitFollowup(answers: Record<string, string>) {
@@ -251,7 +239,6 @@ function normalizeAnalysisMode(mode?: string | null) {
 }
 
 onMounted(load);
-onBeforeUnmount(clearVideoRefreshTimer);
 </script>
 
 <style scoped>
