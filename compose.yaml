@@ -159,6 +159,7 @@ services:
       PYTHONPATH: /app
       DATABASE_URL: ${DATABASE_URL:-postgresql://law:lawpass@postgres:5432/lawcompass}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      WORKER_AGENT_TIMEOUT_SEC: ${WORKER_AGENT_TIMEOUT_SEC:-90}
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       LOCAL_STORAGE_ROOT: ${LOCAL_STORAGE_ROOT:-/app/storage}

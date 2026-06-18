@@ -123,6 +123,12 @@ function initialGuidedStepFromRoute(start: unknown): GuidedStep {
     return "accident-type";
 }
 
+function isActiveBackendProgress(progressData: any) {
+    if (!progressData || progressData.failed === true) return false;
+    const currentStep = String(progressData.current_step || "").trim();
+    return ["upload", "scene", "scenario", "knia", "adjustment"].includes(currentStep);
+}
+
 function firstUnansweredQuestionIndex(questions: any[], answers: Record<string, string>) {
     if (!questions.length) return 0;
     const index = questions.findIndex((question) => !answers[getGuidedQuestionId(question)]);
@@ -613,7 +619,47 @@ export function useCaseWorkspace(caseId: string) {
                 return;
             }
 
-            if (guidedStep.value === "result") guidedStep.value = "accident-type";
+            const progressData = progress.value;
+            const hasRunningJob = jobs.value.some(isRunningJob);
+            const hasFailedJob = jobs.value.some(isFailedJob) || progressData?.failed === true;
+            const hasFinishedJob = jobs.value.some(isFinishedJob);
+
+            if (await finalizeIfResultReady(progressData)) return;
+
+            if (hasFailedJob) {
+                resultStreaming.value = false;
+                guidedStep.value = "questions";
+                showMessage(
+                    progressData?.error_message || "영상 분석 중 문제가 발생했습니다. 입력 내용을 확인한 뒤 다시 시도해 주세요.",
+                    false
+                );
+                return;
+            }
+
+            if (hasRunningJob || isActiveBackendProgress(progressData)) {
+                analysisStarted.value = true;
+                resultStreaming.value = true;
+                guidedStep.value = "analyzing";
+
+                const runningJob = jobs.value.find(isRunningJob);
+                if (runningJob) {
+                    applyLocalProgress(getRunningJobProgress(runningJob.type, progressPercent.value));
+                }
+                startPollingJobs();
+                return;
+            }
+
+            if (hasFinishedJob || progressData?.current_step === "result") {
+                analysisStarted.value = true;
+                resultStreaming.value = true;
+                guidedStep.value = "result";
+                void waitForReadyReport().then((ready) => {
+                    if (!ready) resultStreaming.value = false;
+                });
+                return;
+            }
+
+            if (guidedStep.value === "result" || guidedStep.value === "analyzing") guidedStep.value = "accident-type";
         } catch (error: any) {
             loadError.value = error?.message || "케이스 정보를 불러오지 못했습니다.";
         } finally {

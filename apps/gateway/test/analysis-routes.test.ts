@@ -87,6 +87,17 @@ describe("analysis route helpers", () => {
     expect(text).not.toContain("job-1");
   });
 
+  it("moves long-running video analysis past the 87 percent knia ceiling", () => {
+    const progress = composeGuidedProgressPayload(
+      { status: "analyzing" },
+      [{ type: "video_analyze", status: "running", created_at: new Date(Date.now() - 95_000).toISOString() }]
+    );
+
+    expect(progress.current_stage).toBe("가감요소 계산");
+    expect(progress.current_step).toBe("adjustment");
+    expect(progress.progress_percent).toBeGreaterThan(87);
+  });
+
   it("marks dead jobs as failed without exposing internal job fields", () => {
     const progress = composeGuidedProgressPayload(
       { status: "analyzing" },

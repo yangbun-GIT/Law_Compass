@@ -206,6 +206,10 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
       [caseId, body.upload_id, (req as any).user.id, ACTIVE_ANALYSIS_JOB_STATUSES]
     );
     if (existingJob.rowCount) {
+      await opts.db.query(`UPDATE cases SET status='analyzing' WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`, [
+        caseId,
+        (req as any).user.id,
+      ]);
       return {
         job_id: existingJob.rows[0].id,
         status: existingJob.rows[0].status,
@@ -241,6 +245,10 @@ export function registerAnalysisRoutes(app: FastifyInstance, opts: AnalysisRoute
         analysis_mode: normalizeAnalysisMode(body.analysis_mode ?? "user_friendly")
       })]
     );
+    await opts.db.query(`UPDATE cases SET status='analyzing' WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`, [
+      caseId,
+      (req as any).user.id,
+    ]);
     await opts.redis.xadd(process.env.REDIS_STREAM_KEY ?? "jobs:v1:stream", "MAXLEN", "~", "10000", "*", "job_id", job.rows[0].id, "job_type", "video_analyze");
     return { job_id: job.rows[0].id, status: "queued", ai_profile: route.aiProfile, specialist_roles: route.specialistRoles, trace_id: traceId };
   });

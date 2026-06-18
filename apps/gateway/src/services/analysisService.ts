@@ -170,8 +170,9 @@ export function composeGuidedProgressPayload(
     currentStep = "scene";
     currentIndex = 2;
   } else if (activeJob?.type === "video_analyze") {
-    currentStep = "knia";
-    currentIndex = 4;
+    const longRunningVideoAnalysis = activeJob.elapsed_seconds >= 90;
+    currentStep = longRunningVideoAnalysis ? "adjustment" : "knia";
+    currentIndex = longRunningVideoAnalysis ? 5 : 4;
   } else if (hasDoneJob) {
     currentStep = "adjustment";
     currentIndex = 5;

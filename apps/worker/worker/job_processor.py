@@ -4,7 +4,7 @@ import random
 import shutil
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 try:
     from tenacity import retry, stop_after_attempt, wait_exponential_jitter
@@ -39,6 +39,31 @@ USER_JOB_LABELS = {
     "video_preprocess": "영상 확인 중",
     "video_analyze": "사고 장면 분석 중",
 }
+
+
+def agent_timeout_seconds(env: Mapping[str, str | None] | None = None) -> float:
+    values = os.environ if env is None else env
+
+    explicit = str(values.get("WORKER_AGENT_TIMEOUT_SEC") or "").strip()
+    if explicit:
+        try:
+            return max(30.0, float(explicit))
+        except ValueError:
+            pass
+
+    for key in ("ANALYZE_TIMEOUT_MS", "REQUEST_TIMEOUT_MS"):
+        raw = str(values.get(key) or "").strip()
+        if not raw:
+            continue
+        try:
+            return max(30.0, float(raw) / 1000.0)
+        except ValueError:
+            continue
+
+    return 90.0
+
+
+AGENT_TIMEOUT_SEC = agent_timeout_seconds()
 USER_STATUS_LABELS = {
     "queued": "대기 중",
     "running": "분석 중",
@@ -526,6 +551,7 @@ def _process_video_analyze(cur: Any, row: tuple[Any, ...], payload: dict[str, An
         f"{INTERNAL_AGENT_URL}/internal/v1/analyze/video",
         agent_payload,
         headers={"x-correlation-id": trace_id},
+        timeout=AGENT_TIMEOUT_SEC,
     )
     response = attach_trace_to_agent_response(response, trace_id)
     _insert_analysis_result(cur, row, response)

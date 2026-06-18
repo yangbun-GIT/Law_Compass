@@ -1,4 +1,18 @@
 ﻿# LawCompass 시스템 구성 명세서
+## 2026-06-18 영상 분석 진행상태 복원 및 Worker timeout 보강
+
+영상 업로드 후 분석이 87% 부근에서 멈춘 것처럼 보이고, 브라우저 새로고침 시 입력 단계로 돌아가는 문제를 보완했다. 원인은 Gateway의 `video_analyze` 진행률이 KNIA 단계 87% 상한에 오래 머무르는 표시 정책과, Frontend가 새로고침 후 실행 중인 job/progress를 `analyzing` 단계로 복원하지 못하는 흐름이 함께 작동한 것이다.
+
+| 영역 | 현재 구조 |
+| --- | --- |
+| Frontend resume | `useCaseWorkspace.ts`는 초기 로드 시 report가 없어도 실행 중 job 또는 `analysis-progress`의 active step이 있으면 `guidedStep=analyzing`으로 복원하고 polling을 재개한다. 완료 job이 있으나 report 변환이 늦으면 result 대기 화면에서 `waitForReadyReport()`를 다시 수행한다. |
+| Gateway progress | `composeGuidedProgressPayload()`는 오래 실행되는 `video_analyze` job을 90초 이후 `가감요소 계산` 단계로 표시해 87% 고정처럼 보이는 구간을 줄인다. |
+| Case status | `/api/v1/cases/:caseId/analyze-video`는 신규 job 등록 또는 기존 active job 재사용 시 `cases.status='analyzing'`을 남겨 refresh 직후에도 진행 상태를 복원할 수 있게 한다. |
+| Worker timeout | `apps/worker/worker/job_processor.py`는 Agent 영상 분석 호출에 `WORKER_AGENT_TIMEOUT_SEC`를 적용한다. 미설정 시 `ANALYZE_TIMEOUT_MS`/`REQUEST_TIMEOUT_MS`를 해석하고, 기본값은 90초다. |
+| 운영 env | `env.example`, `env.oci.example`, `compose.yaml`, `compose.prod.yaml`, `compose.jcloud.yaml`에 `WORKER_AGENT_TIMEOUT_SEC=90`을 추가했다. JCloud/저사양 VM에서 실제 영상 분석이 길면 120~180초로 올릴 수 있다. |
+
+DB migration, public API path, Redis stream key, storage path는 변경하지 않았다. 배포 시 Worker/Gateway/Frontend 이미지를 새로 빌드하고, 운영 `.env`에 `WORKER_AGENT_TIMEOUT_SEC`를 반영한 뒤 서비스를 재시작한다.
+
 ## 2026-06-18 업로드 영상 재생 HMAC 토큰 보강
 
 결과 화면에서 사용자가 업로드한 블랙박스 영상을 일반 사용자 모드와 전문가 모드 모두에서 다시 볼 수 있도록 Gateway 업로드 조회 경로와 프론트 결과 화면을 보강했다.

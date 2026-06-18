@@ -1,6 +1,7 @@
 import unittest
 
 from worker.job_processor import (
+    agent_timeout_seconds,
     build_agent_video_request,
     build_analysis_result_values,
     build_frame_analysis_context,
@@ -39,6 +40,16 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
         self.assertEqual(result["structured_facts"]["stopped"], True)
         self.assertEqual(result["selected_keywords"], ["후방추돌", "안전거리"])
         self.assertEqual(result["analysis_mode"], "rear-end-focused")
+
+    def test_agent_timeout_prefers_worker_specific_seconds(self):
+        self.assertEqual(agent_timeout_seconds({"WORKER_AGENT_TIMEOUT_SEC": "120", "ANALYZE_TIMEOUT_MS": "30000"}), 120.0)
+
+    def test_agent_timeout_uses_analysis_timeout_ms_with_safe_floor(self):
+        self.assertEqual(agent_timeout_seconds({"ANALYZE_TIMEOUT_MS": "45000"}), 45.0)
+        self.assertEqual(agent_timeout_seconds({"ANALYZE_TIMEOUT_MS": "5000"}), 30.0)
+
+    def test_agent_timeout_defaults_to_long_running_video_budget(self):
+        self.assertEqual(agent_timeout_seconds({}), 90.0)
 
     def test_frame_analysis_context_uses_case_facts_as_visual_focus_only(self):
         metadata = {"duration_sec": 8.5, "width": 1280, "height": 720, "fps": 30}
