@@ -132,16 +132,20 @@ def process_job(job_id: str, job_type: str, redis_client: Any) -> None:
             cur.execute("UPDATE jobs SET status='running', attempts=attempts+1, attempt=attempts+1, started_at=now() WHERE id=%s", (job_id,))
             cur.execute("SELECT id, case_id, upload_id, owner_user_id, payload FROM jobs WHERE id=%s", (job_id,))
             row = cur.fetchone()
-            if not row:
-                return
-            payload = row[4] or {}
+        conn.commit()
 
+        if not row:
+            return
+
+        payload = row[4] or {}
+
+        with conn.cursor() as cur:
             if job_type == "video_preprocess":
                 _process_video_preprocess(cur, row, payload, redis_client)
             elif job_type == "video_analyze":
                 _process_video_analyze(cur, row, payload, job_id)
 
-            conn.commit()
+        conn.commit()
 
 
 def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str, Any], redis_client: Any) -> None:
