@@ -7,13 +7,16 @@ from pathlib import Path
 from typing import Any, Mapping
 
 try:
-    from tenacity import retry, stop_after_attempt, wait_exponential_jitter
+    from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter
 except ModuleNotFoundError:
     def retry(*_args: Any, **_kwargs: Any):
         def decorator(fn: Any) -> Any:
             return fn
 
         return decorator
+
+    def retry_if_exception(_predicate: Any) -> None:
+        return None
 
     def stop_after_attempt(_attempts: int) -> None:
         return None
@@ -132,7 +135,25 @@ def attach_trace_to_agent_response(response: dict[str, Any], trace_id: str) -> d
     return response
 
 
-@retry(stop=stop_after_attempt(5), wait=wait_exponential_jitter(initial=1, max=30))
+def is_retryable_job_error(err: BaseException) -> bool:
+    if isinstance(err, (FileNotFoundError, ValueError)):
+        return False
+    message = str(err).lower()
+    permanent_markers = [
+        "no longer available",
+        "upload record not found",
+        "stored video reference missing",
+        "missing job_id",
+    ]
+    return not any(marker in message for marker in permanent_markers)
+
+
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential_jitter(initial=1, max=30),
+    retry=retry_if_exception(is_retryable_job_error),
+    reraise=True,
+)
 def process_job(job_id: str, job_type: str, redis_client: Any) -> None:
     import psycopg
 

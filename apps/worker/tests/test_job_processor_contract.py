@@ -7,6 +7,7 @@ from worker.job_processor import (
     build_frame_analysis_context,
     build_video_analyze_payload,
     ensure_upload_available,
+    is_retryable_job_error,
     is_deleted_upload,
     _merge_frame_observations,
 )
@@ -60,6 +61,11 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
 
         with self.assertRaises(FileNotFoundError):
             ensure_upload_available("upload-1", "deleted")
+
+    def test_permanent_video_job_errors_are_not_retried(self):
+        self.assertFalse(is_retryable_job_error(FileNotFoundError("upload record not found for video processing")))
+        self.assertFalse(is_retryable_job_error(ValueError("missing job_id in redis stream message")))
+        self.assertTrue(is_retryable_job_error(TimeoutError("temporary network timeout")))
 
     def test_frame_analysis_context_uses_case_facts_as_visual_focus_only(self):
         metadata = {"duration_sec": 8.5, "width": 1280, "height": 720, "fps": 30}
