@@ -9,6 +9,7 @@ from worker.job_processor import (
     ensure_upload_available,
     is_retryable_job_error,
     is_deleted_upload,
+    yolo_analysis_timeout_seconds,
     _merge_frame_observations,
 )
 from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION
@@ -53,6 +54,11 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
 
     def test_agent_timeout_defaults_to_long_running_video_budget(self):
         self.assertEqual(agent_timeout_seconds({}), 90.0)
+
+    def test_yolo_analysis_timeout_has_safe_default_and_floor(self):
+        self.assertEqual(yolo_analysis_timeout_seconds({}), 45.0)
+        self.assertEqual(yolo_analysis_timeout_seconds({"YOLO_FRAME_ANALYSIS_TIMEOUT_SEC": "2"}), 5.0)
+        self.assertEqual(yolo_analysis_timeout_seconds({"YOLO_FRAME_ANALYSIS_TIMEOUT_SEC": "30"}), 30.0)
 
     def test_deleted_upload_guard_blocks_video_jobs_before_processing(self):
         self.assertTrue(is_deleted_upload("deleted"))

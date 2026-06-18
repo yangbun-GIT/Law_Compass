@@ -1,4 +1,5 @@
 import json
+import multiprocessing as mp
 import os
 import random
 import shutil
@@ -90,6 +91,84 @@ def user_facing_job_status(job_type: str, status: str) -> dict[str, str]:
         "job_label": USER_JOB_LABELS.get(job_type, "분석 준비 중"),
         "status_label": USER_STATUS_LABELS.get(status, "상태를 확인하고 있습니다."),
     }
+
+
+def yolo_analysis_timeout_seconds(env: Mapping[str, str | None] | None = None) -> float:
+    values = os.environ if env is None else env
+    raw = str(values.get("YOLO_FRAME_ANALYSIS_TIMEOUT_SEC") or "").strip()
+    if not raw:
+        return 45.0
+    try:
+        return max(5.0, float(raw))
+    except ValueError:
+        return 45.0
+
+
+def _public_frame_ref(frame: dict[str, Any]) -> str:
+    path = str(frame.get("path") or "")
+    return Path(path).name if path else str(frame.get("frame_ref") or "")
+
+
+def _yolo_timeout_payload(frame_details: list[dict[str, Any]], timeout_sec: float, reason: str = "timeout") -> dict[str, Any]:
+    analyzed_frames = [_public_frame_ref(frame) for frame in frame_details[:24]]
+    return {
+        "version": "yolo-frame-analysis-v1",
+        "enabled": True,
+        "provider": "ultralytics-yolo",
+        "success": False,
+        "reason": f"yolo_frame_analysis_{reason}",
+        "observations": [],
+        "summary": {"total_detections": 0, "target_type_counts": {}},
+        "selected_frame_count": len(analyzed_frames),
+        "analyzed_frames": analyzed_frames,
+        "failure_observations": [{
+            "code": "yolo_frame_analysis_timeout" if reason == "timeout" else "yolo_frame_analysis_worker_failed",
+            "source": "yolo_frame_analysis",
+            "stage": "prediction",
+            "safe_message": "YOLO 객체 후보 분석이 제한 시간 안에 끝나지 않아 기본 프레임 정보로 계속 진행합니다.",
+            "severity": "warning",
+            "recoverable": True,
+            "retryable": True,
+            "fallback_reason": reason,
+            "metadata": {"timeout_sec": timeout_sec},
+        }],
+    }
+
+
+def _run_yolo_analysis_child(frame_details: list[dict[str, Any]], context: dict[str, Any], queue: Any) -> None:
+    try:
+        queue.put({"ok": True, "payload": analyze_frames_with_yolo(frame_details, context)})
+    except BaseException as exc:
+        queue.put({"ok": False, "error": str(exc), "error_type": type(exc).__name__})
+
+
+def analyze_frames_with_yolo_bounded(frame_details: list[dict[str, Any]], context: dict[str, Any]) -> dict[str, Any]:
+    if os.getenv("ENABLE_YOLO_FRAME_ANALYSIS", "0") != "1":
+        return analyze_frames_with_yolo(frame_details, context)
+
+    timeout_sec = yolo_analysis_timeout_seconds()
+    queue: mp.Queue = mp.Queue(maxsize=1)
+    proc = mp.Process(target=_run_yolo_analysis_child, args=(frame_details, context, queue), daemon=False)
+    proc.start()
+    proc.join(timeout_sec)
+
+    if proc.is_alive():
+        proc.terminate()
+        proc.join(3)
+        if proc.is_alive():
+            proc.kill()
+            proc.join(1)
+        return _yolo_timeout_payload(frame_details, timeout_sec)
+
+    if not queue.empty():
+        result = queue.get()
+        if result.get("ok"):
+            return result.get("payload") or _yolo_timeout_payload(frame_details, timeout_sec, "empty_payload")
+        return _yolo_timeout_payload(frame_details, timeout_sec, str(result.get("error_type") or "error").lower())
+
+    if proc.exitcode == 0:
+        return _yolo_timeout_payload(frame_details, timeout_sec, "empty_payload")
+    return _yolo_timeout_payload(frame_details, timeout_sec, f"exit_{proc.exitcode}")
 
 
 def requests_post_json(url: str, payload: dict, headers: dict[str, str] | None = None, timeout: float = 25):
@@ -211,7 +290,7 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
         case_inputs = cur.fetchone()
         metadata["trace_id"] = trace_id
         frame_analysis_context = build_frame_analysis_context(row, metadata, case_inputs, trace_id=trace_id)
-        yolo_frame_analysis = analyze_frames_with_yolo(frame_details, frame_analysis_context)
+        yolo_frame_analysis = analyze_frames_with_yolo_bounded(frame_details, frame_analysis_context)
         frame_analysis_context["vision_object_inventory"] = _compact_yolo_context(yolo_frame_analysis)
         frame_details = rank_frame_details_by_yolo(frame_details, yolo_frame_analysis)
         frame_selection_summary = summarize_frame_selection(frame_details)

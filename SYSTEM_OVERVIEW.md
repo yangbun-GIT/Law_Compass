@@ -10,7 +10,8 @@
 | Case status | `/api/v1/cases/:caseId/analyze-video`는 신규 job 등록 또는 기존 active job 재사용 시 `cases.status='analyzing'`을 남겨 refresh 직후에도 진행 상태를 복원할 수 있게 한다. |
 | Worker timeout | `apps/worker/worker/job_processor.py`는 Agent 영상 분석 호출에 `WORKER_AGENT_TIMEOUT_SEC`를 적용한다. 미설정 시 `ANALYZE_TIMEOUT_MS`/`REQUEST_TIMEOUT_MS`를 해석하고, 기본값은 90초다. |
 | Worker hard timeout | `apps/worker/worker/main.py`는 각 Redis job을 child process로 실행한다. `WORKER_JOB_TIMEOUT_SEC`, `WORKER_VIDEO_PREPROCESS_TIMEOUT_SEC`, `WORKER_VIDEO_ANALYZE_TIMEOUT_SEC` 안에 끝나지 않으면 child를 종료하고 해당 job을 실패 처리한 뒤 Redis 메시지를 ack해 다음 작업으로 넘어간다. |
-| 운영 env | `env.example`, `env.oci.example`, `compose.yaml`, `compose.prod.yaml`, `compose.jcloud.yaml`에 `WORKER_AGENT_TIMEOUT_SEC=90`, `WORKER_JOB_TIMEOUT_SEC=240`, `WORKER_VIDEO_PREPROCESS_TIMEOUT_SEC=240`, `WORKER_VIDEO_ANALYZE_TIMEOUT_SEC=150`을 추가했다. JCloud/저사양 VM에서 실제 영상 분석이 길면 120~300초 범위에서 조정할 수 있다. |
+| YOLO bounded fallback | `apps/worker/worker/job_processor.py`는 YOLO 객체 후보 분석을 `YOLO_FRAME_ANALYSIS_TIMEOUT_SEC`로 제한한다. 제한 시간을 넘으면 YOLO 결과는 warning/fallback으로 남기고 기본 프레임 메타데이터와 사용자 입력 기반 Agent 분석을 계속 진행한다. |
+| 운영 env | `env.example`, `env.oci.example`, `compose.yaml`, `compose.prod.yaml`, `compose.jcloud.yaml`에 `WORKER_AGENT_TIMEOUT_SEC=90`, `WORKER_JOB_TIMEOUT_SEC=240`, `WORKER_VIDEO_PREPROCESS_TIMEOUT_SEC=240`, `WORKER_VIDEO_ANALYZE_TIMEOUT_SEC=150`, `YOLO_FRAME_ANALYSIS_TIMEOUT_SEC=45`를 추가했다. JCloud/저사양 VM에서 실제 영상 분석이 길면 120~300초 범위에서 조정할 수 있다. |
 
 DB migration, public API path, Redis stream key, storage path는 변경하지 않았다. 배포 시 Worker/Gateway/Frontend 이미지를 새로 빌드하고, 운영 `.env`에 Worker timeout 값을 반영한 뒤 서비스를 재시작한다. 운영 점검 시에는 `redis-cli XPENDING <REDIS_STREAM_KEY> <REDIS_STREAM_GROUP>`와 `jobs.status/attempts/last_error`를 함께 확인한다.
 
