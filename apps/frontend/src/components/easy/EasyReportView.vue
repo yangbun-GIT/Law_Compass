@@ -32,15 +32,15 @@
         <div class="basis-grid compact-grid">
           <div class="basis-card">
             <h3>확인된 사실</h3>
-            <ul v-if="finalityCard.confirmed_facts?.length" class="check-list">
-              <li v-for="item in finalityCard.confirmed_facts" :key="item">{{ text(item) }}</li>
+            <ul v-if="finalityConfirmedFacts.length" class="check-list">
+              <li v-for="item in finalityConfirmedFacts" :key="item">{{ item }}</li>
             </ul>
             <p v-else class="kv">현재 입력에서 바로 확정한 핵심 사실은 제한적입니다.</p>
           </div>
           <div class="basis-card">
             <h3>더 확인할 사실</h3>
-            <ul v-if="finalityCard.missing_facts?.length" class="check-list">
-              <li v-for="item in finalityCard.missing_facts" :key="item">{{ text(item) }}</li>
+            <ul v-if="finalityMissingFacts.length" class="check-list">
+              <li v-for="item in finalityMissingFacts" :key="item">{{ item }}</li>
             </ul>
             <p v-else class="kv">추가로 우선 확인할 사실은 따로 표시되지 않았습니다.</p>
           </div>
@@ -378,7 +378,7 @@ import RelatedVideoCard from "../knia/RelatedVideoCard.vue";
 import KniaFaultRatioBar from "../knia/KniaFaultRatioBar.vue";
 import KniaDetailEvidenceCard from "../knia/KniaDetailEvidenceCard.vue";
 import AccidentPartyTypeActionCard from "../result/AccidentPartyTypeActionCard.vue";
-import { formatKniaBody, removeTechnicalFields, sanitizeDisplayText } from "../../utils/displaySanitizer";
+import { formatKniaBody, removeTechnicalFields, sanitizeDisplayText, sanitizeOptionalDisplayText } from "../../utils/displaySanitizer";
 
 const props = defineProps<{ report: any; analysisMode?: string; followupSubmitting?: boolean; followupError?: string }>();
 const emit = defineEmits<{ submitFollowup: [answers: Record<string, string>] }>();
@@ -416,6 +416,8 @@ const actionItems = computed(() => Array.isArray(safeReport.value?.top_actions) 
 const frameEvidenceCards = computed(() => collectFrameEvidenceCards(safeReport.value));
 const displayMissingInfo = computed(() => safeReport.value?.missing_info || {});
 const finalityCard = computed(() => safeReport.value?.finality_display_card || safeReport.value?.simple_report?.finality || null);
+const finalityConfirmedFacts = computed(() => userVisibleFactList(finalityCard.value?.confirmed_facts, 6));
+const finalityMissingFacts = computed(() => userVisibleFactList(finalityCard.value?.missing_facts, 6));
 const partyText = computed(() => [
   safeReport.value?.summary_for_user?.accident_type_label,
   safeReport.value?.accident_party_type_card?.label,
@@ -454,6 +456,26 @@ function textOrFallback(...values: any[]) {
     if (typeof value === "string" && value.trim()) return sanitizeDisplayText(value);
   }
   return "";
+}
+
+function userVisibleFactList(value: any, limit = 6) {
+  const source = Array.isArray(value) ? value : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of source) {
+    const record = item && typeof item === "object" ? item as Record<string, unknown> : null;
+    const candidate = record
+      ? (record.label || record.title || record.question || record.field || record.fact_key || record.name)
+      : item;
+    const text = sanitizeOptionalDisplayText(candidate);
+    if (!text || text === "확인이 필요합니다") continue;
+    const normalized = text.replace(/\s+/g, " ").trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(text);
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 function collectFrameEvidenceCards(report: any) {

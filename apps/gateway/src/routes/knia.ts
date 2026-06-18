@@ -45,6 +45,16 @@ function safeText(value: any) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
+function isNumericAdjustmentText(value: any) {
+  const text = safeText(value);
+  return /^[AB]?\s*[+-]?\d+(?:\.\d+)?%?$/.test(text) || /^조정값\s*[+-]?\d+(?:\.\d+)?%?$/.test(text);
+}
+
+function isSyntheticAdjustmentLabel(value: any) {
+  const text = safeText(value);
+  return isNumericAdjustmentText(text) || /^가감요소\s*\d+$/i.test(text);
+}
+
 function normalizeAdjustmentFactors(value: any, sourceDetailUrl?: any) {
   return asArray(value)
     .map((item: any, index: number) => {
@@ -57,10 +67,16 @@ function normalizeAdjustmentFactors(value: any, sourceDetailUrl?: any) {
         else deltaA = delta;
       }
       const rawLabel = safeText(item?.label ?? item?.title ?? item?.label_candidate ?? item?.source_line);
-      const label = rawLabel && /^[+-]?\d+$/.test(rawLabel)
-        ? `조정값 ${rawLabel}`
-        : rawLabel || `가감요소 ${index + 1}`;
-      const description = safeText(item?.description ?? item?.condition_text ?? item?.source_text ?? item?.source_line);
+      const rawDescription = safeText(item?.description ?? item?.condition_text ?? item?.source_text ?? item?.source_line);
+      const hasMeaningfulLabel = rawLabel && !isSyntheticAdjustmentLabel(rawLabel);
+      const hasMeaningfulDescription = rawDescription && !isSyntheticAdjustmentLabel(rawDescription) && rawDescription !== rawLabel;
+
+      if (!hasMeaningfulLabel && !hasMeaningfulDescription) {
+        return null;
+      }
+
+      const label = hasMeaningfulLabel ? rawLabel : rawDescription;
+      const description = hasMeaningfulDescription ? rawDescription : "";
       return {
         label,
         title: label,
@@ -76,6 +92,7 @@ function normalizeAdjustmentFactors(value: any, sourceDetailUrl?: any) {
         review_required: !!item?.review_required,
       };
     })
+    .filter(Boolean)
     .filter((item: any) => safeText(item.label));
 }
 

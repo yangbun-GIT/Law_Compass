@@ -68,7 +68,31 @@
   cyclist: "자전거",
   vehicle: "차량",
   pedestrian: "보행자",
-  object: "시설물"
+  object: "시설물",
+  visibility: "시야 확보 여부",
+  avoidability: "회피 가능성",
+  visibility_condition: "사고 당시 시야 조건",
+  visibility_or_weather: "시야와 날씨",
+  stealth_visibility: "정차 차량 식별 가능성",
+  stealth_avoidability: "정차 차량 회피 가능성",
+  lighting_status: "등화장치 상태",
+  vehicle_lights_status: "차량 등화 상태",
+  brake_light_status: "브레이크등 작동 여부",
+  opponent_drunk_driving: "상대 음주운전 여부",
+  drunk_driving: "음주운전 여부",
+  opponent_speed: "상대 차량 속도",
+  vehicle_speed: "차량 속도",
+  road_surface: "노면 상태",
+  weather: "날씨",
+  cctv_available: "CCTV 확인 가능 여부",
+  cctv_or_blackbox_available: "블랙박스 또는 CCTV 확보 여부",
+  blackbox_available: "블랙박스 확보 여부",
+  signal_state: "신호 상태",
+  opponent_signal_visible: "상대 신호 확인 가능 여부",
+  opponent_signal_violation: "상대 신호위반 여부",
+  front_vehicle_stopped: "앞차 정차 여부",
+  rear_vehicle_collision: "후방 추돌 여부",
+  stopped_vehicle_without_lights: "정차 차량 무등화 여부"
 };
 const TECHNICAL_KEYS = new Set(["model_info", "technical_model_info", "scenario_classifier", "retrieval", "cache_key", "evidence_cache_key", "chunk_id", "score", "rag_top_k", "ai_profile", "llm_enabled", "llm_usage", "llm_policy", "analysis_source", "provider_enabled", "allowed_outputs", "deterministic_authority", "orchestrator", "security_flags", "scenario_tags", "scenario_type", "document_id", "source_uri", "source_type", "source_family", "evidence_ids", "used_evidence_ids", "claim_evidence", "claim_id", "evidence_refs", "required_evidence_family", "support_level", "unsupported_claims", "evidence_support_level", "decision_status", "judgment_status", "agent_judgment", "stage_statuses", "blocking_reasons", "must_not_present_as_final", "user_reference_allowed", "agent_judgment_contract_version", "agent_judgment_overall_status", "decision_blockers", "decision_readiness", "knia_basis", "presentation_policy", "presentation_status", "restricted_sections", "finality", "input_requirements", "followup_loop", "required_input_questions", "blocking_fields", "optional_fields", "video_input_contract", "_video_input_contract", "accepted_observations", "uncertain_observations", "supporting_observations", "ignored_observations", "fact_patch", "confirmation_candidates", "confirmation_groups", "observation_quality", "observation_quality_summary", "quality_gate", "frame_refs", "fact_arbitration", "_fact_arbitration", "fact_sources", "_fact_sources", "video_primary_fields", "user_primary_fields", "applied_video_fields", "kept_user_fields", "confirmed_fields", "held_video_fields", "tentatively_supported_fields", "pending_video_confirmations", "confirmation_fields", "conflicts", "requires_confirmation", "agent_trace", "reflection_loop", "trace_policy", "packet", "internal_packet", "metadata", "payload", "trace", "debug", "raw", "raw_payload", "raw_metadata", "raw_trace", "step_count", "requery_attempted", "requery_added_evidence_count", "iterations_used", "initial_requery_reasons", "initial_query_terms", "final_missing_requirements", "next_action", "expert_guidance_sections", "source_blocked_reason", "retrieval_id", "trace_id", "raw_trace_id", "raw_prompt", "structured_chart_used", "party_guard_policy", "rejected_mismatch_count", "fallback_used", "parsing_confidence", "review_required", "reference_only"]);
 const BAD_PATTERNS = [
@@ -167,6 +191,8 @@ export function sanitizeDisplayText(value: unknown, fallback = ""): string {
     /^(\?\s*)+$/.test(compact) ||
     /^\d+\?$/.test(compact) ||
     /^(,\s*)?=\d+(,\s*=\d+)*\.?$/.test(compact) ||
+    /^조정값\s*[+-]?\d+(?:\.\d+)?%?$/.test(compact) ||
+    /^가감요소\s*\d+$/i.test(compact) ||
     /^[\s,.;:·|-]*$/.test(compact);
   if (brokenOnly) return fallback;
   const mappedLevel = { medium: "보통", high: "높음", low: "낮음" }[text.toLowerCase()];
@@ -191,6 +217,19 @@ export function sanitizeDisplayText(value: unknown, fallback = ""): string {
     .replace(/\s{2,}/g, " ")
     .trim();
   return text || fallback || "확인이 필요합니다";
+}
+
+export function sanitizeOptionalDisplayText(value: unknown): string {
+  const text = sanitizeDisplayText(value, "");
+  return text === "확인이 필요합니다" ? "" : text;
+}
+
+export function isMeaningfulKniaAdjustmentFactor(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  const label = sanitizeOptionalDisplayText(item.label || item.title || item.reason);
+  const description = sanitizeOptionalDisplayText(item.description || item.condition_text || item.source_text);
+  return Boolean(label || description);
 }
 
 export function sanitizeUserVisibleText(value: unknown): string {

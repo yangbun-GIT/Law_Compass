@@ -218,7 +218,7 @@ import { api, formatApiError } from "../api/client";
 import KniaFaultRatioBar from "../components/knia/KniaFaultRatioBar.vue";
 import KniaVideoLinkCard from "../components/knia/KniaVideoLinkCard.vue";
 import { useSessionStore } from "../stores/session";
-import { sanitizeDisplayText } from "../utils/displaySanitizer";
+import { isMeaningfulKniaAdjustmentFactor, sanitizeDisplayText } from "../utils/displaySanitizer";
 import { getKniaFaultFactorGuide } from "../utils/kniaFaultFactorGuide";
 
 const route = useRoute();
@@ -245,7 +245,10 @@ const baseAForBar = computed(() => baseA.value ?? 0);
 const baseBForBar = computed(() => baseB.value ?? 0);
 const baseFaultLabel = computed(() => hasBaseFault.value ? `기본 A ${baseAForBar.value}% / B ${baseBForBar.value}%` : "");
 const detailUrl = computed(() => safeKniaUrl(chart.value?.source_detail_url || chart.value?.source_url));
-const adjustmentFactors = computed(() => Array.isArray(chart.value?.adjustment_factors) ? chart.value.adjustment_factors : []);
+const adjustmentFactors = computed(() =>
+  (Array.isArray(chart.value?.adjustment_factors) ? chart.value.adjustment_factors : [])
+    .filter(isMeaningfulKniaAdjustmentFactor),
+);
 const adjustmentExplanations = computed(() => Array.isArray(chart.value?.adjustment_explanations) ? chart.value.adjustment_explanations : []);
 const relatedLaws = computed(() => Array.isArray(chart.value?.related_laws) ? chart.value.related_laws : []);
 const caseReferences = computed(() => Array.isArray(chart.value?.case_references) ? chart.value.case_references : []);

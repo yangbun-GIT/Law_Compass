@@ -97,7 +97,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { api, formatApiError } from "../../api/client";
-import { sanitizeDisplayText } from "../../utils/displaySanitizer";
+import { isMeaningfulKniaAdjustmentFactor, sanitizeDisplayText } from "../../utils/displaySanitizer";
 import { getKniaFaultFactorGuide } from "../../utils/kniaFaultFactorGuide";
 import KniaFaultRatioBar from "./KniaFaultRatioBar.vue";
 
@@ -155,7 +155,11 @@ const baseFaultA = computed(() => numberOr(chart.value?.base_fault_a, chart.valu
 const baseFaultB = computed(() => numberOr(chart.value?.base_fault_b, chart.value?.applied_fault_b, props.fallbackStandard?.base_fault?.B, props.fallbackStandard?.base_fault?.b, props.fallbackStandard?.base_fault?.other));
 const hasBaseFault = computed(() => baseFaultA.value !== null && baseFaultB.value !== null);
 const baseFaultLabel = computed(() => hasBaseFault.value ? `기본 A ${baseFaultA.value}% / B ${baseFaultB.value}%` : "");
-const adjustmentFactors = computed(() => Array.isArray(chart.value?.adjustment_factors) ? chart.value.adjustment_factors : []);
+const adjustmentFactors = computed(() =>
+  (Array.isArray(chart.value?.adjustment_factors) ? chart.value.adjustment_factors : [])
+    .filter(isMeaningfulKniaAdjustmentFactor)
+    .slice(0, 12),
+);
 const sourceUrl = computed(() => safeKniaUrl(chart.value?.source_detail_url || chart.value?.source_url || props.fallbackStandard?.source_url || props.fallbackStandard?.button_url));
 const hasVisibleDetail = computed(() => Boolean(
   chart.value?.detail_collected_at ||
