@@ -6,6 +6,8 @@ from worker.job_processor import (
     build_analysis_result_values,
     build_frame_analysis_context,
     build_video_analyze_payload,
+    ensure_upload_available,
+    is_deleted_upload,
     _merge_frame_observations,
 )
 from worker.video_preprocess import VIDEO_PREPROCESS_CONTRACT_VERSION
@@ -50,6 +52,14 @@ class WorkerJobProcessorContractTest(unittest.TestCase):
 
     def test_agent_timeout_defaults_to_long_running_video_budget(self):
         self.assertEqual(agent_timeout_seconds({}), 90.0)
+
+    def test_deleted_upload_guard_blocks_video_jobs_before_processing(self):
+        self.assertTrue(is_deleted_upload("deleted"))
+        self.assertTrue(is_deleted_upload("ready", deleted_at="2026-06-18T00:00:00Z"))
+        self.assertFalse(is_deleted_upload("ready"))
+
+        with self.assertRaises(FileNotFoundError):
+            ensure_upload_available("upload-1", "deleted")
 
     def test_frame_analysis_context_uses_case_facts_as_visual_focus_only(self):
         metadata = {"duration_sec": 8.5, "width": 1280, "height": 720, "fps": 30}

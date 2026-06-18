@@ -73,6 +73,15 @@ USER_STATUS_LABELS = {
 }
 
 
+def is_deleted_upload(status: Any, deleted_at: Any = None) -> bool:
+    return deleted_at is not None or str(status or "").strip().lower() == "deleted"
+
+
+def ensure_upload_available(upload_id: Any, status: Any, deleted_at: Any = None) -> None:
+    if is_deleted_upload(status, deleted_at):
+        raise FileNotFoundError(f"upload {upload_id} is no longer available for video processing")
+
+
 def user_facing_job_status(job_type: str, status: str) -> dict[str, str]:
     return {
         "job_label": USER_JOB_LABELS.get(job_type, "분석 준비 중"),
@@ -153,12 +162,14 @@ def _process_video_preprocess(cur: Any, row: tuple[Any, ...], payload: dict[str,
     storage_path = payload.get("storage_path")
     storage_key = payload.get("storage_key")
     storage_driver = payload.get("storage_driver") or payload.get("storage_provider")
-    cur.execute("SELECT storage_provider, storage_driver, storage_key, storage_path FROM uploads WHERE id=%s", (row[2],))
+    cur.execute("SELECT storage_provider, storage_driver, storage_key, storage_path, status, deleted_at FROM uploads WHERE id=%s", (row[2],))
     up = cur.fetchone()
-    if up:
-        storage_driver = storage_driver or up[1] or up[0]
-        storage_key = storage_key or up[2]
-        storage_path = storage_path or up[3]
+    if not up:
+        raise FileNotFoundError("upload record not found for video processing")
+    ensure_upload_available(row[2], up[4], up[5])
+    storage_driver = storage_driver or up[1] or up[0]
+    storage_key = storage_key or up[2]
+    storage_path = storage_path or up[3]
     storage_driver = storage_driver or "local"
     storage_adapter = create_storage_adapter(storage_driver)
     local_video_path: Path | None = None
@@ -547,8 +558,11 @@ def _process_video_analyze(cur: Any, row: tuple[Any, ...], payload: dict[str, An
     cur.execute("SELECT title, description_text FROM cases WHERE id=%s", (row[1],))
     case_row = cur.fetchone()
 
-    cur.execute("SELECT metadata, file_name, status FROM uploads WHERE id=%s", (row[2],))
+    cur.execute("SELECT metadata, file_name, status, deleted_at FROM uploads WHERE id=%s", (row[2],))
     upload_row = cur.fetchone()
+    if not upload_row:
+        raise FileNotFoundError("upload record not found for video analysis")
+    ensure_upload_available(row[2], upload_row[2], upload_row[3])
     agent_payload = build_agent_video_request(row, payload, case_row, upload_row)
     trace_id = _trace_id_from_payload(agent_payload, row, fallback=job_id)
     response = requests_post_json(
