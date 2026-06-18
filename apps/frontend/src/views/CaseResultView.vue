@@ -35,10 +35,9 @@
         @download="downloadVideo"
       />
 
-      <EasyReportView
+      <GroupedResultReportView
         v-if="report"
         :report="report"
-        :analysis-mode="caseData?.analysis_mode || report?.analysis_mode || report?.display_mode"
         :followup-submitting="reanalyzing"
         :followup-error="followupError"
         @submit-followup="submitFollowup"
@@ -56,7 +55,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
-import EasyReportView from "../components/easy/EasyReportView.vue";
+import GroupedResultReportView from "../components/easy/GroupedResultReportView.vue";
 import UploadVideoReplayCard from "../components/result/UploadVideoReplayCard.vue";
 import { api, formatApiError, type AccidentFacts, type CaseItem, type UploadItem } from "../api/client";
 

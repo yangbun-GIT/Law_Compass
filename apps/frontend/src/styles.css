@@ -202,6 +202,111 @@ textarea { resize: vertical; min-height: 96px; }
     display: grid;
     gap: 22px;
 }
+
+.grouped-result-report {
+    gap: 18px;
+}
+
+.result-toggle-list {
+    display: grid;
+    gap: 12px;
+}
+
+.grouped-toggle {
+    padding: 0;
+    overflow: hidden;
+    background:
+            linear-gradient(145deg, rgba(61, 51, 43, 0.9), rgba(37, 30, 25, 0.96));
+    border-color: rgba(201, 169, 98, 0.30);
+}
+
+.grouped-toggle[open] {
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+}
+
+.grouped-toggle-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
+    min-height: 64px;
+    list-style: none;
+    color: var(--text-main);
+}
+
+.grouped-toggle-summary::-webkit-details-marker {
+    display: none;
+}
+
+.grouped-toggle-summary::after {
+    content: "+";
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    color: var(--accent-foreground);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    font-size: 1.35rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.grouped-toggle[open] .grouped-toggle-summary::after {
+    content: "−";
+}
+
+.grouped-toggle-summary span {
+    color: var(--text-main);
+    font-size: clamp(1.05rem, 2vw, 1.35rem);
+    font-weight: 900;
+}
+
+.grouped-toggle-summary small {
+    color: var(--text-sub);
+    font-size: 0.94rem;
+    line-height: 1.45;
+    text-align: right;
+}
+
+.grouped-toggle-body {
+    display: grid;
+    gap: 14px;
+    padding: 0 18px 18px;
+}
+
+.grouped-toggle-body > .card,
+.grouped-toggle-body > .easy-card {
+    margin: 0;
+}
+
+.grouped-toggle-body .basis-card h4 {
+    margin: 0 0 8px;
+    color: var(--text-main);
+    font-size: 1.05rem;
+}
+
+@media (max-width: 720px) {
+    .grouped-toggle-summary {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+        padding-right: 58px;
+        position: relative;
+    }
+
+    .grouped-toggle-summary::after {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+    }
+
+    .grouped-toggle-summary small {
+        text-align: left;
+    }
+}
 .easy-hero h1 {
     font-size: clamp(1.7rem, 3.6vw, 2.9rem);
     line-height: 1.12;

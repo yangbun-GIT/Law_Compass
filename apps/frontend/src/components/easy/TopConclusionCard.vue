@@ -1,7 +1,7 @@
 <template>
   <article class="card hero-card easy-hero">
     <p class="eyebrow">핵심 결론</p>
-    <h1>{{ text(report.headline) }}</h1>
+    <h1>{{ headline }}</h1>
     <div v-if="faultLabel" class="fault-summary-card">{{ faultLabel }}</div>
     <div class="chips">
       <span class="chip selected">{{ text(report.summary_for_user?.accident_type_label || "교통사고") }}</span>
@@ -16,6 +16,15 @@ import { computed } from "vue";
 import { sanitizeDisplayText } from "../../utils/displaySanitizer";
 
 const props = defineProps<{ report: any }>();
+
+const headline = computed(() =>
+  text(
+    props.report?.headline ||
+    props.report?.summary_for_user?.headline ||
+    props.report?.summary_for_user?.short_summary ||
+    "현재 입력 기준 핵심 결론입니다",
+  ),
+);
 
 const faultLabel = computed(() => {
   const fault = props.report?.fault_explanation || {};

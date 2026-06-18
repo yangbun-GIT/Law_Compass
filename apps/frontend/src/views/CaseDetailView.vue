@@ -269,10 +269,9 @@
           </div>
         </div>
 
-        <EasyReportView
+        <GroupedResultReportView
             v-else-if="report"
             :report="report"
-            :analysis-mode="analysisMode"
             :followup-submitting="reanalyzing"
             :followup-error="followupError"
             @submit-followup="submitFollowup"
@@ -352,7 +351,7 @@ import CaseSummaryCard from "../components/case/CaseSummaryCard.vue";
 import CaseUploadStep from "../components/case/CaseUploadStep.vue";
 import CaseWorkspaceHeader from "../components/case/CaseWorkspaceHeader.vue";
 import AnalysisLoadingSpinner from "../components/case/AnalysisLoadingSpinner.vue";
-import EasyReportView from "../components/easy/EasyReportView.vue";
+import GroupedResultReportView from "../components/easy/GroupedResultReportView.vue";
 import { useCaseWorkspace } from "../composables/useCaseWorkspace";
 
 const caseId = useRoute().params.caseId as string;
