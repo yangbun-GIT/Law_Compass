@@ -25,13 +25,22 @@ function readCookieSameSite(): "lax" | "strict" | "none" {
   return value === "strict" || value === "none" ? value : "lax";
 }
 
+const jwtAccessSecret = readProductionSecret("JWT_ACCESS_SECRET", "access");
+const jwtRefreshSecret = readProductionSecret("JWT_REFRESH_SECRET", "refresh");
+const uploadAccessTokenSecret = readEnv("UPLOAD_ACCESS_TOKEN_SECRET", jwtAccessSecret);
+
+if (isProduction && (!uploadAccessTokenSecret || uploadAccessTokenSecret.length < 32 || /^<[^>]+>$/.test(uploadAccessTokenSecret))) {
+  throw new Error("UPLOAD_ACCESS_TOKEN_SECRET must be set to a strong non-placeholder value in production");
+}
+
 export const env = {
   port: Number(process.env.PORT ?? 3000),
   apiPrefix: process.env.API_PREFIX ?? "/api/v1",
   dbUrl: process.env.DATABASE_URL ?? "",
   redisUrl: process.env.REDIS_URL ?? "",
-  jwtAccessSecret: readProductionSecret("JWT_ACCESS_SECRET", "access"),
-  jwtRefreshSecret: readProductionSecret("JWT_REFRESH_SECRET", "refresh"),
+  jwtAccessSecret,
+  jwtRefreshSecret,
+  uploadAccessTokenSecret,
   jwtAccessTtlSec: Number(process.env.JWT_ACCESS_TTL_SEC ?? 900),
   jwtRefreshTtlSec: Number(process.env.JWT_REFRESH_TTL_SEC ?? 1209600),
   agentUrl: process.env.INTERNAL_AGENT_URL ?? "http://agent:8000",

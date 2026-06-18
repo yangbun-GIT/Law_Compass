@@ -197,6 +197,9 @@ export function useCaseWorkspace(caseId: string) {
     );
     const progressEtaText = computed(() => {
         if (progressPercent.value >= 100) return "완료되었습니다.";
+        if (progress.value?.stalled) {
+            return "예상보다 오래 걸리고 있습니다. 결과가 준비되면 자동으로 표시됩니다.";
+        }
 
         const backendSeconds = Number(progress.value?.estimated_remaining_seconds);
 
@@ -206,7 +209,7 @@ export function useCaseWorkspace(caseId: string) {
         }
 
         if (progressPercent.value >= 88) return "결과 화면을 정리하고 있습니다.";
-        if (progressPercent.value >= 75) return "KNIA 기준과 가감요소를 대조하고 있습니다.";
+        if (progressPercent.value >= 75) return "KNIA 기준과 가감요소를 빠르게 대조하고 있습니다.";
         if (progressPercent.value >= 45) return "영상과 사고 정보를 확인하고 있습니다.";
 
         return "잠시 후 다음 단계로 넘어갑니다.";

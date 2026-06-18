@@ -3,7 +3,12 @@
 import json
 from typing import Any
 
+from app.services.knia.cache import cache_digest, get_json_cache, set_json_cache
 from app.services.knia.knia_repository import KniaRepository
+
+
+KNIA_FAULT_ESTIMATE_CACHE_VERSION = "v3"
+KNIA_FAULT_ESTIMATE_CACHE_TTL_SECONDS = 900
 
 
 def _as_text(*values: Any) -> str:
@@ -321,6 +326,24 @@ def estimate_knia_fault(
     accident_party_type: str | None = None,
     repo: KniaRepository | None = None,
 ) -> dict[str, Any]:
+    cache_key = f"knia:fault-estimate:{KNIA_FAULT_ESTIMATE_CACHE_VERSION}:" + cache_digest(
+        {
+            "chart_no": chart_no,
+            "chart_type": chart_type,
+            "description_text": description_text,
+            "selected_keywords": selected_keywords or [],
+            "structured_facts": structured_facts or {},
+            "video_metadata": video_metadata or {},
+            "scenario_type": scenario_type,
+            "accident_party_type": accident_party_type,
+        },
+        length=24,
+    )
+    cached = get_json_cache(cache_key)
+    if isinstance(cached, dict):
+        cached["cache_hit"] = True
+        cached["cache_key"] = cache_key
+        return cached
     repo = repo or KniaRepository()
     chart = repo.get_chart(chart_no, chart_type)
     if not chart:
@@ -328,6 +351,9 @@ def estimate_knia_fault(
     if chart.get("base_fault") or chart.get("major_party_type"):
         structured_result = calculate_fault_from_structured_chart(chart, structured_facts or {})
         if structured_result.get("base_fault"):
+            structured_result["cache_hit"] = False
+            structured_result["cache_key"] = cache_key
+            set_json_cache(cache_key, structured_result, KNIA_FAULT_ESTIMATE_CACHE_TTL_SECONDS)
             return structured_result
     factors = repo.get_chart_adjustments(chart_no, chart_type)
     facts = structured_facts or {}
@@ -379,7 +405,7 @@ def estimate_knia_fault(
         effect = item["applied_effect"]
         steps.append(f"{item['label']}: A {effect['A']:+d}, B {effect['B']:+d}")
     steps.append(f"최종 A{a}:B{b}")
-    return {
+    result = {
         "base_fault": {"A": base_a, "B": base_b},
         "selected_adjustments": selected,
         "rejected_adjustments": rejected,
@@ -398,3 +424,7 @@ def estimate_knia_fault(
         },
         "notice": "KNIA 원문 기준 기반 참고 산정입니다. 최종 과실비율은 보험사·분쟁심의위·수사기관·법원 판단에 따라 달라질 수 있습니다.",
     }
+    result["cache_hit"] = False
+    result["cache_key"] = cache_key
+    set_json_cache(cache_key, result, KNIA_FAULT_ESTIMATE_CACHE_TTL_SECONDS)
+    return result

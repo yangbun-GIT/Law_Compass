@@ -1,4 +1,32 @@
 ﻿# LawCompass 시스템 구성 명세서
+## 2026-06-18 업로드 영상 재생 HMAC 토큰 보강
+
+결과 화면에서 사용자가 업로드한 블랙박스 영상을 일반 사용자 모드와 전문가 모드 모두에서 다시 볼 수 있도록 Gateway 업로드 조회 경로와 프론트 결과 화면을 보강했다.
+
+| 영역 | 현재 구조 |
+| --- | --- |
+| Gateway signed URL | `/api/v1/uploads/:uploadId/view-url`과 `/download-url`은 `UPLOAD_ACCESS_TOKEN_SECRET`(미설정 시 `JWT_ACCESS_SECRET`)으로 서명한 짧은 만료 HMAC 토큰을 포함한 Gateway 프록시 URL을 발급한다. |
+| Content proxy | `/api/v1/uploads/:uploadId/download`는 기존 로그인 세션 또는 유효한 HMAC 토큰을 통해서만 영상을 스트리밍하며, NAS/local storage key와 내부 경로는 사용자 응답에 노출하지 않는다. |
+| Frontend result replay | `CaseResultView.vue`는 케이스 업로드 목록에서 최신 영상 업로드를 찾아 `UploadVideoReplayCard`로 표시하고, 재생 URL 만료 전에 자동 갱신한다. |
+| Storage boundary | NAS 파일은 직접 공개하지 않고 Gateway가 storage adapter를 통해 읽어 브라우저로 전달한다. NAS 설정 변경 없이 Gateway 토큰 정책으로 접근 제어한다. |
+| 운영 env | 운영 환경에서는 `UPLOAD_ACCESS_TOKEN_SECRET`을 강한 값으로 설정해야 하며, 설정하지 않으면 강한 `JWT_ACCESS_SECRET`을 공유 secret으로 사용한다. |
+
+Public upload API path는 유지하면서 응답에 `expires_at`을 additive로 추가했다. DB migration은 필요하지 않다.
+
+## 2026-06-18 KNIA 조회 캐시 및 B-tree 인덱스 보강
+
+KNIA 기준과 가감요소 대조 단계가 반복 DB 조회와 Agent 계산을 다시 수행하면서 결과 화면 진입이 늦어질 수 있는 병목을 줄였다. Gateway 공개 KNIA API와 Agent 내부 KNIA matcher/fault estimate에 Redis 캐시를 추가하고, KNIA chart/detail 조회 패턴에 맞춘 PostgreSQL B-tree 복합 인덱스 migration을 추가했다.
+
+| 영역 | 현재 구조 |
+| --- | --- |
+| Gateway Redis cache | `apps/gateway/src/lib/response-cache.ts`가 정렬 JSON SHA-256 기반 cache key를 만들고, `apps/gateway/src/routes/knia.ts`의 ranking/chart/match/fault-estimate/adjustments/references 응답을 짧은 TTL로 캐시한다. |
+| Agent Redis cache | `apps/agent/app/services/knia/cache.py`가 공통 Redis JSON cache helper를 제공하며, `knia_matcher.py`와 `knia_fault_adjuster.py`가 구조화 chart 후보와 과실 산정 결과를 15분 TTL로 재사용한다. |
+| Cache invalidation | 관리자 KNIA 수집/import/rebuild 경로는 성공 후 `scope=knia` 캐시 무효화를 호출하고, Agent invalidate는 `knia_json:exact:*`와 `knia:*` 계열 키를 함께 제거한다. |
+| DB index | `infra/postgres/migrations/017_knia_lookup_performance_indexes.sql`이 `knia_fault_charts`, `knia_ranking_items`, `knia_adjustment_factors`, `knia_chart_reference_sections`, KNIA RAG 문서/청크의 chart/party/scenario 조회용 B-tree 복합 인덱스를 추가한다. |
+| Frontend progress | `useCaseWorkspace.ts`는 지연 작업을 멈춤처럼 보이지 않게 안내하고, KNIA 대조 문구를 사용자 친화적으로 조정한다. |
+
+이 변경은 public API path와 DTO를 유지하는 additive 성능 보강이다. Redis key namespace와 DB schema/index가 추가되었으므로 운영 배포 시 migration 적용과 서비스 재시작이 필요하다.
+
 ## 2026-06-18 구조 문서 폴더화 및 KNIA route 책임 분리
 
 업로드된 구조 기준에 맞춰 Agent/MCP/Task-Plan-Goal 문서와 Architecture 판단 문서를 실제 저장소 폴더 경계로 분리하고, KNIA route가 떠안고 있던 표시 정규화 helper를 별도 Gateway lib로 이동했다.
@@ -3073,9 +3101,9 @@ Agent 주요 DTO:
 | 영역 | 환경변수 |
 | --- | --- |
 | 공통 | `DATABASE_URL`, `REDIS_URL`, `NODE_ENV`, `PYTHONPATH` |
-| Gateway 인증 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_TTL_SEC`, `JWT_REFRESH_TTL_SEC`, `INTERNAL_ADMIN_TOKEN` |
+| Gateway 인증 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `UPLOAD_ACCESS_TOKEN_SECRET`, `JWT_ACCESS_TTL_SEC`, `JWT_REFRESH_TTL_SEC`, `INTERNAL_ADMIN_TOKEN` |
 | 내부 통신 | `INTERNAL_AGENT_URL`, `AGENT_BASE_URL`, `INTERNAL_SERVICE_TOKEN`, `REQUEST_TIMEOUT_MS`, `ANALYZE_TIMEOUT_MS`, `RETRY_COUNT` |
-| 저장소 | `STORAGE_PROVIDER`, `LOCAL_STORAGE_ROOT`, `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
+| 저장소 | `STORAGE_PROVIDER`, `LOCAL_STORAGE_ROOT`, `LOCAL_VIEW_URL_EXPIRES_SEC`, `LOCAL_DOWNLOAD_URL_EXPIRES_SEC`, `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
 | OpenAI | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_EMBEDDING_MODEL`, `OPENAI_TIMEOUT_SEC`, `ENABLE_OPENAI_ANALYSTS` |
 | 법률/공공 API | `LAW_API_OC`, `LAW_API_BASE`, `LAW_API_TARGETS`, `DATA_GO_SERVICE_KEY`, `DATA_GO_TRAFFIC_URL`, `DATA_GO_SEARCH_YEAR`, `DATA_GO_SIDO`, `DATA_GO_GUGUN` |
 | KNIA | `KNIA_BASE_URL`, `KNIA_REQUEST_DELAY_MS`, `KNIA_TIMEOUT_SEC`, `KNIA_COLLECT_MAX_CHARTS`, `KNIA_FAULT_RATIO_JSON_PATH` |

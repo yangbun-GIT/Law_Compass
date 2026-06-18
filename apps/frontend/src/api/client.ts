@@ -310,8 +310,8 @@ export const api = {
     request<{ upload_id: string; job_id: string; status: string; trace_id: string }>("/api/v1/uploads/complete", { method: "POST", body: JSON.stringify({ upload_id, auto_analyze_after_preprocess: options.autoAnalyzeAfterPreprocess !== false }), headers: idempo() }),
   getUpload: (uploadId: string) => request<{ upload: UploadItem; trace_id: string }>(`/api/v1/uploads/${uploadId}`),
   getCaseUploads: (caseId: string) => request<{ items: UploadItem[]; trace_id: string }>(`/api/v1/cases/${caseId}/uploads`),
-  getViewUrl: (uploadId: string) => request<{ view_url: string; expires_in_sec: number }>(`/api/v1/uploads/${uploadId}/view-url`),
-  getDownloadUrl: (uploadId: string) => request<{ download_url: string; expires_in_sec: number }>(`/api/v1/uploads/${uploadId}/download-url`),
+  getViewUrl: (uploadId: string) => request<{ view_url: string; expires_in_sec: number; expires_at?: string }>(`/api/v1/uploads/${uploadId}/view-url`),
+  getDownloadUrl: (uploadId: string) => request<{ download_url: string; expires_in_sec: number; expires_at?: string }>(`/api/v1/uploads/${uploadId}/download-url`),
 
   analyzeText: (caseId: string, payload: { description_text: string; structured_facts?: AccidentFacts; selected_keywords?: string[]; analysis_mode?: string; initial_intake?: InitialIntakePayload; ai_profile?: string; specialist_roles?: string[] }) =>
     request<any>(`/api/v1/cases/${caseId}/analyze-text`, { method: "POST", body: JSON.stringify(payload), headers: idempo() }),

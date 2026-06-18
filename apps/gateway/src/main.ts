@@ -142,6 +142,7 @@ registerUploadRoutes(app, {
   db,
   redis,
   storage,
+  uploadAccessTokenSecret: env.uploadAccessTokenSecret,
   localViewExpires: env.localViewExpires,
   localDownloadExpires: env.localDownloadExpires,
   errorPayload
@@ -162,6 +163,7 @@ registerAnalysisRoutes(app, {
 registerKniaRoutes(app, {
   env,
   db,
+  redis,
   requireAdmin,
   errorPayload
 });

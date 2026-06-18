@@ -3,12 +3,14 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import type { StorageProvider } from "../storage/provider.js";
+import { createUploadAccessToken, verifyUploadAccessToken } from "../lib/upload-access-token.js";
 
 export type UploadRouteOptions = {
     apiPrefix: string;
     db: any;
     redis: any;
     storage: StorageProvider;
+    uploadAccessTokenSecret: string;
     localViewExpires: number;
     localDownloadExpires: number;
     errorPayload: (code: string, message: string, traceId: string) => any;
@@ -368,11 +370,23 @@ export async function createGetUrl(
         return { blocked: true } as any;
     }
 
+    const signed = createUploadAccessToken(opts.uploadAccessTokenSecret, {
+        uploadId,
+        ownerUserId: ownerId,
+        disposition,
+        expiresInSec: expiresIn,
+    });
+    const params = new URLSearchParams({
+        disposition,
+        token: signed.token,
+    });
+
     return {
         upload,
-        url: `${opts.apiPrefix}/uploads/${uploadId}/download?disposition=${disposition}`,
+        url: `${opts.apiPrefix}/uploads/${encodeURIComponent(uploadId)}/download?${params.toString()}`,
         gateway_proxy: true,
-        expiresIn,
+        expiresIn: signed.expiresInSec,
+        expiresAt: signed.expiresAt,
     } as any;
 }
 
@@ -464,13 +478,29 @@ function contentTypeForFrame(frameRef: string) {
 export async function sendUploadContent(opts: UploadRouteOptions, req: FastifyRequest, reply: any) {
     const traceId = trace(req);
     const { uploadId } = req.params as any;
+    const token = typeof (req.query as any)?.token === "string" ? (req.query as any).token : undefined;
     const disposition = ((req.query as any)?.disposition === "attachment" ? "attachment" : "inline") as
         | "inline"
         | "attachment";
+    let ownerId = (req as any).user?.id as string | undefined;
+    let signedAccess = false;
+
+    if (token) {
+        const verified = verifyUploadAccessToken(opts.uploadAccessTokenSecret, token, { uploadId, disposition });
+        if (!verified.ok) {
+            return reply.code(401).send(opts.errorPayload("UPLOAD_ACCESS_TOKEN_INVALID", "영상 보기 링크가 만료되었거나 올바르지 않습니다. 새로고침 후 다시 시도해 주세요.", traceId));
+        }
+        ownerId = verified.claims.owner_user_id;
+        signedAccess = true;
+    }
+
+    if (!ownerId) {
+        return reply.code(401).send(opts.errorPayload("AUTH_REQUIRED", "로그인이 필요합니다.", traceId));
+    }
 
     const row = await opts.db.query(
         `SELECT * FROM uploads WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL`,
-        [uploadId, (req as any).user.id]
+        [uploadId, ownerId]
     );
 
     if (!row.rowCount) {
@@ -506,6 +536,7 @@ export async function sendUploadContent(opts: UploadRouteOptions, req: FastifyRe
         }
 
         reply.header("content-disposition", `${disposition}; filename="${encodeURIComponent(upload.file_name)}"`);
+        reply.header("cache-control", signedAccess ? "private, max-age=60" : "private, no-store");
 
         return reply.send(stream);
     } catch (err: any) {

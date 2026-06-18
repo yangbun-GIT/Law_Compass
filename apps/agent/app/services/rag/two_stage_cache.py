@@ -128,14 +128,25 @@ def invalidate_scope(scope: str = "knia_json") -> dict[str, Any]:
     if not db_url:
         return {"scope": scope, "redis_deleted": deleted_redis, "semantic_cache_deleted": 0, "disabled_reason": "DATABASE_URL missing"}
     r = _redis()
-    if r and scope == "knia_json":
+    if r and scope in {"knia_json", "knia", "all"}:
         try:
-            for key in r.scan_iter("knia_json:exact:*"):
-                deleted_redis += r.delete(key)
+            patterns = [
+                "knia_json:exact:*",
+                "knia:ranking:*",
+                "knia:chart:*",
+                "knia:chart-adjustments:*",
+                "knia:chart-references:*",
+                "knia:match:*",
+                "knia:fault-estimate:*",
+            ]
+            for pattern in patterns:
+                for key in r.scan_iter(pattern):
+                    deleted_redis += r.delete(key)
         except Exception:
             deleted_redis = 0
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
-        cur.execute("DELETE FROM semantic_query_cache WHERE source_scope=%s", (scope,))
+        semantic_scope = "knia_json" if scope in {"knia", "all"} else scope
+        cur.execute("DELETE FROM semantic_query_cache WHERE source_scope=%s", (semantic_scope,))
         deleted_pg = cur.rowcount
         conn.commit()
     return {"scope": scope, "redis_deleted": deleted_redis, "semantic_cache_deleted": deleted_pg}

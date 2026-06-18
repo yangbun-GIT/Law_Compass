@@ -227,7 +227,8 @@ export function registerUploadRoutes(app: FastifyInstance, opts: UploadRouteOpti
     });
 
     app.get(`${opts.apiPrefix}/uploads/:uploadId/download`, async (req, reply) => {
-        if (!requireUser(req as any, reply)) return;
+        const token = typeof (req.query as any)?.token === "string" ? (req.query as any).token : "";
+        if (!token && !requireUser(req as any, reply)) return;
         return sendUploadContent(opts, req, reply);
     });
 
@@ -259,7 +260,8 @@ export function registerUploadRoutes(app: FastifyInstance, opts: UploadRouteOpti
 
         return {
             view_url: result.url,
-            expires_in_sec: opts.localViewExpires,
+            expires_in_sec: result.expiresIn,
+            expires_at: result.expiresAt,
             trace_id: traceId,
         };
     });
@@ -287,7 +289,8 @@ export function registerUploadRoutes(app: FastifyInstance, opts: UploadRouteOpti
 
         return {
             download_url: result.url,
-            expires_in_sec: opts.localDownloadExpires,
+            expires_in_sec: result.expiresIn,
+            expires_at: result.expiresAt,
             trace_id: traceId,
         };
     });

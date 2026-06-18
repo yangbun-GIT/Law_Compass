@@ -6,6 +6,19 @@ import type { KniaRouteOptions } from "./knia.js";
 export function registerKniaAdminRoutes(app: FastifyInstance, opts: KniaRouteOptions) {
   const { env, requireAdmin, errorPayload } = opts;
 
+  async function invalidateKniaCaches(traceId: string) {
+    try {
+      return await callInternalAgent("/internal/v1/cache/invalidate", { scope: "knia" }, traceId, {
+        baseUrl: env.agentUrl,
+        internalToken: env.internalToken,
+        timeoutMs: 60000,
+        retryCount: 0
+      });
+    } catch {
+      return { skipped: true, reason: "cache_invalidate_failed" };
+    }
+  }
+
   app.post(`${env.apiPrefix}/admin/knia/collect`, async (req, reply) => {
     if (!requireUser(req as any, reply)) return;
     const traceId = req.headers["x-correlation-id"] as string;
@@ -38,7 +51,7 @@ export function registerKniaAdminRoutes(app: FastifyInstance, opts: KniaRouteOpt
           { baseUrl: env.agentUrl, internalToken: env.internalToken, timeoutMs: 240000, retryCount: 0 }
         );
       }
-      return { result, trace_id: traceId };
+      return { result, cache_invalidation: await invalidateKniaCaches(traceId), trace_id: traceId };
     } catch (err: any) {
       return reply.code(502).send(errorPayload("KNIA_COLLECT_FAILED", err?.message || "KNIA 데이터 수집에 실패했습니다.", traceId));
     }
@@ -55,7 +68,7 @@ export function registerKniaAdminRoutes(app: FastifyInstance, opts: KniaRouteOpt
         timeoutMs: 600000,
         retryCount: 0
       });
-      return { result, trace_id: traceId };
+      return { result, cache_invalidation: await invalidateKniaCaches(traceId), trace_id: traceId };
     } catch (err: any) {
       return reply.code(502).send(errorPayload("KNIA_RANKING_DETAIL_COLLECT_FAILED", err?.message || "KNIA 상세 기준 수집에 실패했습니다.", traceId));
     }
@@ -72,7 +85,7 @@ export function registerKniaAdminRoutes(app: FastifyInstance, opts: KniaRouteOpt
         timeoutMs: 240000,
         retryCount: 0
       });
-      return { result, trace_id: traceId };
+      return { result, cache_invalidation: await invalidateKniaCaches(traceId), trace_id: traceId };
     } catch {
       return reply.code(502).send(errorPayload("KNIA_EMBEDDING_FAILED", "KNIA 임베딩 재생성에 실패했습니다.", traceId));
     }
@@ -89,7 +102,7 @@ export function registerKniaAdminRoutes(app: FastifyInstance, opts: KniaRouteOpt
         timeoutMs: 600000,
         retryCount: 0
       });
-      return { result, trace_id: traceId };
+      return { result, cache_invalidation: await invalidateKniaCaches(traceId), trace_id: traceId };
     } catch {
       return reply.code(502).send(errorPayload("KNIA_JSON_IMPORT_FAILED", "KNIA JSON 데이터를 가져오지 못했습니다. 파일 경로와 데이터 형식을 확인해 주세요.", traceId));
     }
@@ -106,7 +119,7 @@ export function registerKniaAdminRoutes(app: FastifyInstance, opts: KniaRouteOpt
         timeoutMs: 600000,
         retryCount: 0
       });
-      return { result, trace_id: traceId };
+      return { result, cache_invalidation: await invalidateKniaCaches(traceId), trace_id: traceId };
     } catch {
       return reply.code(502).send(errorPayload("KNIA_JSON_EMBEDDING_FAILED", "KNIA JSON 임베딩 재생성에 실패했습니다.", traceId));
     }
@@ -117,7 +130,7 @@ export function registerKniaAdminRoutes(app: FastifyInstance, opts: KniaRouteOpt
     if (!requireAdmin(req as any, reply)) return;
     const traceId = req.headers["x-correlation-id"] as string;
     try {
-      const result = await callInternalAgent("/internal/v1/cache/invalidate", req.body ?? { scope: "knia_json" }, traceId, {
+      const result = await callInternalAgent("/internal/v1/cache/invalidate", req.body ?? { scope: "knia" }, traceId, {
         baseUrl: env.agentUrl,
         internalToken: env.internalToken,
         timeoutMs: 60000,

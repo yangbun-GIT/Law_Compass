@@ -1,5 +1,6 @@
 ﻿import type { FastifyInstance } from "fastify";
 import { callInternalAgent } from "../lib/internal-client.js";
+import { getCachedJson, redisCacheKey, setCachedJson, stripTraceId } from "../lib/response-cache.js";
 import {
   KNIA_RANKING_CATEGORIES,
   asArray,
@@ -23,12 +24,16 @@ import {
 export type KniaRouteOptions = {
   env: any;
   db: any;
+  redis?: any;
   requireAdmin: (req: any, reply: any) => any;
   errorPayload: (code: string, message: string, traceId: string) => any;
 };
 
 export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions) {
-  const { env, db, errorPayload } = opts;
+  const { env, db, redis, errorPayload } = opts;
+  const rankingCacheTtlSec = 300;
+  const chartCacheTtlSec = 1800;
+  const estimateCacheTtlSec = 900;
 
   async function callInternalAgentGet(path: string, traceId: string) {
     const res = await fetch(`${env.agentUrl}${path}`, {
@@ -53,6 +58,16 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       typeMap[category.source_value] = { value: category.value, source: category.source_value };
     }
     const selected = typeMap[rawType] ?? typeMap.all;
+    const cacheKey = redisCacheKey("knia:ranking:v2", {
+      accident_party_type: selected.value,
+      limit,
+      q,
+    });
+    const cached = await getCachedJson<Record<string, unknown>>(redis, cacheKey);
+    if (cached) {
+      reply.header("x-lawcompass-cache", "HIT");
+      return reply.send({ ...cached, trace_id: traceId });
+    }
 
     let rankingError: unknown = null;
     let rows: any = { rowCount: 0, rows: [] };
@@ -185,7 +200,7 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       }
     }
 
-    return reply.send({
+    const payload = {
       items,
       categories: KNIA_RANKING_CATEGORIES,
       total: items.length,
@@ -195,13 +210,22 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       trace_id: traceId,
       empty_message: items.length === 0 ? "관련 기준을 찾지 못했습니다. 검색어를 바꿔 다시 시도해 주세요." : undefined,
       ...(rankingError && items.length ? { warning: { code: "KNIA_RANKING_FALLBACK_USED", message: "검색순위 대신 상세 기준에서 결과를 찾았습니다." } } : {}),
-    });
+    };
+    await setCachedJson(redis, cacheKey, stripTraceId(payload), rankingCacheTtlSec);
+    reply.header("x-lawcompass-cache", "MISS");
+    return reply.send(payload);
   });
 
   app.get(`${env.apiPrefix}/knia/charts/:chartNo`, async (req, reply) => {
     const traceId = req.headers["x-correlation-id"] as string;
     const chartNo = decodeURIComponent(String((req.params as any).chartNo));
     const chartType = String((req.query as any)?.chartType ?? "1");
+    const cacheKey = redisCacheKey("knia:chart:v2", { chartNo, chartType });
+    const cached = await getCachedJson<Record<string, unknown>>(redis, cacheKey);
+    if (cached) {
+      reply.header("x-lawcompass-cache", "HIT");
+      return reply.send({ ...cached, trace_id: traceId });
+    }
     const row = await db.query(
       `SELECT chart_no, chart_type, title, vehicle_a_label, vehicle_b_label, category_path,
               accident_summary, applicable_text, non_applicable_text, basic_fault_text,
@@ -235,7 +259,7 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       }
       const ranking = rankingRow.rows[0];
       const sourceDetailUrl = ranking.source_detail_url || ranking.source_url;
-      return {
+      const payload = {
         chart: {
           chart_no: ranking.chart_no,
           chart_type: ranking.chart_type,
@@ -294,6 +318,9 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
         },
         trace_id: traceId
       };
+      await setCachedJson(redis, cacheKey, stripTraceId(payload), chartCacheTtlSec);
+      reply.header("x-lawcompass-cache", "MISS");
+      return reply.send(payload);
     }
     const chart = row.rows[0];
     const sourceDetailUrl = chart.source_detail_url ?? chart.source_url;
@@ -320,7 +347,7 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       safeText(chart.accident_situation) ||
       safeText(chart.base_fault_explanation)
     );
-    return {
+    const payload = {
       chart: {
         chart_no: chart.chart_no,
         chart_type: chart.chart_type,
@@ -381,10 +408,19 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       },
       trace_id: traceId
     };
+    await setCachedJson(redis, cacheKey, stripTraceId(payload), chartCacheTtlSec);
+    reply.header("x-lawcompass-cache", "MISS");
+    return reply.send(payload);
   });
 
   app.post(`${env.apiPrefix}/knia/match`, async (req, reply) => {
     const traceId = req.headers["x-correlation-id"] as string;
+    const cacheKey = redisCacheKey("knia:match:v2", req.body ?? {});
+    const cached = await getCachedJson<Record<string, unknown>>(redis, cacheKey);
+    if (cached) {
+      reply.header("x-lawcompass-cache", "HIT");
+      return reply.send({ ...cached, trace_id: traceId });
+    }
     try {
       const result = await callInternalAgent("/internal/v1/knia/match", req.body ?? {}, traceId, {
         baseUrl: env.agentUrl,
@@ -412,7 +448,10 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
         media: x.media,
         attribution: x.attribution
       }));
-      return { items: safeItems, source: "과실비율정보포털", trace_id: traceId };
+      const payload = { items: safeItems, source: "과실비율정보포털", trace_id: traceId };
+      await setCachedJson(redis, cacheKey, stripTraceId(payload), estimateCacheTtlSec);
+      reply.header("x-lawcompass-cache", "MISS");
+      return reply.send(payload);
     } catch {
       return reply.code(502).send(errorPayload("KNIA_MATCH_FAILED", "과실비율 기준 매칭에 실패했습니다.", traceId));
     }
@@ -420,6 +459,12 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
 
   app.post(`${env.apiPrefix}/knia/fault/estimate`, async (req, reply) => {
     const traceId = req.headers["x-correlation-id"] as string;
+    const cacheKey = redisCacheKey("knia:fault-estimate:v2", req.body ?? {});
+    const cached = await getCachedJson<Record<string, unknown>>(redis, cacheKey);
+    if (cached) {
+      reply.header("x-lawcompass-cache", "HIT");
+      return reply.send({ ...cached, trace_id: traceId });
+    }
     try {
       const result = await callInternalAgent("/internal/v1/knia/fault/estimate", req.body ?? {}, traceId, {
         baseUrl: env.agentUrl,
@@ -427,7 +472,10 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
         timeoutMs: env.timeoutMs,
         retryCount: env.retryCount
       });
-      return { ...result, trace_id: traceId };
+      const payload = { ...result, trace_id: traceId };
+      await setCachedJson(redis, cacheKey, stripTraceId(payload), estimateCacheTtlSec);
+      reply.header("x-lawcompass-cache", "MISS");
+      return reply.send(payload);
     } catch (err: any) {
       return reply.code(502).send(errorPayload("KNIA_FAULT_ESTIMATE_FAILED", err?.message || "KNIA 가감요소 기반 과실 산정에 실패했습니다.", traceId));
     }
@@ -437,6 +485,12 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
     const traceId = req.headers["x-correlation-id"] as string;
     const chartNo = decodeURIComponent(String((req.params as any).chartNo));
     const chartType = String((req.query as any)?.chartType ?? "1");
+    const cacheKey = redisCacheKey("knia:chart-adjustments:v2", { chartNo, chartType });
+    const cached = await getCachedJson<Record<string, unknown>>(redis, cacheKey);
+    if (cached) {
+      reply.header("x-lawcompass-cache", "HIT");
+      return reply.send({ ...cached, trace_id: traceId });
+    }
     const rows = await db.query(
       `SELECT label, condition_code, checkbox_value, delta_a, delta_b, source_case_id, factor_order, source_detail_url
        FROM knia_adjustment_factors
@@ -445,7 +499,10 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       [chartNo, chartType]
     );
     if (rows.rowCount) {
-      return { chart_no: chartNo, chart_type: chartType, items: rows.rows, trace_id: traceId };
+      const payload = { chart_no: chartNo, chart_type: chartType, items: rows.rows, trace_id: traceId };
+      await setCachedJson(redis, cacheKey, stripTraceId(payload), chartCacheTtlSec);
+      reply.header("x-lawcompass-cache", "MISS");
+      return reply.send(payload);
     }
     const chartRow = await db.query(
       `SELECT adjustment_factors, adjustments, source_detail_url, source_url
@@ -459,13 +516,22 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       asArray(chart.adjustment_factors).length ? chart.adjustment_factors : chart.adjustments,
       chart.source_detail_url ?? chart.source_url,
     );
-    return { chart_no: chartNo, chart_type: chartType, items, source: items.length ? "structured_json" : "empty", trace_id: traceId };
+    const payload = { chart_no: chartNo, chart_type: chartType, items, source: items.length ? "structured_json" : "empty", trace_id: traceId };
+    await setCachedJson(redis, cacheKey, stripTraceId(payload), chartCacheTtlSec);
+    reply.header("x-lawcompass-cache", "MISS");
+    return reply.send(payload);
   });
 
   app.get(`${env.apiPrefix}/knia/charts/:chartNo/references`, async (req, reply) => {
     const traceId = req.headers["x-correlation-id"] as string;
     const chartNo = decodeURIComponent(String((req.params as any).chartNo));
     const chartType = String((req.query as any)?.chartType ?? "1");
+    const cacheKey = redisCacheKey("knia:chart-references:v2", { chartNo, chartType });
+    const cached = await getCachedJson<Record<string, unknown>>(redis, cacheKey);
+    if (cached) {
+      reply.header("x-lawcompass-cache", "HIT");
+      return reply.send({ ...cached, trace_id: traceId });
+    }
     const rows = await db.query(
       `SELECT section_type, title, body, law_title, law_text, case_title, case_body, decision_summary, item_order, source_detail_url
        FROM knia_chart_reference_sections
@@ -493,7 +559,10 @@ export function registerKniaRoutes(app: FastifyInstance, opts: KniaRouteOptions)
       grouped.related_laws = normalizeRelatedLaws(chart.related_laws, chart.source_detail_url ?? chart.source_url);
       grouped.case_references = normalizeCaseReferences(chart.case_references, chart.source_detail_url ?? chart.source_url);
     }
-    return { chart_no: chartNo, chart_type: chartType, ...grouped, trace_id: traceId };
+    const payload = { chart_no: chartNo, chart_type: chartType, ...grouped, trace_id: traceId };
+    await setCachedJson(redis, cacheKey, stripTraceId(payload), chartCacheTtlSec);
+    reply.header("x-lawcompass-cache", "MISS");
+    return reply.send(payload);
   });
 
   app.get(`${env.apiPrefix}/knia/myaccident-pages`, async (req, reply) => {

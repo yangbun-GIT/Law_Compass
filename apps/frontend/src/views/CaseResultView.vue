@@ -23,28 +23,42 @@
       <RouterLink class="btn secondary" :to="`/cases/${caseId}/wizard`">입력/작업 상태 확인</RouterLink>
     </article>
 
-    <EasyReportView
-      v-else-if="report"
-      :report="report"
-      :analysis-mode="caseData?.analysis_mode || report?.analysis_mode || report?.display_mode"
-      :followup-submitting="reanalyzing"
-      :followup-error="followupError"
-      @submit-followup="submitFollowup"
-    />
+    <template v-else>
+      <UploadVideoReplayCard
+        v-if="selectedVideoUpload"
+        :upload="selectedVideoUpload"
+        :view-url="videoViewUrl"
+        :loading="videoLoading"
+        :error="videoError"
+        :expires-at="videoExpiresAtLabel"
+        @refresh="refreshVideoViewUrl"
+        @download="downloadVideo"
+      />
 
-    <article v-else class="card result-state">
-      <h3>아직 결과가 없습니다</h3>
-      <p>텍스트 분석을 실행했거나 영상 전처리와 분석 작업이 끝나면 이 화면에서 쉬운 리포트를 볼 수 있습니다.</p>
-      <RouterLink class="btn" :to="`/cases/${caseId}/wizard`">분석 요청하러 가기</RouterLink>
-    </article>
+      <EasyReportView
+        v-if="report"
+        :report="report"
+        :analysis-mode="caseData?.analysis_mode || report?.analysis_mode || report?.display_mode"
+        :followup-submitting="reanalyzing"
+        :followup-error="followupError"
+        @submit-followup="submitFollowup"
+      />
+
+      <article v-else class="card result-state">
+        <h3>아직 결과가 없습니다</h3>
+        <p>텍스트 분석을 실행했거나 영상 전처리와 분석 작업이 끝나면 이 화면에서 쉬운 리포트를 볼 수 있습니다.</p>
+        <RouterLink class="btn" :to="`/cases/${caseId}/wizard`">분석 요청하러 가기</RouterLink>
+      </article>
+    </template>
   </section>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import EasyReportView from "../components/easy/EasyReportView.vue";
-import { api, formatApiError, type AccidentFacts, type CaseItem } from "../api/client";
+import UploadVideoReplayCard from "../components/result/UploadVideoReplayCard.vue";
+import { api, formatApiError, type AccidentFacts, type CaseItem, type UploadItem } from "../api/client";
 
 const caseId = useRoute().params.caseId as string;
 const report = ref<any>(null);
@@ -53,6 +67,24 @@ const loading = ref(false);
 const reanalyzing = ref(false);
 const error = ref("");
 const followupError = ref("");
+const uploads = ref<UploadItem[]>([]);
+const videoViewUrl = ref("");
+const videoExpiresAt = ref("");
+const videoLoading = ref(false);
+const videoError = ref("");
+let videoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+const selectedVideoUpload = computed(() => {
+  const allowed = new Set(["uploaded", "verified", "processing", "ready"]);
+  return uploads.value.find((item) => item.content_type?.startsWith("video/") && allowed.has(item.status)) || null;
+});
+
+const videoExpiresAtLabel = computed(() => {
+  if (!videoExpiresAt.value) return "";
+  const date = new Date(videoExpiresAt.value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit" }).format(date);
+});
 
 async function load() {
   loading.value = true;
@@ -61,6 +93,7 @@ async function load() {
   try {
     const caseResp = await api.getCase(caseId);
     caseData.value = caseResp.case;
+    await loadVideoUploads();
     report.value = await api.getEasyReport(caseId);
   } catch (e: any) {
     report.value = null;
@@ -70,6 +103,64 @@ async function load() {
   } finally {
     loading.value = false;
   }
+}
+
+async function loadVideoUploads() {
+  videoError.value = "";
+  try {
+    uploads.value = (await api.getCaseUploads(caseId)).items || [];
+    if (selectedVideoUpload.value) {
+      await refreshVideoViewUrl();
+    }
+  } catch (e: any) {
+    uploads.value = [];
+    videoError.value = formatApiError(e, "업로드 영상을 불러오지 못했습니다.");
+  }
+}
+
+async function refreshVideoViewUrl() {
+  const upload = selectedVideoUpload.value;
+  if (!upload) return;
+  clearVideoRefreshTimer();
+  videoLoading.value = true;
+  videoError.value = "";
+  try {
+    const data = await api.getViewUrl(upload.id);
+    videoViewUrl.value = data.view_url;
+    videoExpiresAt.value = data.expires_at || new Date(Date.now() + data.expires_in_sec * 1000).toISOString();
+    scheduleVideoRefresh(data.expires_in_sec);
+  } catch (e: any) {
+    videoViewUrl.value = "";
+    videoError.value = formatApiError(e, "영상 재생 링크를 발급하지 못했습니다.");
+  } finally {
+    videoLoading.value = false;
+  }
+}
+
+async function downloadVideo() {
+  const upload = selectedVideoUpload.value;
+  if (!upload) return;
+  try {
+    const data = await api.getDownloadUrl(upload.id);
+    window.open(data.download_url, "_blank", "noopener,noreferrer");
+  } catch (e: any) {
+    videoError.value = formatApiError(e, "영상 다운로드 링크를 발급하지 못했습니다.");
+  }
+}
+
+function scheduleVideoRefresh(expiresInSec: number) {
+  const seconds = Number(expiresInSec || 0);
+  if (!seconds || seconds < 20) return;
+  const refreshMs = Math.max(15_000, Math.floor(seconds * 0.75 * 1000));
+  videoRefreshTimer = setTimeout(() => {
+    void refreshVideoViewUrl();
+  }, refreshMs);
+}
+
+function clearVideoRefreshTimer() {
+  if (!videoRefreshTimer) return;
+  clearTimeout(videoRefreshTimer);
+  videoRefreshTimer = null;
 }
 
 async function submitFollowup(answers: Record<string, string>) {
@@ -162,6 +253,7 @@ function normalizeAnalysisMode(mode?: string | null) {
 }
 
 onMounted(load);
+onBeforeUnmount(clearVideoRefreshTimer);
 </script>
 
 <style scoped>

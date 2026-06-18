@@ -1,15 +1,14 @@
 ﻿from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 from typing import Any
 
 import psycopg
-import redis
 
 from app.providers.embedding import get_embedding_provider, vector_literal
+from app.services.knia.cache import cache_digest, get_json_cache, set_json_cache
 from app.services.knia.knia_media_selector import select_media
 from app.services.knia.party_guard import (
     allowed_chart_prefixes,
@@ -27,7 +26,8 @@ from app.services.knia.taxonomy import infer_party_type_from_text, party_actions
 from app.services.scenario_search_terms import scenario_search_terms
 
 DB_URL = os.getenv("DATABASE_URL", "postgresql://law:lawpass@postgres:5432/lawcompass")
-REDIS_URL = os.getenv("REDIS_URL", "")
+KNIA_MATCH_CACHE_VERSION = "v13"
+KNIA_MATCH_CACHE_TTL_SECONDS = 900
 
 SCENARIO_TO_TAGS = {
     "rear_end_collision": ["rear_end", "safe_distance", "fault_ratio"],
@@ -98,12 +98,6 @@ def infer_major_party_type_from_facts(facts: dict[str, Any], query: str = "") ->
     return None
 
 
-def _redis_client():
-    if not REDIS_URL:
-        return None
-    return redis.Redis.from_url(REDIS_URL, decode_responses=True)
-
-
 def match_knia_charts(
     *,
     description_text: str,
@@ -162,6 +156,22 @@ def match_knia_charts(
             reason="minimum_accident_axis_required",
             direct_collision_partner_type=facts.get("direct_collision_partner_type"),
         )
+    cache_key = f"knia:match:{KNIA_MATCH_CACHE_VERSION}:" + cache_digest(
+        {
+            "q": q,
+            "tags": tags,
+            "party": party,
+            "scenario_type": scenario_type,
+            "limit": limit,
+            "chart_direct": chart_direct.group(0) if chart_direct else None,
+        },
+        length=24,
+    )
+    cached_result = get_json_cache(cache_key)
+    if isinstance(cached_result, dict):
+        cached_result["cache_hit"] = True
+        cached_result["cache_key"] = cache_key
+        return cached_result
     structured_lookup_error = None
     structured_items: list[dict[str, Any]] = []
     structured_rejected: list[dict[str, Any]] = []
@@ -190,10 +200,10 @@ def match_knia_charts(
     if structured_items:
         fallback_used = not chart_direct and not any(item.get("scenario_type") == scenario_type for item in structured_items)
         primary = structured_items[0]
-        return {
+        result = {
             "items": structured_items,
             "cache_hit": False,
-            "cache_key": None,
+            "cache_key": cache_key,
             "accident_party_type": party,
             "requested_party_type": party,
             "query_expansion_terms": expansion_terms,
@@ -212,29 +222,8 @@ def match_knia_charts(
             "parsing_confidence": primary.get("parsing_confidence"),
             "excluded_items": structured_rejected,
         }
-
-    cache_key = "knia:match:v12:" + hashlib.sha256(json.dumps({"q": q, "tags": tags, "party": party, "scenario_type": scenario_type, "limit": limit}, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
-    cache = _redis_client()
-    if cache:
-        cached = cache.get(cache_key)
-        if cached:
-            cached_items = json.loads(cached)
-            return {
-                "items": cached_items,
-                "cache_hit": True,
-                "cache_key": cache_key,
-                "accident_party_type": party,
-                "requested_party_type": party,
-                "query_expansion_terms": expansion_terms,
-                "party_guard_policy": _party_guard_policy(party),
-                "rejected_mismatch_count": 0,
-                "fallback_used": False,
-                "structured_chart_used": False,
-                "chart_no": cached_items[0].get("chart_no") if cached_items else None,
-                "no_knia_match_reason": None if cached_items else "no_same_party_knia_match",
-                "chart_prefix_allowed": list(allowed_chart_prefixes(party)),
-                "direct_collision_partner_type": facts.get("direct_collision_partner_type"),
-            }
+        set_json_cache(cache_key, result, KNIA_MATCH_CACHE_TTL_SECONDS)
+        return result
     lookup_error = None
     fallback_lookup_error = None
     fallback_used = False
@@ -290,12 +279,10 @@ def match_knia_charts(
         lookup_error = None if items else fallback_lookup_error
     elif fallback_lookup_error:
         lookup_error = fallback_lookup_error
-    if cache:
-        cache.setex(cache_key, 900, json.dumps(items, ensure_ascii=False))
     no_match_reason = None
     if not items:
         no_match_reason = "lookup_error" if lookup_error else "no_same_party_knia_match"
-    return {
+    result = {
         "items": items,
         "cache_hit": False,
         "cache_key": cache_key,
@@ -317,6 +304,8 @@ def match_knia_charts(
         "parsing_confidence": items[0].get("parsing_confidence") if items else None,
         "excluded_items": excluded_items,
     }
+    set_json_cache(cache_key, result, KNIA_MATCH_CACHE_TTL_SECONDS)
+    return result
 
 
 def _should_use_static_lane_change_fallback(scenario_type: str | None, party: str | None) -> bool:
