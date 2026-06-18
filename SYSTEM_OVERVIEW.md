@@ -1,4 +1,16 @@
 ﻿# LawCompass 시스템 구성 명세서
+## 2026-06-18 케이스 작성 3단계 흐름 정리
+
+케이스 생성 후 프론트 입력 흐름을 `영상/설명 → 대분류·확인질문 → 결과` 3단계로 정리했다. 사용자는 영상 또는 사고 설명을 먼저 넣고, 이어서 직접 충돌 상대 기준의 KNIA 대분류를 고른 뒤 해당 대분류에 맞는 과실비율 영향 질문만 답한다.
+
+| 영역 | 현재 구조 |
+| --- | --- |
+| Case create | `CaseCreateView.vue`는 새 케이스 생성 후 `/cases/:caseId?start=input`으로 이동해 영상/설명 입력부터 시작한다. 기존 `/wizard` redirect는 query를 보존한다. |
+| Guided flow | `CaseDetailView.vue`는 3단계 stepper만 보여주며, 세부 사고유형/출력 모드 선택 화면은 일반 흐름에서 숨긴다. `selectAccidentMajorCategory()` 후 곧바로 `questions` 단계로 이동한다. |
+| Quick analysis | `useCaseWorkspace.ts`의 `startQuickAnalysisFromInput()`은 영상 또는 설명만으로 분석할 수 있게 하되, 시작 전 `대분류 및 질문을 건너뛰고 분석을 진행하시겠습니까?` 확인창을 띄운다. |
+| Result navigation | `CaseResultView.vue`는 결과 화면 상단의 입력 화면 돌아가기 버튼을 제거하고, 새로고침/재시도 중심으로 정리했다. |
+| 비변경 범위 | Public API path, DTO, Agent 판단 로직, DB schema, Redis key, storage path는 변경하지 않았다. |
+
 ## 2026-06-18 영상 분석 진행상태 복원 및 Worker timeout 보강
 
 영상 업로드 후 분석이 87% 부근에서 멈춘 것처럼 보이고, 브라우저 새로고침 시 입력 단계로 돌아가는 문제를 보완했다. 원인은 Gateway의 `video_analyze` 진행률이 KNIA 단계 87% 상한에 오래 머무르는 표시 정책, Frontend가 새로고침 후 실행 중인 job/progress를 `analyzing` 단계로 복원하지 못하는 흐름, 그리고 운영 Worker가 Redis pending 작업 하나를 오래 붙잡아 뒤의 `video_analyze` 메시지를 소비하지 못하는 구조가 함께 작동한 것이다.

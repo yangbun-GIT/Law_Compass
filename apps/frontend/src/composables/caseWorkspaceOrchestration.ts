@@ -1,7 +1,7 @@
 import type { Ref } from "vue";
 import { normalizeProgressSteps } from "./caseWorkspaceProgress";
 
-export type GuidedStep = "accident-type" | "accident-subtype" | "input" | "purpose" | "questions" | "analyzing" | "result";
+export type GuidedStep = "input" | "accident-type" | "questions" | "analyzing" | "result";
 
 export interface ProgressUpdate {
     percent?: number;

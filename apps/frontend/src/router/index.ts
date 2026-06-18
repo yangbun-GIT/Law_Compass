@@ -21,7 +21,7 @@ const routes: any[] = [
   { path: "/signup", component: SignupView },
   { path: "/cases/new", component: CaseCreateView, meta: { requiresAuth: true } },
   { path: "/cases/:caseId", component: CaseDetailView, meta: { requiresAuth: true } },
-  { path: "/cases/:caseId/wizard", redirect: (to: any) => `/cases/${to.params.caseId}` },
+  { path: "/cases/:caseId/wizard", redirect: (to: any) => ({ path: `/cases/${to.params.caseId}`, query: to.query }) },
   { path: "/cases/:caseId/result", component: CaseResultView, meta: { requiresAuth: true } },
   { path: "/evidence/:chunkId", component: EvidenceDetailView, meta: { requiresAuth: true } },
   { path: "/knia/ranking", component: KniaRankingView, meta: { requiresAuth: true } },

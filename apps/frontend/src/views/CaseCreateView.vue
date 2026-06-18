@@ -1,9 +1,9 @@
 <template>
   <section class="card easy-card case-create-card instant-video-case" aria-live="polite">
     <p class="eyebrow">새 사고 케이스</p>
-    <h2>영상부터 바로 시작합니다</h2>
+    <h2>영상이나 설명부터 바로 시작합니다</h2>
     <p class="kv">
-      빈 케이스를 먼저 만들고, 곧바로 영상 업로드 화면으로 이동합니다. 제목과 사고 설명은 이후 단계에서 필요할 때 보완할 수 있습니다.
+      빈 케이스를 먼저 만들고, 곧바로 영상과 사고 설명 입력 화면으로 이동합니다. 대분류와 확인 질문은 다음 단계에서 보완할 수 있습니다.
     </p>
 
     <div v-if="draftApplied" class="soft-warning">
@@ -15,7 +15,7 @@
       <div>
         <strong>{{ loading ? "케이스를 준비하고 있습니다" : "케이스 준비가 필요합니다" }}</strong>
         <p class="kv">
-          {{ loading ? "잠시 후 영상 업로드 화면으로 이동합니다." : "자동 이동이 멈췄다면 다시 시도해 주세요." }}
+          {{ loading ? "잠시 후 영상·설명 입력 화면으로 이동합니다." : "자동 이동이 멈췄다면 다시 시도해 주세요." }}
         </p>
       </div>
     </div>
@@ -88,7 +88,7 @@ async function createImmediately() {
     });
 
     localStorage.removeItem(DRAFT_KEY);
-    await router.replace(`/cases/${data.case.id}/wizard?start=video`);
+    await router.replace(`/cases/${data.case.id}?start=input`);
   } catch (e: any) {
     message.value = formatApiError(e, "케이스 생성에 실패했습니다.");
     ok.value = false;

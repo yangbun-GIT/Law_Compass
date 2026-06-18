@@ -18,12 +18,6 @@
     </label>
 
     <div class="form-grid">
-      <label>출력 모드
-        <select :value="analysisMode" @change="updateAnalysisMode">
-          <option value="user_friendly">일반사용자모드</option>
-          <option value="expert">전문가모드</option>
-        </select>
-      </label>
       <label>사고 대분류
         <select :value="facts.accident_party_type || ''" @change="updateFact('accident_party_type', eventValue($event))">
           <option value="">영상/설명 기준으로 판단</option>
@@ -119,10 +113,6 @@ function eventChecked(event: Event) {
 
 function updateDescription(event: Event) {
   emit("update:descriptionText", eventValue(event).trim());
-}
-
-function updateAnalysisMode(event: Event) {
-  emit("update:analysisMode", eventValue(event));
 }
 
 function updateFact(key: keyof AccidentFacts, value: AccidentFacts[keyof AccidentFacts]) {

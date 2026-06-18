@@ -119,8 +119,9 @@ function partyDefaults(partyType: string) {
 
 function initialGuidedStepFromRoute(start: unknown): GuidedStep {
     const value = String(start || "").trim().toLowerCase();
-    if (["video", "upload", "input"].includes(value)) return "input";
-    return "accident-type";
+    if (["accident", "party", "type", "questions"].includes(value)) return "accident-type";
+    if (["result", "analyzing"].includes(value)) return value as GuidedStep;
+    return "input";
 }
 
 function isActiveBackendProgress(progressData: any) {
@@ -367,10 +368,10 @@ export function useCaseWorkspace(caseId: string) {
                 applyLocalProgress({
                     percent: 30,
                     stage: "영상 저장 완료",
-                    message: "영상은 저장되었습니다. 이제 사고유형과 추가 사고정보를 입력해 주세요.",
+                    message: "영상은 저장되었습니다. 이제 대분류와 확인 질문을 이어서 입력해 주세요.",
                 });
 
-                showMessage("영상 저장 완료. 영상에서 보이지 않는 점은 이후 확인 질문으로 보완합니다.");
+                showMessage("영상 저장 완료. 영상에서 보이지 않는 점은 대분류와 확인 질문으로 보완합니다.");
                 if (guidedStep.value === "input") guidedStep.value = "input";
                 return true;
             }
@@ -659,7 +660,7 @@ export function useCaseWorkspace(caseId: string) {
                 return;
             }
 
-            if (guidedStep.value === "result" || guidedStep.value === "analyzing") guidedStep.value = "accident-type";
+            if (guidedStep.value === "result" || guidedStep.value === "analyzing") guidedStep.value = "input";
         } catch (error: any) {
             loadError.value = error?.message || "케이스 정보를 불러오지 못했습니다.";
         } finally {
@@ -740,7 +741,42 @@ export function useCaseWorkspace(caseId: string) {
 
         guidedAnswers.value = {};
         currentGuidedQuestionIndex.value = 0;
-        guidedStep.value = "purpose";
+        guidedStep.value = "accident-type";
+    }
+
+    async function startQuickAnalysisFromInput() {
+        const hasVideoOrTextInput = Boolean(descriptionText.value.trim() || activeUploadId.value || file.value);
+        if (!hasVideoOrTextInput) {
+            showMessage("영상을 먼저 선택하거나 사고 설명을 입력해 주세요.", false);
+            return;
+        }
+
+        const confirmed = window.confirm("대분류 및 질문을 건너뛰고 분석을 진행하시겠습니까?");
+        if (!confirmed) return;
+
+        if (file.value && !activeUploadId.value) {
+            const uploaded = await uploadLocal();
+            if (!uploaded || !activeUploadId.value) return;
+            const completed = await completeUpload({ autoAnalyzeAfterPreprocess: false });
+            if (!completed) return;
+        }
+
+        if (!(await saveCaseInputs({ quiet: true }))) return;
+
+        analysisStarted.value = true;
+        resultStreaming.value = true;
+        guidedAnswers.value = {};
+
+        if (activeUploadId.value) {
+            const started = await analyzeVideo({ skipSave: true });
+            if (!started) {
+                resultStreaming.value = false;
+                guidedStep.value = "input";
+            }
+            return;
+        }
+
+        await analyzeText({ skipSave: true });
     }
 
     function selectAccidentMajorCategory(option: { scenario_type?: string; accident_party_type: string; major_category?: string }) {
@@ -768,7 +804,7 @@ export function useCaseWorkspace(caseId: string) {
         facts.value = nextFacts;
         guidedAnswers.value = {};
         currentGuidedQuestionIndex.value = 0;
-        guidedStep.value = "accident-subtype";
+        guidedStep.value = "questions";
     }
 
     function selectAccidentSubtype(option: { scenario_type: string; accident_party_type?: string; value?: string }) {
@@ -806,7 +842,7 @@ export function useCaseWorkspace(caseId: string) {
         facts.value = nextFacts;
         guidedAnswers.value = {};
         currentGuidedQuestionIndex.value = 0;
-        guidedStep.value = "input";
+        guidedStep.value = "questions";
     }
 
     function selectAccidentType(option: { scenario_type: string; accident_party_type: string }) {
@@ -866,7 +902,7 @@ export function useCaseWorkspace(caseId: string) {
         facts.value = nextFacts;
         guidedAnswers.value = {};
         currentGuidedQuestionIndex.value = 0;
-        guidedStep.value = "purpose";
+        guidedStep.value = "questions";
     }
 
     function selectGuidedAnalysisMode(mode: string) {
@@ -1070,6 +1106,7 @@ export function useCaseWorkspace(caseId: string) {
         prettySize,
         saveCaseInputs,
         continueFromInput,
+        startQuickAnalysisFromInput,
         selectAccidentMajorCategory,
         selectAccidentSubtype,
         selectAccidentType,

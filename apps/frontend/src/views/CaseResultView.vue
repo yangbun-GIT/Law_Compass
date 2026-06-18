@@ -7,7 +7,6 @@
         <p class="kv">분석이 완료되면 쉬운 리포트와 근거 요약을 확인할 수 있습니다.</p>
       </div>
       <div class="btn-row">
-        <RouterLink class="btn secondary" :to="`/cases/${caseId}/wizard`">입력 화면으로 돌아가기</RouterLink>
         <button class="btn" :disabled="loading" @click="load">{{ loading ? "새로고침 중..." : "결과 새로고침" }}</button>
       </div>
     </div>
@@ -20,7 +19,7 @@
     <article v-else-if="error" class="card result-state">
       <h3>결과를 불러오지 못했습니다</h3>
       <p class="msg-error">{{ error }}</p>
-      <RouterLink class="btn secondary" :to="`/cases/${caseId}/wizard`">입력/작업 상태 확인</RouterLink>
+      <button class="btn secondary" :disabled="loading" @click="load">다시 불러오기</button>
     </article>
 
     <template v-else>
@@ -46,7 +45,7 @@
       <article v-else class="card result-state">
         <h3>아직 결과가 없습니다</h3>
         <p>텍스트 분석을 실행했거나 영상 전처리와 분석 작업이 끝나면 이 화면에서 쉬운 리포트를 볼 수 있습니다.</p>
-        <RouterLink class="btn" :to="`/cases/${caseId}/wizard`">분석 요청하러 가기</RouterLink>
+        <button class="btn" :disabled="loading" @click="load">결과 새로고침</button>
       </article>
     </template>
   </section>

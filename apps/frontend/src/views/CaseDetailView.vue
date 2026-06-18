@@ -28,18 +28,42 @@
       <p class="eyebrow">교통사고 분석</p>
       <h2>사고 설명이나 영상을 넣으면 직접 충돌 대상부터 확인해 맞는 기준만 검토합니다</h2>
       <div class="guided-stepper">
-        <span :class="{ active: guidedStep === 'accident-type' }">1 대분류</span>
-        <span :class="{ active: guidedStep === 'accident-subtype' }">2 사고유형</span>
-        <span :class="{ active: guidedStep === 'input' }">3 영상/설명</span>
-        <span :class="{ active: guidedStep === 'purpose' }">4 출력 모드</span>
-        <span :class="{ active: guidedStep === 'questions' }">5 확인 질문</span>
-        <span :class="{ active: guidedStep === 'analyzing' || guidedStep === 'result' }">6 결과</span>
+        <span :class="{ active: guidedStep === 'input' }">1 영상/설명</span>
+        <span :class="{ active: guidedStep === 'accident-type' || guidedStep === 'questions' }">2 대분류·확인질문</span>
+        <span :class="{ active: guidedStep === 'analyzing' || guidedStep === 'result' }">3 결과</span>
       </div>
 
-      <div v-if="guidedStep === 'accident-type'" class="guided-panel">
-        <!-- guided flow contract: 어떤 사고에 가장 가까운가요? / 답변 더 추가하기 -->
-        <h3>어떤 사고에 가장 가까운가요? 큰 유형을 먼저 선택해 주세요</h3>
-        <p class="kv">사고의 큰 유형을 먼저 선택해 주세요. 정확하지 않아도 괜찮습니다. 영상 분석 후 필요한 내용만 다시 확인합니다.</p>
+      <div v-if="guidedStep === 'input'" class="guided-panel">
+        <h3>영상이나 사고 설명을 먼저 넣어 주세요</h3>
+        <p class="kv">블랙박스 영상 또는 자연어 설명만으로도 분석을 시작할 수 있습니다. 더 정확한 과실비율이 필요하면 다음 단계에서 대분류와 확인 질문을 이어서 답해 주세요.</p>
+
+        <label class="file-drop">영상 선택
+          <input type="file" accept="video/*" @change="onGuidedFile" />
+        </label>
+
+        <p v-if="file" class="kv">선택한 영상: {{ file.name }} ({{ prettySize(file.size) }})</p>
+
+        <label>사고 설명
+          <textarea
+              :value="descriptionText"
+              rows="5"
+              placeholder="예: 신호대기 중 정차해 있었는데 뒤차가 추돌했습니다. 또는 상대 차량이 차선변경하다가 제 차 옆을 충돌했습니다."
+              @input="updateDescriptionText(eventValue($event))"
+          />
+        </label>
+        <p class="kv">설명만으로 바로 분석할 수도 있고, 다음 단계에서 대분류와 과실비율 질문을 보완할 수도 있습니다.</p>
+
+        <p v-if="message" :class="messageOk ? 'msg-ok' : 'msg-error'">{{ message }}</p>
+
+        <div class="btn-row">
+          <button class="btn" :disabled="!!busy" @click="continueFromInput">대분류 및 확인질문으로 계속</button>
+          <button class="btn secondary" :disabled="!!busy" @click="startQuickAnalysisFromInput">영상/설명만으로 바로 분석</button>
+        </div>
+      </div>
+
+      <div v-else-if="guidedStep === 'accident-type'" class="guided-panel">
+        <h3>사고 대분류를 먼저 선택해 주세요</h3>
+        <p class="kv">직접 충돌한 상대를 기준으로 선택합니다. 선택한 대분류에 맞는 과실비율 질문만 이어서 보여드립니다.</p>
 
         <div class="guided-card-grid">
           <button
@@ -55,73 +79,11 @@
         </div>
       </div>
 
-      <div v-else-if="guidedStep === 'accident-subtype'" class="guided-panel">
-        <h3>가능하면 사고 유형을 선택해 주세요</h3>
-        <p class="kv">잘 모르겠다면 “잘 모르겠어요”를 선택해도 됩니다. 자연어 설명보다 영상과 구조화된 답변을 우선해 보정합니다.</p>
-
-        <div class="guided-card-grid">
-          <button
-              v-for="option in guidedAccidentSubtypeOptions"
-              :key="option.value || option.label"
-              class="guided-choice-card"
-              type="button"
-              @click="selectAccidentSubtype(option)"
-          >
-            <strong>{{ option.label }}</strong>
-            <span>{{ option.hint }}</span>
-          </button>
-        </div>
-      </div>
-
-      <div v-else-if="guidedStep === 'input'" class="guided-panel">
-        <h3>영상과 선택 설명을 추가해 주세요</h3>
-        <p class="kv">영상은 사고 판단의 핵심 근거로 사용합니다. 영상에서 보이지 않는 부분은 이후 질문으로 보완합니다.</p>
-
-        <label class="file-drop">영상 선택
-          <input type="file" accept="video/*" @change="onGuidedFile" />
-        </label>
-
-        <p v-if="file" class="kv">선택한 영상: {{ file.name }} ({{ prettySize(file.size) }})</p>
-
-        <label>추가 설명은 선택 사항입니다
-          <textarea
-              :value="descriptionText"
-              rows="5"
-              placeholder="예: 저는 직진 중이었고 상대 차량이 갑자기 차로를 변경했습니다. 방향지시등은 보지 못했습니다."
-              @input="updateDescriptionText(eventValue($event))"
-          />
-        </label>
-        <p class="kv">설명은 참고 자료로만 사용하며, 영상과 구조화된 답변보다 낮은 가중치로 반영합니다.</p>
-
-        <p v-if="message" :class="messageOk ? 'msg-ok' : 'msg-error'">{{ message }}</p>
-
-        <div class="btn-row">
-          <button class="btn" :disabled="!!busy" @click="continueFromInput">출력 모드 선택하기</button>
-        </div>
-      </div>
-
-      <div v-else-if="guidedStep === 'purpose'" class="guided-panel">
-        <h3>결과를 어떤 방식으로 볼까요?</h3>
-
-        <div class="guided-card-grid">
-          <button
-              v-for="mode in guidedAnalysisModes"
-              :key="mode.value"
-              class="guided-choice-card"
-              type="button"
-              @click="selectGuidedAnalysisMode(mode.value)"
-          >
-            <strong>{{ mode.label }}</strong>
-            <span>{{ mode.hint }}</span>
-          </button>
-        </div>
-      </div>
-
       <div v-else-if="guidedStep === 'questions'" class="guided-panel">
         <div class="guided-question-header">
           <div>
-            <p class="eyebrow">확인 질문</p>
-            <h3>과실비율에 영향을 줄 수 있는 점을 하나씩 확인할게요</h3>
+            <p class="eyebrow">대분류별 확인 질문</p>
+            <h3>선택한 대분류에 맞춰 과실비율에 영향을 줄 수 있는 점만 확인할게요</h3>
           </div>
           <span class="guided-question-counter">
             질문 {{ Math.min(currentGuidedQuestionIndex + 1, totalGuidedQuestionCount || 1) }} / {{ totalGuidedQuestionCount || 1 }}
@@ -390,8 +352,6 @@ const {
   guidedAnswers,
   currentGuidedQuestionIndex,
   guidedAccidentMajorCategoryOptions,
-  guidedAccidentSubtypeOptions,
-  guidedAnalysisModes,
   guidedQuestions,
   visibleGuidedQuestions,
   totalGuidedQuestionCount,
@@ -412,9 +372,8 @@ const {
   prettySize,
   saveCaseInputs,
   continueFromInput,
+  startQuickAnalysisFromInput,
   selectAccidentMajorCategory,
-  selectAccidentSubtype,
-  selectGuidedAnalysisMode,
   answerGuidedQuestion,
   guidedQuestionId,
   goToGuidedQuestion,
