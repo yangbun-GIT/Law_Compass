@@ -1,4 +1,4 @@
-# 표준 MCP 도입 결정 기록
+﻿# 표준 MCP 도입 결정 기록
 
 상태: active/reference
 용도: LawCompass가 표준 MCP Host/Client/Server를 지금 도입하지 않는 이유와 재검토 trigger를 고정하는 기준 문서
@@ -7,11 +7,11 @@
 
 ## 0. 문서 위치와 적용 범위
 
-- 이 문서는 `docs/STANDARD_MCP_DECISION.md`에서 관리한다.
-- 현재 Agent/MCP/Task-Plan-Goal 현행 기준은 [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)를 따른다.
-- P0~P12 상세 완료 기록은 [archive 완료 기록](archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md)을 참조한다.
+- 이 문서는 `docs/architecture/STANDARD_MCP_DECISION.md`에서 관리한다.
+- 현재 Agent/MCP/Task-Plan-Goal 현행 기준은 [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](../agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)를 따른다.
+- P0~P12 상세 완료 기록은 [archive 완료 기록](../archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md)을 참조한다.
 - OSS 후속 MSA/MCP/Agent 분리 검토는 [FUTURE_MSA_MCP_AGENT_EVOLUTION.md](FUTURE_MSA_MCP_AGENT_EVOLUTION.md)를 참조한다.
-- 현재 저장소에는 `docs/architecture/` 폴더를 두지 않았으므로, 관련 architecture 문서는 `docs/` 루트의 실제 경로를 기준으로 링크한다.
+- 표준 MCP와 아키텍처 판단 문서는 `docs/architecture/` 경계에서 관리한다.
 
 ## 1. 결정
 
@@ -82,4 +82,4 @@ P10-2 pilot은 `search_knia_json_rag_tool`을 대상으로 future standard MCP a
 
 ## 7. 다음 작업
 
-P11에서는 이 결정이 `SYSTEM_OVERVIEW.md`, `docs/STACK_DECISION_REVIEW.md`, 발표/인수인계 설명과 충돌하지 않는지 다시 확인한다.
+P11에서는 이 결정이 `SYSTEM_OVERVIEW.md`, `docs/architecture/STACK_DECISION_REVIEW.md`, 발표/인수인계 설명과 충돌하지 않는지 다시 확인한다.

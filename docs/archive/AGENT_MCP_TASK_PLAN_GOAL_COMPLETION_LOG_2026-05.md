@@ -1,4 +1,4 @@
-# Agent/MCP Task-Plan-Goal 구조 보강 로드맵
+﻿# Agent/MCP Task-Plan-Goal 구조 보강 로드맵
 
 작성일: 2026-05-31
 
@@ -92,12 +92,12 @@ P0-1 문서 점검 결과:
 
 - `DEVELOPMENT_PROMPT.md`는 현재 구조를 표준 MCP가 아닌 Agent 내부 MCP-like tool registry/executor로 표현한다.
 - `SYSTEM_OVERVIEW.md`는 `apps/agent/app/mcp/*`를 내부 tool registry/executor로 기록하고, 표준 MCP는 후속 안정화/확장 항목으로 둔다.
-- `docs/STACK_DECISION_REVIEW.md`는 현재 구현이 외부 표준 MCP 서버/클라이언트 전체 구현이 아니라고 명시한다.
+- `docs/architecture/STACK_DECISION_REVIEW.md`는 현재 구현이 외부 표준 MCP 서버/클라이언트 전체 구현이 아니라고 명시한다.
 - 검색 결과 기준으로 "표준 MCP 구현 완료"처럼 현재 구현을 과장하는 문구는 확인되지 않았다.
 
 검증:
 
-- `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/STACK_DECISION_REVIEW.md`의 MCP/Agent 표현이 서로 충돌하지 않는지 확인한다.
+- `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/architecture/STACK_DECISION_REVIEW.md`의 MCP/Agent 표현이 서로 충돌하지 않는지 확인한다.
 - 표준 MCP가 구현되지 않았는데 구현된 것처럼 표현된 문구가 없는지 검색한다.
 
 #### P0-2. 현재 구현 inventory 작성
@@ -1078,7 +1078,7 @@ P5-1 완료 기록:
 
 - `SYSTEM_OVERVIEW.md`에 실제 구조를 반영한다.
 - `DEVELOPMENT_PROMPT.md`에 새 작업 원칙을 반영한다.
-- `docs/STACK_DECISION_REVIEW.md`의 MCP/Agent 판단을 최신화한다.
+- `docs/architecture/STACK_DECISION_REVIEW.md`의 MCP/Agent 판단을 최신화한다.
 - 팀원용 실행/검증 문서에 새 구조를 반영한다.
 
 #### P11-2. 발표 설명 정리
@@ -1325,7 +1325,7 @@ Agent/MCP/Task-Plan-Goal 구조 보강 P0~P12 전체 점검은 완료했다. 다
 
 - P10-1 표준 MCP 요구사항 재평가 완료: 현재는 표준 MCP Host/Client/Server 즉시 도입을 보류하고 Agent 내부 MCP-like registry/executor를 유지하는 것이 적절하다고 정리했다.
 - 외부 tool/server, cross-host 재사용, 표준 MCP client, 독립 process 격리, 내부 executor 권한 분리 부족 요구가 아직 명확하지 않고, P3~P9에서 내부 executor schema/scope/failure packet/trace/test가 이미 강화된 점을 근거로 남겼다.
-- `docs/STACK_DECISION_REVIEW.md`에 평가표, 도입 재검토 trigger, P10-2 compatibility pilot 범위를 추가했다.
+- `docs/architecture/STACK_DECISION_REVIEW.md`에 평가표, 도입 재검토 trigger, P10-2 compatibility pilot 범위를 추가했다.
 - 이번 단계는 판단 근거 문서화 작업이며 표준 MCP runtime, transport, server/client, 기존 tool 실행 동작, public API/DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 표준 MCP gate와 MCP registry/executor/route boundary 회귀 테스트로 완료했다.
 - 다음 개발은 **P10-2 표준 MCP pilot 설계**다.
@@ -1334,7 +1334,7 @@ Agent/MCP/Task-Plan-Goal 구조 보강 P0~P12 전체 점검은 완료했다. 다
 
 - P10-2 표준 MCP pilot 설계 완료: `search_knia_json_rag_tool`을 pilot 대상으로 선택했다. read-only KNIA 검색 tool이고 사고 근거 품질에 직접 연결되며 기존 `MCPToolSpec` 계약을 갖고 있어 compatibility 설계에 가장 적합하다.
 - `apps/agent/app/mcp/standard_mcp_pilot.py`를 추가해 internal executor source-of-truth, adapter disabled, standard runtime unchanged, schema/scope/timeout/failure mapping metadata를 안전하게 반환한다.
-- `docs/STANDARD_MCP_PILOT_DESIGN.md`에 pilot 대상, 공존 설계, adapter mapping, 금지 범위, 완료 기준을 정리했다.
+- `docs/architecture/STANDARD_MCP_PILOT_DESIGN.md`에 pilot 대상, 공존 설계, adapter mapping, 금지 범위, 완료 기준을 정리했다.
 - 이번 단계는 compatibility 설계이며 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, public API/DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 표준 MCP pilot/gate/registry/executor/route boundary 테스트와 compileall로 완료했다.
 - 후속 작업은 **P10-3 도입/보류 결정**이었다.
@@ -1344,15 +1344,15 @@ Agent/MCP/Task-Plan-Goal 구조 보강 P0~P12 전체 점검은 완료했다. 다
 - P10-3 표준 MCP 도입/보류 결정 완료: 현재는 표준 MCP Host/Client/Server를 도입하지 않고 Agent 내부 MCP-like tool registry/executor를 유지한다.
 - P10-2 pilot은 `search_knia_json_rag_tool`의 future adapter mapping 가능성을 확인했지만, 표준 MCP runtime이 내부 executor 대비 지금 해결하는 구체적 운영 문제는 아직 없다.
 - 도입 재검토 trigger는 외부 tool/Agent 3개 이상, 다중 host tool 재사용, 표준 MCP client 요구, 내부 executor scope 한계, 독립 process 격리 필요로 고정했다.
-- `docs/STANDARD_MCP_DECISION.md`에 결정, 근거, 향후 migration 순서, 발표/인수인계 표현을 정리했다.
+- `docs/architecture/STANDARD_MCP_DECISION.md`에 결정, 근거, 향후 migration 순서, 발표/인수인계 표현을 정리했다.
 - 이번 단계는 결정 문서화이며 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, public API/DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 표준 MCP pilot/gate 테스트와 문서 diff 검증으로 완료한다.
 - 다음 개발은 **P11-1 문서 동기화**다.
 
 ### 2026-05-31 P11-1 진행 기록
 
-- P11-1 문서 동기화 완료: `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/STACK_DECISION_REVIEW.md`, 팀원용 실행/운영 문서가 모두 현재 구조를 표준 MCP 서버/클라이언트가 아닌 Agent 내부 MCP-like tool registry/executor로 표현하도록 정리했다.
-- `docs/BUILD_AND_RUN_GUIDE.md`의 선행 확인 문서 목록에 `docs/GITHUB_COLLABORATION_WORKFLOW.md`, `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`, `docs/STANDARD_MCP_DECISION.md`, `docs/VERIFICATION_COMMANDS.md`를 포함했다.
+- P11-1 문서 동기화 완료: `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/architecture/STACK_DECISION_REVIEW.md`, 팀원용 실행/운영 문서가 모두 현재 구조를 표준 MCP 서버/클라이언트가 아닌 Agent 내부 MCP-like tool registry/executor로 표현하도록 정리했다.
+- `docs/BUILD_AND_RUN_GUIDE.md`의 선행 확인 문서 목록에 `docs/GITHUB_COLLABORATION_WORKFLOW.md`, `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`, `docs/architecture/STANDARD_MCP_DECISION.md`, `docs/VERIFICATION_COMMANDS.md`를 포함했다.
 - `docs/OPERATIONS.md`에 Agent/MCP/Task-Plan-Goal 구조와 표준 MCP 보류 결정의 운영 참조 위치를 추가했다.
 - P10-2의 과거 진행 기록 중 현재 상태와 혼동될 수 있는 “다음 P10-3” 표현은 “후속 P10-3”으로 정리했다.
 - 이번 단계는 문서 정합성 보강이며 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
@@ -1361,7 +1361,7 @@ Agent/MCP/Task-Plan-Goal 구조 보강 P0~P12 전체 점검은 완료했다. 다
 
 ### 2026-05-31 P11-2 진행 기록
 
-- P11-2 발표 설명 정리 완료: `docs/PRESENTATION_ARCHITECTURE_NOTES.md`를 추가해 현재 구현, 부분 구현, 추후 적용, 발표에서 강조할 강점, 피해야 할 표현, 권장 발표 문장을 분리했다.
+- P11-2 발표 설명 정리 완료: `docs/architecture/PRESENTATION_ARCHITECTURE_NOTES.md`를 추가해 현재 구현, 부분 구현, 추후 적용, 발표에서 강조할 강점, 피해야 할 표현, 권장 발표 문장을 분리했다.
 - 발표 기준은 표준 MCP 구현 완료가 아니라 Agent 내부 MCP-like tool registry/executor, 표준 MCP 도입 gate와 pilot 설계, 현재 보류 결정으로 설명하도록 고정했다.
 - 현재 강점은 MSA 서비스 분리, Gateway/Worker/Agent 책임 분리, 영상 관찰값 오염 방지, 사고축 근거 routing, finality 표시, Task-Plan-Goal trace/packet 구조로 정리했다.
 - 이번 단계는 발표/인수인계 설명 문서화이며 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
@@ -1391,14 +1391,14 @@ Agent/MCP/Task-Plan-Goal 구조 보강 P0~P12 전체 점검은 완료했다. 다
 ### 2026-05-31 P12-2 진행 기록
 
 - P12-2 Agent 실행 품질 점검 완료: `scripts/check_agent_execution_quality.ps1`를 추가해 Agent Docker 컨테이너 기준으로 입력/fact 품질, 역할/goal 독립성, 충돌/불확실성/finality 품질을 반복 검증할 수 있게 했다.
-- `docs/AGENT_EXECUTION_QUALITY_CHECK.md`에 점검 범위, 실행 명령, 완료 기준, 실제 영상/비용 발생 검증과의 차이를 정리했다.
+- `docs/agent/AGENT_EXECUTION_QUALITY_CHECK.md`에 점검 범위, 실행 명령, 완료 기준, 실제 영상/비용 발생 검증과의 차이를 정리했다.
 - 점검 범위는 텍스트만/영상만/텍스트+영상/보완 재분석, 영상 fact 승격·보류·충돌, 직접 사고대상 오염 방지, Specialist Agent 결과 독립성, 조건부 판단, 과실비율 결과 계약, judgment contract, evidence axis routing이다.
 - 이번 단계는 문서/검증 스크립트 보강이며 제품 코드 동작, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다.
 - 검증은 `powershell -ExecutionPolicy Bypass -File scripts\check_agent_execution_quality.ps1 -SkipDockerBuild`, `python scripts/check_document_code_sync.py`, `git diff --check`로 완료했다.
 
 ### 2026-05-31 P12-3 진행 기록
 
-- P12-3 사용자 가치 점검 완료: `scripts/check_user_value_readiness.ps1`와 `docs/USER_VALUE_READINESS_CHECK.md`를 추가해 사용자 화면 가치, 리포트 조립, reference metrics, Frontend 표시 안전성, Gateway report/route 동작을 반복 확인한다.
+- P12-3 사용자 가치 점검 완료: `scripts/check_user_value_readiness.ps1`와 `docs/agent/USER_VALUE_READINESS_CHECK.md`를 추가해 사용자 화면 가치, 리포트 조립, reference metrics, Frontend 표시 안전성, Gateway report/route 동작을 반복 확인한다.
 - P12-3 검증 결과: Agent 사용자 가치 계약 `27 passed`, reference metrics fixture `passed`, Gateway test `101 passed`, Gateway build 통과, Frontend display/chat safety 통과, Frontend build 통과.
 - P12 최종 재점검 결과: P12-2는 P0~P11 전체 Agent 실행 구조를 대상으로 재검증했고 Docker Agent 전체 테스트 `340 passed`와 source compile이 통과했다.
 - Agent/MCP/Task-Plan-Goal 구조 보강 P0~P12 전체 점검은 완료 상태다.

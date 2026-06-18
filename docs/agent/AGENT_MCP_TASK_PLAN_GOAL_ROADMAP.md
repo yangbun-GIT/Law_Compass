@@ -1,10 +1,10 @@
-# Agent/MCP Task-Plan-Goal 구조 보강 로드맵
+﻿# Agent/MCP Task-Plan-Goal 구조 보강 로드맵
 
 상태: active/reference
 용도: Agent/MCP-like/Task-Plan-Goal 구조 작업을 재개할 때 확인하는 현재 기준 문서
 마지막 정리일: 2026-05-31
 
-이 문서는 LawCompass의 Agent 구조를 다시 수정할 때 지켜야 하는 현재 기준만 남긴 문서다. P0~P12의 상세 구현 기록과 검증 로그는 [archive 완료 기록](archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md)으로 분리했다.
+이 문서는 LawCompass의 Agent 구조를 다시 수정할 때 지켜야 하는 현재 기준만 남긴 문서다. P0~P12의 상세 구현 기록과 검증 로그는 [archive 완료 기록](../archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md)으로 분리했다.
 
 ## 1. 현재 결론
 
@@ -21,16 +21,16 @@
 
 | 목적 | 먼저 볼 문서 |
 | --- | --- |
-| 전체 문서 지도 | [README.md](README.md) |
-| P0~P12 상세 완료 기록 | [archive 완료 기록](archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md) |
-| 현재 프로젝트 구조 | [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md) |
-| 개발 원칙과 검증 정책 | [DEVELOPMENT_PROMPT.md](../DEVELOPMENT_PROMPT.md) |
-| 표준 MCP 도입 보류 결정 | [STANDARD_MCP_DECISION.md](STANDARD_MCP_DECISION.md) |
-| 표준 MCP pilot 설계 | [STANDARD_MCP_PILOT_DESIGN.md](STANDARD_MCP_PILOT_DESIGN.md) |
-| 발표용 아키텍처 표현 | [PRESENTATION_ARCHITECTURE_NOTES.md](PRESENTATION_ARCHITECTURE_NOTES.md) |
+| 전체 문서 지도 | [README.md](../README.md) |
+| P0~P12 상세 완료 기록 | [archive 완료 기록](../archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md) |
+| 현재 프로젝트 구조 | [SYSTEM_OVERVIEW.md](../../SYSTEM_OVERVIEW.md) |
+| 개발 원칙과 검증 정책 | [DEVELOPMENT_PROMPT.md](../../DEVELOPMENT_PROMPT.md) |
+| 표준 MCP 도입 보류 결정 | [STANDARD_MCP_DECISION.md](../architecture/STANDARD_MCP_DECISION.md) |
+| 표준 MCP pilot 설계 | [STANDARD_MCP_PILOT_DESIGN.md](../architecture/STANDARD_MCP_PILOT_DESIGN.md) |
+| 발표용 아키텍처 표현 | [PRESENTATION_ARCHITECTURE_NOTES.md](../architecture/PRESENTATION_ARCHITECTURE_NOTES.md) |
 | Agent 실행 품질 점검 | [AGENT_EXECUTION_QUALITY_CHECK.md](AGENT_EXECUTION_QUALITY_CHECK.md) |
 | 사용자 가치 점검 | [USER_VALUE_READINESS_CHECK.md](USER_VALUE_READINESS_CHECK.md) |
-| OSS 후속 MSA/MCP/Agent 전환 메모 | [FUTURE_MSA_MCP_AGENT_EVOLUTION.md](FUTURE_MSA_MCP_AGENT_EVOLUTION.md) |
+| OSS 후속 MSA/MCP/Agent 전환 메모 | [FUTURE_MSA_MCP_AGENT_EVOLUTION.md](../architecture/FUTURE_MSA_MCP_AGENT_EVOLUTION.md) |
 
 ## 3. 작업 원칙
 
@@ -114,10 +114,10 @@ git diff --check
 rg -n "AGENT_MCP_TASK_PLAN_GOAL|COMPLETION_LOG|STANDARD_MCP|MCP-like" docs SYSTEM_OVERVIEW.md DEVELOPMENT_PROMPT.md
 ```
 
-코드 변경이 포함되면 [VERIFICATION_COMMANDS.md](VERIFICATION_COMMANDS.md)의 변경 범위별 명령을 따른다. Agent 실행 품질은 [AGENT_EXECUTION_QUALITY_CHECK.md](AGENT_EXECUTION_QUALITY_CHECK.md), 사용자 가치 점검은 [USER_VALUE_READINESS_CHECK.md](USER_VALUE_READINESS_CHECK.md)를 우선한다.
+코드 변경이 포함되면 [VERIFICATION_COMMANDS.md](../VERIFICATION_COMMANDS.md)의 변경 범위별 명령을 따른다. Agent 실행 품질은 [AGENT_EXECUTION_QUALITY_CHECK.md](AGENT_EXECUTION_QUALITY_CHECK.md), 사용자 가치 점검은 [USER_VALUE_READINESS_CHECK.md](USER_VALUE_READINESS_CHECK.md)를 우선한다.
 
 ## 10. 문서 위치 정리 기준
 
-- 이 문서는 Agent/MCP/Task-Plan-Goal 현행 기준이므로 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`로 둔다.
+- 이 문서는 Agent/MCP/Task-Plan-Goal 현행 기준이므로 `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`로 둔다.
 - 완료 기록과 날짜별 상세 로그는 현재 작업 기준과 섞이지 않도록 `docs/archive/`에 둔다.
-- 표준 MCP, 아키텍처 표현, 후속 MSA/MCP 전환 메모는 현재 저장소 구조에 맞춰 `docs/` 루트에서 관리하고, architecture 폴더를 만들면 이 문서와 `docs/README.md` 링크를 함께 갱신한다.
+- 표준 MCP, 아키텍처 표현, 후속 MSA/MCP 전환 메모는 `docs/architecture/`에서 관리한다.

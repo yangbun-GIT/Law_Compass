@@ -1,4 +1,4 @@
-# GitHub Collaboration Workflow
+﻿# GitHub Collaboration Workflow
 
 작성일: 2026-05-26  
 대상: LawCompass를 2명이 동시에 개발할 때 따를 협업 기준입니다.
@@ -76,7 +76,7 @@ git merge main
 
 | 담당 범위 | 주 작업 경로 | 주의할 점 |
 | --- | --- | --- |
-| 영상/Agent 정확도 고도화 | `apps/agent`, `apps/worker`, `apps/gateway/src/lib/report-composer.ts`, Agent/영상 관련 tests, `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` | 웹 디자인 변경을 덮어쓰지 않도록 `apps/frontend` 수정은 최소화한다. |
+| 영상/Agent 정확도 고도화 | `apps/agent`, `apps/worker`, `apps/gateway/src/lib/report-composer.ts`, Agent/영상 관련 tests, `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` | 웹 디자인 변경을 덮어쓰지 않도록 `apps/frontend` 수정은 최소화한다. |
 | 웹 디자인/사용자 화면 | `apps/frontend`, 사용자 화면 CSS/component, 필요한 Gateway 표시 조립 | Agent/Worker 판단 로직과 DTO를 임의로 바꾸지 않는다. |
 | KNIA/근거 데이터 | `apps/agent/app/services/knia`, KNIA scripts, 근거 fixture, 관련 docs | 근거 데이터가 사용자 결과에 확정처럼 표시되지 않도록 finality 계약을 확인한다. |
 | 공통 문서/협업 | `SYSTEM_OVERVIEW.md`, `DEVELOPMENT_PROMPT.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md` | 동시에 수정하기 쉬우므로 작업 전 범위를 먼저 말한다. |
@@ -100,7 +100,7 @@ git merge main
 - `apps/worker/worker/frame_analysis.py`
 - `apps/worker/worker/yolo_frame_analysis.py`
 - `apps/worker/worker/job_processor.py`
-- `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`
+- `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`
 - `SYSTEM_OVERVIEW.md`
 - `DEVELOPMENT_PROMPT.md`
 
@@ -261,7 +261,7 @@ PR을 `main`에 병합하기 전에는 반드시 팀원에게 알립니다.
 - `apps/worker/worker/frame_analysis.py`
 - `apps/worker/worker/yolo_frame_analysis.py`
 - `apps/worker/worker/job_processor.py`
-- `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`
+- `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`
 - `SYSTEM_OVERVIEW.md`
 - `DEVELOPMENT_PROMPT.md`
 

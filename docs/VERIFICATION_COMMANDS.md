@@ -1,4 +1,4 @@
-# LawCompass 검증 명령 기준
+﻿# LawCompass 검증 명령 기준
 
 작성일: 2026-05-31
 
@@ -240,7 +240,7 @@ $runs | Select-Object name,status,conclusion,html_url | ConvertTo-Json -Depth 4
 
 ## 8. 실패 기록 기준
 
-검증이 실패하거나 실행하지 못한 경우 완료로 기록하지 않는다. 아래를 현재 작업 문서 또는 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` 진행 기록에 남긴다.
+검증이 실패하거나 실행하지 못한 경우 완료로 기록하지 않는다. 아래를 현재 작업 문서 또는 `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` 진행 기록에 남긴다.
 
 - 실패한 명령
 - 실패 원인 또는 추정 원인

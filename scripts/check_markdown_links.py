@@ -1,4 +1,4 @@
-"""Report broken local Markdown links.
+﻿"""Report broken local Markdown links.
 
 The default mode is advisory so existing historical docs do not block unrelated
 work. Use ``--strict`` when a task moves or adds documentation links.
@@ -25,6 +25,7 @@ SKIP_PARTS = {
     "logs",
     "node_modules",
     "storage",
+    "수정디자인패턴",
     "venv",
     ".venv",
 }

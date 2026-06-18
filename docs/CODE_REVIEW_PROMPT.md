@@ -1,4 +1,4 @@
-# LawCompass 코드 리뷰 프롬프트
+﻿# LawCompass 코드 리뷰 프롬프트
 
 상태: active/reference
 용도: 교수님, 팀원, 또는 사용자가 코드 리뷰를 요청했을 때 우선 적용하는 리뷰 기준
@@ -35,7 +35,7 @@
 ## 필수 사전 확인
 
 1. `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md`, `docs/README.md`를 읽는다.
-2. 리뷰 대상이 Agent, MCP-like tool, Task-Plan-Goal, video observation, judgment contract를 건드리면 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`를 읽는다.
+2. 리뷰 대상이 Agent, MCP-like tool, Task-Plan-Goal, video observation, judgment contract를 건드리면 `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`를 읽는다.
 3. 배포, OCI, GitHub Pages, 운영 스크립트가 대상이면 `ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md`, `GITHUB_PAGES_FRONTEND_DEPLOYMENT.md`, `docs/OPERATIONS.md`, `docs/VERIFICATION_COMMANDS.md`를 필요한 만큼 읽는다.
 4. 리뷰 대상 commit range를 명확히 잡는다. 예: `git diff --stat base..HEAD`, `git log --oneline base..HEAD`.
 5. 리뷰 전 `git status --short --branch`로 로컬 미커밋 변경과 stash 존재 여부를 확인한다.

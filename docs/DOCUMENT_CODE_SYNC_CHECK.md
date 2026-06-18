@@ -1,4 +1,4 @@
-# 문서와 코드 정합성 점검
+﻿# 문서와 코드 정합성 점검
 
 작성일: 2026-05-31
 
@@ -12,7 +12,7 @@
 
 - 선행 참조 문서: `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `AGENTS.md`
 - 협업/운영 문서: `docs/GITHUB_COLLABORATION_WORKFLOW.md`, `docs/BUILD_AND_RUN_GUIDE.md`, `docs/OPERATIONS.md`, `docs/VERIFICATION_COMMANDS.md`
-- Agent/MCP 문서: `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`, `docs/STANDARD_MCP_DECISION.md`, `docs/STANDARD_MCP_PILOT_DESIGN.md`, `docs/PRESENTATION_ARCHITECTURE_NOTES.md`
+- Agent/MCP 문서: `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`, `docs/architecture/STANDARD_MCP_DECISION.md`, `docs/architecture/STANDARD_MCP_PILOT_DESIGN.md`, `docs/architecture/PRESENTATION_ARCHITECTURE_NOTES.md`
 - 실행 스크립트: `scripts/verify_core.ps1`, `scripts/verify_agent_regression.ps1`, `scripts/verify_final_readiness.ps1`, `scripts/smoke_e2e.ps1`
 - 핵심 코드 경로: Frontend router/API, Gateway main/routes/services, Agent internal route/MCP/service, Worker job/video/frame/yolo 처리 파일
 - 핵심 route/job 문자열: `/admin/agent-test`, `/api/v1/uploads/local`, `/health`, `/ready`, `/internal/v1/analyze/text`, `/internal/v1/analyze/video`, `video_preprocess`, `video_analyze`

@@ -1,4 +1,4 @@
-# Project Baseline Snapshot
+﻿# Project Baseline Snapshot
 
 작성일: 2026-05-21  
 기준 경로: `C:/Users/yangbun/Documents/OSS/Law_Compass`
@@ -29,7 +29,7 @@
 | `AGENTS.md` | 작업 전 `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`를 먼저 읽도록 안내하는 에이전트 진입 지침 |
 | `DEVELOPMENT_PROMPT.md` | LawCompass 전담 Principal Software Architect 역할, 개발 원칙, 검증, 보안, 문서 동기화 기준 |
 | `SYSTEM_OVERVIEW.md` | 프로젝트 구조, 핵심 파일, 리소스 연동, 완성도, To-Do 명세 |
-| `docs/STACK_DECISION_REVIEW.md` | 초기 스택 계획과 현재 적용 스택 비교, 향후 도입 후보 판단 |
+| `docs/architecture/STACK_DECISION_REVIEW.md` | 초기 스택 계획과 현재 적용 스택 비교, 향후 도입 후보 판단 |
 | `docs/OPERATIONS.md` | 운영 절차, 외부 API 점검, E2E 스모크 테스트 안내 |
 | `docs/api/openapi.yaml` | 공개 API 명세 |
 

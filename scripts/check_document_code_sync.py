@@ -1,4 +1,4 @@
-"""Check that critical documentation references still match repository files.
+﻿"""Check that critical documentation references still match repository files.
 
 This is a lightweight guard for P12-1. It intentionally checks only curated
 high-signal paths and route/job strings to avoid noisy false positives from all
@@ -26,15 +26,15 @@ REQUIRED_PATHS = [
     "env.example",
     "docs/README.md",
     "docs/GITHUB_COLLABORATION_WORKFLOW.md",
-    "docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md",
+    "docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md",
     "docs/archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md",
-    "docs/FUTURE_MSA_MCP_AGENT_EVOLUTION.md",
-    "docs/STANDARD_MCP_DECISION.md",
-    "docs/STANDARD_MCP_PILOT_DESIGN.md",
-    "docs/PRESENTATION_ARCHITECTURE_NOTES.md",
+    "docs/architecture/FUTURE_MSA_MCP_AGENT_EVOLUTION.md",
+    "docs/architecture/STANDARD_MCP_DECISION.md",
+    "docs/architecture/STANDARD_MCP_PILOT_DESIGN.md",
+    "docs/architecture/PRESENTATION_ARCHITECTURE_NOTES.md",
     "docs/PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md",
-    "docs/AGENT_EXECUTION_QUALITY_CHECK.md",
-    "docs/USER_VALUE_READINESS_CHECK.md",
+    "docs/agent/AGENT_EXECUTION_QUALITY_CHECK.md",
+    "docs/agent/USER_VALUE_READINESS_CHECK.md",
     "docs/BUILD_AND_RUN_GUIDE.md",
     "docs/OPERATIONS.md",
     "docs/VERIFICATION_COMMANDS.md",
@@ -106,7 +106,7 @@ REQUIRED_SNIPPETS = [
         "snippets": ["LAWCOMPASS_SITE_ADDRESS", "CADDY_ACME_EMAIL"],
     },
     {
-        "path": "docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md",
+        "path": "docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md",
         "snippets": ["상태: active/reference", "완료된 구조 보강 요약", "FUTURE_MSA_MCP_AGENT_EVOLUTION.md"],
     },
     {
@@ -118,15 +118,15 @@ REQUIRED_SNIPPETS = [
         "snippets": ["P0. 문서 시작점", "P1. SRP 위험 파일", "2026-06-10"],
     },
     {
-        "path": "docs/STANDARD_MCP_DECISION.md",
+        "path": "docs/architecture/STANDARD_MCP_DECISION.md",
         "snippets": ["상태: active/reference", "FUTURE_MSA_MCP_AGENT_EVOLUTION.md", "docs/architecture/"],
     },
     {
-        "path": "docs/STANDARD_MCP_PILOT_DESIGN.md",
+        "path": "docs/architecture/STANDARD_MCP_PILOT_DESIGN.md",
         "snippets": ["상태: active/reference", "adapter compatibility", "STANDARD_MCP_DECISION.md"],
     },
     {
-        "path": "docs/FUTURE_MSA_MCP_AGENT_EVOLUTION.md",
+        "path": "docs/architecture/FUTURE_MSA_MCP_AGENT_EVOLUTION.md",
         "snippets": ["OSS 후속 구조 전환 메모", "Specialist Agent 페르소나", "표준 MCP 도입 Trigger"],
     },
     {

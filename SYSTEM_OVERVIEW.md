@@ -1,4 +1,15 @@
 ﻿# LawCompass 시스템 구성 명세서
+## 2026-06-18 구조 문서 폴더화 및 KNIA route 책임 분리
+
+업로드된 구조 기준에 맞춰 Agent/MCP/Task-Plan-Goal 문서와 Architecture 판단 문서를 실제 저장소 폴더 경계로 분리하고, KNIA route가 떠안고 있던 표시 정규화 helper를 별도 Gateway lib로 이동했다.
+
+| 항목 | 현재 상태 |
+| --- | --- |
+| Agent 문서 경계 | Agent 실행 품질, 사용자 가치 점검, Task-Plan-Goal 현행 기준은 `docs/agent/` 아래에서 관리한다. |
+| Architecture 문서 경계 | 표준 MCP 도입 보류 결정, 표준 MCP pilot, 후속 MSA/MCP/Agent 전환, 발표 아키텍처, 스택 판단 문서는 `docs/architecture/` 아래에서 관리한다. |
+| 문서 점검 | `docs/README.md`, `AGENTS.md`, `DEVELOPMENT_PROMPT.md`, `scripts/check_document_code_sync.py`가 새 문서 위치를 기준으로 참조한다. |
+| Gateway KNIA route | `apps/gateway/src/routes/knia.ts`는 Fastify route, DB query, Agent 호출 경계에 집중하고, KNIA 사용자 표시 정규화는 `apps/gateway/src/lib/knia-route-presenter.ts`가 담당한다. |
+| 비변경 범위 | Public API path, DTO, DB schema, Redis key, storage path, KNIA/Agent 판단 로직은 변경하지 않았다. |
 
 ## 2026-06-18 JCloud 운영 KNIA/YOLO 런타임 보강
 
@@ -70,11 +81,11 @@ Agent/MCP/Task-Plan-Goal 로드맵의 현행 기준과 상세 완료 기록을 �
 
 | 항목 | 현재 상태 |
 | --- | --- |
-| 현행 기준 | `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`는 Agent/MCP-like/Task-Plan-Goal 작업을 다시 열 때 확인하는 active/reference 문서로 축약했다. |
+| 현행 기준 | `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`는 Agent/MCP-like/Task-Plan-Goal 작업을 다시 열 때 확인하는 active/reference 문서로 축약했다. |
 | 완료 기록 | 기존 P0~P12 상세 구현 기록과 검증 로그는 `docs/archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md`에 보존했다. |
-| 표준 MCP 결정 | `docs/STANDARD_MCP_DECISION.md`는 표준 MCP Host/Client/Server 즉시 도입 보류와 재검토 trigger를 기록하는 active/reference 문서로 정리했다. |
-| 표준 MCP pilot | `docs/STANDARD_MCP_PILOT_DESIGN.md`는 `search_knia_json_rag_tool` 기반 future adapter compatibility와 금지 범위를 고정하는 active/reference 문서로 정리했다. |
-| 후속 전환 메모 | `docs/FUTURE_MSA_MCP_AGENT_EVOLUTION.md`가 OSS 후속 MSA 책임 경계, MCP pilot 순서, Specialist Agent 페르소나 고도화 기준을 정리한다. |
+| 표준 MCP 결정 | `docs/architecture/STANDARD_MCP_DECISION.md`는 표준 MCP Host/Client/Server 즉시 도입 보류와 재검토 trigger를 기록하는 active/reference 문서로 정리했다. |
+| 표준 MCP pilot | `docs/architecture/STANDARD_MCP_PILOT_DESIGN.md`는 `search_knia_json_rag_tool` 기반 future adapter compatibility와 금지 범위를 고정하는 active/reference 문서로 정리했다. |
+| 후속 전환 메모 | `docs/architecture/FUTURE_MSA_MCP_AGENT_EVOLUTION.md`가 OSS 후속 MSA 책임 경계, MCP pilot 순서, Specialist Agent 페르소나 고도화 기준을 정리한다. |
 | 링크 정합성 | `docs/README.md`와 `scripts/check_document_code_sync.py`가 새 문서 위치를 확인한다. |
 | 비변경 범위 | 제품 API route, DTO, DB schema, Redis key, storage path, 외부 API 계약, Agent 판단 로직은 변경하지 않았다. |
 
@@ -117,12 +128,12 @@ KNIA 검색순위 화면에서 같은 기준번호가 여러 ranking source row�
 
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P12-3 사용자 가치 점검
 
-Agent/MCP/Task-Plan-Goal 구조 보강의 P12-3 단계를 완료했다. P0~P11에서 만든 Agent 실행 결과가 실제 사용자 화면에서 법률 관점, 보험 처리, 근거, 추가 확인 항목으로 안전하게 전달되는지 반복 점검할 수 있도록 `scripts/check_user_value_readiness.ps1`와 `docs/USER_VALUE_READINESS_CHECK.md`를 추가했다.
+Agent/MCP/Task-Plan-Goal 구조 보강의 P12-3 단계를 완료했다. P0~P11에서 만든 Agent 실행 결과가 실제 사용자 화면에서 법률 관점, 보험 처리, 근거, 추가 확인 항목으로 안전하게 전달되는지 반복 점검할 수 있도록 `scripts/check_user_value_readiness.ps1`와 `docs/agent/USER_VALUE_READINESS_CHECK.md`를 추가했다.
 
 | 항목 | 현재 상태 |
 | --- | --- |
 | 점검 스크립트 | `scripts/check_user_value_readiness.ps1`가 Docker Agent 사용자 가치 계약, reference metrics fixture, Gateway report/route 테스트와 build, Frontend display/chat 표시 안전성과 build를 묶어 실행한다. |
-| 점검 문서 | `docs/USER_VALUE_READINESS_CHECK.md`에 P12-3 점검 범위, 실행 방법, 완료 기준을 정리했다. |
+| 점검 문서 | `docs/agent/USER_VALUE_READINESS_CHECK.md`에 P12-3 점검 범위, 실행 방법, 완료 기준을 정리했다. |
 | 점검 범위 | 단순한 "확인 필요" 반복 방지, 조건부 결과 표시, 사고축에 맞는 KNIA/법령/영상 근거 표시, 내부 trace/raw key/model metadata 비노출, Frontend 사용자 문구 안전성을 확인한다. |
 | 비변경 범위 | API route, DTO, DB schema, Redis key, storage path, 외부 API 연결 방식은 변경하지 않았다. |
 
@@ -130,12 +141,12 @@ Agent/MCP/Task-Plan-Goal 구조 보강의 P12-3 단계를 완료했다. P0~P11�
 
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P12-2 Agent 실행 품질 점검
 
-Agent/MCP/Task-Plan-Goal 구조 보강의 P12-2 단계를 완료했다. 영상/텍스트 입력이 오염 없이 fact로 정리되는지, Agent별 결과가 독립적으로 남는지, 충돌과 불확실성이 final result에 올바르게 반영되는지 전체 Agent 테스트 기준으로 반복 점검할 수 있도록 `scripts/check_agent_execution_quality.ps1`와 `docs/AGENT_EXECUTION_QUALITY_CHECK.md`를 추가했다.
+Agent/MCP/Task-Plan-Goal 구조 보강의 P12-2 단계를 완료했다. 영상/텍스트 입력이 오염 없이 fact로 정리되는지, Agent별 결과가 독립적으로 남는지, 충돌과 불확실성이 final result에 올바르게 반영되는지 전체 Agent 테스트 기준으로 반복 점검할 수 있도록 `scripts/check_agent_execution_quality.ps1`와 `docs/agent/AGENT_EXECUTION_QUALITY_CHECK.md`를 추가했다.
 
 | 항목 | 현재 상태 |
 | --- | --- |
 | 점검 스크립트 | `scripts/check_agent_execution_quality.ps1`가 Docker Agent 컨테이너에서 전체 Agent 테스트와 source compile을 실행한다. |
-| 점검 문서 | `docs/AGENT_EXECUTION_QUALITY_CHECK.md`에 점검 범위, 실행 방법, 완료 기준, 실제 OpenAI/YOLO 영상 검증과의 차이를 정리했다. |
+| 점검 문서 | `docs/agent/AGENT_EXECUTION_QUALITY_CHECK.md`에 점검 범위, 실행 방법, 완료 기준, 실제 OpenAI/YOLO 영상 검증과의 차이를 정리했다. |
 | 점검 범위 | 텍스트만/영상만/텍스트+영상/보완 재분석, 영상 fact 승격·보류·충돌, 직접 사고대상 오염 방지, Specialist Agent 결과 독립성, 조건부 판단, 과실비율 결과 계약, judgment contract, evidence axis routing을 확인한다. |
 | 비변경 범위 | 제품 코드 동작, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
 
@@ -170,11 +181,11 @@ Agent/MCP/Task-Plan-Goal 구조 보강의 P11-3 단계를 완료했다. 팀원 �
 
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P11-2 발표 설명 정리
 
-Agent/MCP/Task-Plan-Goal 구조 보강의 P11-2 단계를 완료했다. 발표와 팀원 설명에서 현재 구현을 과장하지 않도록 `docs/PRESENTATION_ARCHITECTURE_NOTES.md`를 추가했다.
+Agent/MCP/Task-Plan-Goal 구조 보강의 P11-2 단계를 완료했다. 발표와 팀원 설명에서 현재 구현을 과장하지 않도록 `docs/architecture/PRESENTATION_ARCHITECTURE_NOTES.md`를 추가했다.
 
 | 항목 | 현재 상태 |
 | --- | --- |
-| 발표 기준 문서 | `docs/PRESENTATION_ARCHITECTURE_NOTES.md`에 현재 구현, 부분 구현, 추후 적용, 피해야 할 표현, 권장 발표 표현을 정리했다. |
+| 발표 기준 문서 | `docs/architecture/PRESENTATION_ARCHITECTURE_NOTES.md`에 현재 구현, 부분 구현, 추후 적용, 피해야 할 표현, 권장 발표 표현을 정리했다. |
 | 핵심 표현 | 표준 MCP 구현 완료가 아니라 Agent 내부 MCP-like tool registry/executor와 도입 gate/pilot 설계 완료, 현재 보류로 설명한다. |
 | 현재 강점 | MSA 서비스 분리, Agent 판단 계약, 영상 관찰값 오염 방지, 근거 기반 finality, 내부 tool registry, Task-Plan-Goal trace/packet 구조로 설명한다. |
 | 비변경 범위 | 코드, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
@@ -189,7 +200,7 @@ Agent/MCP/Task-Plan-Goal 구조 보강의 P10-3 단계를 완료했다. P10-1 �
 | --- | --- |
 | 최종 판단 | 표준 MCP runtime 도입은 보류한다. 현재 production tool 실행 경로는 내부 executor를 source of truth로 유지한다. |
 | 판단 근거 | pilot은 adapter mapping 가능성을 확인했지만, 현재 외부 tool server, cross-host 재사용, 표준 MCP client, 독립 process 격리, 내부 executor 권한 모델 한계 같은 구체적 운영 문제가 아직 없다. |
-| 문서 | `docs/STANDARD_MCP_DECISION.md`에 도입 보류 결정, 근거, 향후 trigger, migration 순서, 발표/인수인계 표현을 정리했다. |
+| 문서 | `docs/architecture/STANDARD_MCP_DECISION.md`에 도입 보류 결정, 근거, 향후 trigger, migration 순서, 발표/인수인계 표현을 정리했다. |
 | 향후 조건 | 외부 tool/Agent 3개 이상, 다중 host tool 재사용, 표준 MCP client 요구, 독립 process 격리, 내부 executor scope 한계가 실제 요구가 되면 재검토한다. |
 | 비변경 범위 | 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
 
@@ -204,7 +215,7 @@ Agent/MCP/Task-Plan-Goal 구조 보강의 P10-2 단계를 완료했다. 이번 �
 | Pilot 대상 | `search_knia_json_rag_tool`을 선택했다. read-only KNIA 검색 tool이고 사고 근거 품질에 직접 연결되며 기존 `MCPToolSpec` 계약을 갖고 있다. |
 | 코드 계약 | `apps/agent/app/mcp/standard_mcp_pilot.py`가 pilot plan metadata를 생성한다. 내부 executor를 source of truth로 유지하고 `standard_mcp_adapter_enabled=false`, `standard_mcp_runtime_changed=false`를 명시한다. |
 | 테스트 | `apps/agent/tests/test_standard_mcp_pilot.py`가 pilot 대상, tool contract 보존, failure mapping, unsupported tool 거부를 검증한다. |
-| 문서 | `docs/STANDARD_MCP_PILOT_DESIGN.md`에 pilot 대상, 공존 설계, adapter mapping, 금지 범위, 완료 기준을 정리했다. |
+| 문서 | `docs/architecture/STANDARD_MCP_PILOT_DESIGN.md`에 pilot 대상, 공존 설계, adapter mapping, 금지 범위, 완료 기준을 정리했다. |
 | 비변경 범위 | 표준 MCP server/client/transport, Docker Compose 서비스, production tool 호출 경로, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
 
 검증은 Agent 컨테이너에서 표준 MCP pilot/gate/registry/executor/route boundary 테스트와 compileall로 완료했다. 후속 P10-3에서는 pilot 설계가 내부 executor 대비 구체적인 이득을 주는지 평가하고 도입/보류 결정을 내렸다.
@@ -217,7 +228,7 @@ Agent/MCP/Task-Plan-Goal 구조 보강의 P10-1 단계를 완료했다. 이번 �
 | --- | --- |
 | 결론 | 표준 MCP 즉시 도입은 보류한다. 현재는 Agent 내부 `app/mcp` tool registry/executor를 유지한다. |
 | 판단 근거 | 외부 tool/server 요구, cross-host 재사용 요구, 표준 MCP client 요구, 독립 process 격리 요구가 아직 명확하지 않다. 내부 executor는 schema, scope, timeout/failure packet, safe trace metadata를 이미 제공한다. |
-| 문서 반영 | `docs/STACK_DECISION_REVIEW.md`에 P10-1 재평가 표와 도입 재검토 trigger를 추가했다. |
+| 문서 반영 | `docs/architecture/STACK_DECISION_REVIEW.md`에 P10-1 재평가 표와 도입 재검토 trigger를 추가했다. |
 | 비변경 범위 | 표준 MCP runtime, transport, server/client, 기존 tool 실행 동작, API route, DTO, DB schema, Redis key, storage path, 외부 API는 변경하지 않았다. |
 
 검증은 표준 MCP gate 테스트와 MCP registry/executor/route boundary 회귀 테스트로 완료했다. 다음 P10-2에서는 KNIA search, legal RAG search, evidence guard 중 하나를 대상으로 표준 MCP adapter compatibility pilot 설계를 제한적으로 진행한다.
@@ -407,7 +418,7 @@ P6-2는 불확실성을 숨기지 않고 조건부 결과로 드러내는 단계
 
 Agent/MCP/Task-Plan-Goal 로드맵의 진행 상태 표와 바로 다음 작업 문구를 실제 완료 상태에 맞게 갱신했다. 기존 표에는 P5가 진행 중, P6가 대기로 남아 있었지만 현재 유효 상태는 P5 완료, P6-1 완료, 다음 작업 P6-2 조건부 판단 강화다.
 
-이번 변경은 코드 동작, API route, DB schema, Redis key, storage path, 외부 API, 환경변수 키를 변경하지 않는 문서 정합성 보강이다. 이후 작업자는 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`의 진행 상태 표와 하단 완료 기록을 함께 기준으로 삼아 P6-2부터 이어가면 된다.
+이번 변경은 코드 동작, API route, DB schema, Redis key, storage path, 외부 API, 환경변수 키를 변경하지 않는 문서 정합성 보강이다. 이후 작업자는 `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`의 진행 상태 표와 하단 완료 기록을 함께 기준으로 삼아 P6-2부터 이어가면 된다.
 
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal P6-1 사고축 기반 Evidence Routing
 
@@ -429,7 +440,7 @@ P6-1은 근거의 사고축 정합성을 정리하는 단계다. 다음 P6-2에�
 
 ## 2026-05-31 P5-2~P5-4 문서 정합성 재점검
 
-사용자 지적에 따라 Agent/MCP/Task-Plan-Goal 로드맵 문서의 P5-2 이후 완료 기록을 다시 점검했다. 코드와 `SYSTEM_OVERVIEW.md`에는 P5-2, P5-3, P5-4 완료 내역이 존재하지만, `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`의 오래된 진행 상태 표와 “바로 다음 작업” 문구가 P5-1 기준으로 남아 있어 문서 참조 시 혼동 가능성이 있었다.
+사용자 지적에 따라 Agent/MCP/Task-Plan-Goal 로드맵 문서의 P5-2 이후 완료 기록을 다시 점검했다. 코드와 `SYSTEM_OVERVIEW.md`에는 P5-2, P5-3, P5-4 완료 내역이 존재하지만, `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`의 오래된 진행 상태 표와 “바로 다음 작업” 문구가 P5-1 기준으로 남아 있어 문서 참조 시 혼동 가능성이 있었다.
 
 이번 점검에서는 P5-2 직접 사고대상 추출 강화, P5-3 핵심 정량 fact 상태 계약, P5-4 reference 평가 경계 강화를 다시 검증하고, 로드맵 하단에 현재 유효한 진행 상태를 명시했다. 이 변경은 코드 동작을 바꾸지 않는 문서 정합성 보강이다.
 
@@ -703,9 +714,9 @@ Agent/MCP/Task-Plan-Goal 구조 보강 로드맵의 P0 단계를 완료했다. �
 
 | 범위 | 내용 |
 | --- | --- |
-| 비회귀 원칙 | `DEVELOPMENT_PROMPT.md`와 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`에 구조 개선, Agent 고도화, 리팩터링이 public API/DTO, 저장 경로, DB/Redis 계약, 관리자/사용자 결과 payload, 기존 회귀 샘플의 판단 품질을 의도 없이 악화시키면 완료로 보지 않는다는 원칙을 추가했다. |
-| P0-3 회귀 기준선 | `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`에 Agent/Worker/Gateway/Frontend 검증 명령, 사고 영상 1~5, synthetic fixture, AI-Hub label reference, 공개 reference manifest, logs의 용도를 분리해 기록했다. 원본 영상과 라벨은 검증/평가용이며 추론 입력이나 코드 규칙으로 직접 주입하지 않는다. |
-| P0-4 문서 연결 | `AGENTS.md`, `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`가 서로 같은 작업 순서를 가리키도록 정리했다. Agent/MCP/Task-Plan-Goal 관련 작업은 이 로드맵을 선행 확인해야 한다. |
+| 비회귀 원칙 | `DEVELOPMENT_PROMPT.md`와 `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`에 구조 개선, Agent 고도화, 리팩터링이 public API/DTO, 저장 경로, DB/Redis 계약, 관리자/사용자 결과 payload, 기존 회귀 샘플의 판단 품질을 의도 없이 악화시키면 완료로 보지 않는다는 원칙을 추가했다. |
+| P0-3 회귀 기준선 | `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`에 Agent/Worker/Gateway/Frontend 검증 명령, 사고 영상 1~5, synthetic fixture, AI-Hub label reference, 공개 reference manifest, logs의 용도를 분리해 기록했다. 원본 영상과 라벨은 검증/평가용이며 추론 입력이나 코드 규칙으로 직접 주입하지 않는다. |
+| P0-4 문서 연결 | `AGENTS.md`, `DEVELOPMENT_PROMPT.md`, `SYSTEM_OVERVIEW.md`, `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`가 서로 같은 작업 순서를 가리키도록 정리했다. Agent/MCP/Task-Plan-Goal 관련 작업은 이 로드맵을 선행 확인해야 한다. |
 | 검증 | `python scripts/verify_reference_hardening_fixture.py`, `python scripts/validate_reference_case_manifest.py --manifest tests\fixtures\video_accuracy\reference_case_manifest.example.json`, `python scripts\validate_video_accuracy_manifest.py --manifest config\video_accuracy_samples.example.json --allow-missing-files`를 실행해 P0 기준선 fixture와 manifest shape를 확인했다. |
 
 이 변경은 public route, API DTO, DB schema, Redis key, storage path, 외부 API 종류, 환경변수 키, 실행 중인 서비스 코드를 변경하지 않는다. 다음 단계는 P1-1 Agent 실행 packet 계약 정의이며, 기존 `agent_trace`, `agent_quality_packet`, `judgment_contract`, `video_input_contract`와 호환되는 additive 계약부터 설계해야 한다.
@@ -2627,8 +2638,8 @@ Agent 레이어의 P0 골격을 보강하여 “입력 부족”, “근거 부�
 | `README.md` | 프로젝트 요약과 빠른 시작 절차 |
 | `docs/OPERATIONS.md` | 운영 절차, 외부 API 점검, E2E 스모크 테스트 안내 |
 | `docs/api/openapi.yaml` | 공개 API 명세 |
-| `docs/STACK_DECISION_REVIEW.md` | 초기 기술 스택 계획안과 현재 적용 스택을 비교하고 향후 도입 판단 기준을 기록한 기술 의사결정 참고 문서 |
-| `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` | Agent/MCP/Task-Plan-Goal 구조 보강을 P0~P12 단계로 관리하는 작업 기준 문서 |
+| `docs/architecture/STACK_DECISION_REVIEW.md` | 초기 기술 스택 계획안과 현재 적용 스택을 비교하고 향후 도입 판단 기준을 기록한 기술 의사결정 참고 문서 |
+| `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` | Agent/MCP/Task-Plan-Goal 구조 보강을 P0~P12 단계로 관리하는 작업 기준 문서 |
 | `docs/PROJECT_BASELINE_2026-05-21.md` | 2026-05-21 기준 인수 직전 구현 상태를 고정 기록한 베이스라인 스냅샷. 이후 개발 변화 비교의 기준 |
 | `docs/PROJECT_EVOLUTION_2026-05-24.md` | 2026-05-21 베이스라인 대비 2026-05-24 현재 프로젝트 변화, 완료된 보강, 남은 과제를 정리한 변화 기록 |
 
@@ -2654,7 +2665,7 @@ Agent 레이어의 P0 골격을 보강하여 “입력 부족”, “근거 부�
 | `docs` | 운영 절차 및 OpenAPI 문서 |
 | `storage` | 로컬 업로드 파일, 프레임 추출 결과, 테스트 산출물 저장소 |
 | `sample_data` | 샘플 영상/사고 JSON |
-| `docs/STACK_DECISION_REVIEW.md` | 초기 설계 스택과 현재 적용 스택의 차이, 향후 도입 후보, 기술 선택 판단 기준 문서 |
+| `docs/architecture/STACK_DECISION_REVIEW.md` | 초기 설계 스택과 현재 적용 스택의 차이, 향후 도입 후보, 기술 선택 판단 기준 문서 |
 | `docs/PROJECT_BASELINE_2026-05-21.md` | 인수 직전 현재 구현 상태를 고정 기록한 비교용 베이스라인 문서 |
 | `docs/PROJECT_EVOLUTION_2026-05-24.md` | 인수 직전 베이스라인 대비 현재 변화와 후속 과제를 비교하는 변화 기록 문서 |
 
@@ -2893,8 +2904,8 @@ Agent 주요 DTO:
 | `AGENTS.md` | Agent entry instruction document | 에이전트가 작업 전 `DEVELOPMENT_PROMPT.md`와 `SYSTEM_OVERVIEW.md`를 먼저 읽도록 안내한다 | 저장소 내 명시 없음 |
 | `DEVELOPMENT_PROMPT.md` | Development guidance document | 개발 전 참조하는 LawCompass 전담 Principal Software Architect 역할, 작업 순서, 검증, 보안, 문서 동기화 기준을 정의한다 | 저장소 내 명시 없음 |
 | `SYSTEM_OVERVIEW.md` | Project handoff/spec document | 프로젝트 구조와 현재 구현 상태를 추적하는 기준 문서다 | 저장소 내 명시 없음 |
-| `docs/STACK_DECISION_REVIEW.md` | Stack decision review document | 초기 스택 계획안과 현재 적용 스택을 비교하고 S3, Capacitor, 영상 분석, MCP, OpenAI API 전환 판단 기준을 기록한다 | 저장소 내 명시 없음 |
-| `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` | Agent/MCP restructuring roadmap | 표준 MCP, 내부 tool registry, Task-Plan-Goal, specialist Agent, 영상 fact, 근거 검증을 원래 목표 구조로 끌어올리기 위한 단계별 작업 기준을 기록한다 | 저장소 내 명시 없음 |
+| `docs/architecture/STACK_DECISION_REVIEW.md` | Stack decision review document | 초기 스택 계획안과 현재 적용 스택을 비교하고 S3, Capacitor, 영상 분석, MCP, OpenAI API 전환 판단 기준을 기록한다 | 저장소 내 명시 없음 |
+| `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md` | Agent/MCP restructuring roadmap | 표준 MCP, 내부 tool registry, Task-Plan-Goal, specialist Agent, 영상 fact, 근거 검증을 원래 목표 구조로 끌어올리기 위한 단계별 작업 기준을 기록한다 | 저장소 내 명시 없음 |
 | `docs/PROJECT_BASELINE_2026-05-21.md` | Baseline snapshot document | 2026-05-21 인수 시점 구현 상태, 미완성 영역, 이후 변화 비교 질문을 기록한다 | 저장소 내 명시 없음 |
 
 #### 주요 함수 및 입출력
@@ -3180,7 +3191,7 @@ docker compose exec agent python scripts/ingest_kb.py
 1. `compose.yaml` 서비스/환경변수 변경 여부
 2. `AGENTS.md` 에이전트 진입 지침 변경 여부
 3. `DEVELOPMENT_PROMPT.md` 개발 원칙/검증/문서 동기화 규칙 변경 여부
-4. `docs/STACK_DECISION_REVIEW.md` 기술 스택 도입/전환 판단 변경 여부
+4. `docs/architecture/STACK_DECISION_REVIEW.md` 기술 스택 도입/전환 판단 변경 여부
 5. `docs/PROJECT_BASELINE_2026-05-21.md`는 과거 기준점이므로 원칙적으로 변경하지 않되, 기준일 상태 오기재만 수정
 6. `apps/gateway/src/main.ts` 공개 API 및 인증 흐름 변경 여부
 7. `apps/agent/app/routers/internal.py` 내부 분석 API 변경 여부

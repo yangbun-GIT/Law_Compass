@@ -1,4 +1,4 @@
-# OSS 후속 구조 전환 메모
+﻿# OSS 후속 구조 전환 메모
 
 상태: future/reference
 작성 기준: 2026-05-31
@@ -110,7 +110,7 @@ OSS 과제 후속 개발에서는 완전한 재작성보다 다음 순서를 권
 
 ## 7. 관련 문서
 
-- [Agent/MCP Task-Plan-Goal 구조 보강 로드맵](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)
+- [Agent/MCP Task-Plan-Goal 구조 보강 로드맵](../agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)
 - [표준 MCP 도입 결정](STANDARD_MCP_DECISION.md)
 - [표준 MCP pilot 설계](STANDARD_MCP_PILOT_DESIGN.md)
-- [검증 명령 기준](VERIFICATION_COMMANDS.md)
+- [검증 명령 기준](../VERIFICATION_COMMANDS.md)

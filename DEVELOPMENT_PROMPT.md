@@ -1,4 +1,4 @@
-# LawCompass 개발 진행 프롬프트
+﻿# LawCompass 개발 진행 프롬프트
 
 이 문서는 LawCompass 전담 Principal Software Architect가 개발 요청을 처리하기 전에 우선 참조해야 하는 기준 프롬프트다. 개발 작업은 이 문서를 먼저 읽고, 그 다음 `SYSTEM_OVERVIEW.md`, `docs/GITHUB_COLLABORATION_WORKFLOW.md`, `docs/README.md`를 확인한 뒤 진행한다.
 
@@ -545,9 +545,9 @@ YOLO는 사고 판단 모델이 아니라 객체 후보 관찰 모델이다. YOL
 
 ## 2026-05-31 Agent/MCP/Task-Plan-Goal 구조 보강 기준
 
-Agent architecture, MCP/tool execution, Task-Plan-Goal flow, specialist personas, evidence routing, video observations, judgment contracts를 변경하는 작업은 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`를 먼저 확인한 뒤 진행한다.
+Agent architecture, MCP/tool execution, Task-Plan-Goal flow, specialist personas, evidence routing, video observations, judgment contracts를 변경하는 작업은 `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`를 먼저 확인한 뒤 진행한다.
 
-- 현재 구현은 표준 MCP 서버/클라이언트가 아니라 Agent 내부 MCP-like tool registry/executor와 통제된 Agent pipeline이다. P10 기준 결정은 표준 MCP 도입 보류이며, 외부 tool server, 다중 host 재사용, 표준 MCP client, 독립 process 격리, 내부 executor scope 한계가 실제 요구가 될 때만 `docs/STANDARD_MCP_DECISION.md` 기준으로 재검토한다.
+- 현재 구현은 표준 MCP 서버/클라이언트가 아니라 Agent 내부 MCP-like tool registry/executor와 통제된 Agent pipeline이다. P10 기준 결정은 표준 MCP 도입 보류이며, 외부 tool server, 다중 host 재사용, 표준 MCP client, 독립 process 격리, 내부 executor scope 한계가 실제 요구가 될 때만 `docs/architecture/STANDARD_MCP_DECISION.md` 기준으로 재검토한다.
 - Task-Plan-Goal 구조 보강은 roadmap의 P0부터 순서대로 진행한다. 작업 중 선행되어야 하는 작업이 발견되면 해당 roadmap의 가장 알맞은 단계에 먼저 추가하고 나서 구현을 계속한다.
 - 특정 사고 영상, 특정 fixture, 특정 문장에만 맞춘 예외 규칙을 만들지 않는다. 영상/입력/근거/과실 판단의 변경은 미래의 새로운 사고 입력에도 일반화되어야 한다.
 - 각 roadmap 단계 또는 하위 작업을 마친 뒤에는 반드시 목적 부합성 자기점검을 수행한다. 점검 기준은 원래 단계 목표, 서비스 책임 경계, Agent/MCP/Task-Plan-Goal 계약, 근거 검증 원칙, 오염 방지 원칙, 사용자 요청 범위다.

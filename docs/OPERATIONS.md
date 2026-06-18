@@ -29,7 +29,7 @@
 
 OpenAI 사용량, 정적 fallback 의존, KNIA/법령/판례 원문 coverage, S3 전환, API 사용량 제한, UI 수용성 점검은 `docs/OPERATING_RISK_ROADMAP.md`를 기준으로 추적한다. OpenAI/LLM/영상 분석, evidence source, storage, rate limit, 관리자 진단을 변경하는 작업은 이 로드맵의 현재 책임 경계와 충돌하지 않는지 확인한다.
 
-Agent/MCP/Task-Plan-Goal 구조, specialist persona, 내부 tool registry, evidence routing, 영상 fact arbitration을 변경할 때는 `docs/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`를 먼저 확인한다. 현재 운영 구조는 표준 MCP 서버/클라이언트가 아니라 Agent 내부 MCP-like tool registry/executor이며, 표준 MCP 도입은 `docs/STANDARD_MCP_DECISION.md`의 trigger가 실제 요구가 될 때 다시 검토한다.
+Agent/MCP/Task-Plan-Goal 구조, specialist persona, 내부 tool registry, evidence routing, 영상 fact arbitration을 변경할 때는 `docs/agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md`를 먼저 확인한다. 현재 운영 구조는 표준 MCP 서버/클라이언트가 아니라 Agent 내부 MCP-like tool registry/executor이며, 표준 MCP 도입은 `docs/architecture/STANDARD_MCP_DECISION.md`의 trigger가 실제 요구가 될 때 다시 검토한다.
 
 ## 1) 개발 기동
 ```bash

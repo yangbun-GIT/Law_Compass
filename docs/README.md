@@ -1,4 +1,4 @@
-# LawCompass 문서 선택 가이드
+﻿# LawCompass 문서 선택 가이드
 
 이 문서는 새 작업을 시작할 때 어떤 문서를 먼저 읽고, 새 문서를 어디에 두며, 어떤 점검을 함께 실행할지 정리하는 문서 허브다.
 
@@ -8,7 +8,7 @@
 2. [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md)를 읽고 현재 서비스 구조, 변경 이력, 비변경 범위를 확인한다.
 3. [GITHUB_COLLABORATION_WORKFLOW.md](GITHUB_COLLABORATION_WORKFLOW.md)를 읽고 최신 `main`, 커밋, 푸시, 동료 동기화 규칙을 확인한다.
 4. 코드 리뷰, PR 리뷰, 팀원 커밋 점검, 교수님 리뷰 대비 점검이면 [CODE_REVIEW_PROMPT.md](CODE_REVIEW_PROMPT.md)를 추가로 읽고 리뷰 모드로 진행한다.
-5. Agent 구조, MCP 유사 실행, Task-Plan-Goal, evidence routing, video observation, judgment contract를 건드리면 [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)를 추가로 읽는다.
+5. Agent 구조, MCP 유사 실행, Task-Plan-Goal, evidence routing, video observation, judgment contract를 건드리면 [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)를 추가로 읽는다.
 
 ## 문서 위치 기준
 
@@ -18,11 +18,11 @@
 | 개발 원칙, 역할 정의, 검증 정책, 보안 정책, 서비스 책임 경계 변경 | [DEVELOPMENT_PROMPT.md](../DEVELOPMENT_PROMPT.md) |
 | GitHub 브랜치, PR, merge notification, 동료 동기화 규칙 변경 | [GITHUB_COLLABORATION_WORKFLOW.md](GITHUB_COLLABORATION_WORKFLOW.md) |
 | 코드 리뷰, PR 리뷰, 팀원 커밋 점검, 교수님 리뷰 대비 점검 | [CODE_REVIEW_PROMPT.md](CODE_REVIEW_PROMPT.md) |
-| Agent/MCP/Task-Plan-Goal 현행 기준 | [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md) |
+| Agent/MCP/Task-Plan-Goal 현행 기준 | [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md) |
 | Agent/MCP/Task-Plan-Goal 상세 완료 기록 | [archive 완료 기록](archive/AGENT_MCP_TASK_PLAN_GOAL_COMPLETION_LOG_2026-05.md) |
-| 표준 MCP 도입 보류 결정 | [STANDARD_MCP_DECISION.md](STANDARD_MCP_DECISION.md) |
-| 표준 MCP pilot 설계 | [STANDARD_MCP_PILOT_DESIGN.md](STANDARD_MCP_PILOT_DESIGN.md) |
-| OSS 후속 MSA/MCP/Agent 전환 검토 | [FUTURE_MSA_MCP_AGENT_EVOLUTION.md](FUTURE_MSA_MCP_AGENT_EVOLUTION.md) |
+| 표준 MCP 도입 보류 결정 | [STANDARD_MCP_DECISION.md](architecture/STANDARD_MCP_DECISION.md) |
+| 표준 MCP pilot 설계 | [STANDARD_MCP_PILOT_DESIGN.md](architecture/STANDARD_MCP_PILOT_DESIGN.md) |
+| OSS 후속 MSA/MCP/Agent 전환 검토 | [FUTURE_MSA_MCP_AGENT_EVOLUTION.md](architecture/FUTURE_MSA_MCP_AGENT_EVOLUTION.md) |
 | 실행, 배포, 운영, import, 장애 대응 | [OPERATIONS.md](OPERATIONS.md) |
 | Oracle Cloud Free Tier 단일 VM 운영 | [ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md](../ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md), `env.oci.example`, `scripts/oci/deploy.sh` |
 | 로컬 실행과 빌드 방법 | [BUILD_AND_RUN_GUIDE.md](BUILD_AND_RUN_GUIDE.md) |

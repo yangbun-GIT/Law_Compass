@@ -1,4 +1,4 @@
-# 프로젝트 원칙 준수 점검 및 보강 백로그
+﻿# 프로젝트 원칙 준수 점검 및 보강 백로그
 
 작성 기준일: 2026-05-31
 반영 상태 업데이트: 2026-06-10
@@ -43,7 +43,7 @@
 
 | 항목 | 상태 | 처리 |
 | --- | --- | --- |
-| bounded ReAct / Task-Plan-Goal / MCP-like registry 원칙 | 유지 | [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)를 작업 시작 문서로 유지한다. |
+| bounded ReAct / Task-Plan-Goal / MCP-like registry 원칙 | 유지 | [AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md](agent/AGENT_MCP_TASK_PLAN_GOAL_ROADMAP.md)를 작업 시작 문서로 유지한다. |
 | fallback이 final처럼 보이는 문제 | 지속 감시 | judgment/evidence/report 변경 시 기존 Agent regression과 사용자 가치 점검을 유지한다. |
 | 영상 관찰값 오염 가능성 | 지속 감시 | video observation은 직접 접촉 근거와 context-only 구분을 유지한다. |
 
