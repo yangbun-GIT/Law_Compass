@@ -34,6 +34,16 @@ docker compose -f compose.yaml -f compose.jcloud.yaml up -d --build
 docker compose -f compose.yaml -f compose.jcloud.yaml ps
 ```
 
+JCloud 백엔드 CD는 `.github/workflows/jcloud-deploy.yml`로 구성되어 있습니다. `LawCompass CI`가 `main` 브랜치에서 성공하면 GitHub Actions가 JCloud VM에 SSH로 접속해 최신 `main`을 pull하고 `scripts/deploy_jcloud.sh`로 Docker Compose 재배포, migration, `/health` 확인을 수행합니다. 수동 실행은 Actions의 `Deploy JCloud Backend` workflow에서 `Run workflow`로 실행할 수 있습니다.
+
+필요한 GitHub Actions 설정:
+
+- Secrets: `JCLOUD_HOST`, `JCLOUD_USER`, `JCLOUD_SSH_KEY`
+- 선택 Secrets: `JCLOUD_SSH_PORT`, `JCLOUD_KNOWN_HOSTS`
+- 선택 Variables: `JCLOUD_DEPLOY_PATH` 기본값은 `/home/ubuntu/lawcompass`
+
+실제 SSH private key, `.env`, 서버 비밀번호, API key는 Git에 커밋하지 않습니다.
+
 운영 상태 확인:
 
 ```bash

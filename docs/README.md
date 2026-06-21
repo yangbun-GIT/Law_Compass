@@ -25,6 +25,7 @@
 | OSS 후속 MSA/MCP/Agent 전환 검토 | [FUTURE_MSA_MCP_AGENT_EVOLUTION.md](architecture/FUTURE_MSA_MCP_AGENT_EVOLUTION.md) |
 | 실행, 배포, 운영, import, 장애 대응 | [OPERATIONS.md](OPERATIONS.md) |
 | Oracle Cloud Free Tier 단일 VM 운영 | [ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md](../ORACLE_CLOUD_FREE_TIER_DEPLOYMENT.md), `env.oci.example`, `scripts/oci/deploy.sh` |
+| JCloud 백엔드 CD와 저사양 VM 운영 | `.github/workflows/jcloud-deploy.yml`, `scripts/deploy_jcloud.sh`, `compose.jcloud.yaml`, [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md) |
 | 로컬 실행과 빌드 방법 | [BUILD_AND_RUN_GUIDE.md](BUILD_AND_RUN_GUIDE.md) |
 | 검증 명령 모음 | [VERIFICATION_COMMANDS.md](VERIFICATION_COMMANDS.md) |
 | 원칙 준수 보강 백로그 | [PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md](PROJECT_PRINCIPLE_COMPLIANCE_BACKLOG.md) |

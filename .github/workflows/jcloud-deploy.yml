@@ -1,0 +1,130 @@
+name: Deploy JCloud Backend
+
+on:
+  workflow_run:
+    workflows: ["LawCompass CI"]
+    types: [completed]
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: "Skip Docker image rebuild on the JCloud VM"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      run_migrations:
+        description: "Run database migrations after service start"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      import_knia:
+        description: "Import structured KNIA JSON after deploy"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+concurrency:
+  group: jcloud-backend-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to JCloud VM
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    steps:
+      - name: Validate deployment secrets
+        env:
+          JCLOUD_HOST: ${{ secrets.JCLOUD_HOST }}
+          JCLOUD_USER: ${{ secrets.JCLOUD_USER }}
+          JCLOUD_SSH_KEY: ${{ secrets.JCLOUD_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$JCLOUD_HOST" || { echo "Missing secret: JCLOUD_HOST"; exit 1; }
+          test -n "$JCLOUD_USER" || { echo "Missing secret: JCLOUD_USER"; exit 1; }
+          test -n "$JCLOUD_SSH_KEY" || { echo "Missing secret: JCLOUD_SSH_KEY"; exit 1; }
+
+      - name: Prepare SSH key
+        env:
+          JCLOUD_HOST: ${{ secrets.JCLOUD_HOST }}
+          JCLOUD_SSH_PORT: ${{ secrets.JCLOUD_SSH_PORT }}
+          JCLOUD_SSH_KEY: ${{ secrets.JCLOUD_SSH_KEY }}
+          JCLOUD_KNOWN_HOSTS: ${{ secrets.JCLOUD_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$JCLOUD_SSH_KEY" > ~/.ssh/jcloud_deploy_key
+          chmod 600 ~/.ssh/jcloud_deploy_key
+          : "${JCLOUD_SSH_PORT:=22}"
+          if [ -n "${JCLOUD_KNOWN_HOSTS:-}" ]; then
+            printf '%s\n' "$JCLOUD_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$JCLOUD_SSH_PORT" -H "$JCLOUD_HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy application
+        env:
+          JCLOUD_HOST: ${{ secrets.JCLOUD_HOST }}
+          JCLOUD_USER: ${{ secrets.JCLOUD_USER }}
+          JCLOUD_SSH_PORT: ${{ secrets.JCLOUD_SSH_PORT }}
+          JCLOUD_DEPLOY_PATH: ${{ vars.JCLOUD_DEPLOY_PATH }}
+          SKIP_BUILD: ${{ inputs.skip_build }}
+          RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+          IMPORT_KNIA: ${{ inputs.import_knia }}
+        run: |
+          set -euo pipefail
+          : "${JCLOUD_SSH_PORT:=22}"
+          : "${JCLOUD_DEPLOY_PATH:=/home/ubuntu/lawcompass}"
+          : "${SKIP_BUILD:=false}"
+          : "${RUN_MIGRATIONS:=true}"
+          : "${IMPORT_KNIA:=false}"
+
+          case "$JCLOUD_DEPLOY_PATH" in
+            /*) ;;
+            *) echo "JCLOUD_DEPLOY_PATH must be an absolute path"; exit 1 ;;
+          esac
+          case "$JCLOUD_DEPLOY_PATH" in
+            *[!A-Za-z0-9_./-]*) echo "JCLOUD_DEPLOY_PATH contains unsupported characters"; exit 1 ;;
+          esac
+          case "$JCLOUD_SSH_PORT" in
+            *[!0-9]*) echo "JCLOUD_SSH_PORT must be numeric"; exit 1 ;;
+          esac
+
+          ssh -i ~/.ssh/jcloud_deploy_key \
+            -p "$JCLOUD_SSH_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$JCLOUD_USER@$JCLOUD_HOST" \
+            "JCLOUD_DEPLOY_PATH='$JCLOUD_DEPLOY_PATH' SKIP_BUILD='$SKIP_BUILD' RUN_MIGRATIONS='$RUN_MIGRATIONS' IMPORT_KNIA='$IMPORT_KNIA' bash -se" <<'REMOTE'
+          set -euo pipefail
+          cd "$JCLOUD_DEPLOY_PATH"
+
+          echo "[jcloud-cd] current revision"
+          git status --short --branch
+
+          echo "[jcloud-cd] updating main"
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          echo "[jcloud-cd] deploying with scripts/deploy_jcloud.sh"
+          if [ "$SKIP_BUILD" = "true" ]; then export SKIP_BUILD=1; else export SKIP_BUILD=0; fi
+          if [ "$RUN_MIGRATIONS" = "true" ]; then export RUN_MIGRATIONS=1; else export RUN_MIGRATIONS=0; fi
+          if [ "$IMPORT_KNIA" = "true" ]; then export IMPORT_KNIA=1; else export IMPORT_KNIA=0; fi
+          bash scripts/deploy_jcloud.sh
+          REMOTE

@@ -1,4 +1,19 @@
 ﻿# LawCompass 시스템 구성 명세서
+## 2026-06-21 JCloud 백엔드 CD 자동화 추가
+
+GitHub Actions에서 CI 성공 후 JCloud VM에 SSH로 접속해 백엔드 전체 스택을 재배포하는 CD workflow를 추가했다.
+
+| 영역 | 현재 구조 |
+| --- | --- |
+| CD workflow | `.github/workflows/jcloud-deploy.yml`이 `LawCompass CI` workflow 성공 또는 수동 `workflow_dispatch` 실행 시 동작한다. |
+| SSH secret | GitHub Actions Secrets의 `JCLOUD_HOST`, `JCLOUD_USER`, `JCLOUD_SSH_KEY`가 필수이고, `JCLOUD_SSH_PORT`, `JCLOUD_KNOWN_HOSTS`는 선택이다. 실제 key 값은 저장소에 기록하지 않는다. |
+| 배포 경로 | GitHub Actions Variable `JCLOUD_DEPLOY_PATH`를 설정하지 않으면 `/home/ubuntu/lawcompass`를 사용한다. |
+| 서버 명령 | workflow는 JCloud 서버에서 `git fetch origin main`, `git checkout main`, `git pull --ff-only origin main` 후 `scripts/deploy_jcloud.sh`를 실행한다. |
+| JCloud script | `scripts/deploy_jcloud.sh`는 `compose.yaml` + `compose.jcloud.yaml` 조합으로 config 검증, build/up, 선택적 migration, 선택적 KNIA import, `http://localhost:8080/health` 확인을 수행한다. |
+| Migration 보강 | `compose.yaml`의 `db-migrate` profile이 `017_knia_lookup_performance_indexes.sql`까지 적용하도록 갱신했다. |
+| 보안 보강 | `.gitignore`에 `*.pem`, `*ssh키*`를 추가해 로컬 SSH key 파일이 실수로 staged되는 위험을 줄였다. |
+| 비변경 범위 | Public API path, DTO, DB schema 내용, Redis key, storage path, Agent/Worker 판단 로직은 변경하지 않았다. |
+
 ## 2026-06-19 README 실행 안내 배포 상태 반영
 
 루트 `README.md`의 실행 안내를 현재 배포 상태 기준으로 정리했다. 사용자는 JCloud 배포 URL로 바로 접속하고, 운영자는 JCloud 서버에서 `compose.yaml` + `compose.jcloud.yaml`로 서비스를 갱신하며, 로컬 Docker 실행은 개발/검증용 흐름으로 분리했다.

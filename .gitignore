@@ -1,6 +1,8 @@
 # Environment and secrets. Use tracked env.example for shared placeholders.
 .env
 .env.*
+*.pem
+*ssh키*
 
 # Dependencies
 node_modules/
